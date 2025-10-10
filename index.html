@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Options Trading Tracker Pro</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Options Tracker Pro</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-view="dashboard">
+                    <span class="nav-icon">📊</span>
+                    Dashboard
+                </button>
+                <button class="nav-item" data-view="trades-list">
+                    <span class="nav-icon">📋</span>
+                    All Trades
+                </button>
+                <button class="nav-item" data-view="add-trade">
+                    <span class="nav-icon">➕</span>
+                    Add Trade
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="header-left">
+                    <h1 id="page-title">Options Trading Dashboard</h1>
+                </div>
+
+                <div class="header-right">
+                    <div class="file-management">
+                        <button class="btn btn--sm btn--secondary" id="new-database-btn">New Database</button>
+                        <button class="btn btn--sm btn--secondary" id="load-database-btn">Load Database</button>
+                        <button class="btn btn--sm btn--primary" id="save-database-btn">Save Database</button>
+                        <div id="loading-indicator" class="loading-indicator hidden">Saving...</div>
+                    </div>
+                    <div class="file-info">
+                        <span id="current-file-name" class="file-name">Unsaved Database</span>
+                        <span id="unsaved-indicator" class="unsaved-indicator hidden">●</span>
+                    </div>
+                    <div class="finnhub-controls" id="finnhub-controls">
+                        <div class="finnhub-controls__row">
+                            <label for="finnhub-api-key" class="finnhub-label">Finnhub API Key</label>
+                            <input type="password" id="finnhub-api-key" class="form-control finnhub-input" placeholder="Paste API key" autocomplete="off">
+                            <button class="btn btn--sm btn--secondary" id="finnhub-save">Save Key</button>
+                        </div>
+                        <div class="finnhub-status" id="finnhub-status" role="status">Not set</div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Browser Compatibility Notice -->
+            <div id="compatibility-notice" class="compatibility-notice hidden">
+                <div class="notice-content">
+                    <h4>⚠️ Limited File System Support</h4>
+                    <p>Your browser doesn't fully support the File System Access API. You can still export/import data
+                        using download/upload methods.</p>
+                    <button class="btn btn--sm btn--secondary"
+                        onclick="this.parentElement.parentElement.classList.add('hidden')">Dismiss</button>
+                </div>
+            </div>
+
+            <!-- Enhanced Dashboard View with Integrated Analytics -->
+            <div class="view dashboard-view active">
+                <!-- Portfolio Overview -->
+                <div class="portfolio-overview">
+                    <div class="overview-cards">
+                        <div class="overview-card">
+                            <h3>Total P&L</h3>
+                            <p class="card-value" id="total-pl">$0.00</p>
+                            <small class="card-subtitle" id="pl-percentage">0% Portfolio</small>
+                        </div>
+                        <div class="overview-card">
+                            <h3>Win Rate</h3>
+                            <p class="card-value" id="win-rate">0%</p>
+                            <small class="card-subtitle" id="win-loss-count">0W / 0L</small>
+                        </div>
+                        <div class="overview-card">
+                            <h3>Profit Factor</h3>
+                            <p class="card-value" id="profit-factor">0.00</p>
+                            <small class="card-subtitle">Risk/Reward</small>
+                        </div>
+                        <div class="overview-card">
+                            <h3>Active Positions</h3>
+                            <p class="card-value" id="active-positions">0</p>
+                            <small class="card-subtitle">Positions</small>
+                        </div>
+                        <div class="overview-card">
+                            <h3>Total ROI</h3>
+                            <p class="card-value" id="total-roi">0%</p>
+                            <small class="card-subtitle">Annualized</small>
+                        </div>
+                        <div class="overview-card">
+                            <h3>Max Drawdown</h3>
+                            <p class="card-value" id="max-drawdown">0%</p>
+                            <small class="card-subtitle">Peak to Trough</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly P&L Performance - Full Width -->
+                <div class="monthly-pl-section">
+                    <div class="chart-container chart-full-width">
+                        <h3>Monthly P&L Performance</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
+                            <canvas id="monthlyPLChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cumulative P&L Growth - Full Width -->
+                <div class="cumulative-pl-section">
+                    <div class="chart-container chart-full-width">
+                        <h3>Cumulative P&L Growth</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                            <canvas id="cumulativePLChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Strategy Analysis Row -->
+                <div class="strategy-analysis-row">
+                    <div class="chart-container">
+                        <h3>Strategy Performance</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                            <canvas id="strategyChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Win Rate by Strategy</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                            <canvas id="winRateChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Performance by Market Condition</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                            <canvas id="marketConditionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Metrics Dashboard -->
+                <div class="risk-metrics">
+                    <h3>Risk Metrics Dashboard</h3>
+                    <div class="risk-cards">
+                        <div class="risk-card">
+                            <h4>Sharpe Ratio</h4>
+                            <p id="sharpe-ratio">0.00</p>
+                            <small>Risk-adjusted return</small>
+                        </div>
+                        <div class="risk-card">
+                            <h4>Calmar Ratio</h4>
+                            <p id="calmar-ratio">0.00</p>
+                            <small>Return/Max Drawdown</small>
+                        </div>
+                        <div class="risk-card">
+                            <h4>Volatility</h4>
+                            <p id="volatility">0.00%</p>
+                            <small>Return Standard Deviation</small>
+                        </div>
+                        <div class="risk-card">
+                            <h4>Expectancy</h4>
+                            <p id="expectancy">$0.00</p>
+                            <small>Expected value per trade</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Portfolio Greeks Exposure -->
+                <div class="greeks-section feature-disabled" aria-disabled="true">
+                    <h3>Portfolio Greeks Exposure</h3>
+                    <p class="feature-disabled-note">This analytics panel is temporarily disabled.</p>
+                    <div class="greeks-cards">
+                        <div class="greek-card">
+                            <h4>Delta</h4>
+                            <p id="portfolio-delta-value">0.00</p>
+                            <small>Directional Risk</small>
+                        </div>
+                        <div class="greek-card">
+                            <h4>Gamma</h4>
+                            <p id="portfolio-gamma">0.00</p>
+                            <small>Delta Sensitivity</small>
+                        </div>
+                        <div class="greek-card">
+                            <h4>Theta</h4>
+                            <p id="portfolio-theta">0.00</p>
+                            <small>Time Decay</small>
+                        </div>
+                        <div class="greek-card">
+                            <h4>Vega</h4>
+                            <p id="portfolio-vega">0.00</p>
+                            <small>IV Sensitivity</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cycle Analytics Overview -->
+                <div class="cycle-summary">
+                    <div class="cycle-summary__header">
+                        <div>
+                            <h3>Cycle Analytics</h3>
+                            <p class="cycle-summary__subtitle">Link Wheel and PMCC legs with a Cycle ID to understand premium capture and ROI per cycle.</p>
+                        </div>
+                    </div>
+                    <div id="cycle-summary-empty" class="cycle-summary-empty hidden">
+                        <p>No cycle data yet. Add a Cycle ID to related trades to see performance roll-ups here.</p>
+                    </div>
+                    <div class="table-container cycle-summary__table stackable-table-container">
+                        <table id="cycle-summary-table" class="stackable-table">
+                            <thead>
+                                <tr>
+                                    <th>Cycle</th>
+                                    <th>Type</th>
+                                    <th>Ticker</th>
+                                    <th>Status</th>
+                                    <th>Trades</th>
+                                    <th>Premiums</th>
+                                    <th>Total P&amp;L</th>
+                                    <th>ROI</th>
+                                    <th>Cost Basis</th>
+                                    <th>Key Metrics</th>
+                                    <th>Timeline</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+
+                <!-- Active Positions & Recent Trades -->
+                <div class="dashboard-tables">
+                    <div class="active-positions">
+                        <h3>Active Positions</h3>
+                        <div class="table-container stackable-table-container">
+                            <table id="active-positions-table" class="stackable-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>Strategy</th>
+                                        <th>Trade Type</th>
+                                        <th>Strike</th>
+                                        <th>Current Price</th>
+                                        <th>DTE</th>
+                                        <th>Max Risk</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="recent-trades">
+                        <h3>Recent Closed Trades</h3>
+                        <div class="table-container stackable-table-container">
+                            <table id="recent-trades-table" class="stackable-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>Strategy</th>
+                                        <th>Exit Date</th>
+                                        <th>Days Held</th>
+                                        <th>P&L</th>
+                                        <th>ROI</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Trade View -->
+            <div class="view add-trade-view">
+                <form id="add-trade-form" class="trade-form">
+                    <div class="form-sections">
+                        <!-- Basic Trade Info -->
+                        <section class="form-section">
+                            <h3>Basic Trade Information</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="ticker">Ticker Symbol</label>
+                                    <input type="text" id="ticker" name="ticker" class="form-control" required>
+                                    <div class="ticker-preview" id="ticker-preview"></div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="strategy">Strategy</label>
+                                    <select id="strategy" name="strategy" class="form-control" required>
+                                        <option value="">Select Strategy</option>
+                                        <option value="Bear Call Ladder">Bear Call Ladder</option>
+                                        <option value="Bear Call Spread">Bear Call Spread</option>
+                                        <option value="Bear Put Ladder">Bear Put Ladder</option>
+                                        <option value="Bear Put Spread">Bear Put Spread</option>
+                                        <option value="Bull Call Ladder">Bull Call Ladder</option>
+                                        <option value="Bull Call Spread">Bull Call Spread</option>
+                                        <option value="Bull Put Ladder">Bull Put Ladder</option>
+                                        <option value="Bull Put Spread">Bull Put Spread</option>
+                                        <option value="Calendar Call Spread">Calendar Call Spread</option>
+                                        <option value="Calendar Put Spread">Calendar Put Spread</option>
+                                        <option value="Call Broken Wing">Call Broken Wing</option>
+                                        <option value="Call Ratio Backspread">Call Ratio Backspread</option>
+                                        <option value="Call Ratio Spread">Call Ratio Spread</option>
+                                        <option value="Cash-Secured Put">Cash-Secured Put</option>
+                                        <option value="Collar">Collar</option>
+                                        <option value="Covered Call">Covered Call</option>
+                                        <option value="Covered Short Straddle">Covered Short Straddle</option>
+                                        <option value="Covered Short Strangle">Covered Short Strangle</option>
+                                        <option value="Diagonal Call Spread">Diagonal Call Spread</option>
+                                        <option value="Diagonal Put Spread">Diagonal Put Spread</option>
+                                        <option value="Double Diagonal">Double Diagonal</option>
+                                        <option value="Guts">Guts</option>
+                                        <option value="Inverse Call Broken Wing">Inverse Call Broken Wing</option>
+                                        <option value="Inverse Iron Butterfly">Inverse Iron Butterfly</option>
+                                        <option value="Inverse Iron Condor">Inverse Iron Condor</option>
+                                        <option value="Inverse Put Broken Wing">Inverse Put Broken Wing</option>
+                                        <option value="Iron Butterfly">Iron Butterfly</option>
+                                        <option value="Iron Condor">Iron Condor</option>
+                                        <option value="Jade Lizard">Jade Lizard</option>
+                                        <option value="Long Call">Long Call</option>
+                                        <option value="Long Call Butterfly">Long Call Butterfly</option>
+                                        <option value="Long Call Condor">Long Call Condor</option>
+                                        <option value="Long Combo">Long Combo</option>
+                                        <option value="Long Put">Long Put</option>
+                                        <option value="Long Put Butterfly">Long Put Butterfly</option>
+                                        <option value="Long Put Condor">Long Put Condor</option>
+                                        <option value="Long Synthetic Future">Long Synthetic Future</option>
+                                        <option value="Protective Put">Protective Put</option>
+                                        <option value="Put Broken Wing">Put Broken Wing</option>
+                                        <option value="Put Ratio Backspread">Put Ratio Backspread</option>
+                                        <option value="Put Ratio Spread">Put Ratio Spread</option>
+                                        <option value="Reverse Jade Lizard">Reverse Jade Lizard</option>
+                                        <option value="Short Call">Short Call</option>
+                                        <option value="Short Call Butterfly">Short Call Butterfly</option>
+                                        <option value="Short Call Condor">Short Call Condor</option>
+                                        <option value="Short Combo">Short Combo</option>
+                                        <option value="Short Guts">Short Guts</option>
+                                        <option value="Short Put">Short Put</option>
+                                        <option value="Short Put Butterfly">Short Put Butterfly</option>
+                                        <option value="Short Put Condor">Short Put Condor</option>
+                                        <option value="Short Straddle">Short Straddle</option>
+                                        <option value="Short Strangle">Short Strangle</option>
+                                        <option value="Short Synthetic Future">Short Synthetic Future</option>
+                                        <option value="Straddle">Straddle</option>
+                                        <option value="Strap">Strap</option>
+                                        <option value="Strangle">Strangle</option>
+                                        <option value="Strip">Strip</option>
+                                        <option value="Synthetic Put">Synthetic Put</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="tradeType">Trade Type</label>
+                                    <select id="tradeType" name="tradeType" class="form-control" required>
+                                        <option value="BTO">BTO (Buy to Open)</option>
+                                        <option value="STO">STO (Sell to Open)</option>
+                                        <option value="STC">STC (Sell to Close)</option>
+                                        <option value="BTC">BTC (Buy to Close)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="quantity">Quantity (Contracts)</label>
+                                    <input type="number" id="quantity" name="quantity" class="form-control" value="1"
+                                        required>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Cycle Tracking -->
+                        <section class="form-section">
+                            <h3>Cycle Tracking</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="cycleId">Cycle ID</label>
+                                    <input type="text" id="cycleId" name="cycleId" class="form-control"
+                                        placeholder="e.g. WHEEL-2025-01">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="cycleType">Cycle Type</label>
+                                    <select id="cycleType" name="cycleType" class="form-control">
+                                        <option value="">No Cycle</option>
+                                        <option value="wheel">Wheel</option>
+                                        <option value="pmcc">PMCC</option>
+                                        <option value="custom">Custom</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="cycleRole">Cycle Role</label>
+                                    <select id="cycleRole" name="cycleRole" class="form-control">
+                                        <option value="">Auto-detect</option>
+                                        <option value="wheel-put">Wheel Put Leg (Cash-Secured Put)</option>
+                                        <option value="wheel-call">Wheel Call Leg (Covered Call)</option>
+                                        <option value="pmcc-base">PMCC Base (Long LEAP)</option>
+                                        <option value="pmcc-short">PMCC Short Call</option>
+                                        <option value="assignment">Assignment / Stock Leg</option>
+                                    </select>
+                                    <small class="form-help-text">Fill these in to link trades into Wheel or PMCC cycles.</small>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Dates -->
+                        <section class="form-section">
+                            <h3>Trade Dates</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="entryDate">Entry Date</label>
+                                    <input type="date" id="entryDate" name="entryDate" class="form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="expirationDate">Expiration Date</label>
+                                    <input type="date" id="expirationDate" name="expirationDate" class="form-control"
+                                        required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="exitDate">Exit Date (Optional)</label>
+                                    <input type="date" id="exitDate" name="exitDate" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="status">Status</label>
+                                    <select id="status" name="status" class="form-control" required>
+                                        <option value="Open">Open</option>
+                                        <option value="Closed">Closed</option>
+                                        <option value="Assigned">Assigned</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="exitReason">Exit Reason (if closed)</label>
+                                    <select id="exitReason" name="exitReason" class="form-control">
+                                        <option value="">Select reason</option>
+                                        <option value="Profit target reached">Profit target reached</option>
+                                        <option value="Stop loss triggered">Stop loss triggered</option>
+                                        <option value="Time decay">Time decay</option>
+                                        <option value="Assignment">Assignment</option>
+                                        <option value="Expired">Expired</option>
+                                        <option value="Rolling position">Rolling position</option>
+                                        <option value="Market change">Market change</option>
+                                        <option value="Volatility crush">Volatility crush</option>
+                                        <option value="Early profit take">Early profit take</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Entry Conditions -->
+                        <section class="form-section">
+                            <h3>Entry Conditions</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="stockPriceAtEntry">Stock Price at Entry</label>
+                                    <input type="number" id="stockPriceAtEntry" name="stockPriceAtEntry"
+                                        class="form-control" step="0.01" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="strikePrice">Strike Price</label>
+                                    <input type="number" id="strikePrice" name="strikePrice" class="form-control"
+                                        step="0.01" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="entryPrice">Entry Price (Premium)</label>
+                                    <input type="number" id="entryPrice" name="entryPrice" class="form-control"
+                                        step="0.01" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="exitPrice">Exit Price (if closed)</label>
+                                    <input type="number" id="exitPrice" name="exitPrice" class="form-control"
+                                        step="0.01">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="fees">Fees/Commissions</label>
+                                    <input type="number" id="fees" name="fees" class="form-control" step="0.01"
+                                        value="0">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="ivRank">IV Rank</label>
+                                    <input type="number" id="ivRank" name="ivRank" class="form-control" min="0"
+                                        max="100">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="definedRiskWidth">Defined Risk Width (points)</label>
+                                    <input type="number" id="definedRiskWidth" name="definedRiskWidth"
+                                        class="form-control" step="0.01" min="0">
+                                    <span class="form-help-text">Difference between short and long strikes for credit
+                                        spreads, condors, or butterflies (per contract).</span>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="maxRiskOverride">Max Risk Override ($)</label>
+                                    <input type="number" id="maxRiskOverride" name="maxRiskOverride"
+                                        class="form-control" step="0.01" min="0">
+                                    <span class="form-help-text">Total maximum loss for this position, including
+                                        quantity; overrides automatic calculation when provided.</span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Greeks at Entry -->
+                        <section class="form-section feature-disabled" aria-disabled="true">
+                            <h3>Greeks at Entry</h3>
+                            <p class="feature-disabled-note">Greeks capture is currently disabled.</p>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="delta">Delta</label>
+                                    <input type="number" id="delta" name="delta" class="form-control" step="0.01" disabled>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="gamma">Gamma</label>
+                                    <input type="number" id="gamma" name="gamma" class="form-control" step="0.01" disabled>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="theta">Theta</label>
+                                    <input type="number" id="theta" name="theta" class="form-control" step="0.01" disabled>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="vega">Vega</label>
+                                    <input type="number" id="vega" name="vega" class="form-control" step="0.01" disabled>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Market Context -->
+                        <section class="form-section">
+                            <h3>Market Context & Analysis</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="marketCondition">Market Condition</label>
+                                    <select id="marketCondition" name="marketCondition" class="form-control">
+                                        <option value="Bullish">Bullish</option>
+                                        <option value="Bearish">Bearish</option>
+                                        <option value="Neutral">Neutral</option>
+                                        <option value="High Vol">High Vol</option>
+                                        <option value="Low Vol">Low Vol</option>
+                                        <option value="Defensive">Defensive</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="convictionLevel">Conviction Level (1-10)</label>
+                                    <input type="range" id="convictionLevel" name="convictionLevel" class="form-control"
+                                        min="1" max="10" value="5">
+                                    <span id="conviction-display">5</span>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label" for="notes">Notes</label>
+                                    <textarea id="notes" name="notes" class="form-control" rows="2"></textarea>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn--secondary" id="cancel-trade">Cancel</button>
+                        <button type="submit" class="btn btn--primary">Save Trade</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Trades List View -->
+            <div class="view trades-list-view">
+                <div class="trades-header">
+                    <div class="trades-header__controls">
+                        <button type="button" class="btn btn--sm btn--secondary trades-filters-toggle" id="toggle-filters" aria-expanded="true" aria-controls="trades-filters-panel">
+                            Hide Filters
+                        </button>
+                        <div class="trades-actions">
+                            <button class="btn btn--secondary" id="export-csv">Export CSV</button>
+                        </div>
+                    </div>
+                    <div class="trades-filters is-open" id="trades-filters-panel">
+                        <div class="trades-filters-grid">
+                            <select id="filter-strategy" class="form-control">
+                                <option value="">All Strategies</option>
+                            </select>
+                            <select id="filter-status" class="form-control">
+                                <option value="">All Status</option>
+                                <option value="Open">Open</option>
+                                <option value="Closed">Closed</option>
+                                <option value="Assigned">Assigned</option>
+                            </select>
+                            <select id="filter-market-condition" class="form-control">
+                                <option value="">All Conditions</option>
+                                <option value="Bullish">Bullish</option>
+                                <option value="Bearish">Bearish</option>
+                                <option value="Neutral">Neutral</option>
+                                <option value="High Vol">High Vol</option>
+                                <option value="Low Vol">Low Vol</option>
+                                <option value="Defensive">Defensive</option>
+                            </select>
+                            <select id="filter-trade-type" class="form-control">
+                                <option value="">All Trade Types</option>
+                            </select>
+                        </div>
+                        <div class="trades-filters-search">
+                            <input type="text" id="search-ticker" class="form-control" placeholder="Search ticker or cycle...">
+                        </div>
+                    </div>
+                </div>
+                <div class="table-container stackable-table-container">
+                    <table id="trades-table" class="stackable-table">
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-sort="ticker">Ticker</th>
+                                <th class="sortable" data-sort="strategy">Strategy</th>
+                                <th>Cycle</th>
+                                <th class="sortable" data-sort="tradeType">Trade Type</th>
+                                <th class="sortable" data-sort="strikePrice">Strike</th>
+                                <th class="sortable" data-sort="quantity">Qty</th>
+                                <th class="sortable" data-sort="entryPrice">Entry Price</th>
+                                <th class="sortable" data-sort="exitPrice">Exit Price</th>
+                                <th class="sortable" data-sort="entryDate">Entry Date</th>
+                                <th class="sortable" data-sort="expirationDate">Expiration</th>
+                                <th class="sortable" data-sort="dte">DTE</th>
+                                <th class="sortable" data-sort="exitDate">Exit Date</th>
+                                <th class="sortable" data-sort="daysHeld">Days Held</th>
+                                <th class="sortable" data-sort="maxRisk">Max Risk</th>
+                                <th class="sortable" data-sort="pl">P&L</th>
+                                <th class="sortable" data-sort="roi">ROI</th>
+                                <th class="sortable" data-sort="annualROI">Annual ROI</th>
+                                <th class="sortable" data-sort="status">Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden file input for fallback -->
+    <input type="file" id="file-input" accept=".json" style="display: none;">
+
+    <script src="app.js"></script>
+</body>
+
+</html>
