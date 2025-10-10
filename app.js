@@ -137,8 +137,6 @@ class OptionsTrackerPro {
             this.hasUnsavedChanges = false;
             this.updateUnsavedIndicator();
             this.saveToStorage();
-
-            this.applyFinnhubConfig(data);
         } catch (error) {
             console.warn('Default database not loaded:', error);
             this.trades = [];
@@ -1774,15 +1772,6 @@ class OptionsTrackerPro {
         this.updateMarketConditionChart();
     }
 
-    applyFinnhubConfig(data) {
-        if (!data || typeof data !== 'object') {
-            return;
-        }
-
-    const extracted = (data.finnhubApiKey ?? data.settings?.finnhubApiKey ?? '').toString().trim();
-    this.setFinnhubApiKey(extracted, { markUnsaved: false, updateUI: false, persist: false });
-    }
-
     initializeFinnhubControls() {
         const container = document.getElementById('finnhub-controls');
         if (!container) {
@@ -1807,7 +1796,7 @@ class OptionsTrackerPro {
 
         const commit = async () => {
             const value = (input?.value || '').trim();
-            this.setFinnhubApiKey(value, { persist: false, updateUI: true, markUnsaved: true });
+            this.setFinnhubApiKey(value, { persist: false, updateUI: true, markUnsaved: false });
 
             const cryptoApi = this.getCrypto();
 
@@ -3682,7 +3671,6 @@ class OptionsTrackerPro {
 
     processLoadedData(data) {
         if (data.trades && Array.isArray(data.trades)) {
-            this.applyFinnhubConfig(data);
             this.trades = data.trades.map(trade => {
                 const updatedTrade = { ...trade };
                 if (updatedTrade.tradeReasoning && !updatedTrade.notes) {
@@ -3776,8 +3764,6 @@ class OptionsTrackerPro {
         } catch (e) {
             console.warn('Failed to save to localStorage:', e);
         }
-
-        this.saveFinnhubConfigToStorage();
     }
 
     loadFromStorage() {
