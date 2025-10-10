@@ -22,6 +22,8 @@
 
 ### Quick Start
 
+<p align="center"><img src="https://raw.githubusercontent.com/r-brown/options-tracker/refs/heads/main/options-tracker-dashboard.png"></p>
+
 1. Clone the repository
 2. Open `index.html` in a modern browser (Chrome, Edge, or Firefox)
 3. Create new database or import your options trading log to start tracking new trades immediately
