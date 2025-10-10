@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Options Tracker - Elite Trading Analytics Platform</title>
+    <meta name="description" content="Professional-grade options trading analytics with complete privacy. Track complex strategies, monitor performance, and optimize your trading with our dark-themed fintech platform.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        /* Design System Variables */
+        :root {
+            /* Dark Theme Colors */
+            --bg-primary: #0a0b1a;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1f2937;
+            --bg-card: rgba(15, 23, 42, 0.8);
+            --bg-glass: rgba(15, 23, 42, 0.6);
+            
+            /* Accent Colors */
+            --purple-500: #8b5cf6;
+            --purple-600: #a855f7;
+            --blue-500: #3b82f6;
+            --blue-600: #6366f1;
+            --orange-500: #f59e0b;
+            --orange-600: #d97706;
+            
+            /* Text Colors */
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            
+            /* Gradients */
+            --gradient-primary: linear-gradient(135deg, var(--purple-500), var(--blue-500));
+            --gradient-secondary: linear-gradient(135deg, var(--blue-500), var(--purple-600));
+            --gradient-hero: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+            --gradient-card: linear-gradient(145deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.05));
+            
+            /* Spacing */
+            --space-1: 0.25rem;
+            --space-2: 0.5rem;
+            --space-3: 0.75rem;
+            --space-4: 1rem;
+            --space-5: 1.25rem;
+            --space-6: 1.5rem;
+            --space-8: 2rem;
+            --space-10: 2.5rem;
+            --space-12: 3rem;
+            --space-16: 4rem;
+            --space-20: 5rem;
+            --space-24: 6rem;
+            
+            /* Typography */
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-size-sm: 0.875rem;
+            --font-size-base: 1rem;
+            --font-size-lg: 1.125rem;
+            --font-size-xl: 1.25rem;
+            --font-size-2xl: 1.5rem;
+            --font-size-3xl: 1.875rem;
+            --font-size-4xl: 2.25rem;
+            --font-size-5xl: 3rem;
+            --font-size-6xl: 3.75rem;
+            
+            /* Border Radius */
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            --radius-2xl: 1.5rem;
+            
+            /* Shadows */
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            --shadow-glow: 0 0 30px rgba(139, 92, 246, 0.3);
+            
+            /* Animations */
+            --duration-fast: 150ms;
+            --duration-normal: 300ms;
+            --duration-slow: 500ms;
+            --ease-out: cubic-bezier(0, 0, 0.2, 1);
+            --ease-in-out: cubic-bezier(0.4, 0, 0.6, 1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+        
+        body {
+            font-family: var(--font-family);
+            background: var(--gradient-hero);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+        
+        /* Glassmorphism Base */
+        .glass {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 var(--space-4);
+        }
+        
+        @media (min-width: 768px) {
+            .container {
+                padding: 0 var(--space-6);
+            }
+        }
+        
+        /* Navigation */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: var(--space-4) 0;
+            transition: all var(--duration-normal) var(--ease-out);
+        }
+        
+        .nav.scrolled {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .nav-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-3) 0;
+        }
+        
+        .logo {
+            font-size: var(--font-size-xl);
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+        
+        .nav-links {
+            display: none;
+            gap: var(--space-8);
+            list-style: none;
+        }
+        
+        @media (min-width: 768px) {
+            .nav-links {
+                display: flex;
+            }
+        }
+        
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color var(--duration-fast) var(--ease-out);
+            position: relative;
+        }
+        
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+        
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--gradient-primary);
+            transition: width var(--duration-normal) var(--ease-out);
+        }
+        
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+        
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-3) var(--space-6);
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all var(--duration-normal) var(--ease-out);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl), var(--shadow-glow);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .btn-lg {
+            padding: var(--space-4) var(--space-8);
+            font-size: var(--font-size-lg);
+        }
+        
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            position: relative;
+            background-image: url('https://user-gen-media-assets.s3.amazonaws.com/seedream_images/eb1736d1-5c3c-466f-b353-25d04a2ae3dd.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(10, 11, 26, 0.9), rgba(17, 24, 39, 0.8), rgba(31, 41, 55, 0.7));
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: var(--space-20) 0;
+        }
+        
+        .hero h1 {
+            font-size: var(--font-size-5xl);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: var(--space-6);
+            background: linear-gradient(135deg, var(--text-primary), var(--purple-500), var(--blue-500));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: fadeInUp 1s var(--ease-out) 0.2s both;
+        }
+        
+        @media (min-width: 768px) {
+            .hero h1 {
+                font-size: var(--font-size-6xl);
+            }
+        }
+        
+        .hero p {
+            font-size: var(--font-size-xl);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-10);
+            line-height: 1.7;
+            animation: fadeInUp 1s var(--ease-out) 0.4s both;
+        }
+        
+        .hero-actions {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-4);
+            align-items: center;
+            animation: fadeInUp 1s var(--ease-out) 0.6s both;
+        }
+        
+        @media (min-width: 768px) {
+            .hero-actions {
+                flex-direction: row;
+                justify-content: center;
+                gap: var(--space-6);
+            }
+        }
+        
+        .hero-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-6);
+            margin-top: var(--space-12);
+            animation: fadeInUp 1s var(--ease-out) 0.8s both;
+        }
+        
+        .metric-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform var(--duration-normal) var(--ease-out);
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-4px);
+        }
+        
+        .metric-value {
+            font-size: var(--font-size-3xl);
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
+            margin-top: var(--space-1);
+        }
+        
+        /* Section */
+        .section {
+            padding: var(--space-24) 0;
+            position: relative;
+        }
+        
+        .section-header {
+            text-align: center;
+            margin-bottom: var(--space-16);
+        }
+        
+        .section-title {
+            font-size: var(--font-size-4xl);
+            font-weight: 800;
+            margin-bottom: var(--space-4);
+            background: linear-gradient(135deg, var(--text-primary), var(--purple-500));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .section-subtitle {
+            font-size: var(--font-size-lg);
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: var(--space-8);
+            margin-top: var(--space-12);
+        }
+        
+        .feature-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all var(--duration-normal) var(--ease-out);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--gradient-card);
+            opacity: 0;
+            transition: opacity var(--duration-normal) var(--ease-out);
+        }
+        
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(139, 92, 246, 0.3);
+            box-shadow: var(--shadow-xl), 0 0 30px rgba(139, 92, 246, 0.2);
+        }
+        
+        .feature-content {
+            position: relative;
+            z-index: 10;
+        }
+        
+        .feature-icon {
+            font-size: var(--font-size-4xl);
+            margin-bottom: var(--space-4);
+            display: block;
+        }
+        
+        .feature-title {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            margin-bottom: var(--space-3);
+            color: var(--text-primary);
+        }
+        
+        .feature-description {
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+        
+        /* Dashboard Preview */
+        .dashboard-preview {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-12);
+            margin: var(--space-16) 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .dashboard-preview::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1));
+        }
+        
+        .dashboard-image {
+            position: relative;
+            z-index: 10;
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-xl);
+        }
+        
+        .dashboard-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        /* Statistics */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-6);
+            margin-top: var(--space-12);
+        }
+        
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform var(--duration-normal) var(--ease-out);
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-4px);
+        }
+        
+        .stat-value {
+            font-size: var(--font-size-3xl);
+            font-weight: 800;
+            background: var(--gradient-secondary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--space-2);
+        }
+        
+        .stat-label {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-1);
+        }
+        
+        .stat-description {
+            color: var(--text-muted);
+            font-size: var(--font-size-sm);
+        }
+        
+        /* Technology Stack */
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-4);
+            margin-top: var(--space-12);
+        }
+        
+        .tech-item {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all var(--duration-normal) var(--ease-out);
+            font-weight: 600;
+        }
+        
+        .tech-item:hover {
+            transform: translateY(-2px);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        
+        /* Target Users */
+        .users-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--space-8);
+            margin-top: var(--space-12);
+        }
+        
+        .user-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all var(--duration-normal) var(--ease-out);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .user-card.purple::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, rgba(139, 92, 246, 0.1), transparent);
+            opacity: 0;
+            transition: opacity var(--duration-normal) var(--ease-out);
+        }
+        
+        .user-card.blue::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, rgba(59, 130, 246, 0.1), transparent);
+            opacity: 0;
+            transition: opacity var(--duration-normal) var(--ease-out);
+        }
+        
+        .user-card.orange::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, rgba(245, 158, 11, 0.1), transparent);
+            opacity: 0;
+            transition: opacity var(--duration-normal) var(--ease-out);
+        }
+        
+        .user-card:hover::before {
+            opacity: 1;
+        }
+        
+        .user-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-xl);
+        }
+        
+        .user-content {
+            position: relative;
+            z-index: 10;
+        }
+        
+        .user-icon {
+            font-size: var(--font-size-3xl);
+            margin-bottom: var(--space-4);
+        }
+        
+        .user-title {
+            font-size: var(--font-size-xl);
+            font-weight: 700;
+            margin-bottom: var(--space-3);
+            color: var(--text-primary);
+        }
+        
+        .user-description {
+            color: var(--text-secondary);
+            margin-bottom: var(--space-4);
+            line-height: 1.7;
+        }
+        
+        .user-features {
+            list-style: none;
+        }
+        
+        .user-features li {
+            color: var(--text-secondary);
+            margin-bottom: var(--space-2);
+            position: relative;
+            padding-left: var(--space-6);
+        }
+        
+        .user-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--purple-500);
+            font-weight: bold;
+        }
+        
+        /* CTA Section */
+        .cta-section {
+            background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary));
+            border-radius: var(--radius-2xl);
+            padding: var(--space-16);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            margin: var(--space-16) 0;
+        }
+        
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(139, 92, 246, 0.2), transparent);
+        }
+        
+        .cta-content {
+            position: relative;
+            z-index: 10;
+        }
+        
+        .cta-title {
+            font-size: var(--font-size-4xl);
+            font-weight: 800;
+            margin-bottom: var(--space-6);
+            background: linear-gradient(135deg, var(--text-primary), var(--purple-500), var(--blue-500));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .cta-description {
+            font-size: var(--font-size-lg);
+            color: var(--text-secondary);
+            margin-bottom: var(--space-8);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .cta-actions {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-4);
+            align-items: center;
+        }
+        
+        @media (min-width: 768px) {
+            .cta-actions {
+                flex-direction: row;
+                justify-content: center;
+                gap: var(--space-6);
+            }
+        }
+        
+        /* Footer */
+        .footer {
+            background: var(--bg-primary);
+            padding: var(--space-16) 0 var(--space-8);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: var(--space-20);
+        }
+        
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-8);
+            margin-bottom: var(--space-12);
+        }
+        
+        .footer-section h3 {
+            font-size: var(--font-size-lg);
+            font-weight: 700;
+            margin-bottom: var(--space-4);
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .footer-links {
+            list-style: none;
+        }
+        
+        .footer-links li {
+            margin-bottom: var(--space-2);
+        }
+        
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color var(--duration-fast) var(--ease-out);
+        }
+        
+        .footer-links a:hover {
+            color: var(--purple-500);
+        }
+        
+        .footer-bottom {
+            text-align: center;
+            padding-top: var(--space-8);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            font-size: var(--font-size-sm);
+        }
+        
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 767px) {
+            .hero h1 {
+                font-size: var(--font-size-4xl);
+            }
+            
+            .section-title {
+                font-size: var(--font-size-3xl);
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .hero-metrics {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* Utility Classes */
+        .text-center {
+            text-align: center;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .fade-in {
+            animation: fadeInUp 0.6s var(--ease-out) forwards;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav" id="nav">
+        <div class="container">
+            <div class="nav-content">
+                <a href="#" class="logo">
+                    📊 Options Tracker
+                </a>
+                <ul class="nav-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#dashboard">Dashboard</a></li>
+                    <li><a href="#users">For You</a></li>
+                    <li><a href="https://github.com/r-brown/options-tracker" target="_blank">GitHub</a></li>
+                </ul>
+                <a href="https://github.com/r-brown/options-tracker" target="_blank" class="btn btn-primary">Get Started</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Elite Trading Analytics Platform</h1>
+                <p>Professional-grade options trading analytics with complete privacy. Track complex strategies, monitor performance, and optimize your trading with sophisticated fintech tools.</p>
+                <div class="hero-actions">
+                    <a href="https://github.com/r-brown/options-tracker" target="_blank" class="btn btn-primary btn-lg">Launch Platform</a>
+                    <a href="#dashboard" class="btn btn-secondary btn-lg">View Demo</a>
+                </div>
+                <div class="hero-metrics">
+                    <div class="metric-card float-animation">
+                        <div class="metric-value">20+</div>
+                        <div class="metric-label">Complex Strategies</div>
+                    </div>
+                    <div class="metric-card float-animation" style="animation-delay: 0.5s;">
+                        <div class="metric-value">100%</div>
+                        <div class="metric-label">Local Privacy</div>
+                    </div>
+                    <div class="metric-card float-animation" style="animation-delay: 1s;">
+                        <div class="metric-value">MIT</div>
+                        <div class="metric-label">Open Source</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Advanced Strategy Analytics</h2>
+                <p class="section-subtitle">Professional tools designed for sophisticated options traders who demand precision, privacy, and performance.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-content">
+                        <span class="feature-icon">📊</span>
+                        <h3 class="feature-title">Advanced Strategy Analytics</h3>
+                        <p class="feature-description">Professional tracking for PMCC, Wheel, Iron Condors, and sophisticated multi-leg strategies with detailed performance metrics and risk analysis.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-content">
+                        <span class="feature-icon">🔒</span>
+                        <h3 class="feature-title">Complete Data Privacy</h3>
+                        <p class="feature-description">Local-first architecture with IndexedDB - zero cloud storage, maximum privacy. Your trading data never leaves your device.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-content">
+                        <span class="feature-icon">📈</span>
+                        <h3 class="feature-title">Real-Time Dashboard</h3>
+                        <p class="feature-description">Unified interface with live P&L calculations, performance metrics, and comprehensive portfolio overview in one elegant dashboard.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-content">
+                        <span class="feature-icon">🎯</span>
+                        <h3 class="feature-title">Multi-Strategy Support</h3>
+                        <p class="feature-description">Handle complex portfolios with sophisticated position tracking, Greeks monitoring, and strategy-specific analytics.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-content">
+                        <span class="feature-icon">📋</span>
+                        <h3 class="feature-title">Performance Analytics</h3>
+                        <p class="feature-description">Win rates, risk-adjusted returns, comprehensive strategy attribution analysis, and advanced performance tracking.</p>
+                    </div>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-content">
+                        <span class="feature-icon">⚙️</span>
+                        <h3 class="feature-title">Advanced Trade Management</h3>
+                        <p class="feature-description">Smart filtering, time decay alerts, comprehensive trade journaling, and sophisticated portfolio management tools.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard Preview -->
+    <section id="dashboard" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Professional Trading Interface</h2>
+                <p class="section-subtitle">Experience the sophisticated, dark-themed interface designed for professional traders.</p>
+            </div>
+            <div class="dashboard-preview">
+                <div class="dashboard-image">
+                    <img src="https://pplx-res.cloudinary.com/image/upload/v1754678326/pplx_project_search_images/37238cc4306a6998ebb4485a0ec15f3974edea31.png" alt="Dark theme finance dashboard" loading="lazy">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Statistics Section -->
+    <section class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Project Statistics</h2>
+                <p class="section-subtitle">Built with modern technologies and designed for professional traders.</p>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">20+</div>
+                    <div class="stat-label">Strategies Supported</div>
+                    <div class="stat-description">Complex trading strategies</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">100%</div>
+                    <div class="stat-label">Local Storage</div>
+                    <div class="stat-description">Complete privacy guaranteed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Languages</div>
+                    <div class="stat-description">HTML, CSS, JavaScript</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">MIT</div>
+                    <div class="stat-label">License</div>
+                    <div class="stat-description">Open source &amp; free</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Target Users -->
+    <section id="users" class="section">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Built for Professionals</h2>
+                <p class="section-subtitle">Designed for sophisticated traders who demand advanced analytics and complete privacy.</p>
+            </div>
+            <div class="users-grid">
+                <div class="user-card purple">
+                    <div class="user-content">
+                        <div class="user-icon">👨‍💼</div>
+                        <h3 class="user-title">Active Traders</h3>
+                        <p class="user-description">Professional traders managing complex multi-leg strategies with sophisticated risk management needs.</p>
+                        <ul class="user-features">
+                            <li>Multi-leg Strategy Tracking</li>
+                            <li>Time Decay Monitoring</li>
+                            <li>Win Rate Analysis</li>
+                            <li>Trade Journaling</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="user-card blue">
+                    <div class="user-content">
+                        <div class="user-icon">📊</div>
+                        <h3 class="user-title">Portfolio Managers</h3>
+                        <p class="user-description">Institutional managers requiring consolidated reporting and comprehensive risk assessment tools.</p>
+                        <ul class="user-features">
+                            <li>Multi-Account Consolidation</li>
+                            <li>Client Reporting</li>
+                            <li>Risk Monitoring</li>
+                            <li>Performance Attribution</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="user-card orange">
+                    <div class="user-content">
+                        <div class="user-icon">🧮</div>
+                        <h3 class="user-title">Quantitative Analysts</h3>
+                        <p class="user-description">Data-driven professionals needing export capabilities and integration with analytical workflows.</p>
+                        <ul class="user-features">
+                            <li>Data Export</li>
+                            <li>Custom Metrics</li>
+                            <li>API Integration</li>
+                            <li>Automated Reporting</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="section">
+        <div class="container">
+            <div class="cta-section">
+                <div class="cta-content">
+                    <h2 class="cta-title">Start Trading Smarter Today</h2>
+                    <p class="cta-description">Join professional traders who demand advanced analytics, complete privacy, and sophisticated portfolio management tools.</p>
+                    <div class="cta-actions">
+                        <a href="https://github.com/r-brown/options-tracker" target="_blank" class="btn btn-primary btn-lg">Access Repository</a>
+                        <a href="https://github.com/r-brown/options-tracker/blob/main/README.md" target="_blank" class="btn btn-secondary btn-lg">View Documentation</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Options Tracker</h3>
+                    <p>Elite trading analytics platform with complete privacy and professional-grade tools for sophisticated options traders.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Resources</h3>
+                    <ul class="footer-links">
+                        <li><a href="https://github.com/r-brown/options-tracker" target="_blank">GitHub Repository</a></li>
+                        <li><a href="https://github.com/r-brown/options-tracker/blob/main/README.md" target="_blank">Documentation</a></li>
+                        <li><a href="https://github.com/r-brown/options-tracker/issues" target="_blank">Support</a></li>
+                        <li><a href="https://github.com/r-brown/options-tracker/releases" target="_blank">Releases</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Legal</h3>
+                    <ul class="footer-links">
+                        <li><a href="https://github.com/r-brown/options-tracker/blob/main/LICENSE" target="_blank">MIT License</a></li>
+                        <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Options Tracker. Released under MIT License.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Navigation scroll effect
+        const nav = document.getElementById('nav');
+        
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        });
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    const headerOffset = 80;
+                    const elementPosition = target.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+                    window.scrollTo({
+                        top: offsetPosition,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('fade-in');
+                }
+            });
+        }, observerOptions);
+
+        // Observe all cards and sections for animations
+        document.querySelectorAll('.feature-card, .stat-card, .user-card, .tech-item, .section-header').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Add staggered animation delays
+        document.querySelectorAll('.feature-card').forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.1}s`;
+        });
+
+        document.querySelectorAll('.stat-card').forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.1}s`;
+        });
+
+        document.querySelectorAll('.user-card').forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.2}s`;
+        });
+
+        // Enhanced hover effects for cards
+        document.querySelectorAll('.feature-card, .user-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-12px) scale(1.02)';
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+
+        // Parallax effect for hero background
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const hero = document.querySelector('.hero');
+            if (hero) {
+                const rate = scrolled * -0.5;
+                hero.style.transform = `translateY(${rate}px)`;
+            }
+        });
+
+        // Performance optimization: reduce animations on mobile
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+            document.querySelectorAll('.float-animation').forEach(el => {
+                el.style.animation = 'none';
+            });
+        }
+
+        // Error handling for images
+        document.querySelectorAll('img').forEach(img => {
+            img.addEventListener('error', function() {
+                this.style.display = 'none';
+                console.warn('Image failed to load:', this.src);
+            });
+        });
+
+        // Add loading state for buttons
+        document.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (this.href && this.href.includes('github.com')) {
+                    this.style.opacity = '0.8';
+                    this.textContent = 'Loading...';
+                }
+            });
+        });
+
+        // Initialize animations on load
+        window.addEventListener('load', () => {
+            document.body.style.opacity = '1';
+        });
+    </script>
+</body>
+</html>
