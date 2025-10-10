@@ -64,7 +64,7 @@ class OptionsTrackerPro {
 
         this.positionHighlightConfig = {
             expirationWarningDays: 20,
-            expirationCriticalDays: 7
+            expirationCriticalDays: 10
         };
 
         // Current date for calculations (always use actual current date)

@@ -1813,18 +1813,18 @@ tr.position-itm td {
 }
 
 tr.position-expiring-warning td {
-  background-color: rgba(var(--color-warning-rgb), 0.16);
+  background-color: #fff6cc;
 }
 
 tr.position-expiring-critical td {
-  background-color: rgba(var(--color-error-rgb), 0.16);
+  background-color: #ffe1e1;
 }
 
 tr.position-itm.position-expiring-warning td {
   background: linear-gradient(
     90deg,
     rgba(var(--color-magenta-400-rgb), 0.22) 0%,
-    rgba(var(--color-warning-rgb), 0.26) 100%
+    #fff2a8 100%
   );
 }
 
@@ -1832,7 +1832,7 @@ tr.position-itm.position-expiring-critical td {
   background: linear-gradient(
     90deg,
     rgba(var(--color-magenta-400-rgb), 0.2) 0%,
-    rgba(var(--color-error-rgb), 0.28) 100%
+    #ffd0d0 100%
   );
 }
 
