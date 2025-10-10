@@ -40,6 +40,7 @@ class OptionsTrackerPro {
 
         this.finnhub = {
             apiKey: '',
+            encryptionKey: null,
             cache: new Map(),
             cacheTTL: 1000 * 60, // 1 minute
             outstandingRequests: new Map(),
@@ -74,7 +75,7 @@ class OptionsTrackerPro {
 
     async init() {
         this.loadFromStorage();
-        this.loadFinnhubConfigFromStorage();
+        await this.loadFinnhubConfigFromStorage();
         if (this.trades.length === 0) {
             await this.loadDefaultDatabase();
         }
@@ -1778,8 +1779,8 @@ class OptionsTrackerPro {
             return;
         }
 
-        const extracted = (data.finnhubApiKey ?? data.settings?.finnhubApiKey ?? '').toString().trim();
-        this.setFinnhubApiKey(extracted, { markUnsaved: false, updateUI: false, persist: true });
+    const extracted = (data.finnhubApiKey ?? data.settings?.finnhubApiKey ?? '').toString().trim();
+    this.setFinnhubApiKey(extracted, { markUnsaved: false, updateUI: false, persist: false });
     }
 
     initializeFinnhubControls() {
@@ -1804,24 +1805,46 @@ class OptionsTrackerPro {
             this.updateFinnhubStatus(message, variant, 4000);
         }
 
-        const commit = () => {
+        const commit = async () => {
             const value = (input?.value || '').trim();
-            this.setFinnhubApiKey(value, { persist: true, updateUI: true, markUnsaved: true });
-            const variant = value ? 'success' : 'neutral';
-            const message = value ? 'Finnhub API key saved.' : 'API key cleared. Live prices disabled.';
-            this.updateFinnhubStatus(message, variant, 5000);
+            this.setFinnhubApiKey(value, { persist: false, updateUI: true, markUnsaved: true });
+
+            const cryptoApi = this.getCrypto();
+
+            if (!value) {
+                this.removeFinnhubConfigFromStorage();
+                this.updateFinnhubStatus('API key cleared. Live prices disabled.', 'neutral', 5000);
+                this.updateActivePositionsTable();
+                return;
+            }
+
+            if (!cryptoApi?.subtle) {
+                this.saveFinnhubConfigToStorage();
+                this.updateFinnhubStatus('Finnhub API key saved (unencrypted — Web Crypto unavailable).', 'success', 6000);
+                this.updateActivePositionsTable();
+                return;
+            }
+
+            const encrypted = await this.encryptAndStoreFinnhubApiKey(cryptoApi);
+            if (encrypted) {
+                this.updateFinnhubStatus('Finnhub API key saved securely.', 'success', 5000);
+            } else {
+                this.saveFinnhubConfigToStorage();
+                this.updateFinnhubStatus('Finnhub API key saved (unencrypted fallback).', 'neutral', 6000);
+            }
+
             this.updateActivePositionsTable();
         };
 
-        saveButton?.addEventListener('click', (event) => {
+        saveButton?.addEventListener('click', async (event) => {
             event.preventDefault();
-            commit();
+            await commit();
         });
 
-        input?.addEventListener('keydown', (event) => {
+        input?.addEventListener('keydown', async (event) => {
             if (event.key === 'Enter') {
                 event.preventDefault();
-                commit();
+                await commit();
             }
         });
     }
@@ -1885,14 +1908,42 @@ class OptionsTrackerPro {
         return 'optionsTrackerProFinnhubConfig';
     }
 
-    loadFinnhubConfigFromStorage() {
+    async loadFinnhubConfigFromStorage() {
         try {
             const raw = localStorage.getItem(this.getFinnhubStorageKey());
             if (!raw) {
                 return;
             }
             const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed.apiKey === 'string') {
+            if (!parsed) {
+                return;
+            }
+
+            if (parsed.enc && parsed.payload) {
+                const cryptoApi = this.getCrypto();
+                if (!cryptoApi?.subtle) {
+                    console.warn('Encrypted Finnhub API key stored but Web Crypto unavailable.');
+                    this.updateFinnhubStatus('Stored Finnhub key is encrypted, but this browser cannot decrypt it.', 'error', 7000);
+                    return;
+                }
+
+                try {
+                    const key = await this.ensureFinnhubEncryptionKey(cryptoApi);
+                    if (!key) {
+                        throw new Error('Encryption key unavailable');
+                    }
+                    const decrypted = await this.decryptString(parsed.payload, cryptoApi, key);
+                    if (decrypted) {
+                        this.finnhub.apiKey = decrypted;
+                    }
+                } catch (error) {
+                    console.warn('Failed to decrypt stored Finnhub API key:', error);
+                    this.updateFinnhubStatus('Failed to decrypt stored Finnhub API key.', 'error', 6000);
+                }
+                return;
+            }
+
+            if (typeof parsed.apiKey === 'string') {
                 this.finnhub.apiKey = parsed.apiKey;
             }
         } catch (error) {
@@ -1906,6 +1957,112 @@ class OptionsTrackerPro {
             localStorage.setItem(this.getFinnhubStorageKey(), JSON.stringify(payload));
         } catch (error) {
             console.warn('Failed to save Finnhub configuration:', error);
+        }
+    }
+
+    removeFinnhubConfigFromStorage() {
+        try {
+            localStorage.removeItem(this.getFinnhubStorageKey());
+        } catch (error) {
+            console.warn('Failed to remove Finnhub configuration:', error);
+        }
+    }
+
+    arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+    }
+
+    base64ToArrayBuffer(base64) {
+        const binary = atob(base64);
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    getFinnhubSecretStorageKey() {
+        return 'optionsTrackerProFinnhubSecret';
+    }
+
+    async ensureFinnhubEncryptionKey(cryptoApi = this.getCrypto()) {
+        if (!cryptoApi?.subtle) {
+            return null;
+        }
+
+        if (this.finnhub.encryptionKey) {
+            return this.finnhub.encryptionKey;
+        }
+
+        let rawKeyB64 = localStorage.getItem(this.getFinnhubSecretStorageKey());
+        if (!rawKeyB64) {
+            const raw = cryptoApi.getRandomValues(new Uint8Array(32));
+            rawKeyB64 = this.arrayBufferToBase64(raw.buffer);
+            localStorage.setItem(this.getFinnhubSecretStorageKey(), rawKeyB64);
+        }
+
+        const rawKey = new Uint8Array(this.base64ToArrayBuffer(rawKeyB64));
+        const cryptoKey = await cryptoApi.subtle.importKey('raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        this.finnhub.encryptionKey = cryptoKey;
+        return cryptoKey;
+    }
+
+    async encryptString(plainText, cryptoApi, cryptoKey) {
+        const iv = cryptoApi.getRandomValues(new Uint8Array(12));
+        const enc = new TextEncoder();
+        const cipherBuffer = await cryptoApi.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, enc.encode(plainText));
+        return {
+            iv: this.arrayBufferToBase64(iv.buffer),
+            ct: this.arrayBufferToBase64(cipherBuffer)
+        };
+    }
+
+    getCrypto() {
+        if (typeof globalThis !== 'undefined' && globalThis.crypto) {
+            return globalThis.crypto;
+        }
+        if (typeof window !== 'undefined' && window.crypto) {
+            return window.crypto;
+        }
+        return null;
+    }
+
+    async decryptString(payload, cryptoApi, cryptoKey) {
+        const iv = new Uint8Array(this.base64ToArrayBuffer(payload.iv));
+        const cipher = this.base64ToArrayBuffer(payload.ct);
+        const plainBuffer = await cryptoApi.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, cipher);
+        const dec = new TextDecoder();
+        return dec.decode(plainBuffer);
+    }
+
+    async encryptAndStoreFinnhubApiKey(cryptoApi = this.getCrypto()) {
+        try {
+            if (!cryptoApi?.subtle) {
+                throw new Error('Web Crypto API unavailable');
+            }
+            const apiKey = this.finnhub.apiKey || '';
+            if (!apiKey) {
+                this.removeFinnhubConfigFromStorage();
+                return true;
+            }
+
+            const key = await this.ensureFinnhubEncryptionKey(cryptoApi);
+            if (!key) {
+                throw new Error('Failed to prepare encryption key');
+            }
+
+            const payload = await this.encryptString(apiKey, cryptoApi, key);
+            localStorage.setItem(this.getFinnhubStorageKey(), JSON.stringify({ enc: true, payload }));
+            return true;
+        } catch (error) {
+            console.warn('Failed to encrypt Finnhub API key:', error);
+            return false;
         }
     }
 
@@ -3417,8 +3574,7 @@ class OptionsTrackerPro {
         return {
             trades: this.trades,
             exportDate: new Date().toISOString(),
-            version: '2.2',
-            finnhubApiKey: this.finnhub.apiKey || ''
+            version: '2.2'
         };
     }
 
