@@ -1641,6 +1641,118 @@ tr:hover {
   white-space: nowrap;
 }
 
+/* Link-style buttons */
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-button:hover,
+.link-button:focus-visible {
+  color: var(--color-primary-hover);
+}
+
+.link-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2);
+  margin: 0 calc(var(--space-2) * -1);
+}
+
+.link-button--inline {
+  font-size: var(--font-size-sm);
+}
+
+/* Settings View */
+.settings-section {
+  max-width: var(--container-md);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}
+
+.settings-section__header h2 {
+  margin: 0;
+  font-size: var(--font-size-3xl);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.settings-section__header p {
+  margin: var(--space-8) 0 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  max-width: 52ch;
+}
+
+.settings-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-24);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.settings-card__header h3 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+}
+
+.settings-card__subtitle {
+  margin: var(--space-4) 0 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.settings-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.settings-input-row {
+  display: flex;
+  gap: var(--space-12);
+  align-items: center;
+}
+
+.settings-input-row .form-control {
+  flex: 1;
+}
+
+.settings-help-text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.settings-view .finnhub-status {
+  padding: var(--space-8);
+  border-radius: var(--radius-base);
+  background: rgba(var(--color-info-rgb), var(--status-bg-opacity));
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.settings-view .finnhub-status.is-success {
+  background: rgba(var(--color-success-rgb), var(--status-bg-opacity));
+  color: var(--color-primary);
+}
+
+.settings-view .finnhub-status.is-error {
+  background: rgba(var(--color-error-rgb), var(--status-bg-opacity));
+  color: var(--color-error);
+}
+
 /* Status badges - NEW STYLING */
 .status-badge {
   padding: var(--space-4) var(--space-8);
@@ -1759,6 +1871,16 @@ tr:hover {
 
 .quote-cell.quote-error {
   color: var(--color-error);
+}
+
+.quote-cell.quote-error .link-button {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.quote-cell.quote-error .link-button:hover,
+.quote-cell.quote-error .link-button:focus-visible {
+  color: var(--color-primary-hover);
 }
 
 .quote-cell .quote-price {
@@ -1943,6 +2065,10 @@ tr.position-itm.position-expiring-critical td {
   .dashboard-tables {
     grid-template-columns: 1fr;
   }
+
+  .settings-section {
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -1974,8 +2100,26 @@ tr.position-itm.position-expiring-critical td {
     margin-left: auto;
   }
 
+  .settings-card {
+    padding: var(--space-20);
+  }
+
+  .settings-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .chart-full-width canvas {
     min-width: 0;
+  }
+
+  .settings-section__header {
+    text-align: center;
+  }
+
+  .settings-section__header p {
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 
@@ -2068,6 +2212,14 @@ tr.position-itm.position-expiring-critical td {
   .chart-full-width canvas {
     min-width: 0;
   }
+
+  .settings-section {
+    gap: var(--space-16);
+  }
+
+  .settings-card {
+    padding: var(--space-16);
+  }
 }
 
 @media (max-width: 480px) {
@@ -2110,6 +2262,15 @@ tr.position-itm.position-expiring-critical td {
 
   .chart-full-width canvas {
     min-width: 0;
+  }
+
+  .settings-card {
+    padding: var(--space-16);
+  }
+
+  .settings-input-row .form-control,
+  .settings-input-row .btn {
+    width: 100%;
   }
 }
 

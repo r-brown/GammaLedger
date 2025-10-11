@@ -29,6 +29,10 @@
                     <span class="nav-icon">➕</span>
                     Add Trade
                 </button>
+                <button class="nav-item" data-view="settings">
+                    <span class="nav-icon">⚙️</span>
+                    Settings
+                </button>
             </nav>
             <div class="sidebar-footer">
                 <a class="sidebar-link" href="https://github.com/r-brown/options-tracker" target="_blank" rel="noopener noreferrer">
@@ -56,14 +60,6 @@
                     <div class="file-info">
                         <span id="current-file-name" class="file-name">Unsaved Database</span>
                         <span id="unsaved-indicator" class="unsaved-indicator hidden">●</span>
-                    </div>
-                    <div class="finnhub-controls" id="finnhub-controls">
-                        <div class="finnhub-controls__row">
-                            <label for="finnhub-api-key" class="finnhub-label">Finnhub API Key</label>
-                            <input type="password" id="finnhub-api-key" class="form-control finnhub-input" placeholder="Paste API key" autocomplete="off">
-                            <button class="btn btn--sm btn--secondary" id="finnhub-save">Save Key</button>
-                        </div>
-                        <div class="finnhub-status" id="finnhub-status" role="status">Not set</div>
                     </div>
                 </div>
             </header>
@@ -659,6 +655,31 @@
                         <tbody></tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- Settings View -->
+            <div class="view settings-view">
+                <section class="settings-section">
+                    <header class="settings-section__header">
+                        <h2>Integration Settings</h2>
+                        <p>Manage live data connections and other preferences that stay on this device.</p>
+                    </header>
+                    <div class="settings-card" id="finnhub-controls">
+                        <div class="settings-card__header">
+                            <h3>Finnhub API Key</h3>
+                            <p class="settings-card__subtitle">We encrypt your key locally before storing it in this browser.</p>
+                        </div>
+                        <div class="settings-card__body">
+                            <label for="finnhub-api-key" class="form-label">API Key</label>
+                            <div class="settings-input-row">
+                                <input type="password" id="finnhub-api-key" class="form-control finnhub-input" placeholder="Paste API key" autocomplete="off">
+                                <button class="btn btn--sm btn--secondary" id="finnhub-save">Save Key</button>
+                            </div>
+                            <p class="settings-help-text">The key never leaves your machine. Clearing browser storage will remove it.</p>
+                            <div class="finnhub-status" id="finnhub-status" role="status">Not set</div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>

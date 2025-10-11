@@ -850,9 +850,11 @@ class OptionsTrackerPro {
         const titles = {
             dashboard: 'Options Trading Dashboard',
             'add-trade': this.currentEditingId ? 'Edit Trade' : 'Add New Trade',
-            'trades-list': 'All Trades'
+            'trades-list': 'All Trades',
+            settings: 'Settings'
         };
-        document.getElementById('page-title').textContent = titles[viewName];
+        const titleText = titles[viewName] || 'Options Tracker Pro';
+        document.getElementById('page-title').textContent = titleText;
 
         this.currentView = viewName;
 
@@ -869,6 +871,13 @@ class OptionsTrackerPro {
             case 'trades-list':
                 this.updateTradesList();
                 break;
+            case 'settings': {
+                const lastStatus = this.finnhub?.lastStatus;
+                if (lastStatus && this.finnhub?.elements?.status) {
+                    this.updateFinnhubStatus(lastStatus.message, lastStatus.variant, 0);
+                }
+                break;
+            }
         }
     }
 
@@ -2316,7 +2325,22 @@ class OptionsTrackerPro {
         }
         cell.dataset.priceState = 'error';
         cell.classList.add('quote-error');
-        cell.textContent = message || 'Unavailable';
+        const normalizedMessage = (message || '').trim();
+
+        if (normalizedMessage === 'Set API key') {
+            cell.textContent = '';
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'link-button link-button--inline';
+            button.textContent = 'Set API key';
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                this.showView('settings');
+            });
+            cell.appendChild(button);
+        } else {
+            cell.textContent = normalizedMessage || 'Unavailable';
+        }
         this.applyPositionHighlight(row, trade, null);
     }
 
