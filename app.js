@@ -31,7 +31,8 @@ class OptionsTrackerPro {
         this.currentView = 'dashboard';
         this.sortDirection = {};
         this.charts = {};
-    this.cycleAnalytics = [];
+        this.tradeDetailCharts = new Map();
+        this.cycleAnalytics = [];
         this.currentFileHandle = null;
         this.currentFileName = 'Unsaved Database';
         this.hasUnsavedChanges = false;
@@ -3224,6 +3225,17 @@ class OptionsTrackerPro {
 
         tbody.innerHTML = '';
 
+        if (this.tradeDetailCharts?.size) {
+            this.tradeDetailCharts.forEach(chart => {
+                try {
+                    chart.destroy();
+                } catch (error) {
+                    console.warn('Failed to destroy payoff chart:', error);
+                }
+            });
+            this.tradeDetailCharts.clear();
+        }
+
         const safeNumber = (value) => {
             const num = Number(value);
             return Number.isFinite(num) ? num : null;
@@ -3235,8 +3247,9 @@ class OptionsTrackerPro {
             'Max Risk', 'P&L', 'ROI', 'Annual ROI', 'Status', 'Actions'
         ];
 
-        trades.forEach(trade => {
+        trades.forEach((trade, index) => {
             const row = tbody.insertRow();
+            row.classList.add('trade-summary-row');
 
             // 1. Ticker
             const tickerCell = row.insertCell(0);
@@ -3254,7 +3267,8 @@ class OptionsTrackerPro {
                 cycleButton.type = 'button';
                 cycleButton.className = 'cycle-chip cycle-chip--link';
                 cycleButton.textContent = cycleType ? `${cycleId} (${cycleType.toUpperCase()})` : cycleId;
-                cycleButton.addEventListener('click', () => {
+                cycleButton.addEventListener('click', (event) => {
+                    event.stopPropagation();
                     this.openTradesFilteredByCycle(cycleId, trade.ticker);
                 });
                 cycleButton.title = 'View trades in this cycle';
@@ -3373,22 +3387,1135 @@ class OptionsTrackerPro {
             const actionsCell = row.insertCell(18);
             actionsCell.className = 'actions-cell';
 
+            const chartKeyBase = trade.id ?? trade.tradeId ?? trade.uniqueId ?? `${trade.ticker || 'trade'}-${index}`;
+            const safeChartId = `trade-pl-${chartKeyBase}`.toString().replace(/[^a-zA-Z0-9_-]/g, '-');
+            const footnoteId = `${safeChartId}-footnote`;
             const editButton = document.createElement('button');
             editButton.type = 'button';
             editButton.className = 'action-btn action-btn--edit';
             editButton.textContent = 'Edit';
-            editButton.addEventListener('click', () => this.editTrade(trade.id));
+            editButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                this.editTrade(trade.id);
+            });
 
             const deleteButton = document.createElement('button');
             deleteButton.type = 'button';
             deleteButton.className = 'action-btn action-btn--delete';
             deleteButton.textContent = 'Delete';
-            deleteButton.addEventListener('click', () => this.deleteTrade(trade.id));
+            deleteButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                this.deleteTrade(trade.id);
+            });
 
             actionsCell.append(editButton, deleteButton);
 
+            row.setAttribute('tabindex', '0');
+            row.setAttribute('aria-expanded', 'false');
+            row.setAttribute('aria-controls', safeChartId);
+            row.dataset.chartId = safeChartId;
+
+            const detailRow = tbody.insertRow();
+            detailRow.className = 'trade-detail-row';
+            detailRow.setAttribute('aria-hidden', 'true');
+            detailRow.style.display = 'none';
+            detailRow.dataset.chartId = safeChartId;
+
+            const detailCell = detailRow.insertCell(0);
+            detailCell.colSpan = columnLabels.length;
+            detailCell.innerHTML = `
+                <div class="trade-diagram" data-chart-container="${safeChartId}">
+                    <div class="trade-diagram__canvas">
+                        <canvas id="${safeChartId}" aria-hidden="true"></canvas>
+                    </div>
+                    <p class="trade-diagram__footnote" id="${footnoteId}">Tap or click the trade row to generate the payoff diagram.</p>
+                </div>
+            `;
+
+            const toggleDetail = () => {
+                this.toggleTradePayoffDetail(row, detailRow, trade, safeChartId, footnoteId);
+            };
+
+            row.addEventListener('click', (event) => {
+                if (event.target.closest('button') || event.target.closest('a') || event.target.closest('input') || event.target.closest('.trade-diagram')) {
+                    return;
+                }
+                toggleDetail();
+            });
+
+            row.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    toggleDetail();
+                }
+            });
+
             this.applyResponsiveLabels(row, columnLabels);
         });
+    }
+
+    toggleTradePayoffDetail(row, detailRow, trade, chartId, footnoteId) {
+        if (!detailRow) {
+            return;
+        }
+
+        const isOpen = !detailRow.classList.contains('is-open');
+
+        detailRow.classList.toggle('is-open', isOpen);
+        detailRow.style.display = isOpen ? 'table-row' : 'none';
+        detailRow.setAttribute('aria-hidden', String(!isOpen));
+        row?.setAttribute('aria-expanded', String(isOpen));
+
+        const detailCanvas = detailRow.querySelector('canvas');
+        if (detailCanvas) {
+            detailCanvas.setAttribute('aria-hidden', String(!isOpen));
+        }
+
+        if (isOpen) {
+            const renderPromise = this.renderTradePayoffChart(trade, chartId, footnoteId);
+            if (renderPromise?.catch) {
+                renderPromise.catch(error => {
+                    console.error('Failed to render payoff chart:', error);
+                });
+            }
+        } else {
+            this.destroyTradePayoffChart(chartId, footnoteId);
+        }
+    }
+
+    async renderTradePayoffChart(trade, chartId, footnoteId) {
+        const canvas = document.getElementById(chartId);
+        const footnote = document.getElementById(footnoteId);
+        const wrapper = canvas?.parentElement;
+
+        if (!canvas) {
+            if (footnote) {
+                footnote.textContent = 'Canvas element missing; cannot generate payoff diagram.';
+            }
+            return;
+        }
+
+        if (this.tradeDetailCharts?.has(chartId)) {
+            return; // Already rendered
+        }
+
+        if (footnote) {
+            footnote.textContent = 'Loading live price and payoff data…';
+        }
+
+        const payoff = this.calculatePayoffSeries(trade);
+
+        if (!payoff || !Array.isArray(payoff.points) || payoff.points.length === 0) {
+            if (wrapper) {
+                wrapper.classList.add('trade-diagram__canvas--empty');
+            }
+            canvas.classList.add('hidden');
+            if (footnote) {
+                footnote.textContent = payoff?.message || 'Payoff diagram not available for this strategy yet.';
+            }
+            return;
+        }
+
+        canvas.classList.remove('hidden');
+        wrapper?.classList.remove('trade-diagram__canvas--empty');
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            if (footnote) {
+                footnote.textContent = 'Unable to access canvas rendering context.';
+            }
+            return;
+        }
+
+        const currencyFormatter = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            maximumFractionDigits: 2
+        });
+
+        const profitColor = 'rgba(34, 197, 94, 1)'; // green
+        const lossColor = 'rgba(248, 113, 113, 1)'; // red
+
+        const yValues = payoff.points.map(point => point.y);
+        let minY = Math.min(...yValues, 0);
+        let maxY = Math.max(...yValues, 0);
+
+        if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
+            minY = 0;
+            maxY = 0;
+        }
+
+        if (minY === maxY) {
+            minY -= 1;
+            maxY += 1;
+        }
+
+        const positiveArea = payoff.points.map(point => ({
+            x: point.x,
+            y: point.y >= 0 ? point.y : null
+        }));
+
+        const negativeArea = payoff.points.map(point => ({
+            x: point.x,
+            y: point.y <= 0 ? point.y : null
+        }));
+
+        const profitFill = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        profitFill.addColorStop(0, 'rgba(34, 197, 94, 0.18)');
+        profitFill.addColorStop(1, 'rgba(34, 197, 94, 0.02)');
+
+        const lossFill = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        lossFill.addColorStop(0, 'rgba(248, 113, 113, 0.18)');
+        lossFill.addColorStop(1, 'rgba(248, 113, 113, 0.02)');
+
+        const currentPrice = await this.getUnderlyingPriceForPayoff(trade);
+
+        const detailRowElement = document.querySelector(`.trade-detail-row[data-chart-id="${chartId}"]`);
+        if (detailRowElement && !detailRowElement.classList.contains('is-open')) {
+            if (footnote) {
+                footnote.textContent = 'Tap or click the trade row to generate the payoff diagram.';
+            }
+            return;
+        }
+
+        const priceLabelPlugin = {
+            id: `payoffPriceLineLabel-${chartId}`,
+            afterDatasetsDraw: (chartInstance) => {
+                if (!Number.isFinite(currentPrice)) {
+                    return;
+                }
+                const xScale = chartInstance.scales?.x;
+                const chartArea = chartInstance.chartArea;
+                if (!xScale || !chartArea) {
+                    return;
+                }
+                const x = xScale.getPixelForValue(currentPrice);
+                if (!Number.isFinite(x) || x < chartArea.left || x > chartArea.right) {
+                    return;
+                }
+                const yScale = chartInstance.scales?.y;
+                const ctxLabel = chartInstance.ctx;
+                ctxLabel.save();
+                ctxLabel.font = '12px "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+                ctxLabel.fillStyle = 'rgba(30, 41, 59, 0.9)';
+                ctxLabel.textBaseline = 'middle';
+                ctxLabel.textAlign = 'center';
+                const chartBottomLimit = chartArea.bottom - 10;
+                let targetY = chartBottomLimit - 50;
+                if (!Number.isFinite(targetY) || targetY < chartArea.top + 12) {
+                    targetY = chartArea.top + 12;
+                }
+                const horizontalPadding = 18;
+                const placeOnRight = x < (chartArea.left + chartArea.right) / 2;
+                const translatedX = placeOnRight
+                    ? Math.min(chartArea.right - horizontalPadding, x + horizontalPadding)
+                    : Math.max(chartArea.left + horizontalPadding, x - horizontalPadding);
+                const label = `Current ${currencyFormatter.format(currentPrice)}`;
+                ctxLabel.translate(translatedX, targetY);
+                ctxLabel.rotate(-Math.PI / 2);
+                ctxLabel.fillText(label, 0, 0);
+                ctxLabel.restore();
+            }
+        };
+
+        const datasets = [
+            {
+                id: 'currentPriceLine',
+                label: 'Current Price',
+                data: [],
+                borderColor: 'rgba(100, 116, 139, 0.95)',
+                borderDash: [6, 4],
+                borderWidth: 2,
+                hoverBorderColor: 'rgba(100, 116, 139, 0.95)',
+                hoverBorderWidth: 2,
+                pointRadius: 0,
+                pointHitRadius: 0,
+                fill: false,
+                order: 0,
+                hidden: true
+            },
+            {
+                id: 'breakevenLine',
+                label: 'Breakeven',
+                data: [],
+                borderColor: 'rgba(59, 130, 246, 0.8)',
+                borderDash: [2, 4],
+                borderWidth: 1,
+                pointRadius: 0,
+                pointHitRadius: 0,
+                fill: false,
+                order: 0,
+                hidden: true
+            },
+            {
+                id: 'positiveFill',
+                label: 'Profit Region',
+                data: positiveArea,
+                borderColor: 'rgba(0,0,0,0)',
+                backgroundColor: profitFill,
+                hoverBackgroundColor: profitFill,
+                hoverBorderColor: 'rgba(0, 0, 0, 0)',
+                hoverBorderWidth: 0,
+                fill: 'origin',
+                pointRadius: 0,
+                pointHitRadius: 0,
+                tension: 0.25,
+                order: 1,
+                spanGaps: true,
+                showLine: true
+            },
+            {
+                id: 'negativeFill',
+                label: 'Loss Region',
+                data: negativeArea,
+                borderColor: 'rgba(0,0,0,0)',
+                backgroundColor: lossFill,
+                hoverBackgroundColor: lossFill,
+                hoverBorderColor: 'rgba(0, 0, 0, 0)',
+                hoverBorderWidth: 0,
+                fill: 'origin',
+                pointRadius: 0,
+                pointHitRadius: 0,
+                tension: 0.25,
+                order: 1,
+                spanGaps: true,
+                showLine: true
+            },
+            {
+                id: 'payoffLine',
+                label: 'P&L at Expiration',
+                data: payoff.points,
+                borderColor: profitColor,
+                hoverBorderColor: profitColor,
+                hoverBorderWidth: 2,
+                tension: 0.25,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                borderWidth: 2,
+                fill: false,
+                order: 2,
+                segment: {
+                    borderColor: ctx => {
+                        const y0 = ctx.p0.parsed?.y;
+                        const y1 = ctx.p1.parsed?.y;
+                        if (y0 >= 0 && y1 >= 0) {
+                            return profitColor;
+                        }
+                        if (y0 <= 0 && y1 <= 0) {
+                            return lossColor;
+                        }
+                        return 'rgba(148, 163, 184, 1)';
+                    }
+                }
+            },
+            {
+                id: 'zeroLine',
+                label: 'Break-even Baseline',
+                data: payoff.zeroLinePoints ?? payoff.points.map(point => ({ x: point.x, y: 0 })),
+                borderColor: 'rgba(71, 85, 105, 0.9)',
+                borderDash: [4, 4],
+                borderWidth: 2,
+                hoverBorderColor: 'rgba(71, 85, 105, 0.95)',
+                hoverBorderWidth: 2,
+                pointRadius: 0,
+                pointHitRadius: 0,
+                fill: false,
+                order: 3
+            }
+        ];
+
+        if (Number.isFinite(currentPrice)) {
+            const currentIndex = datasets.findIndex(dataset => dataset.id === 'currentPriceLine');
+            if (currentIndex !== -1) {
+                datasets[currentIndex].data = [
+                    { x: currentPrice, y: minY },
+                    { x: currentPrice, y: maxY }
+                ];
+                datasets[currentIndex].hidden = false;
+            }
+        }
+
+        if (Number.isFinite(payoff.breakeven)) {
+            const breakevenIndex = datasets.findIndex(dataset => dataset.id === 'breakevenLine');
+            if (breakevenIndex !== -1) {
+                datasets[breakevenIndex].data = [
+                    { x: payoff.breakeven, y: minY },
+                    { x: payoff.breakeven, y: maxY }
+                ];
+            }
+        }
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { datasets },
+            plugins: [priceLabelPlugin],
+            options: {
+                parsing: false,
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                hover: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                if (!context.dataset || context.dataset.id !== 'payoffLine') {
+                                    return null;
+                                }
+                                const price = Number(context.parsed?.x);
+                                const value = Number(context.parsed?.y);
+                                if (!Number.isFinite(price) || !Number.isFinite(value)) {
+                                    return null;
+                                }
+                                const formattedValue = currencyFormatter.format(value);
+                                const formattedPrice = currencyFormatter.format(price);
+                                return `${context.dataset.label || 'P&L'}: ${formattedValue} @ ${formattedPrice}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: {
+                            display: true,
+                            text: 'Underlying Price ($)'
+                        },
+                        ticks: {
+                            callback: (value) => currencyFormatter.format(Number(value))
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'P&L ($)'
+                        },
+                        ticks: {
+                            callback: (value) => currencyFormatter.format(Number(value))
+                        },
+                        suggestedMin: minY,
+                        suggestedMax: maxY
+                    }
+                }
+            }
+        });
+
+        this.tradeDetailCharts.set(chartId, chart);
+
+        if (footnote) {
+            footnote.textContent = this.formatPayoffFooter(payoff, currencyFormatter);
+        }
+    }
+
+    destroyTradePayoffChart(chartId, footnoteId) {
+        const existingChart = this.tradeDetailCharts?.get(chartId);
+        if (existingChart) {
+            try {
+                existingChart.destroy();
+            } catch (error) {
+                console.warn('Failed to destroy payoff chart:', error);
+            }
+            this.tradeDetailCharts.delete(chartId);
+        }
+
+        const canvas = document.getElementById(chartId);
+        const wrapper = canvas?.parentElement;
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            canvas.classList.remove('hidden');
+        }
+        wrapper?.classList.remove('trade-diagram__canvas--empty');
+
+        if (footnoteId) {
+            const footnote = document.getElementById(footnoteId);
+            if (footnote) {
+                footnote.textContent = 'Tap or click the trade row to generate the payoff diagram.';
+            }
+        }
+    }
+
+    async getUnderlyingPriceForPayoff(trade = {}) {
+        const ticker = (trade?.ticker || '').toString().trim().toUpperCase();
+
+        if (ticker) {
+            const cached = this.getCachedQuote(ticker);
+            if (cached?.value && Number.isFinite(Number(cached.value.price))) {
+                return Number(cached.value.price);
+            }
+
+            if (this.finnhub.apiKey) {
+                try {
+                    const quote = await this.getCurrentPrice(ticker);
+                    const livePrice = Number(quote?.price);
+                    if (Number.isFinite(livePrice) && livePrice > 0) {
+                        return livePrice;
+                    }
+                } catch (error) {
+                    console.warn('Live price lookup failed for payoff chart:', error);
+                }
+            }
+        }
+
+        return this.getFallbackUnderlyingPrice(trade);
+    }
+
+    getFallbackUnderlyingPrice(trade = {}) {
+        const candidates = [
+            trade.currentUnderlyingPrice,
+            trade.currentPrice,
+            trade.marketPrice,
+            trade.lastUnderlyingPrice,
+            trade.lastPrice,
+            trade.markPrice,
+            trade.referencePrice,
+            trade.stockPriceAtEntry
+        ];
+
+        for (const value of candidates) {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric) && numeric > 0) {
+                return numeric;
+            }
+        }
+
+        return null;
+    }
+
+    calculatePayoffSeries(trade) {
+        const model = this.determinePayoffModel(trade);
+        if (!model || model.type === 'unsupported') {
+            return {
+                message: model?.reason || 'Payoff diagram not available for this strategy yet.'
+            };
+        }
+
+        switch (model.type) {
+            case 'single':
+                return this.calculateSingleLegSeries(trade, model);
+            case 'vertical':
+                return this.calculateVerticalSpreadSeries(trade, model);
+            case 'covered-call':
+                return this.calculateCoveredCallSeries(trade, model);
+            case 'pmcc':
+                return this.calculatePmccSeries(trade, model);
+            default:
+                return {
+                    message: 'Payoff diagram not available for this strategy yet.'
+                };
+        }
+    }
+
+    determinePayoffModel(trade) {
+        const strategyRaw = (trade.strategy || '').toString().trim();
+        const strategy = strategyRaw.toLowerCase();
+        const definedWidth = Number(trade.definedRiskWidth);
+
+        if (!strategy) {
+            return { type: 'unsupported', reason: 'Add a strategy name to unlock payoff diagrams.' };
+        }
+
+        const normalizedCycleType = this.normalizeCycleType(trade.cycleType, strategyRaw);
+        const isPmccStrategy = strategy.includes("poor man's covered call")
+            || strategy.includes('poor man')
+            || normalizedCycleType === 'pmcc'
+            || this.isPmccBaseLeg(trade)
+            || this.isPmccShortCall(trade);
+
+        if (isPmccStrategy) {
+            const pmccLegs = this.extractPmccLegs(trade);
+            if (!pmccLegs.baseLeg) {
+                return {
+                    type: 'unsupported',
+                    reason: 'Add the PMCC base leg to this cycle to unlock the payoff diagram.'
+                };
+            }
+            return {
+                type: 'pmcc',
+                strategy,
+                ...pmccLegs
+            };
+        }
+
+        if (strategy.includes('covered call')) {
+            return {
+                type: 'covered-call',
+                strategy
+            };
+        }
+
+        const complexRegex = /(iron|straddle|strangle|butterfly|ratio|lizard|combo|synthetic|double|calendar|diagonal)/;
+        const isComplex = complexRegex.test(strategy);
+
+        const optionType = strategy.includes('put') ? 'put' : strategy.includes('call') ? 'call' : null;
+
+        const isCalendarLike = /calendar|diagonal/.test(strategy);
+
+        if (strategy.includes('spread') && !isCalendarLike && !(definedWidth > 0)) {
+            return {
+                type: 'unsupported',
+                reason: 'Add the defined risk width to visualize this spread.'
+            };
+        }
+
+        if (definedWidth > 0 && optionType && strategy.includes('spread') && !isCalendarLike) {
+            const orientation = strategy.includes('short') || strategy.includes('credit') || this.inferTradeDirection(trade) === 'short'
+                ? 'short'
+                : 'long';
+            return {
+                type: 'vertical',
+                optionType,
+                orientation,
+                width: Number(definedWidth),
+                strategy
+            };
+        }
+
+        if (isComplex) {
+            return {
+                type: 'unsupported',
+                reason: 'Visualization for multi-leg strategies such as condors, straddles, or ratios is coming soon.'
+            };
+        }
+
+        if (!optionType) {
+            return {
+                type: 'unsupported',
+                reason: 'Unable to infer option type from the strategy name.'
+            };
+        }
+
+        const direction = this.inferTradeDirection(trade) === 'short' ? 'short' : 'long';
+
+        return {
+            type: 'single',
+            optionType,
+            direction,
+            strategy
+        };
+    }
+
+    calculateSingleLegSeries(trade, model) {
+        const strike = Number(trade.strikePrice);
+        const premium = Number(trade.entryPrice);
+        const fees = Number(trade.fees) || 0;
+        const quantity = Math.abs(Number(trade.quantity) || 1);
+        const spot = Number(trade.stockPriceAtEntry);
+
+        if (!Number.isFinite(strike) || !Number.isFinite(premium)) {
+            return {
+                message: 'Provide both a strike price and entry price to view this payoff.'
+            };
+        }
+
+        const priceRange = this.buildPriceRange({ strikeValues: [strike], spot });
+        const multiplier = quantity * 100;
+        const steps = 40;
+        const points = [];
+
+        for (let i = 0; i <= steps; i++) {
+            const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
+            const intrinsic = this.optionIntrinsic(model.optionType, price, strike);
+            const payoffPerShare = model.direction === 'long'
+                ? intrinsic - premium
+                : premium - intrinsic;
+            const payoff = payoffPerShare * multiplier - fees;
+            points.push({
+                x: parseFloat(price.toFixed(2)),
+                y: parseFloat(payoff.toFixed(2))
+            });
+        }
+
+        const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+
+        const breakeven = model.optionType === 'call'
+            ? strike + premium
+            : strike - premium;
+
+        const premiumValue = premium * multiplier;
+        let maxProfit;
+        let maxLoss;
+        if (model.direction === 'long') {
+            if (model.optionType === 'call') {
+                maxProfit = Infinity;
+            } else {
+                maxProfit = Math.max((strike - premium) * multiplier - fees, 0);
+            }
+            maxLoss = premiumValue + fees;
+        } else {
+            maxProfit = Math.max(premiumValue - fees, 0);
+            if (model.optionType === 'call') {
+                maxLoss = Infinity;
+            } else {
+                maxLoss = Math.max((strike - premium) * multiplier + fees, 0);
+            }
+        }
+
+        const summary = this.buildPayoffSummary({
+            profileLabel: `${model.direction === 'short' ? 'Short' : 'Long'} ${model.optionType.toUpperCase()}`,
+            breakeven,
+            maxProfit,
+            maxLoss,
+            contracts: quantity,
+            isCredit: model.direction === 'short'
+        });
+
+        return {
+            points,
+            zeroLinePoints,
+            summary,
+            breakeven,
+            maxProfit,
+            maxLoss
+        };
+    }
+
+    calculateVerticalSpreadSeries(trade, model) {
+        const primaryStrike = Number(trade.strikePrice);
+        const entryPrice = Number(trade.entryPrice);
+        const fees = Number(trade.fees) || 0;
+        const quantity = Math.abs(Number(trade.quantity) || 1);
+        const spot = Number(trade.stockPriceAtEntry);
+
+        if (!Number.isFinite(primaryStrike) || !Number.isFinite(entryPrice)) {
+            return {
+                message: 'Provide strike and entry price to view this spread payoff.'
+            };
+        }
+
+        if (!(model.width > 0)) {
+            return {
+                message: 'Add the defined risk width to visualize this spread.'
+            };
+        }
+
+        let shortStrike;
+        let longStrike;
+        if (model.optionType === 'call') {
+            if (model.orientation === 'short') {
+                shortStrike = primaryStrike;
+                longStrike = primaryStrike + model.width;
+            } else {
+                longStrike = primaryStrike;
+                shortStrike = primaryStrike + model.width;
+            }
+        } else {
+            if (model.orientation === 'short') {
+                shortStrike = primaryStrike;
+                longStrike = primaryStrike - model.width;
+            } else {
+                longStrike = primaryStrike;
+                shortStrike = primaryStrike - model.width;
+            }
+        }
+
+        if (!Number.isFinite(shortStrike) || !Number.isFinite(longStrike)) {
+            return {
+                message: 'Unable to determine both strikes for this spread.'
+            };
+        }
+
+        const priceRange = this.buildPriceRange({ strikeValues: [shortStrike, longStrike], spot });
+        const multiplier = quantity * 100;
+        const steps = 40;
+        const points = [];
+
+        for (let i = 0; i <= steps; i++) {
+            const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
+            const intrinsicShort = this.optionIntrinsic(model.optionType, price, shortStrike);
+            const intrinsicLong = this.optionIntrinsic(model.optionType, price, longStrike);
+            const payoffPerShare = model.orientation === 'short'
+                ? entryPrice - (intrinsicShort - intrinsicLong)
+                : (intrinsicLong - intrinsicShort) - entryPrice;
+            const payoff = payoffPerShare * multiplier - fees;
+            points.push({
+                x: parseFloat(price.toFixed(2)),
+                y: parseFloat(payoff.toFixed(2))
+            });
+        }
+
+        const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+
+        const breakeven = this.calculateSpreadBreakeven({
+            model,
+            shortStrike,
+            longStrike,
+            entryPrice
+        });
+
+        const widthPerShare = Math.abs(shortStrike - longStrike);
+        const widthValue = widthPerShare * multiplier;
+        const entryValue = entryPrice * multiplier;
+
+        let maxProfit;
+        let maxLoss;
+        if (model.orientation === 'short') {
+            maxProfit = Math.max(entryValue - fees, 0);
+            maxLoss = Math.max(widthValue - entryValue, 0) + fees;
+        } else {
+            maxProfit = Math.max(Math.max(widthValue - entryValue, 0) - fees, 0);
+            maxLoss = entryValue + fees;
+        }
+
+        const summary = this.buildPayoffSummary({
+            profileLabel: `${model.orientation === 'short' ? 'Short' : 'Long'} ${model.optionType === 'call' ? 'Call' : 'Put'} Spread`,
+            breakeven,
+            maxProfit,
+            maxLoss,
+            contracts: quantity,
+            isCredit: model.orientation === 'short'
+        });
+
+        return {
+            points,
+            zeroLinePoints,
+            summary,
+            breakeven,
+            maxProfit,
+            maxLoss
+        };
+    }
+
+    calculateCoveredCallSeries(trade) {
+        const strike = Number(trade.strikePrice);
+        const premium = Number(trade.entryPrice);
+        const stockEntry = Number(trade.stockPriceAtEntry);
+        const fees = Number(trade.fees) || 0;
+        const quantity = Math.abs(Number(trade.quantity) || 1);
+
+        if (!Number.isFinite(strike) || !Number.isFinite(premium) || !Number.isFinite(stockEntry)) {
+            return {
+                message: 'Covered call payoff requires strike, option premium, and stock cost basis.'
+            };
+        }
+
+        const priceRange = this.buildPriceRange({ strikeValues: [strike, stockEntry], spot: stockEntry });
+        const multiplier = quantity * 100;
+        const steps = 40;
+        const points = [];
+
+        for (let i = 0; i <= steps; i++) {
+            const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
+            const stockPnLPerShare = price - stockEntry;
+            const optionPnLPerShare = premium - this.optionIntrinsic('call', price, strike);
+            const payoff = (stockPnLPerShare + optionPnLPerShare) * multiplier - fees;
+            points.push({
+                x: parseFloat(price.toFixed(2)),
+                y: parseFloat(payoff.toFixed(2))
+            });
+        }
+
+        const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+
+        const breakeven = stockEntry - premium;
+        const maxProfit = Math.max(((strike - stockEntry) + premium) * multiplier - fees, 0);
+        const maxLoss = Math.max((stockEntry - premium) * multiplier + fees, 0);
+
+        const summary = this.buildPayoffSummary({
+            profileLabel: 'Covered Call (Stock + Short Call)',
+            breakeven,
+            maxProfit,
+            maxLoss,
+            contracts: quantity,
+            isCredit: true
+        });
+
+        return {
+            points,
+            zeroLinePoints,
+            summary,
+            breakeven,
+            maxProfit,
+            maxLoss
+        };
+    }
+
+    calculatePmccSeries(trade, model) {
+        const baseLeg = model.baseLeg;
+        if (!baseLeg) {
+            return {
+                message: 'Add the PMCC base leg to visualize this payoff.'
+            };
+        }
+
+        const baseStrike = Number(baseLeg.strikePrice);
+        const basePremium = Number(baseLeg.entryPrice);
+        const baseFees = Number(baseLeg.fees) || 0;
+        const baseQuantity = Math.abs(Number(baseLeg.quantity) || 1);
+
+        if (!Number.isFinite(baseStrike) || !Number.isFinite(basePremium)) {
+            return {
+                message: 'Provide strike and entry price for the PMCC base leg to view this payoff.'
+            };
+        }
+
+        const shortLeg = model.shortLeg;
+        const shortStrike = Number(shortLeg?.strikePrice);
+        const shortPremium = Number(shortLeg?.entryPrice);
+        const shortFees = Number(shortLeg?.fees) || 0;
+        const shortQuantity = Math.abs(Number(shortLeg?.quantity) || 0);
+        const shortDirection = shortLeg ? this.inferTradeDirection(shortLeg) : null;
+
+        const strikeValues = [baseStrike];
+        if (Number.isFinite(shortStrike)) {
+            strikeValues.push(shortStrike);
+        }
+
+        const spotFallback = this.getFallbackUnderlyingPrice(baseLeg)
+            ?? (shortLeg ? this.getFallbackUnderlyingPrice(shortLeg) : null)
+            ?? Number(baseLeg.stockPriceAtEntry);
+        const priceRange = this.buildPriceRange({
+            strikeValues,
+            spot: Number.isFinite(spotFallback) ? spotFallback : Number.NaN
+        });
+
+        const steps = 80;
+        const longMultiplier = baseQuantity * 100;
+        const shortMultiplier = shortQuantity > 0 ? shortQuantity * 100 : longMultiplier;
+
+        const points = [];
+        for (let i = 0; i <= steps; i++) {
+            const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
+            const longIntrinsic = Math.max(price - baseStrike, 0);
+            const longPayoff = (longIntrinsic - basePremium) * longMultiplier - baseFees;
+
+            let shortPayoff = 0;
+            if (shortLeg && Number.isFinite(shortStrike) && Number.isFinite(shortPremium)) {
+                const shortIntrinsic = Math.max(price - shortStrike, 0);
+                const shortPerShare = shortDirection === 'short'
+                    ? shortPremium - shortIntrinsic
+                    : shortIntrinsic - shortPremium;
+                shortPayoff = shortPerShare * shortMultiplier - shortFees;
+            }
+
+            const totalPayoff = longPayoff + shortPayoff;
+            points.push({
+                x: parseFloat(price.toFixed(2)),
+                y: parseFloat(totalPayoff.toFixed(2))
+            });
+        }
+
+        const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+
+        const baseCost = (basePremium * longMultiplier) + baseFees;
+        let shortCredit = 0;
+        if (shortLeg && Number.isFinite(shortPremium)) {
+            if (shortDirection === 'short') {
+                shortCredit = (shortPremium * shortMultiplier) - shortFees;
+            } else {
+                shortCredit = -((shortPremium * shortMultiplier) + shortFees);
+            }
+        }
+
+        const netOutlay = baseCost - shortCredit;
+        const perShareOutlay = longMultiplier > 0 ? netOutlay / longMultiplier : 0;
+        const breakeven = Number.isFinite(perShareOutlay)
+            ? baseStrike + perShareOutlay
+            : null;
+
+        let maxProfit = Infinity;
+        if (shortLeg && Number.isFinite(shortStrike) && shortDirection === 'short') {
+            const sharedContracts = Math.max(Math.min(baseQuantity, shortQuantity), 0);
+            if (sharedContracts > 0) {
+                const spreadWidth = shortStrike - baseStrike;
+                if (Number.isFinite(spreadWidth)) {
+                    maxProfit = (spreadWidth * 100 * sharedContracts) - netOutlay;
+                }
+            }
+        }
+
+        const maxLoss = netOutlay > 0 ? netOutlay : 0;
+
+        const summary = this.buildPayoffSummary({
+            profileLabel: "Poor Man's Covered Call",
+            breakeven,
+            maxProfit,
+            maxLoss,
+            contracts: baseQuantity,
+            isCredit: netOutlay < 0
+        });
+
+        return {
+            points,
+            zeroLinePoints,
+            summary,
+            breakeven,
+            maxProfit,
+            maxLoss
+        };
+    }
+
+    calculateSpreadBreakeven({ model, shortStrike, longStrike, entryPrice }) {
+        if (model.orientation === 'short') {
+            return model.optionType === 'call'
+                ? shortStrike + entryPrice
+                : shortStrike - entryPrice;
+        }
+
+        return model.optionType === 'call'
+            ? longStrike + entryPrice
+            : longStrike - entryPrice;
+    }
+
+    optionIntrinsic(optionType, price, strike) {
+        if (!Number.isFinite(price) || !Number.isFinite(strike)) {
+            return 0;
+        }
+        if (optionType === 'call') {
+            return Math.max(price - strike, 0);
+        }
+        return Math.max(strike - price, 0);
+    }
+
+    extractPmccLegs(trade = {}) {
+        const normalizeTicker = (value) => (value || '').toString().trim().toUpperCase();
+        const cycleId = this.normalizeCycleId(trade.cycleId);
+        let candidates = [];
+
+        if (cycleId) {
+            candidates = this.trades.filter(item => this.normalizeCycleId(item.cycleId) === cycleId);
+        }
+
+        if (candidates.length === 0) {
+            const ticker = normalizeTicker(trade.ticker);
+            if (ticker) {
+                candidates = this.trades.filter(item => normalizeTicker(item.ticker) === ticker && this.normalizeCycleType(item.cycleType, item.strategy) === 'pmcc');
+            }
+        }
+
+        if (!candidates.includes(trade)) {
+            candidates.push(trade);
+        }
+
+        const sortCandidates = (items = []) => {
+            return [...items].sort((a, b) => {
+                const statusA = this.normalizeStatus(a.status);
+                const statusB = this.normalizeStatus(b.status);
+                if (statusA === 'open' && statusB !== 'open') return -1;
+                if (statusA !== 'open' && statusB === 'open') return 1;
+                const dateA = new Date(a.entryDate || a.openDate || 0).getTime();
+                const dateB = new Date(b.entryDate || b.openDate || 0).getTime();
+                return dateB - dateA;
+            });
+        };
+
+        const baseCandidates = sortCandidates(candidates.filter(item => this.isPmccBaseLeg(item)));
+        let baseLeg = baseCandidates[0];
+        if (!baseLeg) {
+            const fallbackBase = sortCandidates(candidates.filter(item => this.inferTradeDirection(item) === 'long' && (item.strategy || '').toLowerCase().includes('call')));
+            baseLeg = fallbackBase[0] || (this.inferTradeDirection(trade) === 'long' ? trade : null);
+        }
+
+        const shortCandidates = sortCandidates(candidates.filter(item => this.isPmccShortCall(item)));
+        let shortLeg = shortCandidates[0];
+        if (!shortLeg) {
+            const fallbackShort = sortCandidates(candidates.filter(item => this.inferTradeDirection(item) === 'short' && (item.strategy || '').toLowerCase().includes('call')));
+            shortLeg = fallbackShort[0] || (this.inferTradeDirection(trade) === 'short' ? trade : null);
+        }
+
+        if (baseLeg && shortLeg && baseLeg === shortLeg) {
+            shortLeg = null;
+        }
+
+        return { baseLeg, shortLeg };
+    }
+
+    buildPriceRange({ strikeValues = [], spot = Number.NaN } = {}) {
+        const values = strikeValues
+            .map(value => Number(value))
+            .filter(Number.isFinite);
+
+        if (Number.isFinite(spot)) {
+            values.push(spot);
+        }
+
+        if (values.length === 0) {
+            return { minPrice: 0, maxPrice: 100 };
+        }
+
+        let minPrice = Math.max(Math.min(...values), 0);
+        let maxPrice = Math.max(...values);
+
+        if (minPrice === maxPrice) {
+            minPrice = Math.max(0, minPrice * 0.7);
+            maxPrice = maxPrice * 1.3 + 1;
+        } else {
+            const span = maxPrice - minPrice;
+            minPrice = Math.max(0, minPrice - span * 0.3);
+            maxPrice = maxPrice + span * 0.3;
+        }
+
+        if (maxPrice - minPrice < 5) {
+            minPrice = Math.max(0, minPrice - 2.5);
+            maxPrice = maxPrice + 2.5;
+        }
+
+        return { minPrice, maxPrice };
+    }
+
+    buildPayoffSummary({ profileLabel, breakeven, maxProfit, maxLoss, contracts, isCredit = false }) {
+        const parts = [];
+        if (profileLabel) {
+            parts.push(profileLabel);
+        }
+        if (Number.isFinite(breakeven)) {
+            parts.push(`Breakeven ${this.formatCurrency(breakeven)}`);
+        }
+        if (maxProfit === Infinity) {
+            parts.push('Max profit unlimited');
+        } else if (Number.isFinite(maxProfit)) {
+            parts.push(`Max profit ${this.formatCurrency(maxProfit)}`);
+        }
+        if (maxLoss === Infinity) {
+            parts.push('Max loss unlimited (theoretical)');
+        } else if (Number.isFinite(maxLoss)) {
+            parts.push(`Max loss ${this.formatCurrency(maxLoss)}`);
+        }
+        if (Number.isFinite(contracts)) {
+            parts.push(`${contracts} contract${contracts === 1 ? '' : 's'}${isCredit ? ' (credit)' : ''}`);
+        }
+        return parts.join(' • ') || 'Payoff preview unavailable.';
+    }
+
+    formatPayoffFooter(payoff, formatter) {
+        const formatValue = (value) => {
+            if (value === Infinity || value === -Infinity) {
+                return 'Unlimited';
+            }
+            if (Number.isFinite(value)) {
+                return formatter.format(value);
+            }
+            return '—';
+        };
+
+        const maxProfitText = `Max profit ${formatValue(payoff?.maxProfit)}`;
+        const maxLossText = `Max loss ${formatValue(payoff?.maxLoss)}`;
+        const breakevenText = `Breakeven ${formatValue(payoff?.breakeven)}`;
+
+        return [maxProfitText, maxLossText, breakevenText].join(' • ');
+    }
+
+    getTradePayoffMeta(trade) {
+        const strategy = (trade.strategy || 'Unspecified strategy').toString();
+        const tradeType = this.getTradeType(trade) || '—';
+        const status = this.getDisplayStatus(trade);
+        const qtyRaw = Math.abs(Number(trade.quantity));
+        const quantity = Number.isFinite(qtyRaw) && qtyRaw > 0 ? `${qtyRaw} contract${qtyRaw === 1 ? '' : 's'}` : null;
+
+        return [strategy, tradeType, quantity, status]
+            .filter(Boolean)
+            .join(' • ');
     }
 
     sortTrades(sortBy) {

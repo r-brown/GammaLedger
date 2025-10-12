@@ -1162,6 +1162,72 @@ select.form-control {
   color: var(--color-text);
 }
 
+.trade-detail-row {
+  display: none;
+  background-color: var(--color-surface);
+}
+
+.trade-summary-row {
+  cursor: pointer;
+}
+
+.trade-summary-row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.trade-detail-row.is-open {
+  display: table-row;
+}
+
+.trade-detail-row td {
+  padding: var(--space-20);
+  border-top: 1px solid var(--color-card-border);
+}
+
+.trade-diagram {
+  display: grid;
+  gap: var(--space-16);
+}
+
+.trade-diagram__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-8);
+}
+
+.trade-diagram__title {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+}
+
+.trade-diagram__meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.trade-diagram__canvas {
+  position: relative;
+  min-height: clamp(80px, 14vw, 120px);
+}
+
+.trade-diagram__canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.trade-diagram__canvas--empty {
+  min-height: auto;
+}
+
+.trade-diagram__footnote {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+}
+
 /* Greeks Section */
 .greeks-section {
   margin-bottom: var(--space-32);
@@ -1970,6 +2036,15 @@ tr.position-itm.position-expiring-critical td {
 
 .action-btn--delete:hover {
   background-color: rgba(var(--color-error-rgb), 0.1);
+}
+
+.action-btn--expand {
+  background-color: var(--color-secondary);
+  color: var(--color-text);
+}
+
+.action-btn--expand:hover {
+  background-color: var(--color-secondary-hover);
 }
 
 /* Conviction level display */
