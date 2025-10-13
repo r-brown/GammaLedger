@@ -3659,7 +3659,7 @@ class OptionsTrackerPro {
                 fill: 'origin',
                 pointRadius: 0,
                 pointHitRadius: 0,
-                tension: 0.25,
+                tension: 0,
                 order: 1,
                 spanGaps: true,
                 showLine: true
@@ -3676,7 +3676,7 @@ class OptionsTrackerPro {
                 fill: 'origin',
                 pointRadius: 0,
                 pointHitRadius: 0,
-                tension: 0.25,
+                tension: 0,
                 order: 1,
                 spanGaps: true,
                 showLine: true
@@ -3688,7 +3688,7 @@ class OptionsTrackerPro {
                 borderColor: profitColor,
                 hoverBorderColor: profitColor,
                 hoverBorderWidth: 2,
-                tension: 0.25,
+                tension: 0,
                 pointRadius: 0,
                 pointHoverRadius: 0,
                 borderWidth: 2,
