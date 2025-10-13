@@ -46,7 +46,7 @@ class OptionsTrackerPro {
             cacheTTL: 1000 * 60, // 1 minute
             outstandingRequests: new Map(),
             rateLimitQueue: Promise.resolve(),
-            maxRequestsPerMinute: 55,
+            maxRequestsPerMinute: 60,
             timestamps: [],
             statusTimeoutId: null,
             lastStatus: null,
@@ -95,7 +95,7 @@ class OptionsTrackerPro {
         computeAutoRefreshInterval() {
             const limit = Number(this.finnhub?.maxRequestsPerMinute) || 60;
             const safeLimit = Math.min(Math.max(limit - 2, 1), 60);
-            return Math.max(800, Math.ceil(60_000 / safeLimit));
+            return Math.max(800, Math.ceil(120_000 / safeLimit));
         }
 
         areGreeksEnabled() {
