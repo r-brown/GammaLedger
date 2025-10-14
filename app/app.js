@@ -25,6 +25,534 @@ const LONG_STRATEGY_PATTERNS = [
     'debit spread'
 ];
 
+const LOCAL_STORAGE_KEY = 'optionsTrackerProCache';
+const LEGACY_STORAGE_KEY = 'optionsTrackerProTrades';
+
+const BUILTIN_SAMPLE_DATA = {
+    trades: [
+        {
+            ticker: 'AAPL',
+            strategy: 'Long Call',
+            tradeType: 'BTO',
+            quantity: 1,
+            entryDate: '2025-02-20',
+            expirationDate: '2025-04-19',
+            exitDate: '2025-03-12',
+            status: 'Closed',
+            stockPriceAtEntry: 175.6,
+            strikePrice: 175,
+            entryPrice: 1.45,
+            exitPrice: 2.89,
+            fees: 1,
+            ivRank: 32,
+            delta: 28.5,
+            gamma: null,
+            theta: -0.04,
+            vega: 0.15,
+            marketCondition: 'Bullish',
+            convictionLevel: 7,
+            notes: 'Breakout continuation',
+            exitReason: 'Profit target reached',
+            id: 1001,
+            tradeDirection: 'long',
+            daysHeld: 21,
+            dte: 38,
+            pl: 144,
+            roi: 98.63,
+            annualizedROI: 512.4,
+            maxRisk: 146,
+            cycleId: '',
+            cycleType: '',
+            cycleRole: '',
+            definedRiskWidth: null,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'MSFT',
+            strategy: 'Covered Call',
+            tradeType: 'STO',
+            quantity: -1,
+            entryDate: '2025-03-24',
+            expirationDate: '2025-05-16',
+            exitDate: '2025-04-18',
+            status: 'Closed',
+            stockPriceAtEntry: 318.2,
+            strikePrice: 325,
+            entryPrice: 1.95,
+            exitPrice: 0.45,
+            fees: 1.5,
+            ivRank: 27,
+            delta: -14,
+            gamma: null,
+            theta: 0.02,
+            vega: null,
+            marketCondition: 'Neutral',
+            convictionLevel: 5,
+            notes: 'Rolled after earnings',
+            exitReason: 'Profit target reached',
+            id: 1002,
+            tradeDirection: 'short',
+            daysHeld: 25,
+            dte: 28,
+            pl: 148.5,
+            roi: 39.23,
+            annualizedROI: 286.7,
+            maxRisk: 81.6,
+            cycleId: '',
+            cycleType: '',
+            cycleRole: '',
+            definedRiskWidth: null,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'SPY',
+            strategy: 'Bull Put Spread',
+            tradeType: 'BTO',
+            quantity: 1,
+            entryDate: '2025-04-22',
+            expirationDate: '2025-05-31',
+            exitDate: '2025-05-18',
+            status: 'Closed',
+            stockPriceAtEntry: 507.4,
+            strikePrice: 500,
+            entryPrice: 1.95,
+            exitPrice: 0.5,
+            fees: 1.1,
+            ivRank: 25,
+            delta: 16.2,
+            gamma: null,
+            theta: 0.06,
+            vega: 0.12,
+            marketCondition: 'Bullish',
+            convictionLevel: 6,
+            notes: 'Bounce off 50-day moving average',
+            exitReason: 'Hit 70% max profit',
+            id: 1011,
+            tradeDirection: 'long',
+            daysHeld: 26,
+            dte: 13,
+            pl: 144,
+            roi: 73.85,
+            annualizedROI: 411.2,
+            maxRisk: 195,
+            cycleId: 'SPY-2025-05',
+            cycleType: 'defined-risk',
+            cycleRole: 'primary',
+            definedRiskWidth: 5,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'META',
+            strategy: 'Iron Condor',
+            tradeType: 'BTO',
+            quantity: 1,
+            entryDate: '2025-05-28',
+            expirationDate: '2025-06-28',
+            exitDate: '2025-06-21',
+            status: 'Closed',
+            stockPriceAtEntry: 301.7,
+            strikePrice: 300,
+            entryPrice: 2.35,
+            exitPrice: 0.85,
+            fees: 1.3,
+            ivRank: 41,
+            delta: 2.8,
+            gamma: null,
+            theta: 0.11,
+            vega: -0.05,
+            marketCondition: 'Neutral',
+            convictionLevel: 5,
+            notes: 'Captured IV crush into FOMC week',
+            exitReason: '50% max profit',
+            id: 1006,
+            tradeDirection: 'long',
+            daysHeld: 24,
+            dte: 7,
+            pl: 148.7,
+            roi: 42.48,
+            annualizedROI: 532.1,
+            maxRisk: 350,
+            cycleId: 'META-2025-06',
+            cycleType: 'iron-condor',
+            cycleRole: 'primary',
+            definedRiskWidth: 10,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'DIS',
+            strategy: 'Cash-Secured Put',
+            tradeType: 'STO',
+            quantity: -1,
+            entryDate: '2025-06-24',
+            expirationDate: '2025-07-19',
+            exitDate: '2025-07-18',
+            status: 'Closed',
+            stockPriceAtEntry: 101.6,
+            strikePrice: 100,
+            entryPrice: 2.3,
+            exitPrice: 0.35,
+            fees: 0.85,
+            ivRank: 38,
+            delta: -24.1,
+            gamma: null,
+            theta: 0.08,
+            vega: null,
+            marketCondition: 'Neutral',
+            convictionLevel: 6,
+            notes: 'Earnings gap fill support held',
+            exitReason: 'Premium decay captured',
+            id: 1012,
+            tradeDirection: 'short',
+            daysHeld: 24,
+            dte: 1,
+            pl: 194.15,
+            roi: 1.99,
+            annualizedROI: 30.3,
+            maxRisk: 9770,
+            cycleId: 'DIS-2025-07',
+            cycleType: 'wheel',
+            cycleRole: 'wheel-put',
+            definedRiskWidth: null,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'SMH',
+            strategy: 'Bear Call Spread',
+            tradeType: 'STO',
+            quantity: -1,
+            entryDate: '2025-07-22',
+            expirationDate: '2025-08-23',
+            exitDate: '2025-08-16',
+            status: 'Closed',
+            stockPriceAtEntry: 250.1,
+            strikePrice: 255,
+            entryPrice: 2.1,
+            exitPrice: 0.6,
+            fees: 1.1,
+            ivRank: 47,
+            delta: -18.7,
+            gamma: null,
+            theta: 0.05,
+            vega: -0.14,
+            marketCondition: 'Bearish',
+            convictionLevel: 5,
+            notes: 'Rejected weekly resistance',
+            exitReason: '90% max profit captured',
+            id: 1013,
+            tradeDirection: 'short',
+            daysHeld: 25,
+            dte: 7,
+            pl: 148.9,
+            roi: 70.9,
+            annualizedROI: 413.4,
+            maxRisk: 210,
+            cycleId: 'SMH-2025-08',
+            cycleType: 'defined-risk',
+            cycleRole: 'hedge',
+            definedRiskWidth: 5,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'AVGO',
+            strategy: 'Covered Call',
+            tradeType: 'STO',
+            quantity: -1,
+            entryDate: '2025-08-26',
+            expirationDate: '2025-09-20',
+            exitDate: '2025-09-19',
+            status: 'Closed',
+            stockPriceAtEntry: 950.7,
+            strikePrice: 980,
+            entryPrice: 6.8,
+            exitPrice: 1.1,
+            fees: 1.75,
+            ivRank: 29,
+            delta: -22.4,
+            gamma: null,
+            theta: 0.04,
+            vega: -0.12,
+            marketCondition: 'Neutral',
+            convictionLevel: 6,
+            notes: 'Monthly income against core holding',
+            exitReason: 'Roll candidate after profit',
+            id: 1014,
+            tradeDirection: 'short',
+            daysHeld: 24,
+            dte: 1,
+            pl: 489.25,
+            roi: 35.75,
+            annualizedROI: 544.1,
+            maxRisk: 0,
+            cycleId: 'AVGO-2025-09',
+            cycleType: 'covered',
+            cycleRole: 'income',
+            definedRiskWidth: null,
+            maxRiskOverride: 95000
+        },
+        {
+            ticker: 'TSLA',
+            strategy: 'Cash-Secured Put',
+            tradeType: 'STO',
+            quantity: -1,
+            entryDate: '2025-09-15',
+            expirationDate: '2025-10-17',
+            exitDate: null,
+            status: 'Open',
+            stockPriceAtEntry: 260.5,
+            strikePrice: 250,
+            entryPrice: 3.4,
+            exitPrice: null,
+            fees: 0.75,
+            ivRank: 60,
+            delta: -28.1,
+            gamma: null,
+            theta: 0.05,
+            vega: null,
+            marketCondition: 'Neutral',
+            convictionLevel: 6,
+            notes: 'Prefer assignment for long-term hold',
+            exitReason: null,
+            id: 1003,
+            tradeDirection: 'short',
+            daysHeld: 10,
+            dte: 32,
+            pl: 0,
+            roi: 0,
+            annualizedROI: 0,
+            maxRisk: 2466,
+            cycleId: 'TSLA-2025-10',
+            cycleType: 'wheel',
+            cycleRole: 'wheel-put',
+            definedRiskWidth: null,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'AMZN',
+            strategy: 'Short Put Spread',
+            tradeType: 'BTO',
+            quantity: 1,
+            entryDate: '2025-09-05',
+            expirationDate: '2025-10-11',
+            exitDate: null,
+            status: 'Open',
+            stockPriceAtEntry: 138.2,
+            strikePrice: 134,
+            entryPrice: 1.1,
+            exitPrice: null,
+            fees: 1.05,
+            ivRank: 48,
+            delta: 18.7,
+            gamma: null,
+            theta: 0.04,
+            vega: 0.15,
+            marketCondition: 'Bullish',
+            convictionLevel: 6,
+            notes: 'High IV setup',
+            exitReason: null,
+            id: 1004,
+            tradeDirection: 'long',
+            daysHeld: 5,
+            dte: 15,
+            pl: 0,
+            roi: 0,
+            annualizedROI: 0,
+            maxRisk: 390,
+            cycleId: 'AMZN-2025-10',
+            cycleType: 'defined-risk',
+            cycleRole: 'base',
+            definedRiskWidth: 5,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'NVDA',
+            strategy: "Poor Man's Covered Call",
+            tradeType: 'BTO',
+            quantity: 1,
+            entryDate: '2025-06-20',
+            expirationDate: '2026-01-17',
+            exitDate: null,
+            status: 'Open',
+            stockPriceAtEntry: 440,
+            strikePrice: 400,
+            entryPrice: 38.6,
+            exitPrice: null,
+            fees: 1.25,
+            ivRank: 52,
+            delta: 62,
+            gamma: null,
+            theta: -0.08,
+            vega: 0.4,
+            marketCondition: 'Bullish',
+            convictionLevel: 8,
+            notes: 'Synthetic stock core position',
+            exitReason: null,
+            id: 1005,
+            tradeDirection: 'long',
+            daysHeld: 110,
+            dte: 99,
+            pl: 0,
+            roi: 0,
+            annualizedROI: 0,
+            maxRisk: 3860,
+            cycleId: 'NVDA-2026-01',
+            cycleType: 'pmcc',
+            cycleRole: 'base',
+            definedRiskWidth: null,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'GOOG',
+            strategy: 'Diagonal Call Spread',
+            tradeType: 'BTO',
+            quantity: 1,
+            entryDate: '2025-07-30',
+            expirationDate: '2025-11-15',
+            exitDate: null,
+            status: 'Open',
+            stockPriceAtEntry: 132.5,
+            strikePrice: 133,
+            entryPrice: 4.6,
+            exitPrice: null,
+            fees: 1.1,
+            ivRank: 30,
+            delta: 35.4,
+            gamma: null,
+            theta: 0.07,
+            vega: 0.21,
+            marketCondition: 'Neutral',
+            convictionLevel: 6,
+            notes: 'Diagonal with short weekly calls',
+            exitReason: null,
+            id: 1007,
+            tradeDirection: 'long',
+            daysHeld: 70,
+            dte: 45,
+            pl: 0,
+            roi: 0,
+            annualizedROI: 0,
+            maxRisk: 460,
+            cycleId: 'GOOG-2025-11',
+            cycleType: 'diagonal',
+            cycleRole: 'long-leg',
+            definedRiskWidth: null,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'AMD',
+            strategy: 'Short Call',
+            tradeType: 'STO',
+            quantity: -1,
+            entryDate: '2025-09-12',
+            expirationDate: '2025-09-27',
+            exitDate: null,
+            status: 'Open',
+            stockPriceAtEntry: 108.3,
+            strikePrice: 115,
+            entryPrice: 1.45,
+            exitPrice: null,
+            fees: 0.9,
+            ivRank: 55,
+            delta: -20.6,
+            gamma: null,
+            theta: 0.06,
+            vega: -0.18,
+            marketCondition: 'Bearish',
+            convictionLevel: 5,
+            notes: 'Overbought daily chart',
+            exitReason: null,
+            id: 1008,
+            tradeDirection: 'short',
+            daysHeld: 4,
+            dte: 14,
+            pl: 0,
+            roi: 0,
+            annualizedROI: 0,
+            maxRisk: 0,
+            cycleId: 'AMD-2025-09',
+            cycleType: 'short-call',
+            cycleRole: 'overlay',
+            definedRiskWidth: null,
+            maxRiskOverride: 1000
+        },
+        {
+            ticker: 'NFLX',
+            strategy: 'Strangle',
+            tradeType: 'BTO',
+            quantity: 1,
+            entryDate: '2025-09-18',
+            expirationDate: '2025-10-18',
+            exitDate: null,
+            status: 'Open',
+            stockPriceAtEntry: 405.4,
+            strikePrice: 400,
+            entryPrice: 6.8,
+            exitPrice: null,
+            fees: 1.35,
+            ivRank: 58,
+            delta: 0,
+            gamma: null,
+            theta: -0.12,
+            vega: 0.45,
+            marketCondition: 'Volatile',
+            convictionLevel: 6,
+            notes: 'Pre-earnings volatility play',
+            exitReason: null,
+            id: 1009,
+            tradeDirection: 'long',
+            daysHeld: 1,
+            dte: 30,
+            pl: 0,
+            roi: 0,
+            annualizedROI: 0,
+            maxRisk: 680,
+            cycleId: 'NFLX-2025-10',
+            cycleType: 'strangle',
+            cycleRole: 'earnings',
+            definedRiskWidth: null,
+            maxRiskOverride: null
+        },
+        {
+            ticker: 'JPM',
+            strategy: 'Covered Call',
+            tradeType: 'STO',
+            quantity: -1,
+            entryDate: '2025-09-02',
+            expirationDate: '2025-10-04',
+            exitDate: null,
+            status: 'Open',
+            stockPriceAtEntry: 147.2,
+            strikePrice: 150,
+            entryPrice: 1.05,
+            exitPrice: null,
+            fees: 0.8,
+            ivRank: 22,
+            delta: -18,
+            gamma: null,
+            theta: 0.03,
+            vega: -0.09,
+            marketCondition: 'Neutral',
+            convictionLevel: 4,
+            notes: 'Monthly income trade',
+            exitReason: null,
+            id: 1010,
+            tradeDirection: 'short',
+            daysHeld: 8,
+            dte: 24,
+            pl: 0,
+            roi: 0,
+            annualizedROI: 0,
+            maxRisk: 0,
+            cycleId: 'JPM-2025-10',
+            cycleType: 'covered',
+            cycleRole: 'income',
+            definedRiskWidth: null,
+            maxRiskOverride: null
+        }
+    ],
+    exportDate: '2025-09-25T12:00:00.000Z',
+    version: '2.2'
+};
+
 class OptionsTrackerPro {
     constructor() {
         this.trades = [];
@@ -75,10 +603,13 @@ class OptionsTrackerPro {
     }
 
     async init() {
-        this.loadFromStorage();
+        await this.loadFromStorage();
         await this.loadFinnhubConfigFromStorage();
-        if (this.trades.length === 0) {
+        if (!this.trades || this.trades.length === 0) {
             await this.loadDefaultDatabase();
+        } else {
+            this.updateFileNameDisplay();
+            this.updateDashboard();
         }
         this.bindEvents();
         this.initializeFinnhubControls();
@@ -114,30 +645,16 @@ class OptionsTrackerPro {
 
     async loadDefaultDatabase() {
         try {
-            const response = await fetch('options_tracker.json', { cache: 'no-cache' });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+            if (!BUILTIN_SAMPLE_DATA || !Array.isArray(BUILTIN_SAMPLE_DATA.trades)) {
+                throw new Error('Built-in sample data unavailable.');
             }
 
-            const data = await response.json();
-            if (!data || !Array.isArray(data.trades)) {
-                throw new Error('Default database missing trades array');
-            }
-
-            this.trades = data.trades.map(trade => {
-                const normalized = { ...trade };
-                if (normalized.tradeReasoning && !normalized.notes) {
-                    normalized.notes = normalized.tradeReasoning;
-                }
-                delete normalized.tradeReasoning;
-                return this.enrichTradeData(normalized);
+            const data = JSON.parse(JSON.stringify(BUILTIN_SAMPLE_DATA));
+            this.processLoadedData(data, {
+                fileName: 'Sample Database (Built-in)',
+                source: 'default-sample'
             });
-
-            this.currentFileName = 'options_tracker.json';
             this.currentFileHandle = null;
-            this.hasUnsavedChanges = false;
-            this.updateUnsavedIndicator();
-            this.saveToStorage();
         } catch (error) {
             console.warn('Default database not loaded:', error);
             this.trades = [];
@@ -145,7 +662,9 @@ class OptionsTrackerPro {
             this.currentFileHandle = null;
             this.hasUnsavedChanges = false;
             this.updateUnsavedIndicator();
-            this.saveToStorage();
+            this.saveToStorage({ fileName: this.currentFileName });
+            this.updateFileNameDisplay();
+            this.updateDashboard();
         }
     }
 
@@ -4692,6 +5211,7 @@ class OptionsTrackerPro {
             this.hasUnsavedChanges = false;
             this.updateUnsavedIndicator();
             this.showNotification('Database saved successfully!', 'success');
+            this.saveToStorage({ fileName: this.currentFileName });
         } catch (error) {
             console.error('Save error:', error);
             if (error.name !== 'AbortError') {
@@ -4701,6 +5221,7 @@ class OptionsTrackerPro {
                     this.hasUnsavedChanges = false;
                     this.updateUnsavedIndicator();
                     this.showNotification('Database saved as download!', 'success');
+                    this.saveToStorage({ fileName: this.currentFileName });
                 } catch (fallbackError) {
                     this.showNotification('Failed to save database', 'error');
                 }
@@ -4787,10 +5308,8 @@ class OptionsTrackerPro {
         const text = await file.text();
         const data = JSON.parse(text);
 
-        this.processLoadedData(data);
+        this.processLoadedData(data, { fileName: fileHandle.name, source: 'file-open' });
         this.currentFileHandle = fileHandle;
-        this.currentFileName = fileHandle.name;
-        this.updateFileNameDisplay();
         this.showNotification(`Loaded ${this.trades.length} trades successfully!`, 'success');
     }
 
@@ -4803,9 +5322,7 @@ class OptionsTrackerPro {
                 reader.onload = (e) => {
                     try {
                         const data = JSON.parse(e.target.result);
-                        this.processLoadedData(data);
-                        this.currentFileName = file.name;
-                        this.updateFileNameDisplay();
+                        this.processLoadedData(data, { fileName: file.name, source: 'file-open' });
                         this.showNotification(`Loaded ${this.trades.length} trades successfully!`, 'success');
                     } catch (error) {
                         this.showNotification('Invalid JSON file', 'error');
@@ -4820,26 +5337,34 @@ class OptionsTrackerPro {
         fileInput.click();
     }
 
-    processLoadedData(data) {
-        if (data.trades && Array.isArray(data.trades)) {
-            this.trades = data.trades.map(trade => {
-                const updatedTrade = { ...trade };
-                if (updatedTrade.tradeReasoning && !updatedTrade.notes) {
-                    updatedTrade.notes = updatedTrade.tradeReasoning;
-                    delete updatedTrade.tradeReasoning;
-                }
-                return this.enrichTradeData(updatedTrade);
-            });
-            this.saveToStorage();
-            this.hasUnsavedChanges = false;
-            this.updateUnsavedIndicator();
-            this.updateDashboard();
-            if (this.currentView === 'trades-list') {
-                this.updateTradesList();
-            }
-        } else {
+    processLoadedData(data, metadata = {}) {
+        if (!data || !Array.isArray(data.trades)) {
             throw new Error('Invalid data format');
         }
+
+        this.trades = data.trades.map(trade => {
+            const updatedTrade = { ...trade };
+            if (updatedTrade.tradeReasoning && !updatedTrade.notes) {
+                updatedTrade.notes = updatedTrade.tradeReasoning;
+                delete updatedTrade.tradeReasoning;
+            }
+            return this.enrichTradeData(updatedTrade);
+        });
+
+        if (metadata.fileName) {
+            this.currentFileName = metadata.fileName;
+        } else if (!this.currentFileName) {
+            this.currentFileName = 'Unsaved Database';
+        }
+
+        this.hasUnsavedChanges = false;
+        this.updateUnsavedIndicator();
+        this.saveToStorage({ fileName: this.currentFileName, source: metadata.source || 'import' });
+        this.updateDashboard();
+        if (this.currentView === 'trades-list') {
+            this.updateTradesList();
+        }
+        this.updateFileNameDisplay();
     }
 
     newDatabase() {
@@ -4855,7 +5380,7 @@ class OptionsTrackerPro {
         this.hasUnsavedChanges = false;
         this.updateFileNameDisplay();
         this.updateUnsavedIndicator();
-        this.saveToStorage();
+        this.saveToStorage({ fileName: this.currentFileName });
         this.updateDashboard();
         this.showNotification('New database created', 'success');
     }
@@ -4909,19 +5434,49 @@ class OptionsTrackerPro {
         this.updateUnsavedIndicator();
     }
 
-    saveToStorage() {
+    saveToStorage(metadata = {}) {
         try {
-            localStorage.setItem('optionsTrackerProTrades', JSON.stringify(this.trades));
+            const payload = {
+                version: '2.2',
+                timestamp: new Date().toISOString(),
+                fileName: metadata.fileName || this.currentFileName || 'Unsaved Database',
+                trades: this.trades
+            };
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
+            localStorage.removeItem(LEGACY_STORAGE_KEY);
         } catch (e) {
             console.warn('Failed to save to localStorage:', e);
         }
     }
 
-    loadFromStorage() {
+    async loadFromStorage() {
         try {
-            const stored = localStorage.getItem('optionsTrackerProTrades');
+            const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
             if (stored) {
-                const parsedTrades = JSON.parse(stored);
+                const parsed = JSON.parse(stored);
+                if (parsed && Array.isArray(parsed.trades)) {
+                    this.trades = parsed.trades.map(trade => {
+                        const normalized = { ...trade };
+                        if (normalized.tradeReasoning && !normalized.notes) {
+                            normalized.notes = normalized.tradeReasoning;
+                        }
+                        delete normalized.tradeReasoning;
+                        return this.enrichTradeData(normalized);
+                    });
+                    if (parsed.fileName) {
+                        this.currentFileName = parsed.fileName;
+                    }
+                    this.hasUnsavedChanges = false;
+                    this.updateUnsavedIndicator();
+                    this.updateFileNameDisplay();
+                    this.updateDashboard();
+                    return true;
+                }
+            }
+
+            const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+            if (legacy) {
+                const parsedTrades = JSON.parse(legacy);
                 if (Array.isArray(parsedTrades)) {
                     this.trades = parsedTrades.map(trade => {
                         const normalized = { ...trade };
@@ -4931,11 +5486,20 @@ class OptionsTrackerPro {
                         delete normalized.tradeReasoning;
                         return this.enrichTradeData(normalized);
                     });
+                    this.currentFileName = 'Unsaved Database';
+                    this.hasUnsavedChanges = false;
+                    this.updateUnsavedIndicator();
+                    this.saveToStorage({ fileName: this.currentFileName });
+                    this.updateFileNameDisplay();
+                    this.updateDashboard();
+                    return true;
                 }
             }
         } catch (e) {
             console.warn('Failed to load from localStorage:', e);
         }
+
+        return false;
     }
 
     formatPercent(value, fallback = '—') {
