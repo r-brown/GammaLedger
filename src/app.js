@@ -1,4 +1,4 @@
-// Enhanced Options Trading Tracker Application
+// Options Trading Tracker Application
 const VALID_TRADE_TYPES = new Set(['BTO', 'STO', 'STC', 'BTC']);
 const SHORT_STRATEGY_PATTERNS = [
     'cash-secured put',
