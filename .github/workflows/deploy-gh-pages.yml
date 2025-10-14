@@ -20,7 +20,7 @@ jobs:
       - name: Deploy to gh-pages 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: .
+          folder: ./src
           branch: gh-pages
           target-folder: ./app
           clean: true
