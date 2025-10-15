@@ -6214,7 +6214,7 @@ class GammaLedger {
         try {
             if (!this.currentFileHandle) {
                 this.currentFileHandle = await window.showSaveFilePicker({
-                    suggestedName: 'options_tracker.json',
+                    suggestedName: 'gammaledger.json',
                     types: [{
                         description: 'JSON files',
                         accept: { 'application/json': ['.json'] }
@@ -6238,13 +6238,13 @@ class GammaLedger {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'options_tracker.json';
+        a.download = 'gammaledger.json';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        this.currentFileName = 'options_tracker.json';
+        this.currentFileName = 'gammaledger.json';
         this.updateFileNameDisplay();
     }
 
