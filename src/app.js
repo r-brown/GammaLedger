@@ -6829,13 +6829,16 @@ class GeminiInsightsAgent {
         const historyContents = this.buildHistoryContents(options.history || []);
 
         const userContent = [
-            'You are a seasoned options-trading coach assisting a single trader.',
-            '### Portfolio Snapshot',
+            '# ROLE & PHILOSOPHY',
+            'You are an expert options trading coach. Your philosophy is rooted in rigorous risk management, capital preservation, and generating consistent returns. You are assisting an intermediate trader who wants to refine their strategy and tighten their risk controls. Your goal is to provide a concise, data-driven portfolio health check that identifies key risks and offers actionable, educational insights.',
+            '# CONTEXT: PORTFOLIO DATA',
             contextBlock,
-            '### User Question',
+            '# TRADER\'S OBJECTIVE',
             question,
-            '### Instructions',
-            'Provide clear, risk-aware guidance tailored to the data above. Reference relevant tickers or metrics when offering insights. Keep the response under 200 words, use bullet lists for multiple recommendations, and close with 2-3 suggested next steps. Remind the user that this is educational analysis, not financial advice.'
+            '# ANALYSIS FRAMEWORK & INSTRUCTIONS',
+            '1.  **Acknowledge Strengths:** Start by briefly highlighting the strong overall performance (e.g., win rate, profit factor, successful strategies).\n2.  **Prioritize Top Risks:** Scrutinize the data to identify and explain the top 2-3 risks. Focus specifically on:\n    * **Concentration Risk:** Explicitly cite the `riskHeadline` about TGT representing 15% of exposure and explain the danger of such a large allocation to a single position.\n    * **Behavioral Risk:** Connect the `coachingHighlight` ("Losing trades stay open about 6 days longer") to the risk of turning small, manageable losses into larger ones.\n3.  **Provide Actionable Recommendations:** Based on the identified risks, provide clear, bulleted recommendations. Link them directly to the data.\n    * Suggest a specific rule for position sizing (e.g., "Consider a rule to cap any single position\'s max risk to under 10% of total open risk.").\n    * Propose a concrete action to address the behavioral risk (e.g., "Establish a non-negotiable mental stop-loss for each trade, such as closing at a 2x premium loss or a specific DTE.").\n4.  **Suggest Next Steps:** Conclude with 2-3 forward-looking actions for process improvement.',
+            '# OUTPUT FORMATTING',
+            '- **Tone:** Professional, direct, and risk-aware coach.\n- **Length:** Keep the response under 400 words.\n- **Structure:** Use bullet points for recommendations and next steps.\n- **Disclaimer:** End with a clear statement that this is educational analysis, not financial advice.'
         ].join('\n\n');
 
         const contents = [
@@ -6906,18 +6909,29 @@ class GeminiInsightsAgent {
     buildOpenPositionsSummary(limit = 8) {
         const trades = Array.isArray(this.context.openTrades) ? this.context.openTrades : [];
         return trades.slice(0, limit).map(trade => {
-            const dteValue = Number.isFinite(trade.dte) ? trade.dte : this.deriveDTE(trade);
+            const snapshot = this.snapshotObjectForPrompt(trade);
+            const derived = {};
+
+            const dteValue = Number.isFinite(trade?.dte) ? Number(trade.dte) : this.deriveDTE(trade);
+            if (Number.isFinite(dteValue)) {
+                derived.calculatedDTE = Math.max(Math.round(dteValue), 0);
+            }
+
             const riskValue = Number(this.app.getCapitalAtRisk(trade));
-            return {
-                ticker: (trade.ticker || '').toString().toUpperCase(),
-                strategy: trade.strategy || '',
-                status: trade.status || '',
-                dte: Number.isFinite(dteValue) ? Math.max(Math.round(dteValue), 0) : null,
-                maxRisk: Number.isFinite(riskValue) ? Number(riskValue.toFixed(2)) : null,
-                conviction: Number.isFinite(trade.convictionLevel) ? trade.convictionLevel : null,
-                entryDate: trade.entryDate || null,
-                notes: this.cleanNote(trade.notes)
-            };
+            if (Number.isFinite(riskValue)) {
+                derived.calculatedMaxRisk = Number(riskValue.toFixed(2));
+            }
+
+            const notePreview = this.cleanNote(trade?.notes);
+            if (notePreview) {
+                derived.notePreview = notePreview;
+            }
+
+            if (Object.keys(derived).length) {
+                snapshot.__promptDerived = derived;
+            }
+
+            return snapshot;
         });
     }
 
@@ -6937,15 +6951,32 @@ class GeminiInsightsAgent {
         return trades
             .sort((a, b) => new Date(b.exitDate || 0) - new Date(a.exitDate || 0))
             .slice(0, limit)
-            .map(trade => ({
-                ticker: (trade.ticker || '').toString().toUpperCase(),
-                strategy: trade.strategy || '',
-                exitDate: trade.exitDate || null,
-                daysHeld: Number.isFinite(trade.daysHeld) ? trade.daysHeld : null,
-                pl: this.formatNumber(trade.pl),
-                roi: this.formatNumber(trade.roi),
-                exitReason: this.cleanNote(trade.exitReason)
-            }));
+            .map(trade => {
+                const snapshot = this.snapshotObjectForPrompt(trade);
+                const derived = {
+                    plRounded: this.formatNumber(trade?.pl),
+                    roiRounded: this.formatNumber(trade?.roi)
+                };
+
+                const exitReasonPreview = this.cleanNote(trade?.exitReason);
+                if (exitReasonPreview) {
+                    derived.exitReasonPreview = exitReasonPreview;
+                }
+
+                if (Number.isFinite(trade?.daysHeld)) {
+                    derived.daysHeld = Number(trade.daysHeld);
+                }
+
+                snapshot.__promptDerived = Object.fromEntries(
+                    Object.entries(derived).filter(([, value]) => value !== null && value !== undefined)
+                );
+
+                if (!Object.keys(snapshot.__promptDerived).length) {
+                    delete snapshot.__promptDerived;
+                }
+
+                return snapshot;
+            });
     }
 
     buildStrategySummary(limit = 5) {
@@ -6964,18 +6995,70 @@ class GeminiInsightsAgent {
         const cycles = Array.isArray(this.app.cycleAnalytics) && this.app.cycleAnalytics.length
             ? this.app.cycleAnalytics
             : this.app.calculateCycleAnalytics();
-        return cycles.slice(0, limit).map(cycle => ({
-            cycleId: cycle.cycleId,
-            type: cycle.cycleType,
-            ticker: cycle.ticker,
-            status: cycle.status,
-            trades: Array.isArray(cycle.trades) ? cycle.trades.length : 0,
-            totalPL: this.formatNumber(cycle.totalPL),
-            roiPercent: this.formatNumber(cycle.roiPercent),
-            keyMetric: cycle.keyMetricLabel || null,
-            keyMetricValue: this.formatNumber(cycle.keyMetricValue),
-            timeline: this.app.formatCycleDateRange(cycle.startDate, cycle.endDate, cycle.hasOpenTrade)
-        }));
+        return cycles.slice(0, limit).map(cycle => {
+            const snapshot = this.snapshotObjectForPrompt(cycle);
+            const derived = {
+                tradeCount: Array.isArray(cycle?.trades) ? cycle.trades.length : 0,
+                totalPLRounded: this.formatNumber(cycle?.totalPL),
+                roiPercentRounded: this.formatNumber(cycle?.roiPercent),
+                keyMetricLabel: cycle?.keyMetricLabel || null,
+                keyMetricValueRounded: this.formatNumber(cycle?.keyMetricValue),
+                timelineLabel: this.app.formatCycleDateRange(cycle?.startDate, cycle?.endDate, cycle?.hasOpenTrade)
+            };
+
+            snapshot.__promptDerived = Object.fromEntries(
+                Object.entries(derived).filter(([, value]) => value !== null && value !== undefined)
+            );
+
+            if (!Object.keys(snapshot.__promptDerived).length) {
+                delete snapshot.__promptDerived;
+            }
+
+            return snapshot;
+        });
+    }
+
+    snapshotObjectForPrompt(source) {
+        const snapshot = this.snapshotForPrompt(source);
+        if (snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot)) {
+            return snapshot;
+        }
+        return {};
+    }
+
+    snapshotForPrompt(value) {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? Number(value) : null;
+        }
+
+        if (typeof value === 'string' || typeof value === 'boolean') {
+            return value;
+        }
+
+        if (value instanceof Date) {
+            return value.toISOString();
+        }
+
+        if (Array.isArray(value)) {
+            return value.map(item => this.snapshotForPrompt(item));
+        }
+
+        if (typeof value === 'object') {
+            const result = {};
+            for (const [key, val] of Object.entries(value)) {
+                if (typeof val === 'function') {
+                    continue;
+                }
+                result[key] = this.snapshotForPrompt(val);
+            }
+            return result;
+        }
+
+        return null;
     }
 
     cleanNote(value) {
