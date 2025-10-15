@@ -6850,7 +6850,7 @@ class GeminiInsightsAgent {
         ];
 
         const generationConfig = {
-            maxOutputTokens: 800
+            maxOutputTokens: 65536
         };
 
         generationConfig.temperature = Number(temperature.toFixed(2));
