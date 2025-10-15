@@ -3058,7 +3058,7 @@ class GammaLedger {
 
     getGeminiChatDisplayName() {
         const label = this.getGeminiModelLabel(this.gemini?.model);
-        return label ? `Gemini (${label})` : 'Gemini';
+        return label ? label : 'Gemini';
     }
 
     updateAIChatHeader() {
