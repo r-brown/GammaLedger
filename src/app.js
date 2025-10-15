@@ -25,10 +25,10 @@ const LONG_STRATEGY_PATTERNS = [
     'debit spread'
 ];
 
-const LOCAL_STORAGE_KEY = 'optionsTrackerProCache';
-const LEGACY_STORAGE_KEY = 'optionsTrackerProTrades';
-const GEMINI_STORAGE_KEY = 'optionsTrackerProGeminiConfig';
-const GEMINI_SECRET_STORAGE_KEY = 'optionsTrackerProGeminiSecret';
+const LOCAL_STORAGE_KEY = 'GammaLedgerProCache';
+const LEGACY_STORAGE_KEY = 'GammaLedgerProTrades';
+const GEMINI_STORAGE_KEY = 'GammaLedgerProGeminiConfig';
+const GEMINI_SECRET_STORAGE_KEY = 'GammaLedgerProGeminiSecret';
 const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const DEFAULT_GEMINI_TEMPERATURE = 0.70;
@@ -559,7 +559,7 @@ const BUILTIN_SAMPLE_DATA = {
     version: '2.2'
 };
 
-class OptionsTrackerPro {
+class GammaLedger {
     constructor() {
         this.trades = [];
         this.currentView = 'dashboard';
@@ -1963,7 +1963,7 @@ class OptionsTrackerPro {
             'trades-list': 'All Trades',
             settings: 'Settings'
         };
-        const titleText = titles[viewName] || 'Options Tracker Pro';
+        const titleText = titles[viewName] || 'GammaLedger';
         document.getElementById('page-title').textContent = titleText;
 
         this.currentView = viewName;
@@ -3394,7 +3394,7 @@ class OptionsTrackerPro {
     }
 
     getFinnhubStorageKey() {
-        return 'optionsTrackerProFinnhubConfig';
+        return 'GammaLedgerFinnhubConfig';
     }
 
     async loadFinnhubConfigFromStorage() {
@@ -3477,7 +3477,7 @@ class OptionsTrackerPro {
     }
 
     getFinnhubSecretStorageKey() {
-        return 'optionsTrackerProFinnhubSecret';
+        return 'GammaLedgerFinnhubSecret';
     }
 
     async ensureFinnhubEncryptionKey(cryptoApi = this.getCrypto()) {
@@ -7056,5 +7056,5 @@ class GeminiInsightsAgent {
 
 // Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', function () {
-    window.tracker = new OptionsTrackerPro();
+    window.tracker = new GammaLedger();
 });

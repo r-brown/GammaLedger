@@ -1,8 +1,8 @@
-<p align="center"><img src="https://raw.githubusercontent.com/r-brown/options-tracker/refs/heads/main/options-tracker.png"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/gammaledger.png"></p>
 
-# 🎯 Options Tracker
+# 🎯 GammaLedger
 
-**Options-Tracker** is a desktop application for active options traders and investors who want to analyze, track, and optimize options trading strategies. Designed for sophisticated users, the app delivers flexible dashboards, local file persistence, and advanced analytics to support performance monitoring and decision-making.
+**GammaLedger** is a desktop application for active options traders and investors who want to analyze, track, and optimize options trading strategies. Designed for sophisticated users, the app delivers flexible dashboards, local file persistence, and advanced analytics to support performance monitoring and decision-making.
 
 
 ## 🤖 Developer Note: AI-Generated Code Ahead!
@@ -73,7 +73,7 @@ Let's see who writes the next best hack — you, or the machine?
 
 ## 🚀 Quick Start
 
-<p align="center"><img src="https://raw.githubusercontent.com/r-brown/options-tracker/refs/heads/main/options-tracker-dashboard.png"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/r-brown/gammaledger/refs/heads/main/gammaledger-dashboard.png"></p>
 
 1. Clone the repository
 2. Open `index.html` in a modern browser (Chrome, Edge, or Firefox)
@@ -103,4 +103,4 @@ This software is for educational and analytical purposes only. Options trading i
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=r-brown/options-tracker&type=Date)](https://www.star-history.com/#r-brown/options-tracker&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=r-brown/gammaledger&type=Date)](https://www.star-history.com/#r-brown/gammaledger&Date)
