@@ -25,10 +25,10 @@ const LONG_STRATEGY_PATTERNS = [
     'debit spread'
 ];
 
-const LOCAL_STORAGE_KEY = 'GammaLedgerProCache';
-const LEGACY_STORAGE_KEY = 'GammaLedgerProTrades';
-const GEMINI_STORAGE_KEY = 'GammaLedgerProGeminiConfig';
-const GEMINI_SECRET_STORAGE_KEY = 'GammaLedgerProGeminiSecret';
+const LOCAL_STORAGE_KEY = 'GammaLedgerCache';
+const LEGACY_STORAGE_KEY = 'GammaLedgerTrades';
+const GEMINI_STORAGE_KEY = 'GammaLedgerGeminiConfig';
+const GEMINI_SECRET_STORAGE_KEY = 'GammaLedgerGeminiSecret';
 const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const DEFAULT_GEMINI_TEMPERATURE = 0.70;
