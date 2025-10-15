@@ -1963,7 +1963,7 @@ class OptionsTrackerPro {
             'trades-list': 'All Trades',
             settings: 'Settings'
         };
-        const titleText = titles[viewName] || 'Options Tracker Pro';
+        const titleText = titles[viewName] || 'GammaLedger';
         document.getElementById('page-title').textContent = titleText;
 
         this.currentView = viewName;
