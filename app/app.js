@@ -1,4 +1,4 @@
-// Enhanced Options Trading Tracker Application
+// Options Trading Tracker Application
 const VALID_TRADE_TYPES = new Set(['BTO', 'STO', 'STC', 'BTC']);
 const SHORT_STRATEGY_PATTERNS = [
     'cash-secured put',
@@ -27,6 +27,12 @@ const LONG_STRATEGY_PATTERNS = [
 
 const LOCAL_STORAGE_KEY = 'optionsTrackerProCache';
 const LEGACY_STORAGE_KEY = 'optionsTrackerProTrades';
+const GEMINI_STORAGE_KEY = 'optionsTrackerProGeminiConfig';
+const GEMINI_SECRET_STORAGE_KEY = 'optionsTrackerProGeminiSecret';
+const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash-lite';
+const DEFAULT_GEMINI_TEMPERATURE = 0.70;
+const GEMINI_ALLOWED_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'];
 
 const BUILTIN_SAMPLE_DATA = {
     trades: [
@@ -581,6 +587,21 @@ class OptionsTrackerPro {
             elements: {}
         };
 
+        this.gemini = {
+            apiKey: '',
+            encryptionKey: null,
+            model: DEFAULT_GEMINI_MODEL,
+            statusTimeoutId: null,
+            lastStatus: null,
+            elements: {}
+        };
+
+        this.aiAgent = new GeminiInsightsAgent(this);
+        this.aiChatMessages = [];
+        this.aiChatSessionId = Date.now();
+        this.aiChatPendingRequest = false;
+        this.aiChatOpen = false;
+
         this.activeQuoteEntries = new Map();
         this.quoteRefreshIntervalId = null;
         this.autoRefreshIntervalMs = this.computeAutoRefreshInterval();
@@ -605,6 +626,7 @@ class OptionsTrackerPro {
     async init() {
         await this.loadFromStorage();
         await this.loadFinnhubConfigFromStorage();
+        await this.loadGeminiConfigFromStorage();
         if (!this.trades || this.trades.length === 0) {
             await this.loadDefaultDatabase();
         } else {
@@ -612,6 +634,8 @@ class OptionsTrackerPro {
             this.updateDashboard();
         }
         this.bindEvents();
+        this.initializeGeminiControls();
+        this.initializeAIChat();
         this.initializeFinnhubControls();
         this.updateFileNameDisplay();
         this.checkBrowserCompatibility();
@@ -1198,13 +1222,6 @@ class OptionsTrackerPro {
             });
         }
 
-        const cancelTradeButton = document.getElementById('cancel-trade');
-        if (cancelTradeButton) {
-            cancelTradeButton.addEventListener('click', () => {
-                this.showView('trades-list'); // FIXED: Return to trades list when editing
-            });
-        }
-
         // Ticker preview
         const tickerInput = document.getElementById('ticker');
         if (tickerInput) {
@@ -1252,6 +1269,55 @@ class OptionsTrackerPro {
                 }
             });
         });
+
+        const aiChatToggle = document.getElementById('ai-chat-toggle');
+        if (aiChatToggle) {
+            aiChatToggle.addEventListener('click', () => this.toggleAIChat());
+        }
+
+        const aiChatClose = document.getElementById('ai-chat-close');
+        if (aiChatClose) {
+            aiChatClose.addEventListener('click', () => this.toggleAIChat(false));
+        }
+
+        const aiChatForm = document.getElementById('ai-chat-form');
+        if (aiChatForm) {
+            aiChatForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                this.handleAIChatSubmit();
+            });
+        }
+
+        document.querySelectorAll('.ai-chat__quick-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const prompt = button.getAttribute('data-ai-prompt');
+                if (prompt) {
+                    this.handleAIQuickPrompt(prompt);
+                }
+            });
+        });
+
+        const aiChatRoot = document.getElementById('ai-chat');
+        if (aiChatRoot) {
+            aiChatRoot.addEventListener('click', (event) => {
+                const target = event.target instanceof Element ? event.target : null;
+                const anchor = target?.closest('a[href="#settings"]');
+                if (!anchor) {
+                    return;
+                }
+
+                event.preventDefault();
+                this.showView('settings');
+                this.toggleAIChat(false);
+
+                const keyField = document.getElementById('gemini-api-key');
+                if (keyField) {
+                    setTimeout(() => keyField.focus(), 120);
+                }
+            });
+        }
+
+        this.setupAIChatResizeHandle();
 
         // Set default entry date to today
         this.setTodayDate();
@@ -1303,6 +1369,530 @@ class OptionsTrackerPro {
         });
 
         evaluateBreakpoint(true);
+    }
+
+    setupAIChatResizeHandle() {
+        const panel = document.getElementById('ai-chat-panel');
+        const handle = document.getElementById('ai-chat-resize-handle') || panel?.querySelector('.ai-chat__resize-handle');
+
+        if (!panel || !handle || handle.dataset.initialized === 'true') {
+            if (handle) {
+                handle.dataset.initialized = 'true';
+            }
+            return;
+        }
+
+        const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+        const state = {
+            resizing: false,
+            startX: 0,
+            startY: 0,
+            startWidth: 0,
+            startHeight: 0,
+            maxWidth: 0,
+            maxHeight: 0,
+            minWidth: 280,
+            minHeight: 280,
+            rightMargin: 24,
+            bottomMargin: 24,
+            viewportPadding: 24
+        };
+
+        const stopResizing = (event) => {
+            if (!state.resizing) {
+                return;
+            }
+
+            state.resizing = false;
+            panel.classList.remove('ai-chat__panel--resizing');
+
+            if (event) {
+                try {
+                    handle.releasePointerCapture(event.pointerId);
+                } catch (error) {
+                    // Pointer may already be released; ignore.
+                }
+            }
+
+            document.removeEventListener('pointermove', onPointerMove);
+            document.removeEventListener('pointerup', stopResizing);
+            document.removeEventListener('pointercancel', stopResizing);
+        };
+
+        const onPointerMove = (moveEvent) => {
+            if (!state.resizing) {
+                return;
+            }
+
+            moveEvent.preventDefault();
+
+            const deltaX = moveEvent.clientX - state.startX;
+            const deltaY = moveEvent.clientY - state.startY;
+
+            const nextWidth = clamp(state.startWidth - deltaX, state.minWidth, state.maxWidth);
+            const nextHeight = clamp(state.startHeight - deltaY, state.minHeight, state.maxHeight);
+
+            panel.style.width = `${nextWidth}px`;
+            panel.style.height = `${nextHeight}px`;
+        };
+
+        handle.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0 && event.pointerType !== 'touch') {
+                return;
+            }
+
+            event.preventDefault();
+
+            const rect = panel.getBoundingClientRect();
+
+            state.resizing = true;
+            state.startX = event.clientX;
+            state.startY = event.clientY;
+            state.startWidth = rect.width;
+            state.startHeight = rect.height;
+            state.rightMargin = Math.max(state.viewportPadding, Math.round(window.innerWidth - rect.right));
+            state.bottomMargin = Math.max(state.viewportPadding, Math.round(window.innerHeight - rect.bottom));
+            state.maxWidth = Math.max(state.minWidth, window.innerWidth - state.rightMargin - state.viewportPadding);
+            state.maxHeight = Math.max(state.minHeight, window.innerHeight - state.bottomMargin - state.viewportPadding);
+
+            panel.classList.add('ai-chat__panel--resizing');
+            panel.style.removeProperty('transform');
+
+            try {
+                handle.setPointerCapture(event.pointerId);
+            } catch (error) {
+                // Not all pointers support capture; ignore.
+            }
+
+            document.addEventListener('pointermove', onPointerMove, { passive: false });
+            document.addEventListener('pointerup', stopResizing);
+            document.addEventListener('pointercancel', stopResizing);
+        });
+
+        handle.dataset.initialized = 'true';
+    }
+
+    initializeAIChat() {
+        this.updateAIChatHeader();
+        if (!this.aiAgent) {
+            this.aiChatMessages = [];
+            return;
+        }
+
+        const snapshot = this.calculateAdvancedStats();
+        this.aiAgent.updateContext({
+            stats: snapshot,
+            openTrades: snapshot.openTradesList,
+            closedTrades: snapshot.closedTradesList
+        });
+
+        this.aiChatSessionId = Date.now();
+        this.aiChatMessages = [];
+        this.aiChatPendingRequest = false;
+
+        const greeting = this.aiAgent.getGreeting();
+        if (greeting) {
+            this.appendAIChatMessage('ai', greeting);
+        } else {
+            this.renderAIChatMessages();
+        }
+    }
+
+    toggleAIChat(forceOpen = null) {
+        const panel = document.getElementById('ai-chat-panel');
+        const toggle = document.getElementById('ai-chat-toggle');
+        const input = document.getElementById('ai-chat-input');
+        if (!panel || !toggle) {
+            return;
+        }
+
+        const shouldOpen = forceOpen === null ? panel.classList.contains('hidden') : Boolean(forceOpen);
+
+        if (shouldOpen) {
+            panel.classList.remove('hidden');
+            panel.setAttribute('aria-hidden', 'false');
+            toggle.setAttribute('aria-expanded', 'true');
+            this.aiChatOpen = true;
+            if (input) {
+                setTimeout(() => input.focus(), 80);
+            }
+        } else {
+            panel.classList.add('hidden');
+            panel.setAttribute('aria-hidden', 'true');
+            toggle.setAttribute('aria-expanded', 'false');
+            this.aiChatOpen = false;
+        }
+    }
+
+    async handleAIChatSubmit() {
+        if (this.aiChatPendingRequest) {
+            return;
+        }
+
+        const input = document.getElementById('ai-chat-input');
+        if (!input) {
+            return;
+        }
+
+        const query = input.value.trim();
+        if (!query) {
+            return;
+        }
+
+        this.appendAIChatMessage('user', query);
+        input.value = '';
+
+        const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
+        const historySnapshot = this.aiChatMessages
+            .filter(message => message.id !== placeholderId)
+            .slice(-10)
+            .map(message => ({ ...message }));
+
+        this.aiChatPendingRequest = true;
+
+        try {
+            const response = this.aiAgent
+                ? await this.aiAgent.generateResponse(query, { history: historySnapshot })
+                : 'AI assistant is unavailable at the moment.';
+            this.appendAIChatMessage('ai', response, { replaceId: placeholderId, pending: false });
+        } catch (error) {
+            const message = error?.message || 'Unknown error';
+            const fallback = 'Sorry, I could not reach Gemini right now. Please try again soon.';
+            this.appendAIChatMessage('ai', `${fallback} (${message})`, { replaceId: placeholderId, pending: false });
+        } finally {
+            this.aiChatPendingRequest = false;
+            if (input) {
+                input.focus();
+            }
+        }
+    }
+
+    async handleAIQuickPrompt(prompt) {
+        if (this.aiChatPendingRequest || !prompt) {
+            return;
+        }
+
+        this.toggleAIChat(true);
+
+        const input = document.getElementById('ai-chat-input');
+        if (input) {
+            input.value = '';
+        }
+
+        this.appendAIChatMessage('user', prompt);
+
+        const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
+        const historySnapshot = this.aiChatMessages
+            .filter(message => message.id !== placeholderId)
+            .slice(-10)
+            .map(message => ({ ...message }));
+
+        this.aiChatPendingRequest = true;
+
+        try {
+            const response = this.aiAgent
+                ? await this.aiAgent.generateResponse(prompt, { history: historySnapshot })
+                : 'AI assistant is unavailable at the moment.';
+            this.appendAIChatMessage('ai', response, { replaceId: placeholderId, pending: false });
+        } catch (error) {
+            const message = error?.message || 'Unknown error';
+            const fallback = 'Sorry, I could not reach Gemini right now. Please try again soon.';
+            this.appendAIChatMessage('ai', `${fallback} (${message})`, { replaceId: placeholderId, pending: false });
+        } finally {
+            this.aiChatPendingRequest = false;
+            if (input) {
+                input.focus();
+            }
+        }
+    }
+
+    appendAIChatMessage(sender, text, options = {}) {
+        const normalizedSender = sender === 'ai' ? 'ai' : 'user';
+        const {
+            suppressRender = false,
+            replaceId = null,
+            id = null,
+            pending = false
+        } = options || {};
+
+        if (!replaceId && (typeof text !== 'string' || text.length === 0)) {
+            return null;
+        }
+
+        const timestamp = new Date();
+
+        if (replaceId) {
+            const index = this.aiChatMessages.findIndex(message => message.id === replaceId);
+            if (index !== -1) {
+                const existing = this.aiChatMessages[index];
+                this.aiChatMessages[index] = {
+                    ...existing,
+                    sender: normalizedSender,
+                    text: text || '',
+                    timestamp,
+                    pending: Boolean(pending)
+                };
+
+                if (!suppressRender) {
+                    this.renderAIChatMessages();
+                }
+
+                return this.aiChatMessages[index].id;
+            }
+        }
+
+        const entry = {
+            id: id || `${this.aiChatSessionId}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            sender: normalizedSender,
+            text: text || '',
+            timestamp,
+            pending: Boolean(pending)
+        };
+
+        this.aiChatMessages = [...this.aiChatMessages, entry].slice(-200);
+
+        if (!suppressRender) {
+            this.renderAIChatMessages();
+        }
+
+        return entry.id;
+    }
+
+    renderAIChatMessages() {
+        const history = document.getElementById('ai-chat-history');
+        if (!history) {
+            return;
+        }
+
+        history.innerHTML = '';
+
+        this.aiChatMessages.forEach(message => {
+            const item = document.createElement('div');
+            item.className = `ai-chat__message ai-chat__message--${message.sender}`;
+
+            if (message.pending) {
+                item.classList.add('ai-chat__message--pending');
+            }
+
+            const label = document.createElement('span');
+            label.textContent = message.sender === 'ai'
+                ? this.getGeminiChatDisplayName()
+                : 'You';
+            item.appendChild(label);
+
+            const bubble = document.createElement('div');
+            bubble.className = 'ai-chat__bubble';
+            if (message.pending) {
+                bubble.setAttribute('data-pending', 'true');
+            }
+            if (message.sender === 'ai') {
+                bubble.innerHTML = this.renderMarkdownToHTML(message.text);
+            } else {
+                bubble.textContent = message.text;
+            }
+            item.appendChild(bubble);
+
+            history.appendChild(item);
+        });
+
+        history.scrollTop = history.scrollHeight;
+    }
+
+    renderMarkdownToHTML(markdown = '') {
+        if (!markdown) {
+            return '';
+        }
+
+        const segments = [];
+        const codeBlockRegex = /```([\s\S]*?)```/g;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = codeBlockRegex.exec(markdown)) !== null) {
+            if (match.index > lastIndex) {
+                segments.push({ type: 'text', value: markdown.slice(lastIndex, match.index) });
+            }
+            segments.push({ type: 'code', value: match[1] });
+            lastIndex = match.index + match[0].length;
+        }
+
+        if (lastIndex < markdown.length) {
+            segments.push({ type: 'text', value: markdown.slice(lastIndex) });
+        }
+
+        return segments.map(segment => {
+            if (segment.type === 'code') {
+                const code = segment.value.replace(/^\n+|\n+$/g, '');
+                return `<pre class="ai-chat__code"><code>${this.escapeHTML(code)}</code></pre>`;
+            }
+            return this.renderMarkdownTextSegment(segment.value);
+        }).join('');
+    }
+
+    renderMarkdownTextSegment(text = '') {
+        if (!text) {
+            return '';
+        }
+
+        const lines = text.replace(/\r/g, '').split('\n');
+        const htmlParts = [];
+        let paragraphBuffer = [];
+        let inUnordered = false;
+        let inOrdered = false;
+
+        const closeLists = () => {
+            if (inUnordered) {
+                htmlParts.push('</ul>');
+                inUnordered = false;
+            }
+            if (inOrdered) {
+                htmlParts.push('</ol>');
+                inOrdered = false;
+            }
+        };
+
+        const flushParagraph = () => {
+            if (!paragraphBuffer.length) {
+                return;
+            }
+            const content = paragraphBuffer.join(' ').trim();
+            if (content) {
+                htmlParts.push(`<p>${this.formatMarkdownInline(content)}</p>`);
+            }
+            paragraphBuffer = [];
+        };
+
+        lines.forEach((lineRaw) => {
+            const trimmed = lineRaw.trim();
+
+            if (!trimmed) {
+                flushParagraph();
+                closeLists();
+                return;
+            }
+
+            const headingMatch = trimmed.match(/^(#{1,3})\s+(.*)$/);
+            if (headingMatch) {
+                flushParagraph();
+                closeLists();
+                const level = Math.min(headingMatch[1].length + 2, 6);
+                htmlParts.push(`<h${level}>${this.formatMarkdownInline(headingMatch[2])}</h${level}>`);
+                return;
+            }
+
+            if (/^([-*_])\1{2,}$/.test(trimmed)) {
+                flushParagraph();
+                closeLists();
+                htmlParts.push('<hr class="ai-chat__rule">');
+                return;
+            }
+
+            if (trimmed.startsWith('>')) {
+                flushParagraph();
+                closeLists();
+                const quoteText = trimmed.replace(/^>\s?/, '');
+                htmlParts.push(`<blockquote class="ai-chat__quote">${this.formatMarkdownInline(quoteText)}</blockquote>`);
+                return;
+            }
+
+            const unorderedMatch = trimmed.match(/^[-*]\s+(.*)$/);
+            if (unorderedMatch) {
+                flushParagraph();
+                if (!inUnordered) {
+                    closeLists();
+                    htmlParts.push('<ul>');
+                    inUnordered = true;
+                }
+                htmlParts.push(`<li>${this.formatMarkdownInline(unorderedMatch[1])}</li>`);
+                return;
+            }
+
+            const orderedMatch = trimmed.match(/^\d+\.\s+(.*)$/);
+            if (orderedMatch) {
+                flushParagraph();
+                if (!inOrdered) {
+                    closeLists();
+                    htmlParts.push('<ol>');
+                    inOrdered = true;
+                }
+                htmlParts.push(`<li>${this.formatMarkdownInline(orderedMatch[1])}</li>`);
+                return;
+            }
+
+            paragraphBuffer.push(lineRaw);
+        });
+
+        flushParagraph();
+        closeLists();
+
+        return htmlParts.join('');
+    }
+
+    formatMarkdownInline(text = '') {
+        if (!text) {
+            return '';
+        }
+
+        const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+        let lastIndex = 0;
+        let result = '';
+        let match;
+
+        while ((match = linkRegex.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+                const preceding = text.slice(lastIndex, match.index);
+                result += this.applyBasicInlineFormatting(preceding);
+            }
+
+            const label = this.applyBasicInlineFormatting(match[1]);
+            const safeUrl = this.escapeHTML(this.sanitizeMarkdownUrl(match[2]));
+            result += `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+            lastIndex = match.index + match[0].length;
+        }
+
+        if (lastIndex < text.length) {
+            result += this.applyBasicInlineFormatting(text.slice(lastIndex));
+        }
+
+        return result;
+    }
+
+    applyBasicInlineFormatting(text = '') {
+        if (!text) {
+            return '';
+        }
+
+        let safe = this.escapeHTML(text);
+        safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
+        safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        safe = safe.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+        safe = safe.replace(/\*(?!\s)([^*]+?)\*(?!\*)/g, '<em>$1</em>');
+        safe = safe.replace(/_([^_]+)_/g, '<em>$1</em>');
+        return safe;
+    }
+
+    sanitizeMarkdownUrl(url = '') {
+        try {
+            const trimmed = url.trim();
+            if (!trimmed) {
+                return '#';
+            }
+            if (trimmed.startsWith('#')) {
+                const anchor = trimmed.slice(1);
+                if (anchor && /^[a-z0-9_-]{1,64}$/i.test(anchor)) {
+                    return `#${anchor}`;
+                }
+                return '#';
+            }
+            const lower = trimmed.toLowerCase();
+            if (!lower.startsWith('http://') && !lower.startsWith('https://')) {
+                return '#';
+            }
+            return trimmed;
+        } catch (_error) {
+            return '#';
+        }
     }
 
     updateTickerPreview(ticker) {
@@ -1558,6 +2148,14 @@ class OptionsTrackerPro {
             openTradesList,
             closedTradesList
         } = stats;
+
+        if (this.aiAgent) {
+            this.aiAgent.updateContext({
+                stats,
+                openTrades: openTradesList,
+                closedTrades: closedTradesList
+            });
+        }
 
         this.cycleAnalytics = this.calculateCycleAnalytics();
 
@@ -2299,6 +2897,379 @@ class OptionsTrackerPro {
         this.updateStrategyPerformanceChart();
         this.updateWinRateByStrategyChart();
         this.updateMarketConditionChart();
+    }
+
+    initializeGeminiControls() {
+        const container = document.getElementById('gemini-controls');
+        if (!container) {
+            return;
+        }
+
+        const keyInput = document.getElementById('gemini-api-key');
+        const modelSelect = document.getElementById('gemini-model');
+        const saveButton = document.getElementById('gemini-save');
+        const clearButton = document.getElementById('gemini-clear');
+        const status = document.getElementById('gemini-status');
+
+        this.gemini.elements = {
+            container,
+            keyInput,
+            modelSelect,
+            saveButton,
+            clearButton,
+            status
+        };
+
+        if (keyInput) {
+            keyInput.value = this.gemini.apiKey;
+        }
+
+        if (!GEMINI_ALLOWED_MODELS.includes(this.gemini.model)) {
+            this.gemini.model = DEFAULT_GEMINI_MODEL;
+        }
+
+        if (modelSelect) {
+            const options = Array.from(modelSelect.options).map(option => option.value);
+            if (options.length === 0) {
+                GEMINI_ALLOWED_MODELS.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model.replace(/gemini-2\.5-/, 'Gemini 2.5 ').replace(/-/g, ' ').replace(/\b([a-z])/g, (_, letter) => letter.toUpperCase());
+                    modelSelect.appendChild(option);
+                });
+            }
+
+            modelSelect.value = GEMINI_ALLOWED_MODELS.includes(this.gemini.model)
+                ? this.gemini.model
+                : DEFAULT_GEMINI_MODEL;
+
+            this.setGeminiModel(modelSelect.value);
+
+            modelSelect.addEventListener('change', () => {
+                this.setGeminiModel(modelSelect.value);
+                this.saveGeminiConfigToStorage();
+            });
+        }
+
+        if (status) {
+            const variant = this.gemini.apiKey ? 'success' : 'neutral';
+            const message = this.gemini.apiKey ? 'API key loaded' : 'Not set';
+            this.updateGeminiStatus(message, variant);
+        }
+
+        const commit = async () => {
+            const value = (keyInput?.value || '').trim();
+            this.setGeminiApiKey(value, { persist: false, updateUI: false });
+            const sanitizedValue = this.gemini.apiKey;
+
+            const cryptoApi = this.getCrypto();
+
+            if (!value) {
+                this.removeGeminiEncryptionKey();
+                this.saveGeminiConfigToStorage();
+                if (keyInput) {
+                    keyInput.value = '';
+                }
+                this.updateGeminiStatus('API key cleared. Connect your Gemini key via Settings to get tailored analysis.', 'neutral', 6000);
+                this.initializeAIChat();
+                this.updateAIChatHeader();
+                return;
+            }
+
+            if (!cryptoApi?.subtle) {
+                this.saveGeminiConfigToStorage({ includeApiKey: true });
+                this.updateGeminiStatus('Gemini API key saved (unencrypted — Web Crypto unavailable).', 'success', 6000);
+                if (keyInput) {
+                    keyInput.value = sanitizedValue;
+                }
+                this.initializeAIChat();
+                this.updateAIChatHeader();
+                return;
+            }
+
+            const encrypted = await this.encryptAndStoreGeminiApiKey(cryptoApi);
+            if (encrypted) {
+                this.updateGeminiStatus('Gemini API key saved securely.', 'success', 5000);
+            } else {
+                this.saveGeminiConfigToStorage({ includeApiKey: true });
+                this.updateGeminiStatus('Gemini API key saved (unencrypted fallback).', 'neutral', 6000);
+            }
+
+            if (keyInput) {
+                keyInput.value = sanitizedValue;
+            }
+
+            this.initializeAIChat();
+            this.updateAIChatHeader();
+        };
+
+        saveButton?.addEventListener('click', async (event) => {
+            event.preventDefault();
+            await commit();
+        });
+
+        keyInput?.addEventListener('keydown', async (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                await commit();
+            }
+        });
+
+        clearButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            if (keyInput) {
+                keyInput.value = '';
+            }
+            this.setGeminiApiKey('', { persist: false, updateUI: false });
+            this.removeGeminiEncryptionKey();
+            this.saveGeminiConfigToStorage();
+            this.updateGeminiStatus('API key cleared. Connect your Gemini key via Settings to get tailored analysis.', 'neutral', 6000);
+            this.initializeAIChat();
+            this.updateAIChatHeader();
+        });
+
+        this.updateAIChatHeader();
+    }
+
+    getGeminiModelLabel(model = '') {
+        const normalized = (model || '').toLowerCase();
+        const labels = {
+            'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
+            'gemini-2.5-flash': 'Gemini 2.5 Flash',
+            'gemini-2.5-pro': 'Gemini 2.5 Pro'
+        };
+
+        if (labels[normalized]) {
+            return labels[normalized];
+        }
+
+        if (!normalized) {
+            return '';
+        }
+
+        const fallback = normalized
+            .replace(/^gemini[-\s]?/i, 'Gemini ')
+            .replace(/-/g, ' ')
+            .replace(/\b([a-z])/g, (_, letter) => letter.toUpperCase())
+            .trim();
+
+        return fallback || 'Gemini';
+    }
+
+    getGeminiChatDisplayName() {
+        const label = this.getGeminiModelLabel(this.gemini?.model);
+        return label ? `Gemini (${label})` : 'Gemini';
+    }
+
+    updateAIChatHeader() {
+        const titleEl = document.getElementById('ai-chat-title');
+        const subtitleEl = document.getElementById('ai-chat-subtitle');
+
+        if (!titleEl && !subtitleEl) {
+            return;
+        }
+
+        if (titleEl) {
+            titleEl.textContent = 'Portfolio AI Coach';
+        }
+
+        if (!subtitleEl) {
+            return;
+        }
+
+        const hasKey = Boolean(this.gemini?.apiKey);
+        if (hasKey) {
+            subtitleEl.textContent = 'Ask about your portfolio for AI-guided insights.';
+        } else {
+            subtitleEl.innerHTML = 'Connect your Gemini API key in <a href="#settings" class="ai-chat__settings-link">Settings</a> to get tailored analysis.';
+        }
+    }
+
+    updateGeminiStatus(message, variant = 'neutral', autoClearMs = 0) {
+        const statusEl = this.gemini?.elements?.status;
+        if (!statusEl || !message) {
+            return;
+        }
+
+        const normalizedVariant = ['success', 'error', 'neutral'].includes(variant) ? variant : 'neutral';
+        statusEl.textContent = message;
+        statusEl.classList.remove('is-success', 'is-error');
+        if (normalizedVariant === 'success') {
+            statusEl.classList.add('is-success');
+        } else if (normalizedVariant === 'error') {
+            statusEl.classList.add('is-error');
+        }
+
+        if (this.gemini.statusTimeoutId) {
+            clearTimeout(this.gemini.statusTimeoutId);
+        }
+
+        this.gemini.lastStatus = { message, variant: normalizedVariant };
+
+        if (autoClearMs > 0) {
+            this.gemini.statusTimeoutId = setTimeout(() => {
+                if (!statusEl.isConnected) {
+                    return;
+                }
+                statusEl.textContent = normalizedVariant === 'neutral' ? 'Not set' : '';
+                statusEl.classList.remove('is-success', 'is-error');
+            }, autoClearMs);
+        }
+    }
+
+    setGeminiApiKey(value, { persist = false, updateUI = true } = {}) {
+        const sanitized = (value || '').trim();
+        if (sanitized === this.gemini.apiKey) {
+            return;
+        }
+
+        this.gemini.apiKey = sanitized;
+
+        if (updateUI && this.gemini.elements?.keyInput) {
+            this.gemini.elements.keyInput.value = sanitized;
+        }
+
+        if (persist) {
+            this.saveGeminiConfigToStorage({ includeApiKey: true });
+        }
+    }
+
+    setGeminiModel(value) {
+        const sanitized = (value || '').trim();
+        const nextModel = GEMINI_ALLOWED_MODELS.includes(sanitized)
+            ? sanitized
+            : DEFAULT_GEMINI_MODEL;
+        const previousModel = this.gemini.model;
+        this.gemini.model = nextModel;
+
+        const select = this.gemini.elements?.modelSelect;
+        if (select && select.value !== this.gemini.model) {
+            select.value = this.gemini.model;
+        }
+
+        if (this.gemini.model !== previousModel) {
+            this.updateAIChatHeader();
+            this.renderAIChatMessages();
+        }
+    }
+
+    async loadGeminiConfigFromStorage() {
+        try {
+            const raw = localStorage.getItem(GEMINI_STORAGE_KEY);
+            if (!raw) {
+                return;
+            }
+
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') {
+                return;
+            }
+
+            if (typeof parsed.model === 'string' && parsed.model.trim()) {
+                this.setGeminiModel(parsed.model.trim());
+            }
+
+            if (parsed.enc && parsed.payload) {
+                const cryptoApi = this.getCrypto();
+                if (!cryptoApi?.subtle) {
+                    console.warn('Encrypted Gemini API key stored but Web Crypto unavailable.');
+                    return;
+                }
+
+                try {
+                    const key = await this.ensureGeminiEncryptionKey(cryptoApi);
+                    if (!key) {
+                        throw new Error('Encryption key unavailable');
+                    }
+                    const decrypted = await this.decryptString(parsed.payload, cryptoApi, key);
+                    if (decrypted) {
+                        this.gemini.apiKey = decrypted;
+                    }
+                } catch (error) {
+                    console.warn('Failed to decrypt stored Gemini API key:', error);
+                }
+            } else if (typeof parsed.apiKey === 'string') {
+                this.gemini.apiKey = parsed.apiKey;
+            }
+        } catch (error) {
+            console.warn('Failed to load Gemini configuration:', error);
+        }
+    }
+
+    saveGeminiConfigToStorage({ includeApiKey = false, encryptedPayload = null } = {}) {
+        try {
+            const payload = {
+                model: this.gemini.model
+            };
+
+            if (encryptedPayload) {
+                payload.enc = true;
+                payload.payload = encryptedPayload;
+            } else if (includeApiKey && this.gemini.apiKey) {
+                payload.apiKey = this.gemini.apiKey;
+            }
+
+            localStorage.setItem(GEMINI_STORAGE_KEY, JSON.stringify(payload));
+        } catch (error) {
+            console.warn('Failed to save Gemini configuration:', error);
+        }
+    }
+
+    removeGeminiEncryptionKey() {
+        try {
+            localStorage.removeItem(GEMINI_SECRET_STORAGE_KEY);
+            this.gemini.encryptionKey = null;
+        } catch (error) {
+            console.warn('Failed to remove Gemini encryption key:', error);
+        }
+    }
+
+    async ensureGeminiEncryptionKey(cryptoApi = this.getCrypto()) {
+        if (!cryptoApi?.subtle) {
+            return null;
+        }
+
+        if (this.gemini.encryptionKey) {
+            return this.gemini.encryptionKey;
+        }
+
+        let rawKeyB64 = localStorage.getItem(GEMINI_SECRET_STORAGE_KEY);
+        if (!rawKeyB64) {
+            const raw = cryptoApi.getRandomValues(new Uint8Array(32));
+            rawKeyB64 = this.arrayBufferToBase64(raw.buffer);
+            localStorage.setItem(GEMINI_SECRET_STORAGE_KEY, rawKeyB64);
+        }
+
+        const rawKey = new Uint8Array(this.base64ToArrayBuffer(rawKeyB64));
+        const cryptoKey = await cryptoApi.subtle.importKey('raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        this.gemini.encryptionKey = cryptoKey;
+        return cryptoKey;
+    }
+
+    async encryptAndStoreGeminiApiKey(cryptoApi = this.getCrypto()) {
+        try {
+            if (!cryptoApi?.subtle) {
+                throw new Error('Web Crypto API unavailable');
+            }
+
+            const apiKey = this.gemini.apiKey || '';
+            if (!apiKey) {
+                this.saveGeminiConfigToStorage();
+                return true;
+            }
+
+            const key = await this.ensureGeminiEncryptionKey(cryptoApi);
+            if (!key) {
+                throw new Error('Failed to prepare encryption key');
+            }
+
+            const payload = await this.encryptString(apiKey, cryptoApi, key);
+            this.saveGeminiConfigToStorage({ encryptedPayload: payload });
+            return true;
+        } catch (error) {
+            console.warn('Failed to encrypt Gemini API key:', error);
+            return false;
+        }
     }
 
     initializeFinnhubControls() {
@@ -5365,6 +6336,7 @@ class OptionsTrackerPro {
             this.updateTradesList();
         }
         this.updateFileNameDisplay();
+        this.initializeAIChat();
     }
 
     newDatabase() {
@@ -5383,6 +6355,7 @@ class OptionsTrackerPro {
         this.saveToStorage({ fileName: this.currentFileName });
         this.updateDashboard();
         this.showNotification('New database created', 'success');
+        this.initializeAIChat();
     }
 
     updateFileNameDisplay() {
@@ -5538,6 +6511,19 @@ class OptionsTrackerPro {
         return `${startText} — ${endText}`;
     }
 
+    escapeHTML(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+
+        return value.toString()
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     formatCurrency(amount) {
         const value = Number(amount);
         if (!Number.isFinite(value)) {
@@ -5561,6 +6547,510 @@ class OptionsTrackerPro {
             day: 'numeric',
             year: 'numeric'
         });
+    }
+}
+
+class LocalInsightsAgent {
+    constructor(app) {
+        this.app = app;
+        this.context = {
+            stats: null,
+            openTrades: [],
+            closedTrades: []
+        };
+    }
+
+    updateContext({ stats, openTrades, closedTrades } = {}) {
+        if (stats) {
+            this.context.stats = stats;
+        }
+        if (Array.isArray(openTrades)) {
+            this.context.openTrades = openTrades;
+        }
+        if (Array.isArray(closedTrades)) {
+            this.context.closedTrades = closedTrades;
+        }
+    }
+
+    hasTradeHistory() {
+        return (this.context.openTrades?.length || 0) > 0 || (this.context.closedTrades?.length || 0) > 0;
+    }
+
+    getGreeting() {
+        if (!this.hasTradeHistory()) {
+            return 'Hi! I\'m your local AI coach. Add or import a few trades and I\'ll help you analyze risk and performance.';
+        }
+
+        const stats = this.context.stats;
+        if (!stats) {
+            return 'Hi! I\'m your local AI coach. Ask about performance, risk, or next steps.';
+        }
+
+        const openCount = this.context.openTrades?.length || 0;
+        const closedCount = this.context.closedTrades?.length || 0;
+        return `Hi! I\'m your local AI coach. You have ${openCount} active ${openCount === 1 ? 'position' : 'positions'} and ${closedCount} closed trades with realised P&L of ${this.formatCurrency(stats.totalPL)}.`;
+    }
+
+    generateResponse(query = '') {
+        const prompt = query.trim();
+        if (!prompt) {
+            return 'I can run a portfolio health check, review risk exposure, or suggest strategy adjustments. Try asking for a quick portfolio health check.';
+        }
+
+        if (!this.hasTradeHistory()) {
+            return 'Log a few trades first and I\'ll start surfacing insights about risk, performance, and strategy.';
+        }
+
+        const parts = [];
+        const performance = this.buildPerformanceSummary();
+        if (performance) {
+            parts.push(performance);
+        }
+
+        const risk = this.buildRiskHeadline();
+        if (risk) {
+            parts.push(risk);
+        }
+
+        const strategy = this.buildStrategyHeadline();
+        if (strategy) {
+            parts.push(strategy);
+        }
+
+        const coaching = this.buildCoachingHighlight();
+        if (coaching) {
+            parts.push(coaching);
+        }
+
+        if (!parts.length) {
+            parts.push('Portfolio data is limited, but keep logging trades and I\'ll highlight trends as they emerge.');
+        }
+
+        return parts.join('\n\n');
+    }
+
+    buildPerformanceSummary() {
+        const stats = this.context.stats;
+        if (!stats) {
+            return '';
+        }
+
+        const closed = this.context.closedTrades?.length || 0;
+        if (!closed) {
+            return 'No closed trades yet. Once you realize some P&L I\'ll summarize your performance here.';
+        }
+
+        const winRate = Number.isFinite(stats.winRate) ? `${stats.winRate.toFixed(1)}%` : '—';
+        const profitFactor = Number.isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : '—';
+        const totalROI = Number.isFinite(stats.totalROI) ? `${stats.totalROI.toFixed(2)}%` : '—';
+        return `Closed trades: ${closed}, realised P&L ${this.formatCurrency(stats.totalPL)}, win rate ${winRate}, profit factor ${profitFactor}, total ROI ${totalROI}.`;
+    }
+
+    buildRiskHeadline() {
+        const openTrades = this.context.openTrades || [];
+        if (!openTrades.length) {
+            return 'No open positions right now, so live risk exposure is minimal.';
+        }
+
+        let totalRisk = 0;
+        let largestRisk = 0;
+        let largestTrade = null;
+
+        openTrades.forEach(trade => {
+            const risk = Math.max(0, Number(this.app.getCapitalAtRisk(trade)) || 0);
+            totalRisk += risk;
+            if (risk > largestRisk) {
+                largestRisk = risk;
+                largestTrade = trade;
+            }
+        });
+
+        if (!totalRisk) {
+            return 'Open positions detected, but max risk looks minimal based on current data.';
+        }
+
+        if (largestTrade && totalRisk) {
+            const share = ((largestRisk / totalRisk) * 100).toFixed(0);
+            const ticker = (largestTrade.ticker || 'Unknown').toUpperCase();
+            return `Open risk across ${openTrades.length} ${openTrades.length === 1 ? 'position' : 'positions'} is ${this.formatCurrency(totalRisk)}. ${ticker} carries the largest share at ${share}% of exposure.`;
+        }
+
+        return `Open risk across ${openTrades.length} ${openTrades.length === 1 ? 'position' : 'positions'} is ${this.formatCurrency(totalRisk)}.`;
+    }
+
+    buildStrategyHeadline() {
+        const breakdown = this.getStrategyBreakdown();
+        if (!breakdown.length) {
+            return '';
+        }
+
+        const best = breakdown[0];
+        if (!best) {
+            return '';
+        }
+
+        const winRate = best.trades > 0 ? ((best.wins / best.trades) * 100).toFixed(0) : '0';
+        return `${best.name} leads with ${this.formatCurrency(best.pl)} across ${best.trades} trades (win rate ${winRate}%).`;
+    }
+
+    buildCoachingHighlight() {
+        const stats = this.context.stats;
+        if (!stats) {
+            return '';
+        }
+
+        const lossTrades = (this.context.closedTrades || []).filter(trade => trade.pl < 0);
+        const winTrades = (this.context.closedTrades || []).filter(trade => trade.pl > 0);
+
+        const avgSeen = (list, selector) => {
+            if (!list.length) {
+                return NaN;
+            }
+            const sum = list.reduce((acc, item) => acc + selector(item), 0);
+            return sum / list.length;
+        };
+
+        const avgLossDays = avgSeen(lossTrades, trade => Number(trade.daysHeld) || 0);
+        const avgWinDays = avgSeen(winTrades, trade => Number(trade.daysHeld) || 0);
+
+        if (Number.isFinite(avgLossDays) && Number.isFinite(avgWinDays)) {
+            const diff = avgLossDays - avgWinDays;
+            if (diff >= 2) {
+                return `Losing trades stay open about ${Math.round(diff)} days longer than winners—tighten exits to cut risk sooner.`;
+            }
+            if (diff <= -2) {
+                return `You let winners run roughly ${Math.round(Math.abs(diff))} days longer than losers—keep scaling out to lock in gains.`;
+            }
+        }
+
+        if (Number.isFinite(stats.winRate) && stats.winRate < 45 && (this.context.closedTrades?.length || 0) >= 5) {
+            return 'Win rate is under 45%. Focus on highest-conviction setups or scale size down until consistency improves.';
+        }
+
+        return '';
+    }
+
+    getStrategyBreakdown() {
+        const map = new Map();
+        (this.context.closedTrades || []).forEach(trade => {
+            const key = (trade.strategy || 'Unclassified').toString().trim() || 'Unclassified';
+            if (!map.has(key)) {
+                map.set(key, { name: key, pl: 0, trades: 0, wins: 0, losses: 0 });
+            }
+            const entry = map.get(key);
+            const plValue = Number(trade.pl) || 0;
+            entry.pl += plValue;
+            entry.trades += 1;
+            if (plValue > 0) {
+                entry.wins += 1;
+            } else if (plValue < 0) {
+                entry.losses += 1;
+            }
+        });
+
+        return Array.from(map.values()).sort((a, b) => b.pl - a.pl);
+    }
+
+    formatCurrency(value) {
+        return this.app.formatCurrency(value);
+    }
+}
+
+class GeminiInsightsAgent {
+    constructor(app) {
+        this.app = app;
+        this.context = {
+            stats: null,
+            openTrades: [],
+            closedTrades: []
+        };
+        this.fallback = new LocalInsightsAgent(app);
+    }
+
+    updateContext({ stats, openTrades, closedTrades } = {}) {
+        if (stats) {
+            this.context.stats = stats;
+        }
+        if (Array.isArray(openTrades)) {
+            this.context.openTrades = openTrades;
+        }
+        if (Array.isArray(closedTrades)) {
+            this.context.closedTrades = closedTrades;
+        }
+        this.fallback.updateContext({ stats: this.context.stats, openTrades: this.context.openTrades, closedTrades: this.context.closedTrades });
+    }
+
+    getGreeting() {
+        if (!this.isConfigured()) {
+            return 'Connect your Gemini API key in [Settings](#settings) to get tailored analysis.';
+        }
+        return this.fallback.getGreeting();
+    }
+
+    isConfigured() {
+        const config = this.app?.gemini;
+        return Boolean(config && config.apiKey);
+    }
+
+    async generateResponse(query = '', options = {}) {
+        const prompt = query.trim();
+        if (!prompt) {
+            return 'Ask a question and I\'ll send it to Gemini along with a snapshot of your portfolio.';
+        }
+
+        if (!this.isConfigured()) {
+            return 'Add a Gemini-compatible API key under [Settings](#settings) to enable AI-powered insights.';
+        }
+
+        try {
+            const request = this.buildRequestPayload(prompt, options);
+            const content = await this.callGemini(request);
+            if (content) {
+                return content;
+            }
+            throw new Error('Gemini returned an empty response');
+        } catch (error) {
+            const fallback = this.fallback.generateResponse(query);
+            const message = error?.message || 'Unknown error';
+            if (fallback) {
+                return `Gemini request failed (${message}). Here\'s a local snapshot instead:\n\n${fallback}`;
+            }
+            return `Gemini request failed (${message}). Try again in a moment.`;
+        }
+    }
+
+    buildRequestPayload(question, options = {}) {
+        const config = this.app?.gemini || {};
+        const model = GEMINI_ALLOWED_MODELS.includes(config.model)
+            ? config.model
+            : DEFAULT_GEMINI_MODEL;
+        const temperature = DEFAULT_GEMINI_TEMPERATURE;
+        const contextBlock = this.buildContextBlock();
+        const historyContents = this.buildHistoryContents(options.history || []);
+
+        const userContent = [
+            'You are a seasoned options-trading coach assisting a single trader.',
+            '### Portfolio Snapshot',
+            contextBlock,
+            '### User Question',
+            question,
+            '### Instructions',
+            'Provide clear, risk-aware guidance tailored to the data above. Reference relevant tickers or metrics when offering insights. Keep the response under 200 words, use bullet lists for multiple recommendations, and close with 2-3 suggested next steps. Remind the user that this is educational analysis, not financial advice.'
+        ].join('\n\n');
+
+        const contents = [
+            ...historyContents,
+            {
+                role: 'user',
+                parts: [{ text: userContent }]
+            }
+        ];
+
+        const generationConfig = {
+            maxOutputTokens: 800
+        };
+
+        generationConfig.temperature = Number(temperature.toFixed(2));
+
+        return {
+            model,
+            body: {
+                contents,
+                generationConfig
+            }
+        };
+    }
+
+    buildHistoryContents(history) {
+        if (!Array.isArray(history) || history.length === 0) {
+            return [];
+        }
+
+        return history
+            .filter(entry => entry && !entry.pending && typeof entry.text === 'string' && entry.text.trim().length)
+            .slice(-8)
+            .map(entry => ({
+                role: entry.sender === 'ai' ? 'model' : 'user',
+                parts: [{ text: entry.text.trim() }]
+            }));
+    }
+
+    buildContextBlock() {
+        const stats = this.context.stats || {};
+        const totals = {
+            totalPL: this.formatNumber(stats.totalPL),
+            winRate: this.formatNumber(stats.winRate),
+            profitFactor: this.formatNumber(stats.profitFactor),
+            totalROI: this.formatNumber(stats.totalROI),
+            annualizedROI: this.formatNumber(stats.annualizedROI),
+            maxDrawdown: this.formatNumber(stats.maxDrawdown),
+            closedTrades: stats.closedTrades ?? (this.context.closedTrades?.length || 0),
+            openPositions: stats.activePositions ?? (this.context.openTrades?.length || 0)
+        };
+
+        const contextData = {
+            totals,
+            riskHeadline: this.fallback.buildRiskHeadline(),
+            strategyHighlight: this.fallback.buildStrategyHeadline(),
+            coachingHighlight: this.fallback.buildCoachingHighlight(),
+            performanceHighlight: this.fallback.buildPerformanceSummary?.() || '',
+            openPositions: this.buildOpenPositionsSummary(),
+            recentClosedTrades: this.buildRecentClosedTradesSummary(),
+            topStrategies: this.buildStrategySummary(),
+            cycles: this.buildCycleSummary()
+        };
+
+        return JSON.stringify(contextData, null, 2);
+    }
+
+    buildOpenPositionsSummary(limit = 8) {
+        const trades = Array.isArray(this.context.openTrades) ? this.context.openTrades : [];
+        return trades.slice(0, limit).map(trade => {
+            const dteValue = Number.isFinite(trade.dte) ? trade.dte : this.deriveDTE(trade);
+            const riskValue = Number(this.app.getCapitalAtRisk(trade));
+            return {
+                ticker: (trade.ticker || '').toString().toUpperCase(),
+                strategy: trade.strategy || '',
+                status: trade.status || '',
+                dte: Number.isFinite(dteValue) ? Math.max(Math.round(dteValue), 0) : null,
+                maxRisk: Number.isFinite(riskValue) ? Number(riskValue.toFixed(2)) : null,
+                conviction: Number.isFinite(trade.convictionLevel) ? trade.convictionLevel : null,
+                entryDate: trade.entryDate || null,
+                notes: this.cleanNote(trade.notes)
+            };
+        });
+    }
+
+    deriveDTE(trade) {
+        if (!trade?.expirationDate) {
+            return null;
+        }
+        try {
+            return this.app.calculateDTE(trade.expirationDate, trade);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    buildRecentClosedTradesSummary(limit = 8) {
+        const trades = Array.isArray(this.context.closedTrades) ? [...this.context.closedTrades] : [];
+        return trades
+            .sort((a, b) => new Date(b.exitDate || 0) - new Date(a.exitDate || 0))
+            .slice(0, limit)
+            .map(trade => ({
+                ticker: (trade.ticker || '').toString().toUpperCase(),
+                strategy: trade.strategy || '',
+                exitDate: trade.exitDate || null,
+                daysHeld: Number.isFinite(trade.daysHeld) ? trade.daysHeld : null,
+                pl: this.formatNumber(trade.pl),
+                roi: this.formatNumber(trade.roi),
+                exitReason: this.cleanNote(trade.exitReason)
+            }));
+    }
+
+    buildStrategySummary(limit = 5) {
+        const breakdown = this.fallback.getStrategyBreakdown();
+        return breakdown.slice(0, limit).map(entry => ({
+            name: entry.name,
+            trades: entry.trades,
+            wins: entry.wins,
+            losses: entry.losses,
+            realisedPL: this.formatNumber(entry.pl),
+            winRate: entry.trades > 0 ? this.formatNumber((entry.wins / entry.trades) * 100) : null
+        }));
+    }
+
+    buildCycleSummary(limit = 3) {
+        const cycles = Array.isArray(this.app.cycleAnalytics) && this.app.cycleAnalytics.length
+            ? this.app.cycleAnalytics
+            : this.app.calculateCycleAnalytics();
+        return cycles.slice(0, limit).map(cycle => ({
+            cycleId: cycle.cycleId,
+            type: cycle.cycleType,
+            ticker: cycle.ticker,
+            status: cycle.status,
+            trades: Array.isArray(cycle.trades) ? cycle.trades.length : 0,
+            totalPL: this.formatNumber(cycle.totalPL),
+            roiPercent: this.formatNumber(cycle.roiPercent),
+            keyMetric: cycle.keyMetricLabel || null,
+            keyMetricValue: this.formatNumber(cycle.keyMetricValue),
+            timeline: this.app.formatCycleDateRange(cycle.startDate, cycle.endDate, cycle.hasOpenTrade)
+        }));
+    }
+
+    cleanNote(value) {
+        if (!value) {
+            return '';
+        }
+        const text = value.toString().trim();
+        if (text.length <= 180) {
+            return text;
+        }
+        return `${text.slice(0, 177)}…`;
+    }
+
+    formatNumber(value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return null;
+        }
+        return Number(numeric.toFixed(2));
+    }
+
+    async callGemini({ model, body }) {
+        const apiKey = this.app?.gemini?.apiKey;
+
+        if (!apiKey) {
+            throw new Error('Missing Gemini API key');
+        }
+
+        const base = DEFAULT_GEMINI_ENDPOINT.replace(/\/+$/, '');
+        const normalizedModel = (model || DEFAULT_GEMINI_MODEL).replace(/^models\//i, '');
+        const modelSegment = encodeURIComponent(normalizedModel);
+        const urlBase = `${base}/${modelSegment}:generateContent`;
+        const url = `${urlBase}?key=${encodeURIComponent(apiKey)}`;
+
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 20000) : null;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey
+                },
+                body: JSON.stringify(body),
+                signal: controller?.signal
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const errorMessage = data?.error?.message || data?.message || `HTTP ${response.status}`;
+                throw new Error(errorMessage);
+            }
+
+            if (data?.promptFeedback?.blockReason) {
+                throw new Error(`Request blocked (${data.promptFeedback.blockReason})`);
+            }
+
+            const parts = data?.candidates?.[0]?.content?.parts;
+            if (!Array.isArray(parts) || !parts.length) {
+                return '';
+            }
+
+            const text = parts
+                .map(part => (part && typeof part.text === 'string') ? part.text : '')
+                .join('')
+                .trim();
+
+            return text;
+        } finally {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        }
     }
 }
 

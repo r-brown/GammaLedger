@@ -4,9 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Options Trading Tracker Pro</title>
+    <title>Options Tracker Pro</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" type="image/png" href="favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="favicon-64x64.png">
 </head>
 
 <body>
@@ -679,6 +683,30 @@
                             <div class="finnhub-status" id="finnhub-status" role="status">Not set</div>
                         </div>
                     </div>
+                    <div class="settings-card" id="gemini-controls">
+                        <div class="settings-card__header">
+                            <h3>Gemini API</h3>
+                            <p class="settings-card__subtitle">Store a Google Gemini-compatible API key to enable AI portfolio insights.</p>
+                        </div>
+                        <div class="settings-card__body">
+                            <label for="gemini-api-key" class="form-label">API Key</label>
+                            <div class="settings-input-row">
+                                <input type="password" id="gemini-api-key" class="form-control" placeholder="Paste API key" autocomplete="off">
+                                <button class="btn btn--sm btn--primary" id="gemini-save">Save Key</button>
+                                <button class="btn btn--sm btn--secondary" id="gemini-clear">Clear</button>
+                            </div>
+                            <div class="form-group">
+                                <label for="gemini-model" class="form-label">Model</label>
+                                <select id="gemini-model" class="form-control">
+                                    <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                                </select>
+                            </div>
+                            <p class="settings-help-text">Keys stay on this device. Use Google AI Studio or any compatible service exposing the Gemini generateContent API.</p>
+                            <div class="gemini-status" id="gemini-status" role="status">Not set</div>
+                        </div>
+                    </div>
                 </section>
             </div>
         </main>
@@ -686,6 +714,35 @@
 
     <!-- Hidden file input for fallback -->
     <input type="file" id="file-input" accept=".json" style="display: none;">
+
+    <div class="ai-chat" id="ai-chat">
+        <button type="button" class="ai-chat__toggle" id="ai-chat-toggle" aria-controls="ai-chat-panel" aria-expanded="false">
+            🤖 AI Coach
+        </button>
+            <div class="ai-chat__panel hidden" id="ai-chat-panel" aria-hidden="true">
+            <div class="ai-chat__resize-handle" id="ai-chat-resize-handle" role="presentation" aria-hidden="true"></div>
+                <div class="ai-chat__header">
+                    <div>
+                        <h3 id="ai-chat-title" class="ai-chat__title">Portfolio AI Coach</h3>
+                        <p id="ai-chat-subtitle" class="ai-chat__subtitle"></p>
+                    </div>
+                <button type="button" class="ai-chat__close" id="ai-chat-close" aria-label="Close AI chat">×</button>
+            </div>
+            <div class="ai-chat__body" id="ai-chat-history" aria-live="polite"></div>
+            <form class="ai-chat__form" id="ai-chat-form">
+                <input type="text" id="ai-chat-input" class="ai-chat__input" placeholder="Ask about your portfolio..." autocomplete="off" required>
+                <button type="submit" class="btn btn--primary ai-chat__send">Send</button>
+            </form>
+            <div class="ai-chat__quick" id="ai-chat-quick">
+                <span class="ai-chat__quick-label">Quick prompts:</span>
+                <div class="ai-chat__quick-buttons">
+                    <button type="button" class="ai-chat__quick-btn" data-ai-prompt="Give me a quick portfolio health check.">Portfolio health</button>
+                    <button type="button" class="ai-chat__quick-btn" data-ai-prompt="Where am I taking the most risk right now?">Risk check</button>
+                    <button type="button" class="ai-chat__quick-btn" data-ai-prompt="Suggest improvements to my strategy allocation.">Strategy ideas</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>
