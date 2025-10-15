@@ -17,10 +17,30 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install minifiers
+        run: npm install -g html-minifier-terser terser clean-css-cli
+
+      - name: Create build directory
+        run: cp -r ./src ./build
+
+      - name: Minify JavaScript
+        run: find ./build -type f -name "*.js" -exec terser --compress --mangle --output {} {} \;
+
+      - name: Minify CSS
+        run: find ./build -type f -name "*.css" -exec cleancss -o {} {} \;
+
+      - name: Minify HTML
+        run: find ./build -type f -name "*.html" -exec html-minifier-terser --collapse-whitespace --remove-comments --remove-redundant-attributes --remove-script-type-attributes --remove-tag-whitespace --use-short-doctype --minify-css true --minify-js true --output {} {} \;
+
       - name: Deploy to gh-pages 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: ./src
+          folder: ./build
           branch: gh-pages
           target-folder: ./app
           clean: true
