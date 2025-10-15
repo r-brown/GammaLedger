@@ -6764,12 +6764,12 @@ class GeminiInsightsAgent {
     buildContextBlock() {
         const stats = this.context.stats || {};
         const totals = {
-            totalPL: this.formatNumber(stats.totalPL),
-            winRate: this.formatNumber(stats.winRate),
+            totalPL: this.formatNumber(stats.totalPL, { style: 'currency' }),
+            winRate: this.formatNumber(stats.winRate, { style: 'percent' }),
             profitFactor: this.formatNumber(stats.profitFactor),
-            totalROI: this.formatNumber(stats.totalROI),
-            annualizedROI: this.formatNumber(stats.annualizedROI),
-            maxDrawdown: this.formatNumber(stats.maxDrawdown),
+            totalROI: this.formatNumber(stats.totalROI, { style: 'percent' }),
+            annualizedROI: this.formatNumber(stats.annualizedROI, { style: 'percent' }),
+            maxDrawdown: this.formatNumber(stats.maxDrawdown, { style: 'percent' }),
             closedTrades: stats.closedTrades ?? (this.context.closedTrades?.length || 0),
             openPositions: stats.activePositions ?? (this.context.openTrades?.length || 0)
         };
@@ -6837,8 +6837,8 @@ class GeminiInsightsAgent {
             .map(trade => {
                 const snapshot = this.snapshotObjectForPrompt(trade);
                 const derived = {
-                    plRounded: this.formatNumber(trade?.pl),
-                    roiRounded: this.formatNumber(trade?.roi)
+                    plRounded: this.formatNumber(trade?.pl, { style: 'currency' }),
+                    roiRounded: this.formatNumber(trade?.roi, { style: 'percent' })
                 };
 
                 const exitReasonPreview = this.cleanNote(trade?.exitReason);
@@ -6869,8 +6869,8 @@ class GeminiInsightsAgent {
             trades: entry.trades,
             wins: entry.wins,
             losses: entry.losses,
-            realisedPL: this.formatNumber(entry.pl),
-            winRate: entry.trades > 0 ? this.formatNumber((entry.wins / entry.trades) * 100) : null
+            realisedPL: this.formatNumber(entry.pl, { style: 'currency' }),
+            winRate: entry.trades > 0 ? this.formatNumber((entry.wins / entry.trades) * 100, { style: 'percent' }) : null
         }));
     }
 
@@ -6882,10 +6882,10 @@ class GeminiInsightsAgent {
             const snapshot = this.snapshotObjectForPrompt(cycle);
             const derived = {
                 tradeCount: Array.isArray(cycle?.trades) ? cycle.trades.length : 0,
-                totalPLRounded: this.formatNumber(cycle?.totalPL),
-                roiPercentRounded: this.formatNumber(cycle?.roiPercent),
+                totalPLRounded: this.formatNumber(cycle?.totalPL, { style: 'currency' }),
+                roiPercentRounded: this.formatNumber(cycle?.roiPercent, { style: 'percent' }),
                 keyMetricLabel: cycle?.keyMetricLabel || null,
-                keyMetricValueRounded: this.formatNumber(cycle?.keyMetricValue),
+                keyMetricValueRounded: this.formatCycleMetricValue(cycle?.keyMetricValue, cycle?.keyMetricLabel),
                 timelineLabel: this.app.formatCycleDateRange(cycle?.startDate, cycle?.endDate, cycle?.hasOpenTrade)
             };
 
@@ -6955,12 +6955,49 @@ class GeminiInsightsAgent {
         return `${text.slice(0, 177)}…`;
     }
 
-    formatNumber(value) {
+    formatNumber(value, options = {}) {
         const numeric = Number(value);
         if (!Number.isFinite(numeric)) {
             return null;
         }
+
+        const style = options.style || 'number';
+
+        if (style === 'currency') {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(numeric);
+        }
+
+        if (style === 'percent') {
+            return `${numeric.toFixed(2)}%`;
+        }
+
+        if (style === 'string') {
+            return numeric.toFixed(2);
+        }
+
         return Number(numeric.toFixed(2));
+    }
+
+    formatCycleMetricValue(value, label = '') {
+        const normalizedLabel = (label || '').toString().toLowerCase();
+        if (!normalizedLabel) {
+            return this.formatNumber(value);
+        }
+
+        if (/(%|percent|roi|return|drawdown|rate|yield)/.test(normalizedLabel)) {
+            return this.formatNumber(value, { style: 'percent' });
+        }
+
+        if (/(\$|pl|p&l|profit|premium|risk|cost|credit|debit|revenue|balance|capital|cash|amount|value|exposure|loss)/.test(normalizedLabel)) {
+            return this.formatNumber(value, { style: 'currency' });
+        }
+
+        return this.formatNumber(value);
     }
 
     async callGemini({ model, body }) {
