@@ -1227,50 +1227,6 @@ select.form-control {
   color: var(--color-text-secondary);
 }
 
-/* Greeks Section */
-.greeks-section {
-  margin-bottom: var(--space-32);
-}
-
-.greeks-section h3 {
-  color: var(--color-primary);
-  margin-bottom: var(--space-16);
-}
-
-.greeks-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--space-16);
-}
-
-.greek-card {
-  background-color: var(--color-bg-1);
-  border-radius: var(--radius-base);
-  padding: var(--space-16);
-  text-align: center;
-  border: 1px solid var(--color-border);
-}
-
-.greek-card h4 {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin-bottom: var(--space-8);
-  font-weight: var(--font-weight-medium);
-}
-
-.greek-card p {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-  margin: 0;
-  margin-bottom: var(--space-4);
-}
-
-.greek-card small {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
 /* Risk Metrics */
 .risk-metrics {
   margin-bottom: var(--space-32);
@@ -2620,10 +2576,6 @@ tr.position-itm.position-expiring-critical td {
     grid-template-columns: 1fr 1fr;
   }
 
-  .greeks-cards {
-    grid-template-columns: 1fr 1fr;
-  }
-
   .file-management {
     flex-wrap: wrap;
     gap: var(--space-4);
@@ -2672,8 +2624,7 @@ tr.position-itm.position-expiring-critical td {
   }
 
   .overview-cards,
-  .risk-cards,
-  .greeks-cards {
+  .risk-cards {
     grid-template-columns: 1fr;
   }
 

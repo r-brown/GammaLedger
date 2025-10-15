@@ -51,10 +51,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: 2.89,
             fees: 1,
             ivRank: 32,
-            delta: 28.5,
-            gamma: null,
-            theta: -0.04,
-            vega: 0.15,
             marketCondition: 'Bullish',
             convictionLevel: 7,
             notes: 'Breakout continuation',
@@ -88,10 +84,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: 0.45,
             fees: 1.5,
             ivRank: 27,
-            delta: -14,
-            gamma: null,
-            theta: 0.02,
-            vega: null,
             marketCondition: 'Neutral',
             convictionLevel: 5,
             notes: 'Rolled after earnings',
@@ -125,10 +117,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: 0.5,
             fees: 1.1,
             ivRank: 25,
-            delta: 16.2,
-            gamma: null,
-            theta: 0.06,
-            vega: 0.12,
             marketCondition: 'Bullish',
             convictionLevel: 6,
             notes: 'Bounce off 50-day moving average',
@@ -162,10 +150,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: 0.85,
             fees: 1.3,
             ivRank: 41,
-            delta: 2.8,
-            gamma: null,
-            theta: 0.11,
-            vega: -0.05,
             marketCondition: 'Neutral',
             convictionLevel: 5,
             notes: 'Captured IV crush into FOMC week',
@@ -199,10 +183,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: 0.35,
             fees: 0.85,
             ivRank: 38,
-            delta: -24.1,
-            gamma: null,
-            theta: 0.08,
-            vega: null,
             marketCondition: 'Neutral',
             convictionLevel: 6,
             notes: 'Earnings gap fill support held',
@@ -236,10 +216,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: 0.6,
             fees: 1.1,
             ivRank: 47,
-            delta: -18.7,
-            gamma: null,
-            theta: 0.05,
-            vega: -0.14,
             marketCondition: 'Bearish',
             convictionLevel: 5,
             notes: 'Rejected weekly resistance',
@@ -273,10 +249,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: 1.1,
             fees: 1.75,
             ivRank: 29,
-            delta: -22.4,
-            gamma: null,
-            theta: 0.04,
-            vega: -0.12,
             marketCondition: 'Neutral',
             convictionLevel: 6,
             notes: 'Monthly income against core holding',
@@ -310,10 +282,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: null,
             fees: 0.75,
             ivRank: 60,
-            delta: -28.1,
-            gamma: null,
-            theta: 0.05,
-            vega: null,
             marketCondition: 'Neutral',
             convictionLevel: 6,
             notes: 'Prefer assignment for long-term hold',
@@ -347,10 +315,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: null,
             fees: 1.05,
             ivRank: 48,
-            delta: 18.7,
-            gamma: null,
-            theta: 0.04,
-            vega: 0.15,
             marketCondition: 'Bullish',
             convictionLevel: 6,
             notes: 'High IV setup',
@@ -384,10 +348,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: null,
             fees: 1.25,
             ivRank: 52,
-            delta: 62,
-            gamma: null,
-            theta: -0.08,
-            vega: 0.4,
             marketCondition: 'Bullish',
             convictionLevel: 8,
             notes: 'Synthetic stock core position',
@@ -421,10 +381,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: null,
             fees: 1.1,
             ivRank: 30,
-            delta: 35.4,
-            gamma: null,
-            theta: 0.07,
-            vega: 0.21,
             marketCondition: 'Neutral',
             convictionLevel: 6,
             notes: 'Diagonal with short weekly calls',
@@ -458,10 +414,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: null,
             fees: 0.9,
             ivRank: 55,
-            delta: -20.6,
-            gamma: null,
-            theta: 0.06,
-            vega: -0.18,
             marketCondition: 'Bearish',
             convictionLevel: 5,
             notes: 'Overbought daily chart',
@@ -495,10 +447,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: null,
             fees: 1.35,
             ivRank: 58,
-            delta: 0,
-            gamma: null,
-            theta: -0.12,
-            vega: 0.45,
             marketCondition: 'Volatile',
             convictionLevel: 6,
             notes: 'Pre-earnings volatility play',
@@ -532,10 +480,6 @@ const BUILTIN_SAMPLE_DATA = {
             exitPrice: null,
             fees: 0.8,
             ivRank: 22,
-            delta: -18,
-            gamma: null,
-            theta: 0.03,
-            vega: -0.09,
             marketCondition: 'Neutral',
             convictionLevel: 4,
             notes: 'Monthly income trade',
@@ -556,7 +500,7 @@ const BUILTIN_SAMPLE_DATA = {
         }
     ],
     exportDate: '2025-09-25T12:00:00.000Z',
-    version: '2.2'
+    version: '2.4'
 };
 
 class GammaLedger {
@@ -608,10 +552,6 @@ class GammaLedger {
         this.quoteRefreshKeys = [];
         this.quoteRefreshCursor = 0;
 
-        this.features = {
-            greeksEnabled: false
-        };
-
         this.positionHighlightConfig = {
             expirationWarningDays: 20,
             expirationCriticalDays: 10
@@ -651,10 +591,6 @@ class GammaLedger {
             const limit = Number(this.finnhub?.maxRequestsPerMinute) || 60;
             const safeLimit = Math.min(Math.max(limit - 2, 1), 60);
             return Math.max(800, Math.ceil(120_000 / safeLimit));
-        }
-
-        areGreeksEnabled() {
-            return Boolean(this.features?.greeksEnabled);
         }
 
     checkBrowserCompatibility() {
@@ -2086,10 +2022,6 @@ class GammaLedger {
             exitPrice: this.parseExitPrice(formData.get('exitPrice')),
             fees: this.parseDecimal(formData.get('fees'), 0),
             ivRank: this.parseInteger(formData.get('ivRank')),
-            delta: this.parseDecimal(formData.get('delta')),
-            gamma: this.parseDecimal(formData.get('gamma')),
-            theta: this.parseDecimal(formData.get('theta')),
-            vega: this.parseDecimal(formData.get('vega')),
             marketCondition: formData.get('marketCondition'),
             convictionLevel: this.parseInteger(formData.get('convictionLevel'), 5, { allowNegative: false }),
             notes: formData.get('notes'),
@@ -2166,26 +2098,15 @@ class GammaLedger {
         document.getElementById('win-loss-count').textContent = `${stats.wins}W / ${stats.losses}L`;
         document.getElementById('profit-factor').textContent = stats.profitFactor.toFixed(2);
         document.getElementById('active-positions').textContent = stats.activePositions;
-        const deltaSubtitle = document.getElementById('portfolio-delta');
-        if (deltaSubtitle) {
-            if (this.areGreeksEnabled()) {
-                deltaSubtitle.textContent = `Δ: ${stats.portfolioDelta.toFixed(2)}`;
-                deltaSubtitle.classList.remove('feature-disabled-label');
-            } else {
-                deltaSubtitle.textContent = 'Δ tracking paused';
-                deltaSubtitle.classList.add('feature-disabled-label');
-            }
-        }
         document.getElementById('total-roi').textContent = `${stats.annualizedROI.toFixed(2)}%`;
         document.getElementById('max-drawdown').textContent = `${stats.maxDrawdown.toFixed(1)}%`;
 
-        // Update Greeks and Risk Metrics
-    this.updatePortfolioGreeks(openTradesList);
+        // Update risk metrics
         this.updateRiskMetrics(closedTradesList, stats);
 
         // Update tables
-    this.updateActivePositionsTable(openTradesList);
-    this.updateRecentTradesTable(closedTradesList, stats.activePositions);
+        this.updateActivePositionsTable(openTradesList);
+        this.updateRecentTradesTable(closedTradesList, stats.activePositions);
         this.updateCycleSummaryTable(this.cycleAnalytics);
 
         // Update charts with delay
@@ -2195,8 +2116,8 @@ class GammaLedger {
     }
 
     calculateAdvancedStats() {
-    const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
-    const openTrades = this.trades.filter(trade => this.normalizeStatus(trade.status) === 'open');
+        const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
+        const openTrades = this.trades.filter(trade => this.normalizeStatus(trade.status) === 'open');
         const winningTrades = closedTrades.filter(trade => trade.pl > 0);
         const losingTrades = closedTrades.filter(trade => trade.pl < 0);
 
@@ -2209,9 +2130,7 @@ class GammaLedger {
 
         const totalWins = winningTrades.reduce((sum, trade) => sum + trade.pl, 0);
         const totalLosses = Math.abs(losingTrades.reduce((sum, trade) => sum + trade.pl, 0));
-        const profitFactor = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? 999 : 0;
-
-        const portfolioDelta = openTrades.reduce((sum, trade) => sum + (trade.delta || 0) * trade.quantity, 0);
+    const profitFactor = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? 999 : 0;
 
         // Calculate max drawdown
         let maxDrawdown = 0;
@@ -2242,7 +2161,6 @@ class GammaLedger {
             losses: losingTrades.length,
             profitFactor,
             activePositions: openTrades.length,
-            portfolioDelta,
             totalROI,
             annualizedROI,
             maxDrawdown,
@@ -2664,33 +2582,6 @@ class GammaLedger {
 
             this.applyResponsiveLabels(row, columnLabels);
         });
-    }
-
-    updatePortfolioGreeks(openTrades = this.trades.filter(trade => this.normalizeStatus(trade.status) === 'open')) {
-        const deltaEl = document.getElementById('portfolio-delta-value');
-        const gammaEl = document.getElementById('portfolio-gamma');
-        const thetaEl = document.getElementById('portfolio-theta');
-        const vegaEl = document.getElementById('portfolio-vega');
-
-        if (!this.areGreeksEnabled()) {
-            if (deltaEl) deltaEl.textContent = '—';
-            if (gammaEl) gammaEl.textContent = '—';
-            if (thetaEl) thetaEl.textContent = '—';
-            if (vegaEl) vegaEl.textContent = '—';
-            return;
-        }
-
-        const trades = Array.isArray(openTrades) ? openTrades : [];
-
-        const totalDelta = trades.reduce((sum, trade) => sum + (trade.delta || 0) * trade.quantity, 0);
-        const totalGamma = trades.reduce((sum, trade) => sum + (trade.gamma || 0) * trade.quantity, 0);
-        const totalTheta = trades.reduce((sum, trade) => sum + (trade.theta || 0) * trade.quantity, 0);
-        const totalVega = trades.reduce((sum, trade) => sum + (trade.vega || 0) * trade.quantity, 0);
-
-        if (deltaEl) deltaEl.textContent = totalDelta.toFixed(2);
-        if (gammaEl) gammaEl.textContent = totalGamma.toFixed(2);
-        if (thetaEl) thetaEl.textContent = totalTheta.toFixed(2);
-        if (vegaEl) vegaEl.textContent = totalVega.toFixed(2);
     }
 
     updateRiskMetrics(closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status)), stats = null) {
@@ -6075,10 +5966,6 @@ class GammaLedger {
             elements.exitPrice.value = (trade.exitPrice !== null && trade.exitPrice !== undefined) ? trade.exitPrice : '';
             elements.fees.value = trade.fees;
             elements.ivRank.value = trade.ivRank || '';
-            elements.delta.value = trade.delta || '';
-            elements.gamma.value = trade.gamma || '';
-            elements.theta.value = trade.theta || '';
-            elements.vega.value = trade.vega || '';
             if (elements.definedRiskWidth) {
                 elements.definedRiskWidth.value = Number.isFinite(Number(trade.definedRiskWidth)) ? trade.definedRiskWidth : '';
             }
@@ -6111,7 +5998,7 @@ class GammaLedger {
         const headers = [
             'Ticker', 'Strategy', 'Trade Type', 'Strike', 'Defined Risk Width', 'Qty', 'Entry Price', 'Exit Price', 'DTE', 'Days Held',
             'Entry Date', 'Expiration Date', 'Exit Date', 'Max Risk', 'P&L', 'ROI %', 'Annual ROI %', 'Status',
-            'Stock Price at Entry', 'Fees', 'Max Risk Override', 'Delta', 'Gamma', 'Theta', 'Vega', 'IV Rank', 'Market Condition',
+            'Stock Price at Entry', 'Fees', 'Max Risk Override', 'IV Rank', 'Market Condition',
             'Conviction Level', 'Notes', 'Exit Reason', 'Cycle ID', 'Cycle Type', 'Cycle Role'
         ];
 
@@ -6139,10 +6026,6 @@ class GammaLedger {
                 trade.stockPriceAtEntry,
                 trade.fees,
                 Number.isFinite(Number(trade.maxRiskOverride)) ? Number(trade.maxRiskOverride).toFixed(2) : '',
-                trade.delta || '',
-                trade.gamma || '',
-                trade.theta || '',
-                trade.vega || '',
                 trade.ivRank || '',
                 trade.marketCondition,
                 trade.convictionLevel,
@@ -6206,7 +6089,7 @@ class GammaLedger {
         return {
             trades: this.trades,
             exportDate: new Date().toISOString(),
-            version: '2.2'
+            version: '2.4'
         };
     }
 
@@ -6410,7 +6293,7 @@ class GammaLedger {
     saveToStorage(metadata = {}) {
         try {
             const payload = {
-                version: '2.2',
+                version: '2.4',
                 timestamp: new Date().toISOString(),
                 fileName: metadata.fileName || this.currentFileName || 'Unsaved Database',
                 trades: this.trades
