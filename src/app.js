@@ -537,6 +537,7 @@ class GammaLedger {
             model: DEFAULT_GEMINI_MODEL,
             statusTimeoutId: null,
             lastStatus: null,
+            pendingStatus: null,
             elements: {}
         };
 
@@ -2811,9 +2812,7 @@ class GammaLedger {
             status
         };
 
-        if (keyInput) {
-            keyInput.value = this.gemini.apiKey;
-        }
+        this.syncGeminiControlsFromState({ preserveStatus: Boolean(this.gemini.pendingStatus) });
 
         if (!GEMINI_ALLOWED_MODELS.includes(this.gemini.model)) {
             this.gemini.model = DEFAULT_GEMINI_MODEL;
@@ -2840,12 +2839,6 @@ class GammaLedger {
                 this.setGeminiModel(modelSelect.value);
                 this.saveGeminiConfigToStorage();
             });
-        }
-
-        if (status) {
-            const variant = this.gemini.apiKey ? 'success' : 'neutral';
-            const message = this.gemini.apiKey ? 'API key loaded' : 'Not set';
-            this.updateGeminiStatus(message, variant);
         }
 
         const commit = async () => {
@@ -2920,6 +2913,38 @@ class GammaLedger {
         });
 
         this.updateAIChatHeader();
+        this.flushPendingGeminiStatus();
+    }
+
+    syncGeminiControlsFromState({ preserveStatus = true } = {}) {
+        const keyInput = this.gemini?.elements?.keyInput;
+        const nextValue = this.gemini?.apiKey ? this.gemini.apiKey : '';
+
+        if (keyInput && keyInput.value !== nextValue) {
+            keyInput.value = nextValue;
+        }
+
+        const hasKey = Boolean(nextValue);
+        const shouldUpdateStatus = !preserveStatus && !this.gemini?.pendingStatus;
+        const shouldBootstrapStatus = preserveStatus && !this.gemini?.lastStatus && !this.gemini?.pendingStatus;
+
+        if ((shouldUpdateStatus || shouldBootstrapStatus) && this.updateGeminiStatus) {
+            const message = hasKey ? 'API key loaded' : 'Not set';
+            const variant = hasKey ? 'success' : 'neutral';
+            this.updateGeminiStatus(message, variant);
+        }
+
+        this.updateAIChatHeader();
+    }
+
+    flushPendingGeminiStatus() {
+        const pending = this.gemini?.pendingStatus;
+        if (!pending) {
+            return;
+        }
+
+        this.updateGeminiStatus(pending.message, pending.variant, pending.autoClearMs);
+        this.gemini.pendingStatus = null;
     }
 
     getGeminiModelLabel(model = '') {
@@ -2996,6 +3021,7 @@ class GammaLedger {
         }
 
         this.gemini.lastStatus = { message, variant: normalizedVariant };
+        this.gemini.pendingStatus = null;
 
         if (autoClearMs > 0) {
             this.gemini.statusTimeoutId = setTimeout(() => {
@@ -3045,15 +3071,24 @@ class GammaLedger {
     }
 
     async loadGeminiConfigFromStorage() {
+        let loadedApiKey = '';
+        let pendingStatus = null;
+
         try {
             const raw = localStorage.getItem(GEMINI_STORAGE_KEY);
             if (!raw) {
-                return;
+                this.setGeminiApiKey('', { persist: false, updateUI: false });
+                this.gemini.pendingStatus = null;
+                this.syncGeminiControlsFromState({ preserveStatus: true });
+                return false;
             }
 
             const parsed = JSON.parse(raw);
             if (!parsed || typeof parsed !== 'object') {
-                return;
+                this.setGeminiApiKey('', { persist: false, updateUI: false });
+                this.gemini.pendingStatus = null;
+                this.syncGeminiControlsFromState({ preserveStatus: true });
+                return false;
             }
 
             if (typeof parsed.model === 'string' && parsed.model.trim()) {
@@ -3064,27 +3099,66 @@ class GammaLedger {
                 const cryptoApi = this.getCrypto();
                 if (!cryptoApi?.subtle) {
                     console.warn('Encrypted Gemini API key stored but Web Crypto unavailable.');
-                    return;
+                    pendingStatus = {
+                        message: 'Stored Gemini API key is encrypted, but this browser cannot decrypt it. Please re-enter it in Settings.',
+                        variant: 'error',
+                        autoClearMs: 9000
+                    };
+                } else {
+                    try {
+                        const key = await this.ensureGeminiEncryptionKey(cryptoApi);
+                        if (!key) {
+                            throw new Error('Encryption key unavailable');
+                        }
+                        const decrypted = await this.decryptString(parsed.payload, cryptoApi, key);
+                        if (typeof decrypted === 'string') {
+                            loadedApiKey = decrypted.trim();
+                        }
+                    } catch (error) {
+                        console.warn('Failed to decrypt stored Gemini API key:', error);
+                        pendingStatus = {
+                            message: 'Failed to decrypt stored Gemini API key. Please re-enter it in Settings.',
+                            variant: 'error',
+                            autoClearMs: 9000
+                        };
+                    }
                 }
+            }
 
+            if (!loadedApiKey && typeof parsed.apiKey === 'string') {
+                loadedApiKey = parsed.apiKey.trim();
+            }
+
+            if (!loadedApiKey && typeof parsed.fallback === 'string' && parsed.fallback.trim()) {
                 try {
-                    const key = await this.ensureGeminiEncryptionKey(cryptoApi);
-                    if (!key) {
-                        throw new Error('Encryption key unavailable');
-                    }
-                    const decrypted = await this.decryptString(parsed.payload, cryptoApi, key);
-                    if (decrypted) {
-                        this.gemini.apiKey = decrypted;
-                    }
-                } catch (error) {
-                    console.warn('Failed to decrypt stored Gemini API key:', error);
+                    loadedApiKey = atob(parsed.fallback.trim()).trim();
+                } catch (decodeError) {
+                    console.warn('Failed to decode Gemini API key fallback:', decodeError);
                 }
-            } else if (typeof parsed.apiKey === 'string') {
-                this.gemini.apiKey = parsed.apiKey;
+            }
+
+            if (loadedApiKey && pendingStatus) {
+                pendingStatus = {
+                    message: 'Gemini API key loaded from local backup. Save it again to refresh secure storage when possible.',
+                    variant: 'neutral',
+                    autoClearMs: 9000
+                };
             }
         } catch (error) {
             console.warn('Failed to load Gemini configuration:', error);
+            if (!pendingStatus) {
+                pendingStatus = {
+                    message: 'Failed to load Gemini configuration. Please verify your stored Gemini API key.',
+                    variant: 'error',
+                    autoClearMs: 9000
+                };
+            }
         }
+
+        this.setGeminiApiKey(loadedApiKey, { persist: false, updateUI: false });
+        this.gemini.pendingStatus = pendingStatus;
+        this.syncGeminiControlsFromState({ preserveStatus: Boolean(pendingStatus) });
+        return Boolean(loadedApiKey);
     }
 
     saveGeminiConfigToStorage({ includeApiKey = false, encryptedPayload = null } = {}) {
@@ -3096,6 +3170,13 @@ class GammaLedger {
             if (encryptedPayload) {
                 payload.enc = true;
                 payload.payload = encryptedPayload;
+                if (this.gemini.apiKey) {
+                    try {
+                        payload.fallback = btoa(this.gemini.apiKey);
+                    } catch (_error) {
+                        // Ignore fallback encoding issues; encrypted payload remains primary storage.
+                    }
+                }
             } else if (includeApiKey && this.gemini.apiKey) {
                 payload.apiKey = this.gemini.apiKey;
             }
