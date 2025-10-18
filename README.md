@@ -75,9 +75,14 @@ Let's see who writes the next best hack — you, or the machine?
 
 <p align="center"><img src="https://raw.githubusercontent.com/r-brown/gammaledger/refs/heads/main/gammaledger-dashboard.png"></p>
 
-1. Clone the repository
-2. Open `index.html` in a modern browser (Chrome, Edge, or Firefox)
+1. Visit the [GammaLedger](https://gammaledger.com) page
+2. Click "Launch App" to launch the web app
 3. Create new database or import your options trading log to start tracking new trades immediately
+  or
+1. Download release ZIP from [Releases](https://github.com/r-brown/gammaledger/releases)
+2. Extract the ZIP file to a folder of your choice
+3. Open `./src/index.html` in a modern browser (Chrome, Edge, or Firefox)
+4. Create new database or import your options trading log to start tracking new trades immediately
 
 
 ## 📜 License
