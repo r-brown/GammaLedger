@@ -33,6 +33,10 @@
                     <span class="nav-icon">➕</span>
                     Add Trade
                 </button>
+                <button class="nav-item" data-view="import">
+                    <span class="nav-icon">⬆️</span>
+                    Import
+                </button>
                 <button class="nav-item" data-view="settings">
                     <span class="nav-icon">⚙️</span>
                     Settings
@@ -117,6 +121,26 @@
                     </div>
                 </div>
 
+                <!-- Performance Gauges -->
+                <div class="advanced-analytics-gauges">
+                    <div class="chart-container gauge-card">
+                        <h3>Sharpe Ratio</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--compact">
+                            <canvas id="sharpeGaugeChart"></canvas>
+                        </div>
+                        <p class="chart-metric" id="sharpeGaugeValue">—</p>
+                        <p class="chart-subtext">Risk-adjusted return</p>
+                    </div>
+                    <div class="chart-container gauge-card">
+                        <h3>Sortino Ratio</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--compact">
+                            <canvas id="sortinoGaugeChart"></canvas>
+                        </div>
+                        <p class="chart-metric" id="sortinoGaugeValue">—</p>
+                        <p class="chart-subtext">Focus on downside risk</p>
+                    </div>
+                </div>
+
                 <!-- Monthly P&L Performance - Full Width -->
                 <div class="monthly-pl-section">
                     <div class="chart-container chart-full-width">
@@ -151,71 +175,37 @@
                             <canvas id="winRateChart"></canvas>
                         </div>
                     </div>
+                </div>
+
+                <!-- Fees & Ticker Analytics -->
+                <div class="advanced-analytics-row">
                     <div class="chart-container">
-                        <h3>Performance by Market Condition</h3>
+                        <h3>Commission Impact</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
+                            <canvas id="commissionImpactChart"></canvas>
+                        </div>
+                        <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
+                    </div>
+                    <div class="chart-container heatmap-container">
+                        <h3>Ticker Performance Heatmap</h3>
+                        <div id="tickerHeatmap" class="heatmap-grid" aria-live="polite"></div>
+                    </div>
+                </div>
+
+                <!-- Holding Period & Projections -->
+                <div class="advanced-analytics-row">
+                    <div class="chart-container">
+                        <h3>Time in Trade (Average Days)</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
+                            <canvas id="timeInTradeChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Monte Carlo Projection (60 Days)</h3>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <canvas id="marketConditionChart"></canvas>
+                            <canvas id="monteCarloChart"></canvas>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Risk Metrics Dashboard -->
-                <div class="risk-metrics">
-                    <h3>Risk Metrics Dashboard</h3>
-                    <div class="risk-cards">
-                        <div class="risk-card">
-                            <h4>Sharpe Ratio</h4>
-                            <p id="sharpe-ratio">0.00</p>
-                            <small>Risk-adjusted return</small>
-                        </div>
-                        <div class="risk-card">
-                            <h4>Calmar Ratio</h4>
-                            <p id="calmar-ratio">0.00</p>
-                            <small>Return/Max Drawdown</small>
-                        </div>
-                        <div class="risk-card">
-                            <h4>Volatility</h4>
-                            <p id="volatility">0.00%</p>
-                            <small>Return Standard Deviation</small>
-                        </div>
-                        <div class="risk-card">
-                            <h4>Expectancy</h4>
-                            <p id="expectancy">$0.00</p>
-                            <small>Expected value per trade</small>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Cycle Analytics Overview -->
-                <div class="cycle-summary">
-                    <div class="cycle-summary__header">
-                        <div>
-                            <h3>Cycle Analytics</h3>
-                            <p class="cycle-summary__subtitle">Link Wheel and PMCC legs with a Cycle ID to understand premium capture and ROI per cycle.</p>
-                        </div>
-                    </div>
-                    <div id="cycle-summary-empty" class="cycle-summary-empty hidden">
-                        <p>No cycle data yet. Add a Cycle ID to related trades to see performance roll-ups here.</p>
-                    </div>
-                    <div class="table-container cycle-summary__table stackable-table-container">
-                        <table id="cycle-summary-table" class="stackable-table">
-                            <thead>
-                                <tr>
-                                    <th>Cycle</th>
-                                    <th>Type</th>
-                                    <th>Ticker</th>
-                                    <th>Status</th>
-                                    <th>Trades</th>
-                                    <th>Premiums</th>
-                                    <th>Total P&amp;L</th>
-                                    <th>ROI</th>
-                                    <th>Cost Basis</th>
-                                    <th>Key Metrics</th>
-                                    <th>Timeline</th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
+                        <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
                     </div>
                 </div>
 
@@ -230,12 +220,11 @@
                                     <tr>
                                         <th>Ticker</th>
                                         <th>Strategy</th>
-                                        <th>Trade Type</th>
                                         <th>Strike</th>
                                         <th>Current Price</th>
                                         <th>DTE</th>
                                         <th>Max Risk</th>
-                                        <th>Notes</th>
+                                        <th class="notes-col">Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -271,12 +260,25 @@
                         <!-- Basic Trade Info -->
                         <section class="form-section">
                             <h3>Basic Trade Information</h3>
+                            <p class="form-help-text">Opened, expiration, and closed dates are automatically derived from leg activity.</p>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label" for="ticker">Ticker Symbol</label>
                                     <input type="text" id="ticker" name="ticker" class="form-control" required>
                                     <div class="ticker-preview" id="ticker-preview"></div>
                                 </div>
+                                <div class="form-group">
+                                    <label class="form-label" for="underlyingType">Underlying Type</label>
+                                    <select id="underlyingType" name="underlyingType" class="form-control">
+                                        <option value="Stock" selected>Stock</option>
+                                        <option value="ETF">ETF</option>
+                                        <option value="Index">Index</option>
+                                        <option value="Future">Future</option>
+                                    </select>
+                                    <p class="form-help-text">Choose the asset category so GammaLedger can apply the right contract multiplier.</p>
+                                </div>
+                            </div>
+                            <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label" for="strategy">Strategy</label>
                                     <select id="strategy" name="strategy" class="form-control" required>
@@ -294,9 +296,9 @@
                                         <option value="Call Broken Wing">Call Broken Wing</option>
                                         <option value="Call Ratio Backspread">Call Ratio Backspread</option>
                                         <option value="Call Ratio Spread">Call Ratio Spread</option>
-                                        <option value="Cash-Secured Put">Cash-Secured Put</option>
+                                        <option value="Cash-Secured Put">⭐ Cash-Secured Put</option>
                                         <option value="Collar">Collar</option>
-                                        <option value="Covered Call">Covered Call</option>
+                                        <option value="Covered Call">⭐ Covered Call</option>
                                         <option value="Covered Short Straddle">Covered Short Straddle</option>
                                         <option value="Covered Short Strangle">Covered Short Strangle</option>
                                         <option value="Diagonal Call Spread">Diagonal Call Spread</option>
@@ -318,6 +320,7 @@
                                         <option value="Long Put Butterfly">Long Put Butterfly</option>
                                         <option value="Long Put Condor">Long Put Condor</option>
                                         <option value="Long Synthetic Future">Long Synthetic Future</option>
+                                        <option value="Poor Man's Covered Call">⭐ Poor Man's Covered Call</option>
                                         <option value="Protective Put">Protective Put</option>
                                         <option value="Put Broken Wing">Put Broken Wing</option>
                                         <option value="Put Ratio Backspread">Put Ratio Backspread</option>
@@ -339,88 +342,20 @@
                                         <option value="Strangle">Strangle</option>
                                         <option value="Strip">Strip</option>
                                         <option value="Synthetic Put">Synthetic Put</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="tradeType">Trade Type</label>
-                                    <select id="tradeType" name="tradeType" class="form-control" required>
-                                        <option value="BTO">BTO (Buy to Open)</option>
-                                        <option value="STO">STO (Sell to Open)</option>
-                                        <option value="STC">STC (Sell to Close)</option>
-                                        <option value="BTC">BTC (Buy to Close)</option>
+                                        <option value="Wheel">⭐ Wheel</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label" for="quantity">Quantity (Contracts)</label>
-                                    <input type="number" id="quantity" name="quantity" class="form-control" value="1"
-                                        required>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- Cycle Tracking -->
-                        <section class="form-section">
-                            <h3>Cycle Tracking</h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="cycleId">Cycle ID</label>
-                                    <input type="text" id="cycleId" name="cycleId" class="form-control"
-                                        placeholder="e.g. WHEEL-2025-01">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="cycleType">Cycle Type</label>
-                                    <select id="cycleType" name="cycleType" class="form-control">
-                                        <option value="">No Cycle</option>
-                                        <option value="wheel">Wheel</option>
-                                        <option value="pmcc">PMCC</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="cycleRole">Cycle Role</label>
-                                    <select id="cycleRole" name="cycleRole" class="form-control">
-                                        <option value="">Auto-detect</option>
-                                        <option value="wheel-put">Wheel Put Leg (Cash-Secured Put)</option>
-                                        <option value="wheel-call">Wheel Call Leg (Covered Call)</option>
-                                        <option value="pmcc-base">PMCC Base (Long LEAP)</option>
-                                        <option value="pmcc-short">PMCC Short Call</option>
-                                        <option value="assignment">Assignment / Stock Leg</option>
-                                    </select>
-                                    <small class="form-help-text">Fill these in to link trades into Wheel or PMCC cycles.</small>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- Dates -->
-                        <section class="form-section">
-                            <h3>Trade Dates</h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="entryDate">Entry Date</label>
-                                    <input type="date" id="entryDate" name="entryDate" class="form-control" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="expirationDate">Expiration Date</label>
-                                    <input type="date" id="expirationDate" name="expirationDate" class="form-control"
-                                        required>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="exitDate">Exit Date (Optional)</label>
-                                    <input type="date" id="exitDate" name="exitDate" class="form-control">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="status">Status</label>
-                                    <select id="status" name="status" class="form-control" required>
+                                    <label class="form-label" for="tradeStatus">Trade Status</label>
+                                    <select id="tradeStatus" name="tradeStatus" class="form-control">
+                                        <option value="">Auto (based on legs)</option>
                                         <option value="Open">Open</option>
                                         <option value="Closed">Closed</option>
+                                        <option value="Rolling">Rolled</option>
+                                        <option value="Expired">Expired</option>
                                         <option value="Assigned">Assigned</option>
                                     </select>
+                                    <p class="form-help-text">Leave on Auto for lifecycle detection or pick a status to override it.</p>
                                 </div>
                             </div>
                             <div class="form-row">
@@ -429,103 +364,34 @@
                                     <select id="exitReason" name="exitReason" class="form-control">
                                         <option value="">Select reason</option>
                                         <option value="Profit target reached">Profit target reached</option>
+                                        <option value="Early profit take">Early profit take</option>
                                         <option value="Stop loss triggered">Stop loss triggered</option>
-                                        <option value="Time decay">Time decay</option>
-                                        <option value="Assignment">Assignment</option>
                                         <option value="Expired">Expired</option>
+                                        <option value="Assignment">Assignment</option>
                                         <option value="Rolling position">Rolling position</option>
+                                        <option value="Time decay">Time decay</option>
                                         <option value="Market change">Market change</option>
                                         <option value="Volatility crush">Volatility crush</option>
-                                        <option value="Early profit take">Early profit take</option>
                                     </select>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- Entry Conditions -->
-                        <section class="form-section">
-                            <h3>Entry Conditions</h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="stockPriceAtEntry">Stock Price at Entry</label>
-                                    <input type="number" id="stockPriceAtEntry" name="stockPriceAtEntry"
-                                        class="form-control" step="0.01" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="strikePrice">Strike Price</label>
-                                    <input type="number" id="strikePrice" name="strikePrice" class="form-control"
-                                        step="0.01" required>
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="entryPrice">Entry Price (Premium)</label>
-                                    <input type="number" id="entryPrice" name="entryPrice" class="form-control"
-                                        step="0.01" required>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="exitPrice">Exit Price (if closed)</label>
-                                    <input type="number" id="exitPrice" name="exitPrice" class="form-control"
-                                        step="0.01">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="fees">Fees/Commissions</label>
-                                    <input type="number" id="fees" name="fees" class="form-control" step="0.01"
-                                        value="0">
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="ivRank">IV Rank</label>
-                                    <input type="number" id="ivRank" name="ivRank" class="form-control" min="0"
-                                        max="100">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="definedRiskWidth">Defined Risk Width (points)</label>
-                                    <input type="number" id="definedRiskWidth" name="definedRiskWidth"
-                                        class="form-control" step="0.01" min="0">
-                                    <span class="form-help-text">Difference between short and long strikes for credit
-                                        spreads, condors, or butterflies (per contract).</span>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="maxRiskOverride">Max Risk Override ($)</label>
-                                    <input type="number" id="maxRiskOverride" name="maxRiskOverride"
-                                        class="form-control" step="0.01" min="0">
-                                    <span class="form-help-text">Total maximum loss for this position, including
-                                        quantity; overrides automatic calculation when provided.</span>
-                                </div>
-                            </div>
-                        </section>
-
-                        <!-- Market Context -->
-                        <section class="form-section">
-                            <h3>Market Context & Analysis</h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label class="form-label" for="marketCondition">Market Condition</label>
-                                    <select id="marketCondition" name="marketCondition" class="form-control">
-                                        <option value="Bullish">Bullish</option>
-                                        <option value="Bearish">Bearish</option>
-                                        <option value="Neutral">Neutral</option>
-                                        <option value="High Vol">High Vol</option>
-                                        <option value="Low Vol">Low Vol</option>
-                                        <option value="Defensive">Defensive</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label class="form-label" for="convictionLevel">Conviction Level (1-10)</label>
-                                    <input type="range" id="convictionLevel" name="convictionLevel" class="form-control"
-                                        min="1" max="10" value="5">
-                                    <span id="conviction-display">5</span>
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label" for="notes">Notes</label>
-                                    <textarea id="notes" name="notes" class="form-control" rows="2"></textarea>
+                                    <textarea id="notes" name="notes" class="form-control" rows="4"
+                                        placeholder="Capture market context, execution details, and risk management plans."></textarea>
                                 </div>
+                            </div>
+                        </section>
+                        <!-- Trade Legs -->
+                        <section class="form-section">
+                            <div class="form-section__header">
+                                <h3>Trade Legs</h3>
+                                <p class="form-help-text">Add one or more legs to fully describe this trade. Each leg represents a single execution (including rolls).</p>
+                            </div>
+                            <div id="trade-legs-container" class="trade-legs-container" aria-live="polite"></div>
+                            <div class="form-row trade-legs-actions">
+                                <button type="button" class="btn btn--secondary" id="add-leg-button">Add Leg</button>
                             </div>
                         </section>
                     </div>
@@ -545,59 +411,58 @@
                             Hide Filters
                         </button>
                         <div class="trades-actions">
+                            <button class="btn btn--secondary" id="trades-merge-toggle" aria-controls="trades-merge-panel" aria-expanded="false">Merge Trades</button>
                             <button class="btn btn--secondary" id="export-csv">Export CSV</button>
                         </div>
                     </div>
                     <div class="trades-filters is-open" id="trades-filters-panel">
-                        <div class="trades-filters-grid">
+                        <div class="trades-filters-grid trades-filters-grid--compact">
                             <select id="filter-strategy" class="form-control">
                                 <option value="">All Strategies</option>
                             </select>
                             <select id="filter-status" class="form-control">
                                 <option value="">All Status</option>
                                 <option value="Open">Open</option>
+                                <option value="Rolling">Rolling</option>
                                 <option value="Closed">Closed</option>
                                 <option value="Assigned">Assigned</option>
-                            </select>
-                            <select id="filter-market-condition" class="form-control">
-                                <option value="">All Conditions</option>
-                                <option value="Bullish">Bullish</option>
-                                <option value="Bearish">Bearish</option>
-                                <option value="Neutral">Neutral</option>
-                                <option value="High Vol">High Vol</option>
-                                <option value="Low Vol">Low Vol</option>
-                                <option value="Defensive">Defensive</option>
-                            </select>
-                            <select id="filter-trade-type" class="form-control">
-                                <option value="">All Trade Types</option>
+                                <option value="Expired">Expired</option>
                             </select>
                         </div>
                         <div class="trades-filters-search">
-                            <input type="text" id="search-ticker" class="form-control" placeholder="Search ticker or cycle...">
+                            <input type="text" id="search-ticker" class="form-control" placeholder="Search ticker, strategy, cycle, or notes...">
                         </div>
                     </div>
                 </div>
+                <section class="trades-merge-panel is-collapsed" id="trades-merge-panel" aria-live="polite" aria-hidden="true">
+                    <header class="trades-merge-panel__header">
+                        <div>
+                            <h3 class="trades-merge-panel__title">Merge Trades by Ticker</h3>
+                            <p id="trades-merge-summary" class="trades-merge-panel__summary">Select two or more trades with the same ticker to enable merging.</p>
+                        </div>
+                        <button type="button" class="btn btn--secondary" id="trades-merge-btn" disabled>Merge Selected Trades</button>
+                    </header>
+                    <div id="trades-merge-groups" class="trades-merge-groups"></div>
+                </section>
                 <div class="table-container stackable-table-container">
                     <table id="trades-table" class="stackable-table">
                         <thead>
                             <tr>
+                                <th class="trade-select-header is-hidden"><input type="checkbox" id="trades-select-all" aria-label="Select all visible trades" disabled></th>
                                 <th class="sortable" data-sort="ticker">Ticker</th>
                                 <th class="sortable" data-sort="strategy">Strategy</th>
-                                <th>Cycle</th>
-                                <th class="sortable" data-sort="tradeType">Trade Type</th>
                                 <th class="sortable" data-sort="strikePrice">Strike</th>
                                 <th class="sortable" data-sort="quantity">Qty</th>
-                                <th class="sortable" data-sort="entryPrice">Entry Price</th>
-                                <th class="sortable" data-sort="exitPrice">Exit Price</th>
+                                <th class="sortable" data-sort="entryPrice">Net Credit/Debit</th>
                                 <th class="sortable" data-sort="entryDate">Entry Date</th>
-                                <th class="sortable" data-sort="expirationDate">Expiration</th>
+                                <th class="sortable" data-sort="expirationDate">Expiration Date</th>
                                 <th class="sortable" data-sort="dte">DTE</th>
                                 <th class="sortable" data-sort="exitDate">Exit Date</th>
                                 <th class="sortable" data-sort="daysHeld">Days Held</th>
                                 <th class="sortable" data-sort="maxRisk">Max Risk</th>
                                 <th class="sortable" data-sort="pl">P&L</th>
                                 <th class="sortable" data-sort="roi">ROI</th>
-                                <th class="sortable" data-sort="annualROI">Annual ROI</th>
+                                <th class="sortable" data-sort="annualizedROI">Annual ROI</th>
                                 <th class="sortable" data-sort="status">Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -605,6 +470,41 @@
                         <tbody></tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- Import View -->
+            <div class="view import-view">
+                <section class="import-section">
+                    <header class="import-header">
+                        <h2>Import Trade Activity</h2>
+                        <p>Bring in broker exports without overwriting your existing database. OFX files are merged into your current trades; JSON imports create a brand new database.</p>
+                    </header>
+                    <div class="import-actions">
+                        <button type="button" class="btn btn--primary" id="import-ofx-btn">Import OFX…</button>
+                        <button type="button" class="btn btn--secondary" id="import-json-btn">Import JSON…</button>
+                    </div>
+                    <section class="import-stats" aria-live="polite">
+                        <h3>Latest Import Summary</h3>
+                        <div id="import-summary" class="import-summary"></div>
+                    </section>
+                    <section class="import-feedback" aria-live="polite">
+                        <h3>Recent Imports</h3>
+                        <div id="import-log" class="import-log" role="status"></div>
+                    </section>
+                    <section class="import-merge import-merge--hint" aria-live="polite">
+                        <h3>Merge Trades After Import</h3>
+                        <p id="import-merge-hint" class="import-merge__help">Review trades flagged for manual merge on the All Trades page after completing an import.</p>
+                        <button type="button" class="btn btn--secondary" id="import-merge-hint-btn">Review Merge Opportunities</button>
+                    </section>
+                    <section class="import-help">
+                        <h3>OFX Tips</h3>
+                        <ul>
+                            <li>Download activity reports from your broker in the OFX/QFX format.</li>
+                            <li>Multi-leg option trades that share a timestamp are grouped automatically.</li>
+                            <li>Closing legs update any open positions with matching strikes and expirations.</li>
+                        </ul>
+                    </section>
+                </section>
             </div>
 
             <!-- Settings View -->
@@ -660,6 +560,8 @@
 
     <!-- Hidden file input for fallback -->
     <input type="file" id="file-input" accept=".json" style="display: none;">
+    <input type="file" id="import-ofx-input" accept=".ofx,.OFX" style="display: none;">
+    <input type="file" id="import-json-input" accept=".json" style="display: none;">
 
     <div class="ai-chat" id="ai-chat">
         <button type="button" class="ai-chat__toggle" id="ai-chat-toggle" aria-controls="ai-chat-panel" aria-expanded="false">
