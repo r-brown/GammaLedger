@@ -25,20 +25,20 @@ jobs:
       - name: Install minifiers
         run: npm install -g html-minifier-terser terser clean-css-cli
 
-      - name: Create dist directory
-        run: cp -r ./src ./dist
+      - name: Create gammaledger directory
+        run: cp -r ./src ./gammaledger
 
       - name: Minify JavaScript
-        run: find ./dist -type f -name "*.js" -exec terser --compress --mangle --output {} {} \;
+        run: find ./gammaledger -type f -name "*.js" -exec terser --compress --mangle --output {} {} \;
 
       - name: Minify CSS
-        run: find ./dist -type f -name "*.css" -exec cleancss -o {} {} \;
+        run: find ./gammaledger -type f -name "*.css" -exec cleancss -o {} {} \;
 
       - name: Minify HTML
-        run: find ./dist -type f -name "*.html" -exec html-minifier-terser --collapse-whitespace --remove-comments --remove-redundant-attributes --remove-script-type-attributes --remove-tag-whitespace --use-short-doctype --minify-css true --minify-js true --output {} {} \;
+        run: find ./gammaledger -type f -name "*.html" -exec html-minifier-terser --collapse-whitespace --remove-comments --remove-redundant-attributes --remove-script-type-attributes --remove-tag-whitespace --use-short-doctype --minify-css true --minify-js true --output {} {} \;
 
-      - name: Zip dist folder
-        run: zip -r application.zip dist
+      - name: Zip gammaledger folder
+        run: zip -r gammaledger-${{ github.event.release.tag_name }}.zip gammaledger
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
@@ -46,14 +46,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./application.zip
-          asset_name: application.zip
+          asset_path: ./gammaledger-${{ github.event.release.tag_name }}.zip
+          asset_name: gammaledger-${{ github.event.release.tag_name }}.zip
           asset_content_type: application/zip
 
       - name: Deploy to gh-pages 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: ./dist
+          folder: ./gammaledger
           branch: gh-pages
           target-folder: ./app
           clean: true
