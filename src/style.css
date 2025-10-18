@@ -135,6 +135,8 @@
   --radius-base: 8px;
   --radius-md: 10px;
   --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
   --radius-full: 9999px;
 
   /* Shadows */
@@ -1032,6 +1034,18 @@ select.form-control {
   flex: 1;
 }
 
+.share-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-top: var(--space-10);
+}
+
+.share-action__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
 .file-info {
   display: flex;
   align-items: center;
@@ -1061,6 +1075,30 @@ select.form-control {
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+}
+
+.icon-button:hover,
+.icon-button:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background-color: var(--color-secondary);
+  outline: none;
 }
 
 .import-view {
@@ -1400,6 +1438,144 @@ select.form-control {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-20);
   margin-bottom: var(--space-24);
+}
+
+.share-card-root {
+  position: absolute;
+  top: -9999px;
+  left: -9999px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.share-card-root.is-active {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 1;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.share-card {
+  width: min(960px, 92vw);
+  background: radial-gradient(circle at 20% 20%, rgba(42, 133, 255, 0.25), transparent 55%),
+    radial-gradient(circle at 80% 10%, rgba(73, 208, 236, 0.2), transparent 50%),
+    linear-gradient(140deg, rgba(12, 19, 36, 0.98) 0%, rgba(4, 11, 29, 0.98) 55%, rgba(2, 6, 18, 0.98) 100%);
+  color: var(--color-text);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-32);
+  box-shadow: 0 30px 80px rgba(3, 8, 20, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+}
+
+.share-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.share-card__title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.share-card__heading {
+  margin: 0;
+  font-size: clamp(30px, 3.4vw, 40px);
+  font-weight: var(--font-weight-semibold);
+  color: #f3f6ff;
+}
+
+.share-card__meta {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.share-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-16);
+}
+
+.share-card__metric {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: var(--space-18) var(--space-20);
+  backdrop-filter: blur(6px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 112px;
+  text-align: center;
+}
+
+.share-card__metric-label {
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.64);
+}
+
+.share-card__metric-value {
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: var(--font-weight-semibold);
+  color: #ffffff;
+  word-break: break-word;
+}
+
+.share-card__chart {
+  background: rgba(4, 12, 28, 0.75);
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.share-card__chart-title {
+  margin: 0;
+  font-size: clamp(18px, 2vw, 24px);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.share-card__chart canvas {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 260px;
+}
+
+.share-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.58);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.share-card-root.is-active .share-card {
+  pointer-events: auto;
+}
+
+.share-card-root.is-active::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 8, 20, 0.64);
+  z-index: -1;
 }
 
 .overview-card {

@@ -1583,6 +1583,16 @@ class GammaLedger {
             preferredCollapsed: false
         };
 
+        this.shareCard = {
+            root: null,
+            card: null,
+            button: null,
+            chartCanvas: null,
+            chart: null,
+            metrics: {},
+            timestamp: null
+        };
+
         // Current date for calculations (always use actual current date)
         this.currentDate = new Date(); // Current date
 
@@ -1605,6 +1615,7 @@ class GammaLedger {
         this.initializeFinnhubControls();
         this.initializeDisclaimerBanner();
         this.initializeSidebarToggle();
+    this.initializeShareCard();
         this.updateFileNameDisplay();
         this.checkBrowserCompatibility();
 
@@ -4686,6 +4697,8 @@ class GammaLedger {
         this.updateRecentTradesTable(closedTradesList, stats.activePositions);
         this.updateCycleSummaryTable(this.cycleAnalytics);
 
+        this.updateShareCard(stats);
+
         // Update charts with delay
         setTimeout(() => {
             this.updateAllCharts();
@@ -6689,6 +6702,303 @@ class GammaLedger {
         }
     }
 
+    initializeShareCard() {
+        const button = document.getElementById('share-portfolio-card');
+        const root = document.getElementById('share-card-root');
+        const card = root?.querySelector('.share-card');
+        const chartCanvas = document.getElementById('share-card-cumulative-chart');
+
+        if (!button || !root || !card || !chartCanvas) {
+            return;
+        }
+
+        if (button.dataset.initialized === 'true') {
+            return;
+        }
+
+        this.shareCard.button = button;
+        this.shareCard.root = root;
+        this.shareCard.card = card;
+        this.shareCard.chartCanvas = chartCanvas;
+        this.shareCard.metrics = {
+            totalPL: document.getElementById('share-card-total-pl'),
+            winRate: document.getElementById('share-card-win-rate'),
+            profitFactor: document.getElementById('share-card-profit-factor'),
+            totalROI: document.getElementById('share-card-total-roi')
+        };
+        this.shareCard.timestamp = document.getElementById('share-card-date');
+
+        button.dataset.initialized = 'true';
+        button.addEventListener('click', async (event) => {
+            event.preventDefault();
+            await this.downloadShareCard();
+        });
+
+        // Populate once with current stats if available.
+        if (this.latestStats) {
+            this.updateShareCard(this.latestStats);
+        }
+    }
+
+    computeCumulativePLSeries() {
+        const closedTrades = this.trades
+            .filter(trade => this.isClosedStatus(trade.status) && trade.exitDate);
+
+        if (closedTrades.length === 0) {
+            return null;
+        }
+
+        const weeklyPL = new Map();
+        let earliestWeek = null;
+        let latestWeek = null;
+
+        closedTrades.forEach(trade => {
+            const weekEnding = this.getWeekEndingFriday(trade.exitDate);
+            if (!weekEnding) {
+                return;
+            }
+
+            const key = this.getWeekKey(weekEnding);
+            weeklyPL.set(key, (weeklyPL.get(key) || 0) + trade.pl);
+
+            if (!earliestWeek || weekEnding < earliestWeek) {
+                earliestWeek = new Date(weekEnding);
+            }
+            if (!latestWeek || weekEnding > latestWeek) {
+                latestWeek = new Date(weekEnding);
+            }
+        });
+
+        if (!earliestWeek || !latestWeek) {
+            return null;
+        }
+
+        earliestWeek.setHours(0, 0, 0, 0);
+        latestWeek.setHours(0, 0, 0, 0);
+
+        const labels = [];
+        const dataPoints = [];
+        let cumulativePL = 0;
+        const cursor = new Date(earliestWeek);
+
+        while (cursor.getTime() <= latestWeek.getTime()) {
+            const key = this.getWeekKey(cursor);
+            cumulativePL += weeklyPL.get(key) || 0;
+            labels.push(this.formatWeekLabel(cursor));
+            dataPoints.push(cumulativePL);
+            cursor.setDate(cursor.getDate() + 7);
+        }
+
+        return {
+            labels,
+            dataPoints
+        };
+    }
+
+    updateShareCard(stats) {
+        if (!this.shareCard?.card) {
+            return;
+        }
+
+        const metrics = this.shareCard.metrics || {};
+        const safeStats = stats || this.latestStats || this.calculateAdvancedStats();
+
+        const formatPercent = (value, decimals = 2) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) {
+                return '∞';
+            }
+            return `${numeric.toFixed(decimals)}%`;
+        };
+
+        if (metrics.totalPL) {
+            metrics.totalPL.textContent = this.formatCurrency(safeStats.totalPL || 0);
+        }
+        if (metrics.winRate) {
+            metrics.winRate.textContent = formatPercent(safeStats.winRate, 1);
+        }
+        if (metrics.profitFactor) {
+            const profitFactor = Number(safeStats.profitFactor);
+            metrics.profitFactor.textContent = !Number.isFinite(profitFactor) || profitFactor >= 999
+                ? '∞'
+                : profitFactor.toFixed(2);
+        }
+        if (metrics.totalROI) {
+            metrics.totalROI.textContent = formatPercent(safeStats.totalROI, 2);
+        }
+        if (this.shareCard.timestamp) {
+            const now = new Date();
+            this.shareCard.timestamp.textContent = now.toLocaleString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+    }
+
+    refreshShareCardChart() {
+        if (!this.shareCard?.chartCanvas) {
+            return;
+        }
+
+        const ctx = this.shareCard.chartCanvas.getContext('2d');
+        if (!ctx) {
+            return;
+        }
+
+        if (this.shareCard.chart) {
+            this.shareCard.chart.destroy();
+            this.shareCard.chart = null;
+        }
+
+        const series = this.computeCumulativePLSeries();
+        const hasData = Boolean(series?.labels?.length && series?.dataPoints?.length);
+        const labels = hasData ? series.labels : ['No Data'];
+        const dataPoints = hasData ? series.dataPoints : [0];
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, this.shareCard.chartCanvas.height || 360);
+        gradient.addColorStop(0, 'rgba(79, 195, 247, 0.38)');
+        gradient.addColorStop(1, 'rgba(79, 195, 247, 0.05)');
+
+        this.shareCard.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Cumulative P&L',
+                    data: dataPoints,
+                    borderColor: '#4FC3F7',
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: hasData ? 3 : 0,
+                    pointHoverRadius: hasData ? 5 : 0,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.58)',
+                            maxRotation: 0,
+                            minRotation: 0,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.08)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.58)',
+                            callback: (value) => `$${Number(value).toLocaleString()}`,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `Cumulative P&L: $${Number(context.raw).toLocaleString()}`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async downloadShareCard() {
+        const button = this.shareCard?.button;
+        const root = this.shareCard?.root;
+        const card = this.shareCard?.card;
+
+        if (!button || !root || !card) {
+            this.showNotification('Sharing is unavailable right now.', 'error');
+            return;
+        }
+
+        if (typeof window.html2canvas !== 'function') {
+            this.showNotification('Image export library failed to load. Please refresh and try again.', 'error');
+            return;
+        }
+
+        const previousDisabled = button.disabled;
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+    button.blur();
+
+        this.updateShareCard(this.latestStats);
+        root.classList.add('is-active');
+        root.setAttribute('aria-hidden', 'false');
+
+        await new Promise((resolve) => {
+            requestAnimationFrame(() => {
+                this.refreshShareCardChart();
+                setTimeout(resolve, 180);
+            });
+        });
+
+        let canvas = null;
+        try {
+            const scale = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
+            canvas = await window.html2canvas(card, {
+                scale,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#050b1a'
+            });
+        } catch (error) {
+            console.error('Failed to capture share card:', error);
+            this.showNotification('Unable to prepare the share card image. Please try again.', 'error');
+        }
+
+        root.classList.remove('is-active');
+        root.setAttribute('aria-hidden', 'true');
+        button.removeAttribute('aria-busy');
+        button.disabled = previousDisabled;
+
+        if (this.shareCard.chart) {
+            this.shareCard.chart.destroy();
+            this.shareCard.chart = null;
+        }
+
+        if (!canvas) {
+            return;
+        }
+
+        try {
+            const dataUrl = canvas.toDataURL('image/png');
+            const today = new Date();
+            const stamp = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('');
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = `gammaledger-portfolio-${stamp}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            this.showNotification('Portfolio snapshot saved as an image.', 'success');
+        } catch (error) {
+            console.error('Failed to download image:', error);
+            this.showNotification('Image download failed. Please try again.', 'error');
+        }
+    }
+
     updateFinnhubStatus(message, variant = 'neutral', autoClearMs = 0) {
         const statusEl = this.finnhub?.elements?.status;
         if (!statusEl || !message) {
@@ -7532,10 +7842,9 @@ class GammaLedger {
             this.charts.cumulativePL.destroy();
         }
 
-        const closedTrades = this.trades
-            .filter(trade => this.isClosedStatus(trade.status) && trade.exitDate);
+        const series = this.computeCumulativePLSeries();
 
-        const renderEmptyChart = () => {
+        if (!series || !series.labels.length || !series.dataPoints.length) {
             this.charts.cumulativePL = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -7568,62 +7877,16 @@ class GammaLedger {
                     }
                 }
             });
-        };
-
-        if (closedTrades.length === 0) {
-            renderEmptyChart();
             return;
-        }
-
-        const weeklyPL = new Map();
-        let earliestWeek = null;
-        let latestWeek = null;
-
-        closedTrades.forEach(trade => {
-            const weekEnding = this.getWeekEndingFriday(trade.exitDate);
-            if (!weekEnding) {
-                return;
-            }
-
-            const key = this.getWeekKey(weekEnding);
-            weeklyPL.set(key, (weeklyPL.get(key) || 0) + trade.pl);
-
-            if (!earliestWeek || weekEnding < earliestWeek) {
-                earliestWeek = new Date(weekEnding);
-            }
-            if (!latestWeek || weekEnding > latestWeek) {
-                latestWeek = new Date(weekEnding);
-            }
-        });
-
-        if (!earliestWeek || !latestWeek) {
-            renderEmptyChart();
-            return;
-        }
-
-        earliestWeek.setHours(0, 0, 0, 0);
-        latestWeek.setHours(0, 0, 0, 0);
-
-        const labels = [];
-        const dataPoints = [];
-        let cumulativePL = 0;
-        const cursor = new Date(earliestWeek);
-
-        while (cursor.getTime() <= latestWeek.getTime()) {
-            const key = this.getWeekKey(cursor);
-            cumulativePL += weeklyPL.get(key) || 0;
-            labels.push(this.formatWeekLabel(cursor));
-            dataPoints.push(cumulativePL);
-            cursor.setDate(cursor.getDate() + 7);
         }
 
         this.charts.cumulativePL = new Chart(ctx, {
             type: 'line',
             data: {
-                labels,
+                labels: series.labels,
                 datasets: [{
                     label: 'Cumulative P&L',
-                    data: dataPoints,
+                    data: series.dataPoints,
                     borderColor: '#1FB8CD',
                     backgroundColor: 'rgba(31, 184, 205, 0.1)',
                     fill: true,

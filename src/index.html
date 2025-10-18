@@ -87,6 +87,12 @@
             <header class="app-header">
                 <div class="header-left">
                     <h1 id="page-title">Options Trading Dashboard</h1>
+                    <div class="share-action">
+                        <button class="icon-button" id="share-portfolio-card" aria-label="Share portfolio snapshot" title="Share portfolio snapshot">
+                            <span aria-hidden="true">⌯⌲</span>
+                        </button>
+                        <span class="share-action__label">Share your portfolio snapshot</span>
+                    </div>
                 </div>
 
                 <div class="header-right">
@@ -622,6 +628,43 @@
         </div>
     </div>
 
+    <div id="share-card-root" class="share-card-root" aria-hidden="true">
+        <div class="share-card" role="presentation">
+            <header class="share-card__header">
+                <div class="share-card__title">
+                    <h2 class="share-card__heading">Portfolio Snapshot</h2>
+                    <p class="share-card__meta" id="share-card-date">—</p>
+                </div>
+            </header>
+            <div class="share-card__metrics">
+                <div class="share-card__metric">
+                    <span class="share-card__metric-label">Total P&amp;L</span>
+                    <span class="share-card__metric-value" id="share-card-total-pl">$0.00</span>
+                </div>
+                <div class="share-card__metric">
+                    <span class="share-card__metric-label">Win Rate</span>
+                    <span class="share-card__metric-value" id="share-card-win-rate">0%</span>
+                </div>
+                <div class="share-card__metric">
+                    <span class="share-card__metric-label">Profit Factor</span>
+                    <span class="share-card__metric-value" id="share-card-profit-factor">0.00</span>
+                </div>
+                <div class="share-card__metric">
+                    <span class="share-card__metric-label">Total ROI</span>
+                    <span class="share-card__metric-value" id="share-card-total-roi">0%</span>
+                </div>
+            </div>
+            <div class="share-card__chart">
+                <h3 class="share-card__chart-title">Cumulative P&amp;L</h3>
+                <canvas id="share-card-cumulative-chart" width="880" height="360" role="img" aria-label="Cumulative P and L chart"></canvas>
+            </div>
+            <footer class="share-card__footer">
+                <span class="share-card__footnote">Generated with GammaLedger.com</span>
+            </footer>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="app.js"></script>
 </body>
 
