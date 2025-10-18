@@ -2836,7 +2836,7 @@ tr.position-itm.position-expiring-critical td {
 .action-btn--edit {
   background-color: var(--color-bg-3);
   color: var(--color-text);
-  margin-right: 5px
+  margin-right: 5px;
 }
 
 .action-btn--edit:hover {
