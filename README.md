@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/r-brown/gammaledger/refs/heads/main/gammaledger.png"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/gammaledger.png"></p>
 
 # 🎯 GammaLedger
 
@@ -23,7 +23,7 @@ Let's see who writes the next best hack — you, or the machine?
 ## 💼 Ideal For ...
 
 ### ... Active Traders
-- Track complex multi-leg strategies like PMCC and Iron Condors
+ - Track complex multi-leg strategies like Spreads, Strangles, Straddles, Condors, Wheels and Poor Man's Covered Calls
 - Monitor time decay and adjustment opportunities
 - Analyze win rates and profitability by strategy type
 - Maintain detailed trade journals for continuous improvement
@@ -75,9 +75,16 @@ Let's see who writes the next best hack — you, or the machine?
 
 <p align="center"><img src="https://raw.githubusercontent.com/r-brown/gammaledger/refs/heads/main/gammaledger-dashboard.png"></p>
 
-1. Clone the repository
-2. Open `index.html` in a modern browser (Chrome, Edge, or Firefox)
+1. Visit the [GammaLedger](https://gammaledger.com) page
+2. Click "Launch App" to launch the web app
 3. Create new database or import your options trading log to start tracking new trades immediately
+
+  ...or
+
+1. Download release ZIP from [Releases](https://github.com/r-brown/GammaLedger/releases)
+2. Extract the ZIP file to a folder of your choice
+3. Open `./src/index.html` in a modern browser (Chrome, Edge, or Firefox)
+4. Create new database or import your options trading log to start tracking new trades immediately
 
 
 ## 📜 License
