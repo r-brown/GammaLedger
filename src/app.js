@@ -8,563 +8,1497 @@ const DEFAULT_GEMINI_TEMPERATURE = 0.25;
 const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_STORAGE_KEY = 'GammaLedgerGeminiConfig';
 const GEMINI_SECRET_STORAGE_KEY = 'GammaLedgerGeminiSecret';
+const DISCLAIMER_STORAGE_KEY = 'GammaLedgerDisclaimerAcceptedAt';
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'GammaLedgerSidebarCollapsed';
+const LOCAL_STORAGE_KEY = 'GammaLedgerLocalDatabase';
+const LEGACY_STORAGE_KEY = 'GammaLedgerTrades';
+const LEGACY_STORAGE_KEYS = [
+    LEGACY_STORAGE_KEY,
+    'GammaLedgerDatabase',
+    'GammaLedgerLocalState',
+    'GammaLedgerState'
+];
 
-const BUILTIN_SAMPLE_DATA = {
-    trades: [
+const BUILTIN_SAMPLE_DATA = createBuiltinSampleData();
+
+function createBuiltinSampleData() {
+    const now = new Date();
+    const reference = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const toIso = (date) => date.toISOString().slice(0, 10);
+    const offset = (days) => {
+        const date = new Date(reference);
+        date.setUTCDate(date.getUTCDate() + days);
+        return toIso(date);
+    };
+
+    const trades = [
         {
-            id: 'TRD-1001',
-            ticker: 'AAPL',
-            strategy: 'Long Call',
-            status: 'Closed',
-            openedDate: '2025-02-20',
-            closedDate: '2025-03-12',
-            expirationDate: '2025-04-19',
-            exitReason: 'Profit target reached',
-            notes: 'Breakout continuation. Underlying: Entered after earnings breakout with strong volume confirmation. Risk plan: Target 100% return, stop at -50%.',
-            legs: [
-                {
-                    id: 'TRD-1001-L1',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-02-20',
-                    expirationDate: '2025-04-19',
-                    strike: 175,
-                    premium: 1.45,
-                    fees: 1,
-                    underlyingPrice: 175.6
-                },
-                {
-                    id: 'TRD-1001-L2',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-03-12',
-                    expirationDate: '2025-04-19',
-                    strike: 175,
-                    premium: 2.89,
-                    fees: 1,
-                    underlyingPrice: 181.9
-                }
-            ]
-        },
-        {
-            id: 'TRD-1002',
+            id: 'TRD-2001',
             ticker: 'SPY',
             strategy: 'Iron Condor',
             status: 'Closed',
-            openedDate: '2025-04-22',
-            closedDate: '2025-05-18',
-            expirationDate: '2025-05-31',
-            exitReason: 'Hit 70% max profit',
-            notes: 'Captured IV crush into monthly expiration. Underlying: Range-bound price action with elevated IV Rank. Risk plan: Take profit at 70%, roll if breach at 2x credit.',
+            openedDate: offset(-210),
+            closedDate: offset(-182),
+            expirationDate: offset(-174),
+            exitReason: 'Closed early for 70% max profit.',
+            notes: 'Monthly condor sized at 3% of capital with 12 delta wings.',
             legs: [
                 {
-                    id: 'TRD-1002-L1',
+                    id: 'TRD-2001-L1',
                     action: 'SELL',
                     side: 'OPEN',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-04-22',
-                    expirationDate: '2025-05-31',
-                    strike: 510,
+                    executionDate: offset(-210),
+                    expirationDate: offset(-174),
+                    strike: 455,
+                    premium: 1.2,
+                    fees: 0.35,
+                    underlyingPrice: 450.6
+                },
+                {
+                    id: 'TRD-2001-L2',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-210),
+                    expirationDate: offset(-174),
+                    strike: 460,
+                    premium: 0.45,
+                    fees: 0.2
+                },
+                {
+                    id: 'TRD-2001-L3',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-210),
+                    expirationDate: offset(-174),
+                    strike: 430,
+                    premium: 1.35,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2001-L4',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-210),
+                    expirationDate: offset(-174),
+                    strike: 425,
+                    premium: 0.5,
+                    fees: 0.2
+                },
+                {
+                    id: 'TRD-2001-L5',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-182),
+                    expirationDate: offset(-174),
+                    strike: 455,
+                    premium: 0.35,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2001-L6',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-182),
+                    expirationDate: offset(-174),
+                    strike: 460,
+                    premium: 0.15,
+                    fees: 0.2
+                },
+                {
+                    id: 'TRD-2001-L7',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-182),
+                    expirationDate: offset(-174),
+                    strike: 430,
+                    premium: 0.45,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2001-L8',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-182),
+                    expirationDate: offset(-174),
+                    strike: 425,
+                    premium: 0.18,
+                    fees: 0.2
+                }
+            ]
+        },
+        {
+            id: 'TRD-2002',
+            ticker: 'QQQ',
+            strategy: 'Bull Put Spread',
+            status: 'Closed',
+            openedDate: offset(-195),
+            closedDate: offset(-168),
+            expirationDate: offset(-160),
+            exitReason: 'Profit target hit at 65% of credit.',
+            notes: 'Put spread aligned with rising 50-day moving average.',
+            legs: [
+                {
+                    id: 'TRD-2002-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-195),
+                    expirationDate: offset(-160),
+                    strike: 290,
+                    premium: 2.05,
+                    fees: 0.3,
+                    underlyingPrice: 302.4
+                },
+                {
+                    id: 'TRD-2002-L2',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-195),
+                    expirationDate: offset(-160),
+                    strike: 280,
+                    premium: 0.9,
+                    fees: 0.2
+                },
+                {
+                    id: 'TRD-2002-L3',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-168),
+                    expirationDate: offset(-160),
+                    strike: 290,
                     premium: 0.75,
                     fees: 0.3
                 },
                 {
-                    id: 'TRD-1002-L2',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-04-22',
-                    expirationDate: '2025-05-31',
-                    strike: 515,
-                    premium: 0.35,
-                    fees: 0.2
-                },
-                {
-                    id: 'TRD-1002-L3',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-04-22',
-                    expirationDate: '2025-05-31',
-                    strike: 500,
-                    premium: 0.85,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-1002-L4',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-04-22',
-                    expirationDate: '2025-05-31',
-                    strike: 495,
-                    premium: 0.3,
-                    fees: 0.2
-                },
-                {
-                    id: 'TRD-1002-L5',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-05-18',
-                    expirationDate: '2025-05-31',
-                    strike: 510,
-                    premium: 0.15,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-1002-L6',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-05-18',
-                    expirationDate: '2025-05-31',
-                    strike: 515,
-                    premium: 0.05,
-                    fees: 0.2
-                },
-                {
-                    id: 'TRD-1002-L7',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-05-18',
-                    expirationDate: '2025-05-31',
-                    strike: 500,
-                    premium: 0.18,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-1002-L8',
+                    id: 'TRD-2002-L4',
                     action: 'SELL',
                     side: 'CLOSE',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-05-18',
-                    expirationDate: '2025-05-31',
-                    strike: 495,
-                    premium: 0.06,
+                    executionDate: offset(-168),
+                    expirationDate: offset(-160),
+                    strike: 280,
+                    premium: 0.38,
                     fees: 0.2
                 }
             ]
         },
         {
-            id: 'TRD-1003',
-            ticker: 'TSLA',
-            strategy: 'Cash-Secured Put',
-            status: 'Open',
-            openedDate: '2025-09-15',
-            expirationDate: '2025-10-17',
-            notes: 'Prefer assignment for long-term hold. Underlying: Post-earnings consolidation with high IV. Risk plan: Accept assignment at 250; roll at 21 DTE if needed.',
-            legs: [
-                {
-                    id: 'TRD-1003-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-09-15',
-                    expirationDate: '2025-10-17',
-                    strike: 250,
-                    premium: 3.4,
-                    fees: 0.75,
-                    underlyingPrice: 260.5
-                }
-            ]
-        },
-        {
-            id: 'TRD-1004',
-            ticker: 'MSFT',
-            strategy: 'Covered Call Roll',
-            status: 'Rolling',
-            openedDate: '2025-03-24',
-            closedDate: null,
-            expirationDate: '2025-05-23',
-            notes: 'Rolling monthly income position higher. Underlying: Trending higher into resistance. Risk plan: Roll up and out when delta > 0.35.',
-            legs: [
-                {
-                    id: 'TRD-1004-L1',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-04-18',
-                    expirationDate: '2025-04-19',
-                    strike: 325,
-                    premium: 0.45,
-                    fees: 1.2,
-                    underlyingPrice: 318.2
-                },
-                {
-                    id: 'TRD-1004-L2',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-04-18',
-                    expirationDate: '2025-05-23',
-                    strike: 330,
-                    premium: 1.65,
-                    fees: 1.2,
-                    underlyingPrice: 318.2
-                }
-            ]
-        },
-        {
-            id: 'TRD-1005',
+            id: 'TRD-2003',
             ticker: 'IWM',
+            strategy: 'Calendar Spread',
+            status: 'Closed',
+            openedDate: offset(-180),
+            closedDate: offset(-152),
+            expirationDate: offset(-150),
+            exitReason: 'Closed before near-term expiration to avoid pin risk.',
+            notes: 'Theta harvest with seasonal small-cap rally expectations.',
+            legs: [
+                {
+                    id: 'TRD-2003-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-180),
+                    expirationDate: offset(-90),
+                    strike: 205,
+                    premium: 8.9,
+                    fees: 0.45
+                },
+                {
+                    id: 'TRD-2003-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-180),
+                    expirationDate: offset(-150),
+                    strike: 205,
+                    premium: 4.1,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-2003-L3',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-152),
+                    expirationDate: offset(-150),
+                    strike: 205,
+                    premium: 1.25,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-2003-L4',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-152),
+                    expirationDate: offset(-90),
+                    strike: 205,
+                    premium: 10.3,
+                    fees: 0.45
+                }
+            ]
+        },
+        {
+            id: 'TRD-2004',
+            ticker: 'AAPL',
+            strategy: 'Covered Call',
+            status: 'Closed',
+            openedDate: offset(-165),
+            closedDate: offset(-135),
+            expirationDate: offset(-128),
+            exitReason: 'Shares called away at target strike.',
+            notes: 'Income overlay on core share position with rolling plan at 21 DTE.',
+            legs: [
+                {
+                    id: 'TRD-2004-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-165),
+                    expirationDate: offset(-128),
+                    strike: 190,
+                    premium: 2.4,
+                    fees: 0.35,
+                    underlyingPrice: 184.2
+                },
+                {
+                    id: 'TRD-2004-L2',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-135),
+                    expirationDate: offset(-128),
+                    strike: 190,
+                    premium: 0.58,
+                    fees: 0.35
+                }
+            ]
+        },
+        {
+            id: 'TRD-2005',
+            ticker: 'TSLA',
             strategy: 'Short Strangle',
             status: 'Closed',
-            openedDate: '2025-07-08',
-            closedDate: '2025-07-26',
-            expirationDate: '2025-08-16',
-            exitReason: 'Time decay',
-            notes: 'Monthly premium capture. Underlying: Consolidating near 200 with elevated IV. Risk plan: Close at 50% max profit or roll when breach.',
+            openedDate: offset(-150),
+            closedDate: offset(-120),
+            expirationDate: offset(-112),
+            exitReason: 'Closed for risk management after breakout.',
+            notes: 'Accepted a small loss after upside breach; drawdown contained to <1R.',
             legs: [
                 {
-                    id: 'TRD-1005-L1',
+                    id: 'TRD-2005-L1',
                     action: 'SELL',
                     side: 'OPEN',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-07-08',
-                    expirationDate: '2025-08-16',
-                    strike: 212,
-                    premium: 2.05,
-                    fees: 0.3
+                    executionDate: offset(-150),
+                    expirationDate: offset(-112),
+                    strike: 320,
+                    premium: 3.9,
+                    fees: 0.45
                 },
                 {
-                    id: 'TRD-1005-L2',
+                    id: 'TRD-2005-L2',
                     action: 'SELL',
                     side: 'OPEN',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-07-08',
-                    expirationDate: '2025-08-16',
-                    strike: 188,
-                    premium: 2.1,
-                    fees: 0.3
+                    executionDate: offset(-150),
+                    expirationDate: offset(-112),
+                    strike: 260,
+                    premium: 3.6,
+                    fees: 0.45
                 },
                 {
-                    id: 'TRD-1005-L3',
+                    id: 'TRD-2005-L3',
                     action: 'BUY',
                     side: 'CLOSE',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-07-26',
-                    expirationDate: '2025-08-16',
-                    strike: 212,
-                    premium: 0.75,
-                    fees: 0.3
+                    executionDate: offset(-120),
+                    expirationDate: offset(-112),
+                    strike: 320,
+                    premium: 6.2,
+                    fees: 0.45
                 },
                 {
-                    id: 'TRD-1005-L4',
+                    id: 'TRD-2005-L4',
                     action: 'BUY',
                     side: 'CLOSE',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-07-26',
-                    expirationDate: '2025-08-16',
-                    strike: 188,
-                    premium: 0.82,
-                    fees: 0.3
+                    executionDate: offset(-120),
+                    expirationDate: offset(-112),
+                    strike: 260,
+                    premium: 1.4,
+                    fees: 0.45
                 }
             ]
         },
         {
-            id: 'TRD-1006',
+            id: 'TRD-2006',
+            ticker: 'MSFT',
+            strategy: 'Diagonal Call Spread',
+            status: 'Closed',
+            openedDate: offset(-135),
+            closedDate: offset(-108),
+            expirationDate: offset(-100),
+            exitReason: 'Delta target reached ahead of earnings.',
+            notes: 'Diagonalized to express bullish momentum while capping risk.',
+            legs: [
+                {
+                    id: 'TRD-2006-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-135),
+                    expirationDate: offset(-30),
+                    strike: 320,
+                    premium: 23.5,
+                    fees: 0.6
+                },
+                {
+                    id: 'TRD-2006-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-135),
+                    expirationDate: offset(-100),
+                    strike: 340,
+                    premium: 5.1,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-2006-L3',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-108),
+                    expirationDate: offset(-100),
+                    strike: 340,
+                    premium: 1.65,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-2006-L4',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-108),
+                    expirationDate: offset(-30),
+                    strike: 320,
+                    premium: 27.8,
+                    fees: 0.6
+                }
+            ]
+        },
+        {
+            id: 'TRD-2007',
+            ticker: 'AMZN',
+            strategy: 'Iron Condor',
+            status: 'Closed',
+            openedDate: offset(-120),
+            closedDate: offset(-92),
+            expirationDate: offset(-84),
+            exitReason: 'Closed for 75% of credit heading into earnings.',
+            notes: 'Condor sized at 2% of portfolio; trimmed risk into catalyst.',
+            legs: [
+                {
+                    id: 'TRD-2007-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-120),
+                    expirationDate: offset(-84),
+                    strike: 150,
+                    premium: 1.65,
+                    fees: 0.32
+                },
+                {
+                    id: 'TRD-2007-L2',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-120),
+                    expirationDate: offset(-84),
+                    strike: 155,
+                    premium: 0.62,
+                    fees: 0.22
+                },
+                {
+                    id: 'TRD-2007-L3',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-120),
+                    expirationDate: offset(-84),
+                    strike: 130,
+                    premium: 1.72,
+                    fees: 0.32
+                },
+                {
+                    id: 'TRD-2007-L4',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-120),
+                    expirationDate: offset(-84),
+                    strike: 125,
+                    premium: 0.58,
+                    fees: 0.22
+                },
+                {
+                    id: 'TRD-2007-L5',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-92),
+                    expirationDate: offset(-84),
+                    strike: 150,
+                    premium: 0.48,
+                    fees: 0.32
+                },
+                {
+                    id: 'TRD-2007-L6',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-92),
+                    expirationDate: offset(-84),
+                    strike: 155,
+                    premium: 0.22,
+                    fees: 0.22
+                },
+                {
+                    id: 'TRD-2007-L7',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-92),
+                    expirationDate: offset(-84),
+                    strike: 130,
+                    premium: 0.62,
+                    fees: 0.32
+                },
+                {
+                    id: 'TRD-2007-L8',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-92),
+                    expirationDate: offset(-84),
+                    strike: 125,
+                    premium: 0.26,
+                    fees: 0.22
+                }
+            ]
+        },
+        {
+            id: 'TRD-2008',
+            ticker: 'XOP',
+            strategy: 'Bear Call Spread',
+            status: 'Closed',
+            openedDate: offset(-105),
+            closedDate: offset(-78),
+            expirationDate: offset(-70),
+            exitReason: 'Trend broke lower, captured 80% of credit.',
+            notes: 'Energy ETF roll-down after OPEC meeting volatility.',
+            legs: [
+                {
+                    id: 'TRD-2008-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-105),
+                    expirationDate: offset(-70),
+                    strike: 155,
+                    premium: 1.95,
+                    fees: 0.28
+                },
+                {
+                    id: 'TRD-2008-L2',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-105),
+                    expirationDate: offset(-70),
+                    strike: 160,
+                    premium: 0.75,
+                    fees: 0.2
+                },
+                {
+                    id: 'TRD-2008-L3',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-78),
+                    expirationDate: offset(-70),
+                    strike: 155,
+                    premium: 0.48,
+                    fees: 0.28
+                },
+                {
+                    id: 'TRD-2008-L4',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-78),
+                    expirationDate: offset(-70),
+                    strike: 160,
+                    premium: 0.18,
+                    fees: 0.2
+                }
+            ]
+        },
+        {
+            id: 'TRD-2009',
+            ticker: 'RUT',
+            strategy: 'Iron Butterfly',
+            status: 'Closed',
+            openedDate: offset(-90),
+            closedDate: offset(-61),
+            expirationDate: offset(-56),
+            exitReason: 'Took profit at 65% after mean reversion.',
+            notes: 'Focused on slow grind environment with flattening skew.',
+            legs: [
+                {
+                    id: 'TRD-2009-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-90),
+                    expirationDate: offset(-56),
+                    strike: 2050,
+                    premium: 5.6,
+                    fees: 0.5
+                },
+                {
+                    id: 'TRD-2009-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-90),
+                    expirationDate: offset(-56),
+                    strike: 1950,
+                    premium: 6.2,
+                    fees: 0.5
+                },
+                {
+                    id: 'TRD-2009-L3',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-90),
+                    expirationDate: offset(-56),
+                    strike: 2075,
+                    premium: 2.4,
+                    fees: 0.4
+                },
+                {
+                    id: 'TRD-2009-L4',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-90),
+                    expirationDate: offset(-56),
+                    strike: 1925,
+                    premium: 2.6,
+                    fees: 0.4
+                },
+                {
+                    id: 'TRD-2009-L5',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-61),
+                    expirationDate: offset(-56),
+                    strike: 2050,
+                    premium: 1.85,
+                    fees: 0.5
+                },
+                {
+                    id: 'TRD-2009-L6',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-61),
+                    expirationDate: offset(-56),
+                    strike: 1950,
+                    premium: 2.05,
+                    fees: 0.5
+                },
+                {
+                    id: 'TRD-2009-L7',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-61),
+                    expirationDate: offset(-56),
+                    strike: 2075,
+                    premium: 0.92,
+                    fees: 0.4
+                },
+                {
+                    id: 'TRD-2009-L8',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-61),
+                    expirationDate: offset(-56),
+                    strike: 1925,
+                    premium: 1.08,
+                    fees: 0.4
+                }
+            ]
+        },
+        {
+            id: 'TRD-2010',
+            ticker: 'GLD',
+            strategy: 'Long Straddle',
+            status: 'Closed',
+            openedDate: offset(-75),
+            closedDate: offset(-48),
+            expirationDate: offset(-40),
+            exitReason: 'Exited on breakout momentum.',
+            notes: 'Volatility expansion play into CPI release.',
+            legs: [
+                {
+                    id: 'TRD-2010-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-75),
+                    expirationDate: offset(-40),
+                    strike: 190,
+                    premium: 3.05,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2010-L2',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-75),
+                    expirationDate: offset(-40),
+                    strike: 190,
+                    premium: 2.85,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2010-L3',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-48),
+                    expirationDate: offset(-40),
+                    strike: 190,
+                    premium: 5.1,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2010-L4',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-48),
+                    expirationDate: offset(-40),
+                    strike: 190,
+                    premium: 3.95,
+                    fees: 0.35
+                }
+            ]
+        },
+        {
+            id: 'TRD-2011',
             ticker: 'NVDA',
             strategy: 'Poor Man\'s Covered Call',
             status: 'Closed',
-            openedDate: '2025-01-10',
-            closedDate: '2025-03-01',
-            expirationDate: '2026-06-19',
-            exitReason: 'Profit target reached',
-            notes: 'Diagonalized LEAPS against a short call. Underlying: Breakout on AI earnings momentum. Risk plan: Roll short when delta > 0.35.',
+            openedDate: offset(-60),
+            closedDate: offset(-32),
+            expirationDate: offset(320),
+            exitReason: 'Rolled to capture additional upside after runaway rally.',
+            notes: 'Diagonal structure managed by delta and theta thresholds.',
             legs: [
                 {
-                    id: 'TRD-1006-L1',
+                    id: 'TRD-2011-L1',
                     action: 'BUY',
                     side: 'OPEN',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-01-10',
-                    expirationDate: '2026-06-19',
-                    strike: 600,
-                    premium: 65.4,
+                    executionDate: offset(-60),
+                    expirationDate: offset(320),
+                    strike: 900,
+                    premium: 78.5,
                     fees: 0.75
                 },
                 {
-                    id: 'TRD-1006-L2',
+                    id: 'TRD-2011-L2',
                     action: 'SELL',
                     side: 'OPEN',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-01-10',
-                    expirationDate: '2025-03-21',
-                    strike: 850,
-                    premium: 8.25,
-                    fees: 0.3
+                    executionDate: offset(-60),
+                    expirationDate: offset(-20),
+                    strike: 1150,
+                    premium: 14.2,
+                    fees: 0.35
                 },
                 {
-                    id: 'TRD-1006-L3',
+                    id: 'TRD-2011-L3',
                     action: 'BUY',
                     side: 'CLOSE',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-02-28',
-                    expirationDate: '2025-03-21',
-                    strike: 850,
-                    premium: 1.1,
-                    fees: 0.3
+                    executionDate: offset(-32),
+                    expirationDate: offset(-20),
+                    strike: 1150,
+                    premium: 4.1,
+                    fees: 0.35
                 },
                 {
-                    id: 'TRD-1006-L4',
+                    id: 'TRD-2011-L4',
                     action: 'SELL',
                     side: 'CLOSE',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-03-01',
-                    expirationDate: '2026-06-19',
-                    strike: 600,
-                    premium: 72.8,
+                    executionDate: offset(-32),
+                    expirationDate: offset(320),
+                    strike: 900,
+                    premium: 82.9,
                     fees: 0.75
                 }
             ]
         },
         {
-            id: 'TRD-1007',
+            id: 'TRD-2012',
             ticker: 'AMD',
-            strategy: 'Straddle',
+            strategy: 'Iron Condor',
             status: 'Closed',
-            openedDate: '2025-05-01',
-            closedDate: '2025-05-20',
-            expirationDate: '2025-06-21',
-            exitReason: 'Volatility crush',
-            notes: 'Earnings IV play with quick exit after the post-report move. Underlying: Neutral bias, targeting elevated implied volatility.',
+            openedDate: offset(-48),
+            closedDate: offset(-24),
+            expirationDate: offset(-18),
+            exitReason: 'Hit trailing stop after volatility compression.',
+            notes: 'Short premium targeting 21 DTE roll cadence.',
             legs: [
                 {
-                    id: 'TRD-1007-L1',
+                    id: 'TRD-2012-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-48),
+                    expirationDate: offset(-18),
+                    strike: 150,
+                    premium: 2.15,
+                    fees: 0.32
+                },
+                {
+                    id: 'TRD-2012-L2',
                     action: 'BUY',
                     side: 'OPEN',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-05-01',
-                    expirationDate: '2025-06-21',
-                    strike: 150,
-                    premium: 5.8,
-                    fees: 0.65
+                    executionDate: offset(-48),
+                    expirationDate: offset(-18),
+                    strike: 155,
+                    premium: 0.78,
+                    fees: 0.22
                 },
                 {
-                    id: 'TRD-1007-L2',
+                    id: 'TRD-2012-L3',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-48),
+                    expirationDate: offset(-18),
+                    strike: 130,
+                    premium: 1.98,
+                    fees: 0.32
+                },
+                {
+                    id: 'TRD-2012-L4',
                     action: 'BUY',
                     side: 'OPEN',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-05-01',
-                    expirationDate: '2025-06-21',
-                    strike: 150,
-                    premium: 5.4,
-                    fees: 0.65
+                    executionDate: offset(-48),
+                    expirationDate: offset(-18),
+                    strike: 125,
+                    premium: 0.68,
+                    fees: 0.22
                 },
                 {
-                    id: 'TRD-1007-L3',
+                    id: 'TRD-2012-L5',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-24),
+                    expirationDate: offset(-18),
+                    strike: 150,
+                    premium: 0.68,
+                    fees: 0.32
+                },
+                {
+                    id: 'TRD-2012-L6',
                     action: 'SELL',
                     side: 'CLOSE',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-05-20',
-                    expirationDate: '2025-06-21',
-                    strike: 150,
-                    premium: 8.9,
-                    fees: 0.65
+                    executionDate: offset(-24),
+                    expirationDate: offset(-18),
+                    strike: 155,
+                    premium: 0.28,
+                    fees: 0.22
                 },
                 {
-                    id: 'TRD-1007-L4',
+                    id: 'TRD-2012-L7',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-24),
+                    expirationDate: offset(-18),
+                    strike: 130,
+                    premium: 0.75,
+                    fees: 0.32
+                },
+                {
+                    id: 'TRD-2012-L8',
                     action: 'SELL',
                     side: 'CLOSE',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-05-20',
-                    expirationDate: '2025-06-21',
-                    strike: 150,
-                    premium: 3.1,
-                    fees: 0.65
+                    executionDate: offset(-24),
+                    expirationDate: offset(-18),
+                    strike: 125,
+                    premium: 0.26,
+                    fees: 0.22
                 }
             ]
         },
         {
-            id: 'TRD-1008',
-            ticker: 'XOM',
+            id: 'TRD-2013',
+            ticker: 'META',
+            strategy: 'Broken Wing Butterfly',
+            status: 'Closed',
+            openedDate: offset(-36),
+            closedDate: offset(-16),
+            expirationDate: offset(-12),
+            exitReason: 'Closed near pinned short strike for planned profit.',
+            notes: 'Risk-defined structure into product launch event.',
+            legs: [
+                {
+                    id: 'TRD-2013-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-36),
+                    expirationDate: offset(-12),
+                    strike: 500,
+                    premium: 4.1,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-2013-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 2,
+                    multiplier: 100,
+                    executionDate: offset(-36),
+                    expirationDate: offset(-12),
+                    strike: 520,
+                    premium: 3.25,
+                    fees: 0.45
+                },
+                {
+                    id: 'TRD-2013-L3',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-36),
+                    expirationDate: offset(-12),
+                    strike: 545,
+                    premium: 1.35,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-2013-L4',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-16),
+                    expirationDate: offset(-12),
+                    strike: 520,
+                    premium: 2.15,
+                    fees: 0.45
+                },
+                {
+                    id: 'TRD-2013-L5',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-16),
+                    expirationDate: offset(-12),
+                    strike: 520,
+                    premium: 2.1,
+                    fees: 0.45
+                },
+                {
+                    id: 'TRD-2013-L6',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-16),
+                    expirationDate: offset(-12),
+                    strike: 500,
+                    premium: 3.85,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-2013-L7',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-16),
+                    expirationDate: offset(-12),
+                    strike: 545,
+                    premium: 0.65,
+                    fees: 0.3
+                }
+            ]
+        },
+        {
+            id: 'TRD-2014',
+            ticker: 'SPX',
+            strategy: 'Iron Condor',
+            status: 'Closed',
+            openedDate: offset(-24),
+            closedDate: offset(-8),
+            expirationDate: offset(-4),
+            exitReason: 'Closed at 60% profit to avoid NFP volatility.',
+            notes: 'Wide wings with automated scaling rules.',
+            legs: [
+                {
+                    id: 'TRD-2014-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-24),
+                    expirationDate: offset(-4),
+                    strike: 5650,
+                    premium: 2.6,
+                    fees: 0.55
+                },
+                {
+                    id: 'TRD-2014-L2',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-24),
+                    expirationDate: offset(-4),
+                    strike: 5750,
+                    premium: 1.1,
+                    fees: 0.45
+                },
+                {
+                    id: 'TRD-2014-L3',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-24),
+                    expirationDate: offset(-4),
+                    strike: 5300,
+                    premium: 3.1,
+                    fees: 0.55
+                },
+                {
+                    id: 'TRD-2014-L4',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-24),
+                    expirationDate: offset(-4),
+                    strike: 5200,
+                    premium: 1.25,
+                    fees: 0.45
+                },
+                {
+                    id: 'TRD-2014-L5',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-8),
+                    expirationDate: offset(-4),
+                    strike: 5650,
+                    premium: 1.02,
+                    fees: 0.55
+                },
+                {
+                    id: 'TRD-2014-L6',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-8),
+                    expirationDate: offset(-4),
+                    strike: 5750,
+                    premium: 0.44,
+                    fees: 0.45
+                },
+                {
+                    id: 'TRD-2014-L7',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-8),
+                    expirationDate: offset(-4),
+                    strike: 5300,
+                    premium: 1.18,
+                    fees: 0.55
+                },
+                {
+                    id: 'TRD-2014-L8',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-8),
+                    expirationDate: offset(-4),
+                    strike: 5200,
+                    premium: 0.42,
+                    fees: 0.45
+                }
+            ]
+        },
+        {
+            id: 'TRD-2015',
+            ticker: 'CRM',
+            strategy: 'Calendar Spread',
+            status: 'Closed',
+            openedDate: offset(-18),
+            closedDate: offset(-6),
+            expirationDate: offset(-4),
+            exitReason: 'Closed at 80% of planned target.',
+            notes: 'Focused on repeatable monthly ROI with low drawdown.',
+            legs: [
+                {
+                    id: 'TRD-2015-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-18),
+                    expirationDate: offset(180),
+                    strike: 280,
+                    premium: 12.4,
+                    fees: 0.45
+                },
+                {
+                    id: 'TRD-2015-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-18),
+                    expirationDate: offset(-4),
+                    strike: 280,
+                    premium: 4.65,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-2015-L3',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-6),
+                    expirationDate: offset(-4),
+                    strike: 280,
+                    premium: 1.95,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-2015-L4',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-6),
+                    expirationDate: offset(180),
+                    strike: 280,
+                    premium: 14.8,
+                    fees: 0.45
+                }
+            ]
+        },
+        {
+            id: 'TRD-2016',
+            ticker: 'SPY',
+            strategy: 'Iron Condor',
+            status: 'Open',
+            openedDate: offset(-14),
+            closedDate: null,
+            expirationDate: offset(28),
+            notes: 'Current focus trade sized at 2% risk, monitoring gamma into FOMC.',
+            legs: [
+                {
+                    id: 'TRD-2016-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-14),
+                    expirationDate: offset(28),
+                    strike: 560,
+                    premium: 1.48,
+                    fees: 0.32,
+                    underlyingPrice: 548.1
+                },
+                {
+                    id: 'TRD-2016-L2',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-14),
+                    expirationDate: offset(28),
+                    strike: 570,
+                    premium: 0.62,
+                    fees: 0.22
+                },
+                {
+                    id: 'TRD-2016-L3',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-14),
+                    expirationDate: offset(28),
+                    strike: 520,
+                    premium: 1.62,
+                    fees: 0.32
+                },
+                {
+                    id: 'TRD-2016-L4',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-14),
+                    expirationDate: offset(28),
+                    strike: 510,
+                    premium: 0.68,
+                    fees: 0.22
+                }
+            ]
+        },
+        {
+            id: 'TRD-2017',
+            ticker: 'NVDA',
+            strategy: 'Diagonal Call Spread',
+            status: 'Open',
+            openedDate: offset(-10),
+            closedDate: null,
+            expirationDate: offset(60),
+            notes: 'Scaling call diagonal as part of trend-following play.',
+            legs: [
+                {
+                    id: 'TRD-2017-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-10),
+                    expirationDate: offset(240),
+                    strike: 980,
+                    premium: 88.4,
+                    fees: 0.75,
+                    underlyingPrice: 928.5
+                },
+                {
+                    id: 'TRD-2017-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-10),
+                    expirationDate: offset(60),
+                    strike: 1150,
+                    premium: 17.6,
+                    fees: 0.35
+                }
+            ]
+        },
+        {
+            id: 'TRD-2018',
+            ticker: 'IWM',
+            strategy: 'Short Strangle',
+            status: 'Open',
+            openedDate: offset(-21),
+            closedDate: null,
+            expirationDate: offset(35),
+            notes: 'Defined monitoring triggers at 2x credit and 21 DTE roll.',
+            legs: [
+                {
+                    id: 'TRD-2018-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-21),
+                    expirationDate: offset(35),
+                    strike: 230,
+                    premium: 1.92,
+                    fees: 0.3,
+                    underlyingPrice: 213.7
+                },
+                {
+                    id: 'TRD-2018-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-21),
+                    expirationDate: offset(35),
+                    strike: 195,
+                    premium: 1.98,
+                    fees: 0.3
+                }
+            ]
+        },
+        {
+            id: 'TRD-2019',
+            ticker: 'TSLA',
             strategy: 'Covered Call',
             status: 'Open',
-            openedDate: '2025-06-10',
+            openedDate: offset(-5),
             closedDate: null,
-            expirationDate: '2025-09-20',
-            notes: 'Wheel phase two after put assignment. Underlying: Post-breakout consolidation above 105. Risk plan: Roll short call when delta exceeds 0.30 or price tags upper channel.',
-            cycleId: 'XOM-WHEEL-2025',
-            cycleType: 'wheel',
-            cycleRole: 'shares-phase',
+            expirationDate: offset(40),
+            notes: 'Income overlay targeting 2% monthly yield; ready to roll at 0.35 delta.',
             legs: [
                 {
-                    id: 'TRD-1008-L1',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'STOCK',
-                    quantity: 100,
-                    multiplier: 1,
-                    executionDate: '2025-06-10',
-                    strike: null,
-                    premium: 108.2,
-                    fees: 0,
-                    underlyingPrice: 108.2
-                },
-                {
-                    id: 'TRD-1008-L2',
+                    id: 'TRD-2019-L1',
                     action: 'SELL',
                     side: 'OPEN',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2025-06-10',
-                    expirationDate: '2025-07-19',
-                    strike: 115,
-                    premium: 1.45,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-1008-L3',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-07-12',
-                    expirationDate: '2025-07-19',
-                    strike: 115,
-                    premium: 0.38,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-1008-L4',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2025-07-12',
-                    expirationDate: '2025-09-20',
-                    strike: 118,
-                    premium: 1.92,
-                    fees: 0.3
+                    executionDate: offset(-5),
+                    expirationDate: offset(40),
+                    strike: 305,
+                    premium: 3.25,
+                    fees: 0.35,
+                    underlyingPrice: 292.4
                 }
             ]
         },
         {
-            id: 'TRD-1009',
-            ticker: 'RUT',
-            strategy: 'Iron Butterfly',
-            status: 'Expired',
-            openedDate: '2024-12-18',
-            closedDate: '2025-01-17',
-            expirationDate: '2025-01-17',
-            exitReason: 'Expired worthless',
-            notes: 'January cycle pin play. Underlying: Expecting mean reversion into settlement. Risk plan: Close if price breaches +/-20 points beyond short strikes.',
+            id: 'TRD-2020',
+            ticker: 'GLD',
+            strategy: 'Bull Put Spread',
+            status: 'Open',
+            openedDate: offset(-17),
+            closedDate: null,
+            expirationDate: offset(45),
+            notes: 'Risk-defined bullish structure aligned with macro trend.',
             legs: [
                 {
-                    id: 'TRD-1009-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2024-12-18',
-                    expirationDate: '2025-01-17',
-                    strike: 2200,
-                    premium: 6.8,
-                    fees: 0.55
-                },
-                {
-                    id: 'TRD-1009-L2',
+                    id: 'TRD-2020-L1',
                     action: 'SELL',
                     side: 'OPEN',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2024-12-18',
-                    expirationDate: '2025-01-17',
-                    strike: 2100,
-                    premium: 7.1,
-                    fees: 0.55
+                    executionDate: offset(-17),
+                    expirationDate: offset(45),
+                    strike: 180,
+                    premium: 2.1,
+                    fees: 0.3,
+                    underlyingPrice: 187.6
                 },
                 {
-                    id: 'TRD-1009-L3',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: '2024-12-18',
-                    expirationDate: '2025-01-17',
-                    strike: 2225,
-                    premium: 3.1,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-1009-L4',
+                    id: 'TRD-2020-L2',
                     action: 'BUY',
                     side: 'OPEN',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: '2024-12-18',
-                    expirationDate: '2025-01-17',
-                    strike: 2075,
-                    premium: 3.4,
-                    fees: 0.45
+                    executionDate: offset(-17),
+                    expirationDate: offset(45),
+                    strike: 175,
+                    premium: 0.9,
+                    fees: 0.2
                 }
             ]
         }
-    ],
-    exportDate: '2025-10-15T12:00:00.000Z',
-    version: '3.0'
-};
+    ];
+
+    return {
+        trades,
+        exportDate: reference.toISOString(),
+        version: '3.1'
+    };
+}
 
 class GammaLedger {
     constructor() {
@@ -574,7 +1508,7 @@ class GammaLedger {
         this.charts = {};
         this.tradeDetailCharts = new Map();
         this.cycleAnalytics = [];
-    this.latestStats = null;
+        this.latestStats = null;
         this.currentFileHandle = null;
         this.currentFileName = 'Unsaved Database';
         this.hasUnsavedChanges = false;
@@ -588,6 +1522,15 @@ class GammaLedger {
         this.tradesMergeInitialized = false;
         this.tradesMergePanelOpen = false;
         this.currentFilteredTrades = [];
+
+        this.disclaimerBanner = {
+            element: null,
+            body: null,
+            agreeButton: null,
+            agreeHandler: null,
+            hideTimeoutId: null
+        };
+        this.disclaimerFadeMs = 280;
 
         this.finnhub = {
             apiKey: '',
@@ -630,6 +1573,16 @@ class GammaLedger {
             expirationCriticalDays: 10
         };
 
+        this.sidebarState = {
+            container: null,
+            sidebar: null,
+            toggleButton: null,
+            mediaQuery: null,
+            mainContent: null,
+            collapsed: false,
+            preferredCollapsed: false
+        };
+
         // Current date for calculations (always use actual current date)
         this.currentDate = new Date(); // Current date
 
@@ -650,6 +1603,8 @@ class GammaLedger {
         this.initializeGeminiControls();
         this.initializeAIChat();
         this.initializeFinnhubControls();
+        this.initializeDisclaimerBanner();
+        this.initializeSidebarToggle();
         this.updateFileNameDisplay();
         this.checkBrowserCompatibility();
 
@@ -904,7 +1859,9 @@ class GammaLedger {
             openFees: 0,
             openBaseContracts: 0,
             entryNetCredit: 0,
-            verticalSpread: null
+            verticalSpread: null,
+            nearestShortCallExpiration: null,
+            nextShortCallExpiration: null
         };
 
         if (!Array.isArray(legs) || legs.length === 0) {
@@ -915,6 +1872,7 @@ class GammaLedger {
         summary.legs = normalizedLegs;
         summary.legsCount = normalizedLegs.length;
         const openOptionGroups = new Map();
+        const now = this.currentDate instanceof Date ? this.currentDate : new Date();
 
         normalizedLegs.forEach((leg) => {
             const cashFlow = this.calculateLegCashFlow(leg);
@@ -982,6 +1940,16 @@ class GammaLedger {
                     }
                     if (!summary.latestExpiration || exp > summary.latestExpiration) {
                         summary.latestExpiration = exp;
+                    }
+                    if (leg.side === 'OPEN' && leg.action === 'SELL' && leg.type === 'CALL') {
+                        if (!summary.nearestShortCallExpiration || exp < summary.nearestShortCallExpiration) {
+                            summary.nearestShortCallExpiration = exp;
+                        }
+                        if (exp >= now) {
+                            if (!summary.nextShortCallExpiration || exp < summary.nextShortCallExpiration) {
+                                summary.nextShortCallExpiration = exp;
+                            }
+                        }
                     }
                 }
             }
@@ -1226,12 +2194,28 @@ class GammaLedger {
                     }
                     return result;
                 }
+
+                if (netCredit < 0) {
+                    const netDebit = Math.abs(netCredit);
+                    const maxLoss = Math.min(netDebit, spreadExposure);
+                    result.maxRiskValue = maxLoss;
+                    summary.capitalAtRisk = maxLoss;
+                    result.maxRiskLabel = this.formatCurrency(maxLoss);
+                    if (maxLoss === 0) {
+                        result.maxRiskLabel = '$0.00';
+                    }
+                    return result;
+                }
             }
         }
 
         const legs = summary.legs;
         const openLegs = legs.filter(leg => leg.side === 'OPEN');
         const relevantLegs = openLegs.length ? openLegs : legs;
+
+        const openStockLegs = relevantLegs.filter(leg => leg.type === 'STOCK');
+        const openShortCalls = relevantLegs.filter(leg => leg.type === 'CALL' && leg.action === 'SELL');
+        const hasProtectivePut = relevantLegs.some(leg => leg.type === 'PUT' && leg.action === 'BUY');
 
         const shareExposure = (leg) => (Number(leg.quantity) || 0) * this.getLegMultiplier(leg);
 
@@ -1323,6 +2307,18 @@ class GammaLedger {
 
         if (assessedPutRisk > result.maxRiskValue) {
             result.maxRiskValue = assessedPutRisk;
+        }
+
+        if (openStockLegs.length > 0 && openShortCalls.length > 0 && !hasProtectivePut) {
+            const netOutlay = ((Number(summary.openDebitGross) || 0) + (Number(summary.openFees) || 0) - (Number(summary.openCreditGross) || 0));
+            if (Number.isFinite(netOutlay)) {
+                const coveredCallRisk = Math.max(0, netOutlay);
+                if (assessedPutRisk > 0) {
+                    result.maxRiskValue = Math.max(result.maxRiskValue, coveredCallRisk);
+                } else {
+                    result.maxRiskValue = coveredCallRisk;
+                }
+            }
         }
 
         summary.capitalAtRisk = result.maxRiskValue;
@@ -1904,7 +2900,15 @@ class GammaLedger {
 
     // DTE calculation using current date
     calculateDTE(expirationDate, trade) {
-        const expDate = this.parseDateValue(expirationDate);
+        let expDate = this.parseDateValue(expirationDate);
+
+        if (!expDate && this.isPmccTrade(trade)) {
+            const pmccExpiration = this.parseDateValue(trade?.pmccShortExpiration);
+            if (pmccExpiration) {
+                expDate = pmccExpiration;
+            }
+        }
+
         if (!expDate) {
             return 0;
         }
@@ -2306,7 +3310,19 @@ class GammaLedger {
 
         const openedDate = this.parseDateValue(enriched.openedDate || enriched.entryDate || legSummary.openedDate);
         const closedDate = this.parseDateValue(enriched.closedDate || enriched.exitDate || (legSummary.closeLegs > 0 ? legSummary.closedDate : null));
-        const expirationDate = this.parseDateValue(enriched.expirationDate || legSummary.latestExpiration);
+
+        let expirationDate = this.parseDateValue(enriched.expirationDate);
+        if (!expirationDate && legSummary.latestExpiration) {
+            expirationDate = legSummary.latestExpiration;
+        }
+
+        const pmccShortExpiration = legSummary.nextShortCallExpiration || legSummary.nearestShortCallExpiration || null;
+        if (this.isPmccTrade(enriched) && pmccShortExpiration) {
+            expirationDate = pmccShortExpiration;
+        }
+
+        enriched.pmccShortExpiration = pmccShortExpiration ? pmccShortExpiration.toISOString().slice(0, 10) : '';
+        enriched.longExpirationDate = legSummary.latestExpiration ? legSummary.latestExpiration.toISOString().slice(0, 10) : '';
 
         enriched.openedDate = openedDate ? openedDate.toISOString().slice(0, 10) : '';
         enriched.closedDate = closedDate ? closedDate.toISOString().slice(0, 10) : '';
@@ -4563,13 +5579,13 @@ class GammaLedger {
         this.charts.commissionImpact = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['Fees', 'Net P&L'],
+                labels: ['Net P&L', 'Fees'],
                 datasets: [{
                     label: 'Amount',
-                    data: [totalFees, netPL],
+                    data: [netPL, totalFees],
                     backgroundColor: [
-                        '#B4413C',
-                        netPL >= 0 ? '#1FB8CD' : '#B4413C'
+                        netPL >= 0 ? '#1FB8CD' : '#B4413C',
+                        '#B4413C'
                     ],
                     borderRadius: 8,
                     borderSkipped: false
@@ -4872,8 +5888,13 @@ class GammaLedger {
             let equity = 1;
             for (let step = 0; step < periods; step += 1) {
                 const randomIndex = Math.floor(Math.random() * sanitized.length);
-                const sample = sanitized[randomIndex];
+                let sample = sanitized[randomIndex];
+                if (!Number.isFinite(sample)) {
+                    sample = 0;
+                }
+                sample = Math.max(-0.95, Math.min(sample, 5));
                 equity *= 1 + sample;
+                equity = Math.max(equity, 0);
                 trajectory[step].push(Number(equity.toFixed(6)));
             }
         }
@@ -5433,6 +6454,239 @@ class GammaLedger {
                 await commit();
             }
         });
+    }
+
+    initializeDisclaimerBanner() {
+        const element = document.getElementById('disclaimer-banner');
+        if (!element) {
+            return;
+        }
+
+        if (this.disclaimerBanner.agreeButton && this.disclaimerBanner.agreeHandler) {
+            this.disclaimerBanner.agreeButton.removeEventListener('click', this.disclaimerBanner.agreeHandler);
+        }
+
+        const agreeButton = element.querySelector('[data-action="disclaimer-agree"]');
+        const body = element.querySelector('.disclaimer-banner__body');
+
+        this.disclaimerBanner.element = element;
+        this.disclaimerBanner.body = body;
+        this.disclaimerBanner.agreeButton = agreeButton;
+
+        const handler = () => this.acceptDisclaimer();
+        this.disclaimerBanner.agreeHandler = handler;
+        if (agreeButton) {
+            agreeButton.addEventListener('click', handler);
+        }
+
+        const acceptedAt = this.getDisclaimerAcceptance();
+        if (acceptedAt) {
+            this.hideDisclaimerBanner({ immediate: true });
+        } else {
+            this.showDisclaimerBanner();
+        }
+    }
+
+    showDisclaimerBanner() {
+        const banner = this.disclaimerBanner?.element;
+        if (!banner) {
+            return;
+        }
+
+        if (this.disclaimerBanner.hideTimeoutId) {
+            clearTimeout(this.disclaimerBanner.hideTimeoutId);
+            this.disclaimerBanner.hideTimeoutId = null;
+        }
+
+        banner.classList.remove('is-hidden');
+        requestAnimationFrame(() => {
+            banner.classList.add('is-visible');
+            banner.setAttribute('aria-hidden', 'false');
+
+            const body = this.disclaimerBanner?.body;
+            if (body && typeof body.focus === 'function') {
+                try {
+                    body.focus({ preventScroll: true });
+                } catch (_error) {
+                    body.focus();
+                }
+            }
+        });
+    }
+
+    hideDisclaimerBanner({ immediate = false } = {}) {
+        const banner = this.disclaimerBanner?.element;
+        if (!banner) {
+            return;
+        }
+
+        if (this.disclaimerBanner.hideTimeoutId) {
+            clearTimeout(this.disclaimerBanner.hideTimeoutId);
+            this.disclaimerBanner.hideTimeoutId = null;
+        }
+
+        if (immediate) {
+            banner.classList.remove('is-visible');
+            banner.classList.add('is-hidden');
+            banner.setAttribute('aria-hidden', 'true');
+            return;
+        }
+
+        banner.classList.remove('is-visible');
+        banner.setAttribute('aria-hidden', 'true');
+
+        this.disclaimerBanner.hideTimeoutId = setTimeout(() => {
+            banner.classList.add('is-hidden');
+            this.disclaimerBanner.hideTimeoutId = null;
+        }, this.disclaimerFadeMs);
+    }
+
+    acceptDisclaimer() {
+        this.setDisclaimerAcceptance(new Date().toISOString());
+        this.hideDisclaimerBanner();
+    }
+
+    getDisclaimerAcceptance() {
+        try {
+            const value = localStorage.getItem(DISCLAIMER_STORAGE_KEY);
+            return value || null;
+        } catch (error) {
+            console.warn('Failed to read disclaimer acceptance from storage:', error);
+            return null;
+        }
+    }
+
+    setDisclaimerAcceptance(value) {
+        try {
+            if (!value) {
+                localStorage.removeItem(DISCLAIMER_STORAGE_KEY);
+                return;
+            }
+            localStorage.setItem(DISCLAIMER_STORAGE_KEY, value);
+        } catch (error) {
+            console.warn('Failed to persist disclaimer acceptance:', error);
+        }
+    }
+
+    initializeSidebarToggle() {
+        const container = document.querySelector('.app-container');
+        const sidebar = document.querySelector('.sidebar');
+        const toggleButton = document.getElementById('sidebar-toggle');
+        const mainContent = document.querySelector('.main-content');
+
+        if (!container || !sidebar || !toggleButton) {
+            return;
+        }
+
+        this.sidebarState.container = container;
+        this.sidebarState.sidebar = sidebar;
+        this.sidebarState.toggleButton = toggleButton;
+        this.sidebarState.mainContent = mainContent || null;
+
+        if (typeof window.matchMedia === 'function') {
+            this.sidebarState.mediaQuery = window.matchMedia('(max-width: 768px)');
+        } else {
+            this.sidebarState.mediaQuery = null;
+        }
+
+        const applyStoredPreference = ({ animate = true } = {}) => {
+            const storedPreference = this.getSidebarCollapsedPreference();
+            this.setSidebarCollapsed(storedPreference, { persist: false, animate });
+        };
+
+        toggleButton.addEventListener('click', () => {
+            const nextPreference = !this.sidebarState.preferredCollapsed;
+            this.setSidebarCollapsed(nextPreference);
+        });
+
+        const mediaQuery = this.sidebarState.mediaQuery;
+        if (mediaQuery) {
+            const handleMediaChange = () => {
+                applyStoredPreference({ animate: true });
+            };
+
+            if (typeof mediaQuery.addEventListener === 'function') {
+                mediaQuery.addEventListener('change', handleMediaChange);
+            } else if (typeof mediaQuery.addListener === 'function') {
+                mediaQuery.addListener(handleMediaChange);
+            }
+        }
+
+        applyStoredPreference({ animate: false });
+    }
+
+    getSidebarCollapsedPreference() {
+        try {
+            const value = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+            return value === 'true';
+        } catch (error) {
+            console.warn('Failed to read sidebar preference from storage:', error);
+            return false;
+        }
+    }
+
+    setSidebarCollapsedPreference(collapsed) {
+        try {
+            localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(Boolean(collapsed)));
+        } catch (error) {
+            console.warn('Failed to persist sidebar preference:', error);
+        }
+    }
+
+    setSidebarCollapsed(collapsed, { persist = true, animate = true } = {}) {
+        const state = this.sidebarState;
+        const container = state?.container;
+        const sidebar = state?.sidebar;
+        const toggleButton = state?.toggleButton;
+        const mainContent = state?.mainContent;
+
+        if (!container || !sidebar || !toggleButton) {
+            return;
+        }
+
+        const requestedCollapsed = Boolean(collapsed);
+        const isMobile = state.mediaQuery?.matches ?? window.innerWidth <= 768;
+        const effectiveCollapsed = isMobile ? false : requestedCollapsed;
+
+        state.preferredCollapsed = requestedCollapsed;
+        state.collapsed = effectiveCollapsed;
+
+        const classes = [container, sidebar, mainContent].filter(Boolean);
+
+        const toggleTransitions = (enable) => {
+            classes.forEach((element) => {
+                if (!element) {
+                    return;
+                }
+
+                if (enable) {
+                    element.classList.remove('no-transition');
+                } else {
+                    element.classList.add('no-transition');
+                }
+            });
+        };
+
+        if (!animate) {
+            toggleTransitions(false);
+        }
+
+        container.classList.toggle('is-sidebar-collapsed', effectiveCollapsed);
+        sidebar.classList.toggle('is-collapsed', effectiveCollapsed);
+
+        if (!animate) {
+            requestAnimationFrame(() => toggleTransitions(true));
+        }
+
+        const ariaExpanded = (!effectiveCollapsed).toString();
+        const label = effectiveCollapsed ? 'Expand navigation' : 'Collapse navigation';
+        toggleButton.setAttribute('aria-expanded', ariaExpanded);
+        toggleButton.setAttribute('aria-label', label);
+        toggleButton.setAttribute('title', label);
+
+        if (persist) {
+            this.setSidebarCollapsedPreference(requestedCollapsed);
+        }
     }
 
     updateFinnhubStatus(message, variant = 'neutral', autoClearMs = 0) {
@@ -10385,7 +11639,11 @@ class GammaLedger {
                 trades: this.trades
             };
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
-            localStorage.removeItem(LEGACY_STORAGE_KEY);
+            LEGACY_STORAGE_KEYS.forEach(key => {
+                if (key && key !== LOCAL_STORAGE_KEY) {
+                    localStorage.removeItem(key);
+                }
+            });
         } catch (e) {
             console.warn('Failed to save to localStorage:', e);
         }
@@ -10408,6 +11666,7 @@ class GammaLedger {
                     if (parsed.fileName) {
                         this.currentFileName = parsed.fileName;
                     }
+                    this.currentFileHandle = null;
                     this.hasUnsavedChanges = false;
                     this.updateUnsavedIndicator();
                     this.updateFileNameDisplay();
@@ -10416,8 +11675,16 @@ class GammaLedger {
                 }
             }
 
-            const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-            if (legacy) {
+            for (const key of LEGACY_STORAGE_KEYS) {
+                if (!key || key === LOCAL_STORAGE_KEY) {
+                    continue;
+                }
+
+                const legacy = localStorage.getItem(key);
+                if (!legacy) {
+                    continue;
+                }
+
                 const parsedTrades = JSON.parse(legacy);
                 if (Array.isArray(parsedTrades)) {
                     this.trades = parsedTrades.map(trade => {

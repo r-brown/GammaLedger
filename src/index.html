@@ -14,6 +14,34 @@
 </head>
 
 <body>
+    <div id="disclaimer-banner" class="disclaimer-banner is-hidden" role="dialog" aria-modal="true"
+        aria-labelledby="disclaimer-title" aria-hidden="true">
+        <div class="disclaimer-banner__panel">
+            <h2 id="disclaimer-title" class="disclaimer-banner__title">Disclaimer</h2>
+            <div class="disclaimer-banner__body" tabindex="0">
+                <p>The information and tools provided on this website are for educational and informational purposes
+                    only. Nothing on this site constitutes financial, investment, trading, or legal advice.</p>
+                <p>Users should not rely solely on the data, analytics, or calculations presented here for making
+                    investment decisions. Options trading involves significant risk and is not suitable for all
+                    investors. You may lose part or all of your invested capital.</p>
+                <p>All data, analytics, and visualizations are provided "as is", without any warranty of accuracy,
+                    completeness, or reliability. The website's creators and contributors assume no responsibility for
+                    any losses or damages arising from the use or interpretation of the provided information.</p>
+                <p>This website does not offer or execute trades, provide broker services, or endorse any specific
+                    financial products or platforms. Users remain fully responsible for verifying information and
+                    complying with applicable laws and regulations in their jurisdiction.</p>
+                <p>If the website allows local or cloud-based data storage, users are solely responsible for managing
+                    and protecting their own data. No guarantee is given for continuous access, data integrity, or
+                    long-term storage.</p>
+                <p>By using this website, you agree to these terms and acknowledge that you understand the inherent
+                    risks associated with financial and options trading.</p>
+            </div>
+            <div class="disclaimer-banner__actions">
+                <button type="button" class="btn btn--primary disclaimer-banner__agree"
+                    data-action="disclaimer-agree">Agree</button>
+            </div>
+        </div>
+    </div>
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
@@ -23,29 +51,32 @@
             <nav class="sidebar-nav">
                 <button class="nav-item active" data-view="dashboard">
                     <span class="nav-icon">📊</span>
-                    Dashboard
+                    <span class="nav-label">Dashboard</span>
                 </button>
                 <button class="nav-item" data-view="trades-list">
                     <span class="nav-icon">📋</span>
-                    All Trades
+                    <span class="nav-label">All Trades</span>
                 </button>
                 <button class="nav-item" data-view="add-trade">
                     <span class="nav-icon">➕</span>
-                    Add Trade
+                    <span class="nav-label">Add Trade</span>
                 </button>
                 <button class="nav-item" data-view="import">
                     <span class="nav-icon">⬆️</span>
-                    Import
+                    <span class="nav-label">Import</span>
                 </button>
                 <button class="nav-item" data-view="settings">
                     <span class="nav-icon">⚙️</span>
-                    Settings
+                    <span class="nav-label">Settings</span>
                 </button>
             </nav>
+            <div class="sidebar-toggle-container">
+                <button type="button" id="sidebar-toggle" class="sidebar-toggle" aria-expanded="true" aria-label="Collapse navigation"></button>
+            </div>
             <div class="sidebar-footer">
                 <a class="sidebar-link" href="https://gammaledger.com" target="_blank" rel="noopener noreferrer">
                     <span class="nav-icon" aria-hidden="true">🌐</span>
-                    <span>GammaLedger.com</span>
+                    <span class="nav-label">GammaLedger.com</span>
                 </a>
             </div>
         </aside>
