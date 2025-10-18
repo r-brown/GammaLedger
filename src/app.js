@@ -1,506 +1,569 @@
-// Options Trading Tracker Application
-const VALID_TRADE_TYPES = new Set(['BTO', 'STO', 'STC', 'BTC']);
-const SHORT_STRATEGY_PATTERNS = [
-    'cash-secured put',
-    'covered call',
-    'the wheel',
-    'bear call spread',
-    'bull put spread',
-    'iron condor',
-    'iron butterfly',
-    'short straddle',
-    'short strangle',
-    'credit spread'
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_ALLOWED_MODELS = [
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-2.5-pro'
 ];
-const LONG_STRATEGY_PATTERNS = [
-    'long ',
-    'protective put',
-    'bull call spread',
-    'bear put spread',
-    'calendar spread',
-    'diagonal spread',
-    'pmcc',
-    'straddle',
-    'strangle',
-    'debit spread'
-];
-
-const LOCAL_STORAGE_KEY = 'GammaLedgerCache';
-const LEGACY_STORAGE_KEY = 'GammaLedgerTrades';
+const DEFAULT_GEMINI_TEMPERATURE = 0.25;
+const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
 const GEMINI_STORAGE_KEY = 'GammaLedgerGeminiConfig';
 const GEMINI_SECRET_STORAGE_KEY = 'GammaLedgerGeminiSecret';
-const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
-const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash-lite';
-const DEFAULT_GEMINI_TEMPERATURE = 0.70;
-const GEMINI_ALLOWED_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'];
 
 const BUILTIN_SAMPLE_DATA = {
     trades: [
         {
+            id: 'TRD-1001',
             ticker: 'AAPL',
             strategy: 'Long Call',
-            tradeType: 'BTO',
-            quantity: 1,
-            entryDate: '2025-02-20',
+            status: 'Closed',
+            openedDate: '2025-02-20',
+            closedDate: '2025-03-12',
             expirationDate: '2025-04-19',
-            exitDate: '2025-03-12',
-            status: 'Closed',
-            stockPriceAtEntry: 175.6,
-            strikePrice: 175,
-            entryPrice: 1.45,
-            exitPrice: 2.89,
-            fees: 1,
-            ivRank: 32,
-            marketCondition: 'Bullish',
-            convictionLevel: 7,
-            notes: 'Breakout continuation',
             exitReason: 'Profit target reached',
-            id: 1001,
-            tradeDirection: 'long',
-            daysHeld: 21,
-            dte: 38,
-            pl: 144,
-            roi: 98.63,
-            annualizedROI: 512.4,
-            maxRisk: 146,
-            cycleId: '',
-            cycleType: '',
-            cycleRole: '',
-            definedRiskWidth: null,
-            maxRiskOverride: null
+            notes: 'Breakout continuation. Underlying: Entered after earnings breakout with strong volume confirmation. Risk plan: Target 100% return, stop at -50%.',
+            legs: [
+                {
+                    id: 'TRD-1001-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-02-20',
+                    expirationDate: '2025-04-19',
+                    strike: 175,
+                    premium: 1.45,
+                    fees: 1,
+                    underlyingPrice: 175.6
+                },
+                {
+                    id: 'TRD-1001-L2',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-03-12',
+                    expirationDate: '2025-04-19',
+                    strike: 175,
+                    premium: 2.89,
+                    fees: 1,
+                    underlyingPrice: 181.9
+                }
+            ]
         },
         {
-            ticker: 'MSFT',
-            strategy: 'Covered Call',
-            tradeType: 'STO',
-            quantity: -1,
-            entryDate: '2025-03-24',
-            expirationDate: '2025-05-16',
-            exitDate: '2025-04-18',
-            status: 'Closed',
-            stockPriceAtEntry: 318.2,
-            strikePrice: 325,
-            entryPrice: 1.95,
-            exitPrice: 0.45,
-            fees: 1.5,
-            ivRank: 27,
-            marketCondition: 'Neutral',
-            convictionLevel: 5,
-            notes: 'Rolled after earnings',
-            exitReason: 'Profit target reached',
-            id: 1002,
-            tradeDirection: 'short',
-            daysHeld: 25,
-            dte: 28,
-            pl: 148.5,
-            roi: 39.23,
-            annualizedROI: 286.7,
-            maxRisk: 81.6,
-            cycleId: '',
-            cycleType: '',
-            cycleRole: '',
-            definedRiskWidth: null,
-            maxRiskOverride: null
-        },
-        {
+            id: 'TRD-1002',
             ticker: 'SPY',
-            strategy: 'Bull Put Spread',
-            tradeType: 'BTO',
-            quantity: 1,
-            entryDate: '2025-04-22',
-            expirationDate: '2025-05-31',
-            exitDate: '2025-05-18',
-            status: 'Closed',
-            stockPriceAtEntry: 507.4,
-            strikePrice: 500,
-            entryPrice: 1.95,
-            exitPrice: 0.5,
-            fees: 1.1,
-            ivRank: 25,
-            marketCondition: 'Bullish',
-            convictionLevel: 6,
-            notes: 'Bounce off 50-day moving average',
-            exitReason: 'Hit 70% max profit',
-            id: 1011,
-            tradeDirection: 'long',
-            daysHeld: 26,
-            dte: 13,
-            pl: 144,
-            roi: 73.85,
-            annualizedROI: 411.2,
-            maxRisk: 195,
-            cycleId: 'SPY-2025-05',
-            cycleType: 'defined-risk',
-            cycleRole: 'primary',
-            definedRiskWidth: 5,
-            maxRiskOverride: null
-        },
-        {
-            ticker: 'META',
             strategy: 'Iron Condor',
-            tradeType: 'BTO',
-            quantity: 1,
-            entryDate: '2025-05-28',
-            expirationDate: '2025-06-28',
-            exitDate: '2025-06-21',
             status: 'Closed',
-            stockPriceAtEntry: 301.7,
-            strikePrice: 300,
-            entryPrice: 2.35,
-            exitPrice: 0.85,
-            fees: 1.3,
-            ivRank: 41,
-            marketCondition: 'Neutral',
-            convictionLevel: 5,
-            notes: 'Captured IV crush into FOMC week',
-            exitReason: '50% max profit',
-            id: 1006,
-            tradeDirection: 'long',
-            daysHeld: 24,
-            dte: 7,
-            pl: 148.7,
-            roi: 42.48,
-            annualizedROI: 532.1,
-            maxRisk: 350,
-            cycleId: 'META-2025-06',
-            cycleType: 'iron-condor',
-            cycleRole: 'primary',
-            definedRiskWidth: 10,
-            maxRiskOverride: null
+            openedDate: '2025-04-22',
+            closedDate: '2025-05-18',
+            expirationDate: '2025-05-31',
+            exitReason: 'Hit 70% max profit',
+            notes: 'Captured IV crush into monthly expiration. Underlying: Range-bound price action with elevated IV Rank. Risk plan: Take profit at 70%, roll if breach at 2x credit.',
+            legs: [
+                {
+                    id: 'TRD-1002-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-04-22',
+                    expirationDate: '2025-05-31',
+                    strike: 510,
+                    premium: 0.75,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1002-L2',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-04-22',
+                    expirationDate: '2025-05-31',
+                    strike: 515,
+                    premium: 0.35,
+                    fees: 0.2
+                },
+                {
+                    id: 'TRD-1002-L3',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-04-22',
+                    expirationDate: '2025-05-31',
+                    strike: 500,
+                    premium: 0.85,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1002-L4',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-04-22',
+                    expirationDate: '2025-05-31',
+                    strike: 495,
+                    premium: 0.3,
+                    fees: 0.2
+                },
+                {
+                    id: 'TRD-1002-L5',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-05-18',
+                    expirationDate: '2025-05-31',
+                    strike: 510,
+                    premium: 0.15,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1002-L6',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-05-18',
+                    expirationDate: '2025-05-31',
+                    strike: 515,
+                    premium: 0.05,
+                    fees: 0.2
+                },
+                {
+                    id: 'TRD-1002-L7',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-05-18',
+                    expirationDate: '2025-05-31',
+                    strike: 500,
+                    premium: 0.18,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1002-L8',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-05-18',
+                    expirationDate: '2025-05-31',
+                    strike: 495,
+                    premium: 0.06,
+                    fees: 0.2
+                }
+            ]
         },
         {
-            ticker: 'DIS',
-            strategy: 'Cash-Secured Put',
-            tradeType: 'STO',
-            quantity: -1,
-            entryDate: '2025-06-24',
-            expirationDate: '2025-07-19',
-            exitDate: '2025-07-18',
-            status: 'Closed',
-            stockPriceAtEntry: 101.6,
-            strikePrice: 100,
-            entryPrice: 2.3,
-            exitPrice: 0.35,
-            fees: 0.85,
-            ivRank: 38,
-            marketCondition: 'Neutral',
-            convictionLevel: 6,
-            notes: 'Earnings gap fill support held',
-            exitReason: 'Premium decay captured',
-            id: 1012,
-            tradeDirection: 'short',
-            daysHeld: 24,
-            dte: 1,
-            pl: 194.15,
-            roi: 1.99,
-            annualizedROI: 30.3,
-            maxRisk: 9770,
-            cycleId: 'DIS-2025-07',
-            cycleType: 'wheel',
-            cycleRole: 'wheel-put',
-            definedRiskWidth: null,
-            maxRiskOverride: null
-        },
-        {
-            ticker: 'SMH',
-            strategy: 'Bear Call Spread',
-            tradeType: 'STO',
-            quantity: -1,
-            entryDate: '2025-07-22',
-            expirationDate: '2025-08-23',
-            exitDate: '2025-08-16',
-            status: 'Closed',
-            stockPriceAtEntry: 250.1,
-            strikePrice: 255,
-            entryPrice: 2.1,
-            exitPrice: 0.6,
-            fees: 1.1,
-            ivRank: 47,
-            marketCondition: 'Bearish',
-            convictionLevel: 5,
-            notes: 'Rejected weekly resistance',
-            exitReason: '90% max profit captured',
-            id: 1013,
-            tradeDirection: 'short',
-            daysHeld: 25,
-            dte: 7,
-            pl: 148.9,
-            roi: 70.9,
-            annualizedROI: 413.4,
-            maxRisk: 210,
-            cycleId: 'SMH-2025-08',
-            cycleType: 'defined-risk',
-            cycleRole: 'hedge',
-            definedRiskWidth: 5,
-            maxRiskOverride: null
-        },
-        {
-            ticker: 'AVGO',
-            strategy: 'Covered Call',
-            tradeType: 'STO',
-            quantity: -1,
-            entryDate: '2025-08-26',
-            expirationDate: '2025-09-20',
-            exitDate: '2025-09-19',
-            status: 'Closed',
-            stockPriceAtEntry: 950.7,
-            strikePrice: 980,
-            entryPrice: 6.8,
-            exitPrice: 1.1,
-            fees: 1.75,
-            ivRank: 29,
-            marketCondition: 'Neutral',
-            convictionLevel: 6,
-            notes: 'Monthly income against core holding',
-            exitReason: 'Roll candidate after profit',
-            id: 1014,
-            tradeDirection: 'short',
-            daysHeld: 24,
-            dte: 1,
-            pl: 489.25,
-            roi: 35.75,
-            annualizedROI: 544.1,
-            maxRisk: 0,
-            cycleId: 'AVGO-2025-09',
-            cycleType: 'covered',
-            cycleRole: 'income',
-            definedRiskWidth: null,
-            maxRiskOverride: 95000
-        },
-        {
+            id: 'TRD-1003',
             ticker: 'TSLA',
             strategy: 'Cash-Secured Put',
-            tradeType: 'STO',
-            quantity: -1,
-            entryDate: '2025-09-15',
+            status: 'Open',
+            openedDate: '2025-09-15',
             expirationDate: '2025-10-17',
-            exitDate: null,
-            status: 'Open',
-            stockPriceAtEntry: 260.5,
-            strikePrice: 250,
-            entryPrice: 3.4,
-            exitPrice: null,
-            fees: 0.75,
-            ivRank: 60,
-            marketCondition: 'Neutral',
-            convictionLevel: 6,
-            notes: 'Prefer assignment for long-term hold',
-            exitReason: null,
-            id: 1003,
-            tradeDirection: 'short',
-            daysHeld: 10,
-            dte: 32,
-            pl: 0,
-            roi: 0,
-            annualizedROI: 0,
-            maxRisk: 2466,
-            cycleId: 'TSLA-2025-10',
-            cycleType: 'wheel',
-            cycleRole: 'wheel-put',
-            definedRiskWidth: null,
-            maxRiskOverride: null
+            notes: 'Prefer assignment for long-term hold. Underlying: Post-earnings consolidation with high IV. Risk plan: Accept assignment at 250; roll at 21 DTE if needed.',
+            legs: [
+                {
+                    id: 'TRD-1003-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-09-15',
+                    expirationDate: '2025-10-17',
+                    strike: 250,
+                    premium: 3.4,
+                    fees: 0.75,
+                    underlyingPrice: 260.5
+                }
+            ]
         },
         {
-            ticker: 'AMZN',
-            strategy: 'Short Put Spread',
-            tradeType: 'BTO',
-            quantity: 1,
-            entryDate: '2025-09-05',
-            expirationDate: '2025-10-11',
-            exitDate: null,
-            status: 'Open',
-            stockPriceAtEntry: 138.2,
-            strikePrice: 134,
-            entryPrice: 1.1,
-            exitPrice: null,
-            fees: 1.05,
-            ivRank: 48,
-            marketCondition: 'Bullish',
-            convictionLevel: 6,
-            notes: 'High IV setup',
-            exitReason: null,
-            id: 1004,
-            tradeDirection: 'long',
-            daysHeld: 5,
-            dte: 15,
-            pl: 0,
-            roi: 0,
-            annualizedROI: 0,
-            maxRisk: 390,
-            cycleId: 'AMZN-2025-10',
-            cycleType: 'defined-risk',
-            cycleRole: 'base',
-            definedRiskWidth: 5,
-            maxRiskOverride: null
+            id: 'TRD-1004',
+            ticker: 'MSFT',
+            strategy: 'Covered Call Roll',
+            status: 'Rolling',
+            openedDate: '2025-03-24',
+            closedDate: null,
+            expirationDate: '2025-05-23',
+            notes: 'Rolling monthly income position higher. Underlying: Trending higher into resistance. Risk plan: Roll up and out when delta > 0.35.',
+            legs: [
+                {
+                    id: 'TRD-1004-L1',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-04-18',
+                    expirationDate: '2025-04-19',
+                    strike: 325,
+                    premium: 0.45,
+                    fees: 1.2,
+                    underlyingPrice: 318.2
+                },
+                {
+                    id: 'TRD-1004-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-04-18',
+                    expirationDate: '2025-05-23',
+                    strike: 330,
+                    premium: 1.65,
+                    fees: 1.2,
+                    underlyingPrice: 318.2
+                }
+            ]
         },
         {
+            id: 'TRD-1005',
+            ticker: 'IWM',
+            strategy: 'Short Strangle',
+            status: 'Closed',
+            openedDate: '2025-07-08',
+            closedDate: '2025-07-26',
+            expirationDate: '2025-08-16',
+            exitReason: 'Time decay',
+            notes: 'Monthly premium capture. Underlying: Consolidating near 200 with elevated IV. Risk plan: Close at 50% max profit or roll when breach.',
+            legs: [
+                {
+                    id: 'TRD-1005-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-07-08',
+                    expirationDate: '2025-08-16',
+                    strike: 212,
+                    premium: 2.05,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1005-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-07-08',
+                    expirationDate: '2025-08-16',
+                    strike: 188,
+                    premium: 2.1,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1005-L3',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-07-26',
+                    expirationDate: '2025-08-16',
+                    strike: 212,
+                    premium: 0.75,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1005-L4',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-07-26',
+                    expirationDate: '2025-08-16',
+                    strike: 188,
+                    premium: 0.82,
+                    fees: 0.3
+                }
+            ]
+        },
+        {
+            id: 'TRD-1006',
             ticker: 'NVDA',
-            strategy: "Poor Man's Covered Call",
-            tradeType: 'BTO',
-            quantity: 1,
-            entryDate: '2025-06-20',
-            expirationDate: '2026-01-17',
-            exitDate: null,
-            status: 'Open',
-            stockPriceAtEntry: 440,
-            strikePrice: 400,
-            entryPrice: 38.6,
-            exitPrice: null,
-            fees: 1.25,
-            ivRank: 52,
-            marketCondition: 'Bullish',
-            convictionLevel: 8,
-            notes: 'Synthetic stock core position',
-            exitReason: null,
-            id: 1005,
-            tradeDirection: 'long',
-            daysHeld: 110,
-            dte: 99,
-            pl: 0,
-            roi: 0,
-            annualizedROI: 0,
-            maxRisk: 3860,
-            cycleId: 'NVDA-2026-01',
-            cycleType: 'pmcc',
-            cycleRole: 'base',
-            definedRiskWidth: null,
-            maxRiskOverride: null
+            strategy: 'Poor Man\'s Covered Call',
+            status: 'Closed',
+            openedDate: '2025-01-10',
+            closedDate: '2025-03-01',
+            expirationDate: '2026-06-19',
+            exitReason: 'Profit target reached',
+            notes: 'Diagonalized LEAPS against a short call. Underlying: Breakout on AI earnings momentum. Risk plan: Roll short when delta > 0.35.',
+            legs: [
+                {
+                    id: 'TRD-1006-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-01-10',
+                    expirationDate: '2026-06-19',
+                    strike: 600,
+                    premium: 65.4,
+                    fees: 0.75
+                },
+                {
+                    id: 'TRD-1006-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-01-10',
+                    expirationDate: '2025-03-21',
+                    strike: 850,
+                    premium: 8.25,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1006-L3',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-02-28',
+                    expirationDate: '2025-03-21',
+                    strike: 850,
+                    premium: 1.1,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1006-L4',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-03-01',
+                    expirationDate: '2026-06-19',
+                    strike: 600,
+                    premium: 72.8,
+                    fees: 0.75
+                }
+            ]
         },
         {
-            ticker: 'GOOG',
-            strategy: 'Diagonal Call Spread',
-            tradeType: 'BTO',
-            quantity: 1,
-            entryDate: '2025-07-30',
-            expirationDate: '2025-11-15',
-            exitDate: null,
-            status: 'Open',
-            stockPriceAtEntry: 132.5,
-            strikePrice: 133,
-            entryPrice: 4.6,
-            exitPrice: null,
-            fees: 1.1,
-            ivRank: 30,
-            marketCondition: 'Neutral',
-            convictionLevel: 6,
-            notes: 'Diagonal with short weekly calls',
-            exitReason: null,
-            id: 1007,
-            tradeDirection: 'long',
-            daysHeld: 70,
-            dte: 45,
-            pl: 0,
-            roi: 0,
-            annualizedROI: 0,
-            maxRisk: 460,
-            cycleId: 'GOOG-2025-11',
-            cycleType: 'diagonal',
-            cycleRole: 'long-leg',
-            definedRiskWidth: null,
-            maxRiskOverride: null
-        },
-        {
+            id: 'TRD-1007',
             ticker: 'AMD',
-            strategy: 'Short Call',
-            tradeType: 'STO',
-            quantity: -1,
-            entryDate: '2025-09-12',
-            expirationDate: '2025-09-27',
-            exitDate: null,
-            status: 'Open',
-            stockPriceAtEntry: 108.3,
-            strikePrice: 115,
-            entryPrice: 1.45,
-            exitPrice: null,
-            fees: 0.9,
-            ivRank: 55,
-            marketCondition: 'Bearish',
-            convictionLevel: 5,
-            notes: 'Overbought daily chart',
-            exitReason: null,
-            id: 1008,
-            tradeDirection: 'short',
-            daysHeld: 4,
-            dte: 14,
-            pl: 0,
-            roi: 0,
-            annualizedROI: 0,
-            maxRisk: 0,
-            cycleId: 'AMD-2025-09',
-            cycleType: 'short-call',
-            cycleRole: 'overlay',
-            definedRiskWidth: null,
-            maxRiskOverride: 1000
+            strategy: 'Straddle',
+            status: 'Closed',
+            openedDate: '2025-05-01',
+            closedDate: '2025-05-20',
+            expirationDate: '2025-06-21',
+            exitReason: 'Volatility crush',
+            notes: 'Earnings IV play with quick exit after the post-report move. Underlying: Neutral bias, targeting elevated implied volatility.',
+            legs: [
+                {
+                    id: 'TRD-1007-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-05-01',
+                    expirationDate: '2025-06-21',
+                    strike: 150,
+                    premium: 5.8,
+                    fees: 0.65
+                },
+                {
+                    id: 'TRD-1007-L2',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-05-01',
+                    expirationDate: '2025-06-21',
+                    strike: 150,
+                    premium: 5.4,
+                    fees: 0.65
+                },
+                {
+                    id: 'TRD-1007-L3',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-05-20',
+                    expirationDate: '2025-06-21',
+                    strike: 150,
+                    premium: 8.9,
+                    fees: 0.65
+                },
+                {
+                    id: 'TRD-1007-L4',
+                    action: 'SELL',
+                    side: 'CLOSE',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-05-20',
+                    expirationDate: '2025-06-21',
+                    strike: 150,
+                    premium: 3.1,
+                    fees: 0.65
+                }
+            ]
         },
         {
-            ticker: 'NFLX',
-            strategy: 'Strangle',
-            tradeType: 'BTO',
-            quantity: 1,
-            entryDate: '2025-09-18',
-            expirationDate: '2025-10-18',
-            exitDate: null,
-            status: 'Open',
-            stockPriceAtEntry: 405.4,
-            strikePrice: 400,
-            entryPrice: 6.8,
-            exitPrice: null,
-            fees: 1.35,
-            ivRank: 58,
-            marketCondition: 'Volatile',
-            convictionLevel: 6,
-            notes: 'Pre-earnings volatility play',
-            exitReason: null,
-            id: 1009,
-            tradeDirection: 'long',
-            daysHeld: 1,
-            dte: 30,
-            pl: 0,
-            roi: 0,
-            annualizedROI: 0,
-            maxRisk: 680,
-            cycleId: 'NFLX-2025-10',
-            cycleType: 'strangle',
-            cycleRole: 'earnings',
-            definedRiskWidth: null,
-            maxRiskOverride: null
-        },
-        {
-            ticker: 'JPM',
+            id: 'TRD-1008',
+            ticker: 'XOM',
             strategy: 'Covered Call',
-            tradeType: 'STO',
-            quantity: -1,
-            entryDate: '2025-09-02',
-            expirationDate: '2025-10-04',
-            exitDate: null,
             status: 'Open',
-            stockPriceAtEntry: 147.2,
-            strikePrice: 150,
-            entryPrice: 1.05,
-            exitPrice: null,
-            fees: 0.8,
-            ivRank: 22,
-            marketCondition: 'Neutral',
-            convictionLevel: 4,
-            notes: 'Monthly income trade',
-            exitReason: null,
-            id: 1010,
-            tradeDirection: 'short',
-            daysHeld: 8,
-            dte: 24,
-            pl: 0,
-            roi: 0,
-            annualizedROI: 0,
-            maxRisk: 0,
-            cycleId: 'JPM-2025-10',
-            cycleType: 'covered',
-            cycleRole: 'income',
-            definedRiskWidth: null,
-            maxRiskOverride: null
+            openedDate: '2025-06-10',
+            closedDate: null,
+            expirationDate: '2025-09-20',
+            notes: 'Wheel phase two after put assignment. Underlying: Post-breakout consolidation above 105. Risk plan: Roll short call when delta exceeds 0.30 or price tags upper channel.',
+            cycleId: 'XOM-WHEEL-2025',
+            cycleType: 'wheel',
+            cycleRole: 'shares-phase',
+            legs: [
+                {
+                    id: 'TRD-1008-L1',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'STOCK',
+                    quantity: 100,
+                    multiplier: 1,
+                    executionDate: '2025-06-10',
+                    strike: null,
+                    premium: 108.2,
+                    fees: 0,
+                    underlyingPrice: 108.2
+                },
+                {
+                    id: 'TRD-1008-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-06-10',
+                    expirationDate: '2025-07-19',
+                    strike: 115,
+                    premium: 1.45,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1008-L3',
+                    action: 'BUY',
+                    side: 'CLOSE',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-07-12',
+                    expirationDate: '2025-07-19',
+                    strike: 115,
+                    premium: 0.38,
+                    fees: 0.3
+                },
+                {
+                    id: 'TRD-1008-L4',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2025-07-12',
+                    expirationDate: '2025-09-20',
+                    strike: 118,
+                    premium: 1.92,
+                    fees: 0.3
+                }
+            ]
+        },
+        {
+            id: 'TRD-1009',
+            ticker: 'RUT',
+            strategy: 'Iron Butterfly',
+            status: 'Expired',
+            openedDate: '2024-12-18',
+            closedDate: '2025-01-17',
+            expirationDate: '2025-01-17',
+            exitReason: 'Expired worthless',
+            notes: 'January cycle pin play. Underlying: Expecting mean reversion into settlement. Risk plan: Close if price breaches +/-20 points beyond short strikes.',
+            legs: [
+                {
+                    id: 'TRD-1009-L1',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2024-12-18',
+                    expirationDate: '2025-01-17',
+                    strike: 2200,
+                    premium: 6.8,
+                    fees: 0.55
+                },
+                {
+                    id: 'TRD-1009-L2',
+                    action: 'SELL',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2024-12-18',
+                    expirationDate: '2025-01-17',
+                    strike: 2100,
+                    premium: 7.1,
+                    fees: 0.55
+                },
+                {
+                    id: 'TRD-1009-L3',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2024-12-18',
+                    expirationDate: '2025-01-17',
+                    strike: 2225,
+                    premium: 3.1,
+                    fees: 0.45
+                },
+                {
+                    id: 'TRD-1009-L4',
+                    action: 'BUY',
+                    side: 'OPEN',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: '2024-12-18',
+                    expirationDate: '2025-01-17',
+                    strike: 2075,
+                    premium: 3.4,
+                    fees: 0.45
+                }
+            ]
         }
     ],
-    exportDate: '2025-09-25T12:00:00.000Z',
-    version: '2.4'
+    exportDate: '2025-10-15T12:00:00.000Z',
+    version: '3.0'
 };
 
 class GammaLedger {
@@ -511,11 +574,20 @@ class GammaLedger {
         this.charts = {};
         this.tradeDetailCharts = new Map();
         this.cycleAnalytics = [];
+    this.latestStats = null;
         this.currentFileHandle = null;
         this.currentFileName = 'Unsaved Database';
         this.hasUnsavedChanges = false;
         this.supportsFileSystemAccess = 'showOpenFilePicker' in window;
         this.currentEditingId = null;
+        this.importControlsInitialized = false;
+        this.importLog = [];
+        this.importSummary = null;
+        this.importMergeSelection = new Set();
+        this.tradeMergeSelection = new Set();
+        this.tradesMergeInitialized = false;
+        this.tradesMergePanelOpen = false;
+        this.currentFilteredTrades = [];
 
         this.finnhub = {
             apiKey: '',
@@ -629,68 +701,1170 @@ class GammaLedger {
         }
     }
 
-    // Trade type & direction helpers
-    getTradeType(trade) {
-        if (trade.tradeType && VALID_TRADE_TYPES.has(trade.tradeType.toUpperCase())) {
-            return trade.tradeType.toUpperCase();
+    // --- Leg helpers ----------------------------------------------------
+
+    normalizeLegOrderType(orderType) {
+        const value = (orderType || '').toString().trim().toUpperCase();
+        if (['BTO', 'STO', 'BTC', 'STC'].includes(value)) {
+            return value;
         }
-        return this.normalizeTradeType(trade);
+        const normalized = value
+            .replace('BUY TO OPEN', 'BTO')
+            .replace('SELL TO OPEN', 'STO')
+            .replace('BUY TO CLOSE', 'BTC')
+            .replace('SELL TO CLOSE', 'STC');
+        if (['BTO', 'STO', 'BTC', 'STC'].includes(normalized)) {
+            return normalized;
+        }
+        if (value.startsWith('B')) {
+            return value.includes('C') ? 'BTC' : 'BTO';
+        }
+        if (value.startsWith('S')) {
+            return value.includes('C') ? 'STC' : 'STO';
+        }
+        return 'BTO';
     }
 
-    normalizeTradeType(trade) {
-        const provided = (trade.tradeType || '').toUpperCase();
-        if (VALID_TRADE_TYPES.has(provided)) {
+    mapOrderTypeToActionSide(orderType) {
+        switch (this.normalizeLegOrderType(orderType)) {
+            case 'BTO':
+                return { action: 'BUY', side: 'OPEN' };
+            case 'STO':
+                return { action: 'SELL', side: 'OPEN' };
+            case 'BTC':
+                return { action: 'BUY', side: 'CLOSE' };
+            case 'STC':
+                return { action: 'SELL', side: 'CLOSE' };
+            default:
+                return { action: 'BUY', side: 'OPEN' };
+        }
+    }
+
+    deriveOrderTypeFromActionSide(action, side) {
+        const normalizedAction = this.normalizeLegAction(action);
+        const normalizedSide = this.normalizeLegSide(side);
+        if (normalizedSide === 'ROLL') {
+            return normalizedAction === 'SELL' ? 'STO' : 'BTO';
+        }
+        if (normalizedAction === 'BUY' && normalizedSide === 'OPEN') {
+            return 'BTO';
+        }
+        if (normalizedAction === 'SELL' && normalizedSide === 'OPEN') {
+            return 'STO';
+        }
+        if (normalizedAction === 'BUY' && normalizedSide === 'CLOSE') {
+            return 'BTC';
+        }
+        if (normalizedAction === 'SELL' && normalizedSide === 'CLOSE') {
+            return 'STC';
+        }
+        return 'BTO';
+    }
+
+    normalizeLegAction(action) {
+        const value = (action || '').toString().trim().toUpperCase();
+        if (['SELL', 'SHORT', 'STO', 'STC'].includes(value)) {
+            return 'SELL';
+        }
+        return 'BUY';
+    }
+
+    normalizeLegSide(side) {
+        const value = (side || '').toString().trim().toUpperCase();
+        if (["CALL", "PUT", "STOCK"].includes(value)) {
+            return 'CLOSE';
+        }
+        if (['CASH', 'FUTURE', 'ETF', 'SHARES', 'STK'].includes(value)) {
+            return 'STOCK';
+        }
+        if (['BTO', 'STO'].includes(value)) {
+            return 'OPEN';
+        }
+        if (['BTC', 'STC'].includes(value)) {
+            return 'CLOSE';
+        }
+        return 'OPEN';
+    }
+
+    normalizeLegType(type) {
+        const value = (type || '').toString().trim().toUpperCase();
+        if (['CALL', 'PUT', 'STOCK', 'CASH', 'FUTURE', 'ETF'].includes(value)) {
+            return value;
+        }
+        if (value === 'SHARES') {
+            return 'STOCK';
+        }
+        return value || 'UNKNOWN';
+    }
+
+    getLegMultiplier(leg) {
+        const provided = Number(leg?.multiplier);
+        if (Number.isFinite(provided) && provided > 0) {
             return provided;
         }
+        const type = this.normalizeLegType(leg?.type);
+        if (type === 'STOCK' || type === 'CASH') {
+            return 1;
+        }
+        const underlyingType = this.normalizeUnderlyingType(leg?.underlyingType, { fallback: 'Stock' });
+        return this.getDefaultMultiplierForLegType(type, underlyingType);
+    }
 
-        const direction = this.inferTradeDirection(trade);
-    const isClosed = this.isClosedStatus(trade.status);
+    normalizeLeg(leg, index = 0) {
+        const quantityRaw = Number(leg?.quantity);
+        const normalizedQuantity = Number.isFinite(quantityRaw) ? quantityRaw : 0;
 
-        if (isClosed) {
-            return direction === 'short' ? 'BTC' : 'STC';
+        const executionDate = leg?.executionDate ? new Date(leg.executionDate) : null;
+        const executionDateIso = executionDate && !Number.isNaN(executionDate.getTime())
+            ? executionDate.toISOString().slice(0, 10)
+            : '';
+
+        const expirationDate = leg?.expirationDate ? new Date(leg.expirationDate) : null;
+        const expirationDateIso = expirationDate && !Number.isNaN(expirationDate.getTime())
+            ? expirationDate.toISOString().slice(0, 10)
+            : '';
+
+        const inferredOrderType = this.normalizeLegOrderType(
+            leg?.orderType ||
+            leg?.tradeType ||
+            leg?.order ||
+            this.deriveOrderTypeFromActionSide(leg?.action, leg?.side)
+        );
+        const mapped = this.mapOrderTypeToActionSide(inferredOrderType);
+        const normalizedAction = this.normalizeLegAction(leg?.action || mapped.action);
+        const normalizedSide = this.normalizeLegSide(leg?.side || mapped.side);
+        const fitIdValue = leg?.fitId;
+        const externalIdValue = leg?.externalId;
+        const importGroupIdValue = leg?.importGroupId;
+        const importSourceValue = leg?.importSource;
+
+        return {
+            id: leg?.id || `LEG-${Date.now()}-${index}`,
+            orderType: inferredOrderType,
+            action: normalizedAction,
+            side: normalizedSide,
+            type: this.normalizeLegType(leg?.type),
+            quantity: normalizedQuantity,
+            multiplier: this.getLegMultiplier(leg),
+            executionDate: executionDateIso,
+            expirationDate: expirationDateIso,
+            strike: Number.isFinite(Number(leg?.strike)) ? Number(leg.strike) : null,
+            premium: Number.isFinite(Number(leg?.premium)) ? Number(leg.premium) : 0,
+            fees: Number.isFinite(Number(leg?.fees)) ? Number(leg.fees) : 0,
+            underlyingPrice: Number.isFinite(Number(leg?.underlyingPrice)) ? Number(leg.underlyingPrice) : null,
+            underlyingType: this.normalizeUnderlyingType(leg?.underlyingType, { fallback: 'Stock' }),
+            fitId: fitIdValue === undefined || fitIdValue === null ? null : fitIdValue.toString().trim() || null,
+            externalId: externalIdValue === undefined || externalIdValue === null ? null : externalIdValue.toString().trim() || null,
+            importGroupId: importGroupIdValue === undefined || importGroupIdValue === null ? null : importGroupIdValue.toString().trim() || null,
+            importSource: importSourceValue === undefined || importSourceValue === null ? null : importSourceValue.toString().trim() || null
+        };
+    }
+
+    calculateLegCashFlow(leg) {
+        if (!leg) {
+            return 0;
+        }
+        const quantity = Math.abs(Number(leg.quantity) || 0);
+        if (!quantity) {
+            return -(Number(leg.fees) || 0);
+        }
+        const multiplier = this.getLegMultiplier(leg);
+        const premium = Number(leg.premium) || 0;
+        const fees = Number(leg.fees) || 0;
+        const direction = this.normalizeLegAction(leg.action) === 'SELL' ? 1 : -1;
+        return direction * premium * multiplier * quantity - fees;
+    }
+
+    summarizeLegs(legs = []) {
+        const summary = {
+            legs: [],
+            legsCount: 0,
+            openLegs: 0,
+            closeLegs: 0,
+            rollLegs: 0,
+            totalFees: 0,
+            totalDebit: 0,
+            totalCredit: 0,
+            netPremium: 0,
+            cashFlow: 0,
+            openCashFlow: 0,
+            closeCashFlow: 0,
+            openedDate: null,
+            closedDate: null,
+            earliestExpiration: null,
+            latestExpiration: null,
+            primaryLeg: null,
+            openContracts: 0,
+            closeContracts: 0,
+            capitalAtRisk: 0,
+            entryPrice: null,
+            exitPrice: null,
+            openCreditGross: 0,
+            openDebitGross: 0,
+            openFees: 0,
+            openBaseContracts: 0,
+            entryNetCredit: 0,
+            verticalSpread: null
+        };
+
+        if (!Array.isArray(legs) || legs.length === 0) {
+            return summary;
         }
 
-        return direction === 'short' ? 'STO' : 'BTO';
+        const normalizedLegs = legs.map((leg, index) => this.normalizeLeg(leg, index));
+        summary.legs = normalizedLegs;
+        summary.legsCount = normalizedLegs.length;
+        const openOptionGroups = new Map();
+
+        normalizedLegs.forEach((leg) => {
+            const cashFlow = this.calculateLegCashFlow(leg);
+            summary.cashFlow += cashFlow;
+            summary.totalFees += Number(leg.fees) || 0;
+
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            if (quantity) {
+                if (leg.side === 'OPEN') {
+                    summary.openLegs += 1;
+                    summary.openContracts += quantity;
+                    summary.openCashFlow += cashFlow;
+
+                    const multiplier = this.getLegMultiplier(leg) || 1;
+                    const grossPremium = Math.abs(Number(leg.premium) || 0) * multiplier * quantity;
+                    if (leg.action === 'SELL') {
+                        summary.openCreditGross += grossPremium;
+                    } else {
+                        summary.openDebitGross += grossPremium;
+                    }
+                    summary.openFees += Number(leg.fees) || 0;
+                    if (quantity > summary.openBaseContracts) {
+                        summary.openBaseContracts = quantity;
+                    }
+
+                    if (['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike))) {
+                        const key = `${leg.type}|${leg.expirationDate || ''}`;
+                        if (!openOptionGroups.has(key)) {
+                            openOptionGroups.set(key, []);
+                        }
+                        openOptionGroups.get(key).push(leg);
+                    }
+                } else if (leg.side === 'CLOSE') {
+                    summary.closeLegs += 1;
+                    summary.closeContracts += quantity;
+                    summary.closeCashFlow += cashFlow;
+                } else if (leg.side === 'ROLL') {
+                    summary.rollLegs += 1;
+                }
+            }
+
+            if (leg.action === 'BUY') {
+                summary.totalDebit += Math.abs(cashFlow + (Number(leg.fees) || 0));
+            } else {
+                summary.totalCredit += Math.abs(cashFlow + (Number(leg.fees) || 0));
+            }
+
+            if (leg.executionDate) {
+                const exec = new Date(leg.executionDate);
+                if (!Number.isNaN(exec.getTime())) {
+                    if (!summary.openedDate || exec < summary.openedDate) {
+                        summary.openedDate = exec;
+                    }
+                    if (!summary.closedDate || exec > summary.closedDate) {
+                        summary.closedDate = exec;
+                    }
+                }
+            }
+
+            if (leg.expirationDate) {
+                const exp = new Date(leg.expirationDate);
+                if (!Number.isNaN(exp.getTime())) {
+                    if (!summary.earliestExpiration || exp < summary.earliestExpiration) {
+                        summary.earliestExpiration = exp;
+                    }
+                    if (!summary.latestExpiration || exp > summary.latestExpiration) {
+                        summary.latestExpiration = exp;
+                    }
+                }
+            }
+
+            if (!summary.primaryLeg && leg.side !== 'CLOSE') {
+                summary.primaryLeg = leg;
+            }
+        });
+
+        if (!summary.primaryLeg) {
+            summary.primaryLeg = normalizedLegs[0];
+        }
+
+        // Calculate net credit/debit for opening legs (including fees)
+        const netCreditDollars = summary.openCreditGross - summary.openDebitGross - summary.openFees;
+        summary.entryNetCredit = netCreditDollars;
+
+        // Attempt to detect a vertical spread for precise risk math
+        let verticalSpreadInfo = null;
+        for (const legsGroup of openOptionGroups.values()) {
+            if (!Array.isArray(legsGroup) || legsGroup.length < 2) {
+                continue;
+            }
+            const hasBuy = legsGroup.some(leg => leg.action === 'BUY');
+            const hasSell = legsGroup.some(leg => leg.action === 'SELL');
+            if (!hasBuy || !hasSell) {
+                continue;
+            }
+            const strikes = legsGroup
+                .map(leg => Number(leg.strike))
+                .filter(Number.isFinite);
+            if (strikes.length < 2) {
+                continue;
+            }
+            const spreadWidth = Math.abs(Math.max(...strikes) - Math.min(...strikes));
+            if (!(spreadWidth > 0)) {
+                continue;
+            }
+            const multiplier = this.getLegMultiplier(legsGroup[0]) || 1;
+            const contractCounts = legsGroup
+                .map(leg => Math.abs(Number(leg.quantity) || 0))
+                .filter(value => value > 0);
+            const contracts = contractCounts.length
+                ? Math.min(...contractCounts)
+                : (summary.openBaseContracts || 1);
+            verticalSpreadInfo = {
+                width: spreadWidth,
+                multiplier,
+                contracts: contracts || 1
+            };
+            break;
+        }
+        summary.verticalSpread = verticalSpreadInfo;
+
+        // Derive entry and exit price approximations (per contract, option-style)
+        const primaryMultiplier = this.getLegMultiplier(summary.primaryLeg) || 1;
+        const contractsForEntryRaw = summary.openContracts || Math.abs(Number(summary.primaryLeg?.quantity) || 0);
+        const fallbackContracts = contractsForEntryRaw || 1;
+        const effectiveContractsForEntry = verticalSpreadInfo?.contracts || summary.openBaseContracts || fallbackContracts;
+        const contractsForExit = summary.closeContracts || 0;
+
+        if (Number.isFinite(netCreditDollars) && effectiveContractsForEntry > 0 && primaryMultiplier > 0) {
+            summary.entryPrice = Math.abs(netCreditDollars) / (effectiveContractsForEntry * primaryMultiplier);
+        } else if (fallbackContracts > 0 && primaryMultiplier > 0) {
+            summary.entryPrice = Math.abs(summary.openCashFlow) / (fallbackContracts * primaryMultiplier);
+        }
+
+        if (contractsForExit > 0) {
+            summary.exitPrice = Math.abs(summary.closeCashFlow) / (contractsForExit * primaryMultiplier);
+        }
+
+        summary.netPremium = netCreditDollars;
+
+        const grossDebitExposure = summary.totalDebit - summary.totalCredit;
+        const capitalCandidate = Math.max(grossDebitExposure, summary.totalDebit, Math.abs(summary.netPremium));
+        summary.capitalAtRisk = Number.isFinite(capitalCandidate) && capitalCandidate > 0 ? capitalCandidate : Math.abs(summary.netPremium);
+
+        if (verticalSpreadInfo && Number.isFinite(netCreditDollars) && netCreditDollars >= 0) {
+            const spreadExposure = verticalSpreadInfo.width * verticalSpreadInfo.multiplier * verticalSpreadInfo.contracts;
+            if (Number.isFinite(spreadExposure) && spreadExposure > 0) {
+                const maxLoss = Math.max(spreadExposure - netCreditDollars, 0);
+                summary.capitalAtRisk = maxLoss;
+            }
+        }
+
+        return summary;
+    }
+
+    formatStrikeValue(value) {
+        const strike = Number(value);
+        if (!Number.isFinite(strike)) {
+            return '—';
+        }
+        if (Math.abs(strike) >= 1000) {
+            return strike.toFixed(0);
+        }
+        return Number.isInteger(strike) ? strike.toString() : strike.toFixed(2).replace(/\.00$/, '');
+    }
+
+    derivePrimaryStrike(summary) {
+        if (!summary || !Array.isArray(summary.legs)) {
+            return null;
+        }
+        const openLegs = summary.legs.filter(leg => leg.side === 'OPEN');
+        const relevantLegs = openLegs.length ? openLegs : summary.legs;
+
+        const shortOption = relevantLegs.find(leg => leg.action === 'SELL' && Number.isFinite(Number(leg.strike)));
+        if (shortOption) {
+            return Number(shortOption.strike);
+        }
+
+        const anyOption = relevantLegs.find(leg => Number.isFinite(Number(leg.strike)));
+        return anyOption ? Number(anyOption.strike) : null;
+    }
+
+    buildStrikeDisplay(trade, summary = null) {
+        const legSummary = summary || this.summarizeLegs(trade?.legs || []);
+        const legs = legSummary?.legs || [];
+        if (legs.length === 0) {
+            return '—';
+        }
+
+        const openLegs = legs.filter(leg => leg.side === 'OPEN');
+        const relevantLegs = openLegs.length ? openLegs : legs;
+        const optionLegs = relevantLegs.filter(leg => ['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike)));
+
+        if (optionLegs.length > 0) {
+            const grouped = optionLegs.reduce((acc, leg) => {
+                const key = leg.type === 'CALL' ? 'C' : 'P';
+                if (!acc[key]) {
+                    acc[key] = new Set();
+                }
+                acc[key].add(Number(leg.strike));
+                return acc;
+            }, {});
+
+            const segments = Object.entries(grouped)
+                .map(([label, strikes]) => {
+                    const sorted = Array.from(strikes).sort((a, b) => a - b);
+                    return `${label}${sorted.map(strike => this.formatStrikeValue(strike)).join('/')}`;
+                })
+                .sort();
+
+            return segments.join(' · ') || '—';
+        }
+
+        const stockLegs = relevantLegs.filter(leg => leg.type === 'STOCK');
+        if (stockLegs.length > 0) {
+            const shares = stockLegs.reduce((sum, leg) => {
+                const quantity = leg.quantity * this.getLegMultiplier(leg);
+                return sum + (leg.action === 'BUY' ? quantity : -quantity);
+            }, 0);
+            const totalShares = Math.abs(Math.round(shares));
+            if (totalShares > 0) {
+                return `${totalShares} sh`;
+            }
+        }
+
+        return '—';
+    }
+
+    buildEntryPriceDisplay(trade, summary = null) {
+        const entryPrice = Number(trade?.entryPrice);
+        if (!Number.isFinite(entryPrice)) {
+            return '—';
+        }
+
+        const legSummary = summary || this.summarizeLegs(trade?.legs || []);
+        const openCashFlow = Number(legSummary?.openCashFlow) || 0;
+        const precision = Math.abs(entryPrice) >= 100 ? 2 : 2;
+        const formatted = `$${Math.abs(entryPrice).toFixed(precision)}`;
+
+        if (openCashFlow > 0.0001) {
+            return `Cr ${formatted}`;
+        }
+        if (openCashFlow < -0.0001) {
+            return `Db ${formatted}`;
+        }
+        return formatted;
+    }
+
+    assessRisk(trade, summary) {
+        const result = {
+            maxRiskValue: Number(summary?.capitalAtRisk) || 0,
+            maxRiskLabel: null,
+            unlimited: false
+        };
+
+        if (!summary || !Array.isArray(summary.legs) || summary.legs.length === 0) {
+            result.maxRiskLabel = this.formatCurrency(result.maxRiskValue);
+            return result;
+        }
+
+        if (this.isPmccTrade(trade)) {
+            const candidates = [];
+            const openCashFlow = Number(summary.openCashFlow);
+            if (Number.isFinite(openCashFlow)) {
+                candidates.push(Math.max(0, -openCashFlow));
+            }
+
+            const entryNetCredit = Number(summary.entryNetCredit);
+            if (Number.isFinite(entryNetCredit)) {
+                candidates.push(Math.max(0, -entryNetCredit));
+            }
+
+            const openDebit = Number(summary.openDebitGross);
+            const openCredit = Number(summary.openCreditGross);
+            const openFees = Number(summary.openFees);
+            if ([openDebit, openCredit, openFees].some(value => Number.isFinite(value) && value !== 0)) {
+                const grossNetDebit = Math.max(0, (Number.isFinite(openDebit) ? openDebit : 0) + (Number.isFinite(openFees) ? openFees : 0) - (Number.isFinite(openCredit) ? openCredit : 0));
+                candidates.push(grossNetDebit);
+            }
+
+            if (candidates.length > 0) {
+                const maxDebit = Math.max(...candidates);
+                if (Number.isFinite(maxDebit)) {
+                    result.maxRiskValue = maxDebit;
+                    summary.capitalAtRisk = maxDebit;
+                    result.unlimited = false;
+                    result.maxRiskLabel = this.formatCurrency(maxDebit);
+                    if (maxDebit === 0) {
+                        result.maxRiskLabel = '$0.00';
+                    }
+                    return result;
+                }
+            }
+        }
+
+        const spreadMeta = summary.verticalSpread;
+        if (spreadMeta && Number.isFinite(summary.entryNetCredit)) {
+            const contracts = spreadMeta.contracts || 1;
+            const spreadExposure = spreadMeta.width * spreadMeta.multiplier * contracts;
+            if (Number.isFinite(spreadExposure) && spreadExposure > 0) {
+                const netCredit = summary.entryNetCredit;
+                if (netCredit >= 0) {
+                    const maxLoss = Math.max(spreadExposure - netCredit, 0);
+                    result.maxRiskValue = maxLoss;
+                    summary.capitalAtRisk = maxLoss;
+                    result.maxRiskLabel = this.formatCurrency(maxLoss);
+                    if (maxLoss === 0) {
+                        result.maxRiskLabel = '$0.00';
+                    }
+                    return result;
+                }
+            }
+        }
+
+        const legs = summary.legs;
+        const openLegs = legs.filter(leg => leg.side === 'OPEN');
+        const relevantLegs = openLegs.length ? openLegs : legs;
+
+        const shareExposure = (leg) => (Number(leg.quantity) || 0) * this.getLegMultiplier(leg);
+
+        let availableStockCover = relevantLegs
+            .filter(leg => leg.type === 'STOCK')
+            .reduce((sum, leg) => {
+                const shares = shareExposure(leg);
+                return sum + (leg.action === 'BUY' ? shares : -shares);
+            }, 0);
+        availableStockCover = Math.max(0, availableStockCover);
+
+        const shortCalls = relevantLegs
+            .filter(leg => leg.type === 'CALL' && leg.action === 'SELL' && Number.isFinite(Number(leg.strike)))
+            .map(leg => ({ strike: Number(leg.strike), shares: shareExposure(leg) }))
+            .sort((a, b) => a.strike - b.strike);
+
+        const longCallsPool = relevantLegs
+            .filter(leg => leg.type === 'CALL' && leg.action === 'BUY' && Number.isFinite(Number(leg.strike)))
+            .map(leg => ({ strike: Number(leg.strike), shares: shareExposure(leg) }))
+            .sort((a, b) => a.strike - b.strike);
+
+        for (const shortCall of shortCalls) {
+            let remainingShares = shortCall.shares;
+
+            if (availableStockCover > 0) {
+                const coveredByStock = Math.min(remainingShares, availableStockCover);
+                remainingShares -= coveredByStock;
+                availableStockCover -= coveredByStock;
+            }
+
+            if (remainingShares > 0) {
+                for (const cover of longCallsPool) {
+                    if (cover.strike >= shortCall.strike && cover.shares > 0) {
+                        const coverAmount = Math.min(cover.shares, remainingShares);
+                        cover.shares -= coverAmount;
+                        remainingShares -= coverAmount;
+                        if (remainingShares === 0) {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (remainingShares > 0) {
+                result.unlimited = true;
+                result.maxRiskValue = Number.POSITIVE_INFINITY;
+                result.maxRiskLabel = 'Unlimited';
+                summary.capitalAtRisk = result.maxRiskValue;
+                return result;
+            }
+        }
+
+        const shortPutsRaw = relevantLegs
+            .filter(leg => leg.type === 'PUT' && leg.action === 'SELL' && Number.isFinite(Number(leg.strike)))
+            .map(leg => ({ leg, strike: Number(leg.strike), shares: shareExposure(leg) }))
+            .sort((a, b) => b.strike - a.strike);
+
+        const longPutsPool = relevantLegs
+            .filter(leg => leg.type === 'PUT' && leg.action === 'BUY' && Number.isFinite(Number(leg.strike)))
+            .map(leg => ({ strike: Number(leg.strike), shares: shareExposure(leg) }))
+            .sort((a, b) => b.strike - a.strike);
+
+        let assessedPutRisk = 0;
+
+        shortPutsRaw.forEach(shortPut => {
+            const totalShares = shortPut.shares;
+            const netCreditTotal = (shortPut.leg.premium * shortPut.leg.multiplier * shortPut.leg.quantity) - (shortPut.leg.fees || 0);
+            const netCreditPerShare = totalShares > 0 ? netCreditTotal / totalShares : 0;
+
+            let remainingShares = totalShares;
+
+            for (const cover of longPutsPool) {
+                if (cover.strike <= shortPut.strike && cover.shares > 0 && remainingShares > 0) {
+                    const coverShares = Math.min(cover.shares, remainingShares);
+                    cover.shares -= coverShares;
+                    remainingShares -= coverShares;
+
+                    const spreadWidth = shortPut.strike - cover.strike;
+                    const coveredRiskPerShare = Math.max(0, spreadWidth - netCreditPerShare);
+                    assessedPutRisk += coveredRiskPerShare * coverShares;
+                }
+            }
+
+            if (remainingShares > 0) {
+                const uncoveredRiskPerShare = Math.max(0, shortPut.strike - netCreditPerShare);
+                assessedPutRisk += uncoveredRiskPerShare * remainingShares;
+            }
+        });
+
+        if (assessedPutRisk > result.maxRiskValue) {
+            result.maxRiskValue = assessedPutRisk;
+        }
+
+        summary.capitalAtRisk = result.maxRiskValue;
+        result.maxRiskLabel = Number.isFinite(result.maxRiskValue)
+            ? this.formatCurrency(result.maxRiskValue)
+            : '—';
+
+        if (result.maxRiskValue === 0) {
+            result.maxRiskLabel = '$0.00';
+        }
+
+        return result;
+    }
+
+    // --- Leg form UI helpers ---------------------------------------------
+
+    getLegsContainer() {
+        return document.getElementById('trade-legs-container');
+    }
+
+    generateLegId(index = 0) {
+        const base = this.currentEditingId || 'NEW';
+        const timestamp = Date.now().toString(36);
+        const random = Math.random().toString(36).slice(2, 6);
+        return `${base}-LEG-${timestamp}-${index}-${random}`;
+    }
+
+    clearLegFormRows() {
+        const container = this.getLegsContainer();
+        if (container) {
+            container.innerHTML = '';
+        }
+    }
+
+    getSelectedUnderlyingType({ fallback = 'Stock' } = {}) {
+        const select = document.getElementById('underlyingType');
+        return this.normalizeUnderlyingType(select?.value, { fallback });
+    }
+
+    getDefaultMultiplierForLegType(legType, underlyingType = 'Stock') {
+        const normalizedLegType = this.normalizeLegType(legType || 'CALL');
+        if (normalizedLegType === 'STOCK' || normalizedLegType === 'CASH') {
+            return 1;
+        }
+        const normalizedUnderlying = this.normalizeUnderlyingType(underlyingType, { fallback: 'Stock' });
+        if (normalizedUnderlying === 'Stock') {
+            return 100;
+        }
+        if (normalizedUnderlying === 'ETF' || normalizedUnderlying === 'Index' || normalizedUnderlying === 'Future') {
+            return 100;
+        }
+        return 100;
+    }
+
+    syncLegMultiplierVisibility(row, { defaultMultiplier = null } = {}) {
+        if (!row) {
+            return;
+        }
+
+        const multiplierGroup = row.querySelector('[data-leg-group="multiplier"]');
+        const multiplierInput = row.querySelector('[data-leg-field="multiplier"]');
+        const toggleButton = row.querySelector('.trade-leg__multiplier-toggle');
+        const typeSelect = row.querySelector('[data-leg-field="type"]');
+
+        if (!multiplierGroup || !multiplierInput || !toggleButton || !typeSelect) {
+            return;
+        }
+
+        const underlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
+        const normalizedLegType = this.normalizeLegType(typeSelect.value || 'CALL');
+        const fallbackMultiplier = Number.isFinite(defaultMultiplier)
+            ? defaultMultiplier
+            : this.getDefaultMultiplierForLegType(normalizedLegType, underlyingType);
+
+        const value = Number(multiplierInput.value);
+        const hasCustomValue = Number.isFinite(value) && value > 0 && value !== fallbackMultiplier;
+        const isOpen = row.classList.contains('trade-leg--multiplier-open');
+
+        if (isOpen) {
+            multiplierGroup.classList.remove('is-hidden');
+            toggleButton.textContent = 'Hide multiplier';
+            return;
+        }
+
+        multiplierGroup.classList.toggle('is-hidden', !hasCustomValue);
+        toggleButton.textContent = hasCustomValue ? 'Hide multiplier' : 'Override multiplier';
+    }
+
+    applyUnderlyingTypeToLegMultipliers({ row = null, force = false } = {}) {
+        const container = this.getLegsContainer();
+        if (!container) {
+            return;
+        }
+
+        const rows = row ? [row] : Array.from(container.querySelectorAll('.trade-leg'));
+        if (!rows.length) {
+            return;
+        }
+
+        const underlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
+
+        rows.forEach((legRow) => {
+            const typeSelect = legRow.querySelector('[data-leg-field="type"]');
+            const multiplierInput = legRow.querySelector('[data-leg-field="multiplier"]');
+            if (!typeSelect || !multiplierInput) {
+                return;
+            }
+
+            const defaultMultiplier = this.getDefaultMultiplierForLegType(typeSelect.value || 'CALL', underlyingType);
+            const currentValue = Number(multiplierInput.value);
+            const isOpen = legRow.classList.contains('trade-leg--multiplier-open');
+
+            if (force || !Number.isFinite(currentValue) || currentValue <= 0) {
+                multiplierInput.value = defaultMultiplier;
+            } else if (!isOpen) {
+                const shouldReset = currentValue === 0;
+                if (shouldReset) {
+                    multiplierInput.value = defaultMultiplier;
+                }
+            }
+
+            this.syncLegMultiplierVisibility(legRow, { defaultMultiplier });
+        });
+    }
+
+    renderLegForms(legs = []) {
+        const container = this.getLegsContainer();
+        if (!container) {
+            return;
+        }
+
+        this.clearLegFormRows();
+
+        if (Array.isArray(legs) && legs.length > 0) {
+            legs.forEach(leg => this.addLegFormRow(leg));
+        } else {
+            this.addLegFormRow();
+        }
+
+        this.updateLegRowNumbers();
+        this.applyUnderlyingTypeToLegMultipliers({ force: !Array.isArray(legs) || legs.length === 0 });
+    }
+
+    addLegFormRow(leg = null) {
+        const container = this.getLegsContainer();
+        if (!container) {
+            return null;
+        }
+
+        const row = document.createElement('div');
+        row.className = 'trade-leg';
+
+        const existingRows = container.querySelectorAll('.trade-leg').length;
+        const legId = leg?.id || this.generateLegId(existingRows);
+        row.dataset.legId = legId;
+
+        row.innerHTML = `
+            <div class="trade-leg__header">
+                <span class="trade-leg__title" data-leg-label></span>
+                <button type="button" class="btn btn--sm btn--secondary trade-leg__remove">Remove Leg</button>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Action</label>
+                    <select class="form-control" data-leg-field="orderType">
+                        <option value="BTO">BTO (Buy to Open)</option>
+                        <option value="STO">STO (Sell to Open)</option>
+                        <option value="BTC">BTC (Buy to Close)</option>
+                        <option value="STC">STC (Sell to Close)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Instrument</label>
+                    <select class="form-control" data-leg-field="type">
+                        <option value="CALL">Call</option>
+                        <option value="PUT">Put</option>
+                        <option value="STOCK">Stock</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-control" data-leg-field="quantity" min="0" step="1">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Entry Date</label>
+                    <input type="date" class="form-control" data-leg-field="executionDate">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Expiration Date</label>
+                    <input type="date" class="form-control" data-leg-field="expirationDate">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Strike</label>
+                    <input type="number" class="form-control" data-leg-field="strike" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Premium (per share)</label>
+                    <input type="number" class="form-control" data-leg-field="premium" step="0.01" min="0">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Fees</label>
+                    <input type="number" class="form-control" data-leg-field="fees" step="0.0000001" min="0">
+                </div>
+                <div class="form-group is-hidden" data-leg-group="multiplier">
+                    <label class="form-label">Multiplier</label>
+                    <input type="number" class="form-control" data-leg-field="multiplier" step="1" min="1">
+                    <span class="form-help-text">Used to scale option premiums (100 for standard contracts, 1 for stock).</span>
+                </div>
+            </div>
+            <div class="form-row trade-leg__multiplier-row">
+                <div class="form-group">
+                    <button type="button" class="btn btn--sm btn--secondary trade-leg__multiplier-toggle">Override multiplier</button>
+                    <span class="form-help-text">Hidden by default - standard contracts use 100, stock legs use 1.</span>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Entry Underlying Price</label>
+                    <input type="number" class="form-control" data-leg-field="underlyingPrice" step="0.01" min="0">
+                </div>
+            </div>
+        `;
+
+        const orderTypeSelect = row.querySelector('[data-leg-field="orderType"]');
+        const normalizedOrderType = this.normalizeLegOrderType(
+            leg?.orderType ||
+            leg?.tradeType ||
+            leg?.order ||
+            this.deriveOrderTypeFromActionSide(leg?.action, leg?.side)
+        );
+        if (orderTypeSelect) {
+            orderTypeSelect.value = normalizedOrderType;
+        }
+
+        const typeSelect = row.querySelector('[data-leg-field="type"]');
+        const normalizedType = this.normalizeLegType(leg?.type || 'CALL');
+        if (typeSelect) {
+            typeSelect.value = normalizedType;
+            typeSelect.addEventListener('change', () => {
+                this.applyUnderlyingTypeToLegMultipliers({ row, force: true });
+            });
+        }
+
+        const baseUnderlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
+        const legUnderlyingType = this.normalizeUnderlyingType(leg?.underlyingType, { fallback: baseUnderlyingType });
+
+        const quantityInput = row.querySelector('[data-leg-field="quantity"]');
+        if (quantityInput) {
+            if (leg && Number.isFinite(Number(leg.quantity))) {
+                quantityInput.value = Math.abs(Number(leg.quantity));
+            } else {
+                quantityInput.value = 1;
+            }
+        }
+
+        const executionInput = row.querySelector('[data-leg-field="executionDate"]');
+        if (executionInput) {
+            executionInput.value = leg?.executionDate || '';
+        }
+
+        const expirationInput = row.querySelector('[data-leg-field="expirationDate"]');
+        if (expirationInput) {
+            expirationInput.value = leg?.expirationDate || '';
+        }
+
+        const strikeInput = row.querySelector('[data-leg-field="strike"]');
+        if (strikeInput) {
+            strikeInput.value = Number.isFinite(Number(leg?.strike)) ? Number(leg.strike) : '';
+        }
+
+        const premiumInput = row.querySelector('[data-leg-field="premium"]');
+        if (premiumInput) {
+            premiumInput.value = Number.isFinite(Number(leg?.premium)) ? Number(leg.premium) : '';
+        }
+
+        const feesInput = row.querySelector('[data-leg-field="fees"]');
+        if (feesInput) {
+            feesInput.value = Number.isFinite(Number(leg?.fees)) ? Number(leg.fees) : '';
+        }
+
+        const multiplierInput = row.querySelector('[data-leg-field="multiplier"]');
+        if (multiplierInput) {
+            const providedMultiplier = Number.isFinite(Number(leg?.multiplier)) && Number(leg.multiplier) > 0
+                ? Number(leg.multiplier)
+                : this.getDefaultMultiplierForLegType(normalizedType, legUnderlyingType);
+            multiplierInput.value = providedMultiplier;
+            ['change', 'input'].forEach((eventName) => {
+                multiplierInput.addEventListener(eventName, () => {
+                    this.syncLegMultiplierVisibility(row);
+                });
+            });
+        }
+
+        const multiplierToggle = row.querySelector('.trade-leg__multiplier-toggle');
+        if (multiplierToggle) {
+            multiplierToggle.addEventListener('click', (event) => {
+                event.preventDefault();
+                const isOpen = row.classList.toggle('trade-leg--multiplier-open');
+                if (!isOpen) {
+                    this.applyUnderlyingTypeToLegMultipliers({ row, force: false });
+                }
+                this.syncLegMultiplierVisibility(row);
+            });
+        }
+
+        const underlyingInput = row.querySelector('[data-leg-field="underlyingPrice"]');
+        if (underlyingInput) {
+            underlyingInput.value = Number.isFinite(Number(leg?.underlyingPrice)) ? Number(leg.underlyingPrice) : '';
+        }
+
+        const removeButton = row.querySelector('.trade-leg__remove');
+        if (removeButton) {
+            removeButton.addEventListener('click', () => {
+                this.removeLegFormRow(row);
+            });
+        }
+
+        container.appendChild(row);
+        this.applyUnderlyingTypeToLegMultipliers({ row, force: !leg });
+        this.syncLegMultiplierVisibility(row);
+        this.updateLegRowNumbers();
+        return row;
+    }
+
+    removeLegFormRow(row) {
+        const container = this.getLegsContainer();
+        if (!container || !row) {
+            return;
+        }
+
+        container.removeChild(row);
+
+        if (container.children.length === 0) {
+            this.addLegFormRow();
+        } else {
+            this.updateLegRowNumbers();
+            this.applyUnderlyingTypeToLegMultipliers({ force: false });
+        }
+    }
+
+    updateLegRowNumbers() {
+        const container = this.getLegsContainer();
+        if (!container) {
+            return;
+        }
+
+        Array.from(container.querySelectorAll('.trade-leg')).forEach((row, index) => {
+            const label = row.querySelector('[data-leg-label]');
+            if (label) {
+                label.textContent = `Leg ${index + 1}`;
+            }
+
+            const removeButton = row.querySelector('.trade-leg__remove');
+            if (removeButton) {
+                removeButton.disabled = container.children.length === 1;
+            }
+        });
+    }
+
+    collectLegsFromForm() {
+        const container = this.getLegsContainer();
+        if (!container) {
+            return [];
+        }
+
+        const rows = Array.from(container.querySelectorAll('.trade-leg'));
+        if (rows.length === 0) {
+            return [];
+        }
+
+        const legs = [];
+        const errors = [];
+        const tradeUnderlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
+
+        rows.forEach((row, index) => {
+            const getFieldValue = (name) => {
+                const field = row.querySelector(`[data-leg-field="${name}"]`);
+                return field ? field.value : '';
+            };
+
+            const orderType = this.normalizeLegOrderType(getFieldValue('orderType') || 'BTO');
+            const mapping = this.mapOrderTypeToActionSide(orderType);
+            const action = this.normalizeLegAction(mapping.action);
+            const side = this.normalizeLegSide(mapping.side);
+            const type = this.normalizeLegType(getFieldValue('type') || 'CALL');
+
+            const quantityRaw = getFieldValue('quantity');
+            const quantityParsed = this.parseInteger(quantityRaw, null, { allowNegative: false });
+            if (!Number.isFinite(quantityParsed) || quantityParsed <= 0) {
+                errors.push(`Leg ${index + 1} must have a quantity greater than 0.`);
+                return;
+            }
+
+            const multiplierRaw = getFieldValue('multiplier');
+            const multiplierParsed = this.parseInteger(multiplierRaw, null, { allowNegative: false });
+            const multiplier = Number.isFinite(multiplierParsed) && multiplierParsed > 0
+                ? multiplierParsed
+                : this.getDefaultMultiplierForLegType(type, tradeUnderlyingType);
+
+            const strikeRaw = getFieldValue('strike');
+            const strike = this.parseDecimal(strikeRaw, null, { allowNegative: false });
+
+            const premiumRaw = getFieldValue('premium');
+            const premium = this.parseDecimal(premiumRaw, 0, { allowNegative: false });
+
+            const feesRaw = getFieldValue('fees');
+            const fees = this.parseDecimal(feesRaw, 0, { allowNegative: false });
+
+            const underlyingRaw = getFieldValue('underlyingPrice');
+            const underlyingPrice = this.parseDecimal(underlyingRaw, null, { allowNegative: false });
+
+            const executionDate = getFieldValue('executionDate') || '';
+            const expirationDate = getFieldValue('expirationDate') || '';
+
+            const legData = {
+                id: row.dataset.legId || this.generateLegId(index),
+                orderType,
+                action,
+                side,
+                type,
+                quantity: quantityParsed,
+                multiplier,
+                executionDate,
+                expirationDate,
+                strike,
+                premium,
+                fees,
+                underlyingPrice,
+                underlyingType: tradeUnderlyingType
+            };
+
+            legs.push(legData);
+        });
+
+        if (errors.length > 0) {
+            this.showNotification(errors.join('\n'), 'error');
+            return null;
+        }
+
+        return legs;
+    }
+
+    // Trade normalization -------------------------------------------------
+
+    getPrimaryLeg(trade = {}) {
+        if (trade.primaryLeg && trade.primaryLeg.id) {
+            return this.normalizeLeg(trade.primaryLeg);
+        }
+        if (Array.isArray(trade.legs) && trade.legs.length > 0) {
+            const candidates = trade.legs.map((leg, index) => this.normalizeLeg(leg, index));
+            const firstOpen = candidates.find(leg => leg.side === 'OPEN') || candidates[0];
+            return firstOpen;
+        }
+        return null;
+    }
+
+    deriveTradeTypeFromLeg(leg) {
+        if (!leg) {
+            return 'BTO';
+        }
+        const action = this.normalizeLegAction(leg.action);
+        const side = this.normalizeLegSide(leg.side);
+        if (action === 'BUY' && side === 'OPEN') {
+            return 'BTO';
+        }
+        if (action === 'SELL' && side === 'OPEN') {
+            return 'STO';
+        }
+        if (action === 'SELL' && side === 'CLOSE') {
+            return 'STC';
+        }
+        if (action === 'BUY' && side === 'CLOSE') {
+            return 'BTC';
+        }
+        // ROLL legs inherit previous action semantics
+        return action === 'SELL' ? 'STO' : 'BTO';
+    }
+
+    deriveTradeDirectionFromLeg(leg) {
+        if (!leg) {
+            return 'long';
+        }
+        const action = this.normalizeLegAction(leg.action);
+        if (action === 'SELL') {
+            return 'short';
+        }
+        return 'long';
+    }
+
+    getTradeType(trade) {
+        const primaryLeg = this.getPrimaryLeg(trade);
+        return this.deriveTradeTypeFromLeg(primaryLeg);
     }
 
     inferTradeDirection(trade) {
-        const provided = (trade.tradeType || '').toUpperCase();
-        if (provided === 'BTO' || provided === 'STC') {
-            return 'long';
-        }
-        if (provided === 'STO' || provided === 'BTC') {
-            return 'short';
-        }
-
-        const quantity = Number(trade.quantity);
-        if (!Number.isNaN(quantity) && quantity !== 0) {
-            if (quantity < 0) {
-                return 'short';
-            }
-            // If quantity is positive we defer to strategy heuristics below
-        }
-
-        const strategy = (trade.strategy || '').toLowerCase();
-        if (strategy.includes('short ')) {
-            return 'short';
-        }
-        if (SHORT_STRATEGY_PATTERNS.some(pattern => strategy.includes(pattern))) {
-            return 'short';
-        }
-        if (LONG_STRATEGY_PATTERNS.some(pattern => strategy.includes(pattern))) {
-            return 'long';
-        }
-
-        return 'long';
+        const primaryLeg = this.getPrimaryLeg(trade);
+        return this.deriveTradeDirectionFromLeg(primaryLeg);
     }
 
     normalizeStatus(status) {
         return (status || '').toString().trim().toLowerCase();
     }
 
+    normalizeTradeStatusInput(status) {
+        const normalized = (status || '').toString().trim().toLowerCase();
+        if (!normalized) {
+            return '';
+        }
+        if (normalized === 'open') {
+            return 'Open';
+        }
+        if (normalized === 'closed') {
+            return 'Closed';
+        }
+        if (normalized === 'expired') {
+            return 'Expired';
+        }
+        if (normalized === 'assigned') {
+            return 'Assigned';
+        }
+        if (normalized === 'rolling' || normalized === 'rolled') {
+            return 'Rolling';
+        }
+        return '';
+    }
+
     isClosedStatus(status) {
         const normalized = this.normalizeStatus(status);
         return normalized === 'closed' || normalized === 'assigned' || normalized === 'expired';
+    }
+
+    isActiveStatus(status) {
+        const normalized = this.normalizeStatus(status);
+        return normalized === 'open' || normalized === 'rolling';
     }
 
     isAssignmentReason(reason) {
@@ -721,52 +1895,46 @@ class GammaLedger {
             return 'Expired';
         }
 
+        if (normalized === 'rolling') {
+            return 'Rolling';
+        }
+
         return rawStatus;
     }
 
     // DTE calculation using current date
     calculateDTE(expirationDate, trade) {
-        const expDate = new Date(expirationDate);
-
-        // For closed trades, use current date to determine if expired at time of analysis
-        // For open trades, calculate from current date
-        let compareDate = this.currentDate;
-
-        // If trade is closed and was closed before expiration, show 0 since it's no longer relevant
-        if (this.isClosedStatus(trade.status)) {
-            return 0; // Closed trades don't have DTE since position is closed
+        const expDate = this.parseDateValue(expirationDate);
+        if (!expDate) {
+            return 0;
         }
 
-        // For open trades, calculate DTE from current date to expiration
-        const diffTime = expDate.getTime() - compareDate.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (this.isClosedStatus(trade.status)) {
+            return 0;
+        }
 
-        // Return 0 if expiration has passed
+        const diffTime = expDate.getTime() - this.currentDate.getTime();
+        if (!Number.isFinite(diffTime)) {
+            return 0;
+        }
+
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return Math.max(0, diffDays);
     }
 
-    // Fixed P&L calculation considering trade direction
+    // Realized P&L derived from leg cash flows
     calculatePL(trade) {
-        if (!this.isClosedStatus(trade.status) || trade.exitPrice === null || trade.exitPrice === undefined) {
+        if (!trade) {
             return 0;
         }
 
-        const quantity = Math.abs(Number(trade.quantity) || 0);
-        if (quantity === 0) {
+        const summary = this.summarizeLegs(trade.legs || []);
+        const cashFlowValue = Number.isFinite(Number(trade.cashFlow)) ? Number(trade.cashFlow) : Number(summary.cashFlow);
+        if (!Number.isFinite(cashFlowValue)) {
             return 0;
         }
 
-        const entryPrice = Number(trade.entryPrice) || 0;
-        const exitPrice = Number(trade.exitPrice) || 0;
-        const fees = Number(trade.fees) || 0;
-        const tradeType = this.getTradeType(trade);
-        const isShort = tradeType === 'STO' || tradeType === 'BTC';
-
-        const gross = isShort
-            ? (entryPrice - exitPrice)
-            : (exitPrice - entryPrice);
-
-        return gross * quantity * 100 - fees;
+        return parseFloat(cashFlowValue.toFixed(2));
     }
 
     // Fixed ROI calculation
@@ -788,25 +1956,30 @@ class GammaLedger {
 
     // Fixed days held calculation
     calculateDaysHeld(trade) {
-        const entryDate = new Date(trade.entryDate);
-        let endDate;
-
-        if (this.isClosedStatus(trade.status) && trade.exitDate) {
-            endDate = new Date(trade.exitDate);
-        } else {
-            endDate = this.currentDate; // Current date
+        if (!trade) {
+            return 0;
         }
 
-        const diffTime = endDate - entryDate;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const entryDate = this.parseDateValue(trade.entryDate || trade.openedDate);
+        if (!entryDate) {
+            return 0;
+        }
 
-        return Math.max(1, diffDays); // Minimum 1 day
+        const exitCandidate = this.parseDateValue(trade.exitDate || trade.closedDate);
+        const endDate = (this.isClosedStatus(trade.status) && exitCandidate) ? exitCandidate : this.currentDate;
+
+        const diffTime = endDate.getTime() - entryDate.getTime();
+        if (!Number.isFinite(diffTime) || diffTime < 0) {
+            return 0;
+        }
+
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.max(1, diffDays);
     }
 
     // Enhanced Max Risk calculation
     calculateMaxRisk(trade) {
-        const quantity = Math.abs(Number(trade.quantity) || 0);
-        if (quantity === 0) {
+        if (!trade) {
             return 0;
         }
 
@@ -815,63 +1988,48 @@ class GammaLedger {
             return overrideValue;
         }
 
-        const entry = Math.abs(Number(trade.entryPrice) || 0);
-        const fees = Number(trade.fees) || 0;
-        const strategy = (trade.strategy || '').toLowerCase();
-        const tradeType = this.getTradeType(trade);
-        const isShort = tradeType === 'STO' || tradeType === 'BTC';
-
-        const definedRiskWidth = Number(trade.definedRiskWidth);
-        const hasDefinedWidth = Number.isFinite(definedRiskWidth) && definedRiskWidth > 0;
-
-        if (!isShort) {
-            return entry * quantity * 100 + fees;
-        }
-
-        if (hasDefinedWidth) {
-            const riskPerContract = Math.max((definedRiskWidth - entry) * 100, 0);
-            return riskPerContract * quantity + fees;
-        }
-
-        const isDefinedRisk = strategy.includes('spread') || strategy.includes('condor') || strategy.includes('collar') || strategy.includes('butterfly');
-
-        if (strategy.includes('put')) {
-            const strike = Number(trade.strikePrice) || 0;
-            if (strike > 0) {
-                const riskPerContract = Math.max((strike - entry) * 100, 0);
-                return riskPerContract * quantity + fees;
-            }
-        }
-
-        if (isDefinedRisk) {
-            return entry * quantity * 100 + fees;
-        }
-
-        return entry * quantity * 100 + fees;
-    }
-
-    getCapitalAtRisk(trade) {
-        const stored = Number(trade.maxRisk);
+        const stored = Number(trade.capitalAtRisk);
         if (Number.isFinite(stored) && stored > 0) {
             return stored;
         }
 
+        const legacy = Number(trade.maxRisk);
+        if (Number.isFinite(legacy) && legacy > 0) {
+            return legacy;
+        }
+
+        const summary = this.summarizeLegs(trade.legs || []);
+        return Number(summary.capitalAtRisk) || 0;
+    }
+
+    getCapitalAtRisk(trade) {
+        const stored = Number(trade.capitalAtRisk);
+        if (Number.isFinite(stored) && stored > 0) {
+            return stored;
+        }
+
+        const legacy = Number(trade.maxRisk);
+        if (Number.isFinite(legacy) && legacy > 0) {
+            return legacy;
+        }
         return this.calculateMaxRisk(trade);
     }
 
     // VERIFIED: Annualized ROI calculation
     calculateAnnualizedROI(trade) {
-    if (!this.isClosedStatus(trade.status)) return 0;
+        if (!trade || !this.isClosedStatus(trade.status)) {
+            return 0;
+        }
 
-        const roiPercent = this.calculateROI(trade);
+        const roiPercent = Number.isFinite(Number(trade.roi)) ? Number(trade.roi) : this.calculateROI(trade);
         if (!Number.isFinite(roiPercent)) {
             return 0;
         }
 
-        const daysHeldRaw = this.calculateDaysHeld(trade);
-        const daysHeld = Math.max(1, Number(daysHeldRaw) || 0);
-
+        const daysHeldValue = Number(trade.daysHeld) || this.calculateDaysHeld(trade) || 0;
+        const daysHeld = Math.max(1, daysHeldValue);
         const annualizedROI = (365 * roiPercent) / daysHeld;
+
         if (!Number.isFinite(annualizedROI)) {
             return 0;
         }
@@ -879,40 +2037,329 @@ class GammaLedger {
         return parseFloat(annualizedROI.toFixed(2));
     }
 
+    buildLegLifecycleKey(leg = {}) {
+        const type = this.normalizeLegType(leg.type);
+        const strikeValue = Number(leg.strike);
+        const strike = Number.isFinite(strikeValue) ? strikeValue.toFixed(4) : 'NA';
+        const expiration = (leg.expirationDate || '').toString();
+        const multiplier = this.getLegMultiplier(leg) || 1;
+        return `${type}|${strike}|${expiration}|${multiplier}`;
+    }
+
+    getNormalizedLegOrderType(leg = {}) {
+        const rawOrder = leg.orderType || leg.tradeType || leg.order;
+        return this.normalizeLegOrderType(rawOrder || this.deriveOrderTypeFromActionSide(leg.action, leg.side));
+    }
+
+    determineTradeLifecycleStatus(trade = {}, summary = {}) {
+        const legs = Array.isArray(summary?.legs) ? summary.legs : [];
+        const result = {
+            status: 'Open',
+            exitReason: null,
+            effectiveClosedDate: null,
+            openContractsOverride: undefined,
+            meta: {
+                matchedPairs: false,
+                unmatchedExposure: 0,
+                expirationPassed: false,
+                hasRollLegs: false,
+                hasCloseActivity: false,
+                hasAssignmentEvent: false,
+                hasExpirationEvent: false
+            }
+        };
+
+        if (legs.length === 0) {
+            result.meta.matchedPairs = true;
+            return result;
+        }
+
+        const pairMap = new Map();
+        let hasRollLegs = false;
+        let hasCloseActivity = false;
+        let hasAssignmentEvent = false;
+        let hasExpirationEvent = false;
+
+        legs.forEach((leg) => {
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            if (!quantity) {
+                return;
+            }
+
+            const key = this.buildLegLifecycleKey(leg);
+            if (!pairMap.has(key)) {
+                pairMap.set(key, {
+                    longOpen: 0,
+                    longClose: 0,
+                    shortOpen: 0,
+                    shortClose: 0
+                });
+            }
+
+            const bucket = pairMap.get(key);
+            const orderType = this.getNormalizedLegOrderType(leg);
+            switch (orderType) {
+                case 'BTO':
+                    bucket.longOpen += quantity;
+                    break;
+                case 'STC':
+                    bucket.longClose += quantity;
+                    hasCloseActivity = true;
+                    break;
+                case 'STO':
+                    bucket.shortOpen += quantity;
+                    break;
+                case 'BTC':
+                    bucket.shortClose += quantity;
+                    hasCloseActivity = true;
+                    break;
+                default:
+                    break;
+            }
+
+            const side = (leg.side || '').toString().toUpperCase();
+            if (side === 'ROLL') {
+                hasRollLegs = true;
+            }
+
+            const rawOrder = (leg.orderType || leg.tradeType || leg.order || '').toString().toUpperCase();
+            const action = (leg.action || '').toString().toUpperCase();
+            if (rawOrder.includes('ASSIGN') || action.includes('ASSIGN')) {
+                hasAssignmentEvent = true;
+            }
+            if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY') || action.includes('EXPIRE')) {
+                hasExpirationEvent = true;
+            }
+        });
+
+        let matchedPairs = true;
+        let unmatchedExposure = 0;
+
+        pairMap.forEach((bucket) => {
+            const longDiff = Math.abs(bucket.longOpen - bucket.longClose);
+            const shortDiff = Math.abs(bucket.shortOpen - bucket.shortClose);
+            if (longDiff > 0 || shortDiff > 0) {
+                matchedPairs = false;
+            }
+            unmatchedExposure += longDiff + shortDiff;
+        });
+
+        const expirationDate = this.parseDateValue(trade.expirationDate || summary.latestExpiration);
+        const now = this.currentDate instanceof Date ? this.currentDate : new Date();
+        const expirationPassed = expirationDate ? now.getTime() > expirationDate.getTime() : false;
+
+        const lastActivityDate = summary.closedDate instanceof Date
+            ? summary.closedDate
+            : this.parseDateValue(trade.closedDate || trade.exitDate);
+        const activityAfterExpiration = expirationPassed && lastActivityDate && expirationDate
+            ? lastActivityDate.getTime() >= expirationDate.getTime()
+            : false;
+
+        result.meta = {
+            matchedPairs,
+            unmatchedExposure,
+            expirationPassed,
+            hasRollLegs,
+            hasCloseActivity,
+            hasAssignmentEvent,
+            hasExpirationEvent,
+            activityAfterExpiration
+        };
+
+        const normalizedStatus = this.normalizeStatus(trade.status);
+        if (!hasAssignmentEvent && this.isAssignmentTrade(trade)) {
+            hasAssignmentEvent = true;
+        }
+
+        if (hasAssignmentEvent) {
+            result.status = 'Assigned';
+            result.exitReason = trade.exitReason || 'Assigned';
+            result.openContractsOverride = 0;
+            if (!result.effectiveClosedDate && lastActivityDate) {
+                result.effectiveClosedDate = lastActivityDate.toISOString().slice(0, 10);
+            }
+            return result;
+        }
+
+        if (matchedPairs || unmatchedExposure === 0) {
+            result.status = 'Closed';
+            if (hasExpirationEvent && !trade.exitReason) {
+                result.exitReason = 'Expired OTM';
+            }
+            result.openContractsOverride = 0;
+            if (!result.effectiveClosedDate && lastActivityDate) {
+                result.effectiveClosedDate = lastActivityDate.toISOString().slice(0, 10);
+            }
+            return result;
+        }
+
+        if (expirationPassed && !hasAssignmentEvent) {
+            result.status = 'Expired';
+            if (!trade.exitReason) {
+                result.exitReason = 'Expired OTM';
+            }
+            result.openContractsOverride = 0;
+            if (expirationDate) {
+                result.effectiveClosedDate = expirationDate.toISOString().slice(0, 10);
+            }
+            return result;
+        }
+
+        if (hasRollLegs || (hasCloseActivity && unmatchedExposure > 0)) {
+            result.status = 'Rolling';
+            return result;
+        }
+
+        if (activityAfterExpiration && !hasAssignmentEvent) {
+            result.status = 'Closed';
+            if (!trade.exitReason) {
+                result.exitReason = 'Closed post-expiration';
+            }
+            result.openContractsOverride = 0;
+            if (lastActivityDate) {
+                result.effectiveClosedDate = lastActivityDate.toISOString().slice(0, 10);
+            }
+            return result;
+        }
+
+        if (normalizedStatus === 'expired' && expirationDate) {
+            result.status = 'Expired';
+            result.openContractsOverride = 0;
+            if (!trade.exitReason) {
+                result.exitReason = 'Expired OTM';
+            }
+            if (!result.effectiveClosedDate) {
+                result.effectiveClosedDate = expirationDate.toISOString().slice(0, 10);
+            }
+            return result;
+        }
+
+        result.status = 'Open';
+        return result;
+    }
+
     enrichTradeData(trade) {
         const enriched = { ...trade };
         delete enriched.optionType;
 
-        const normalizedType = this.normalizeTradeType(enriched);
-        enriched.tradeType = normalizedType;
+        const rawStrategy = (enriched.strategy || '').toString().trim();
+        enriched.strategy = this.getStrategyDisplayName(rawStrategy);
 
-        const direction = this.inferTradeDirection({ ...enriched, tradeType: normalizedType });
-        enriched.tradeDirection = direction;
+        enriched.underlyingType = this.normalizeUnderlyingType(trade.underlyingType, { fallback: 'Stock' });
 
-        const definedRiskWidth = Number(enriched.definedRiskWidth);
-        enriched.definedRiskWidth = Number.isFinite(definedRiskWidth) && definedRiskWidth > 0 ? definedRiskWidth : null;
+        const legSummary = this.summarizeLegs(enriched.legs);
+        enriched.legs = legSummary.legs;
+        enriched.legsCount = legSummary.legsCount;
+        enriched.openContracts = Math.max(0, legSummary.openContracts - legSummary.closeContracts);
+        enriched.closeContracts = legSummary.closeContracts;
+        enriched.openLegs = Math.max(0, legSummary.openLegs - legSummary.closeLegs);
+        enriched.rollLegs = legSummary.rollLegs;
+        enriched.netPremium = Number(legSummary.netPremium.toFixed(2));
+    enriched.totalFees = Number(legSummary.totalFees.toFixed(4));
+        enriched.totalDebit = Number(legSummary.totalDebit.toFixed(2));
+        enriched.totalCredit = Number(legSummary.totalCredit.toFixed(2));
+        enriched.cashFlow = Number(legSummary.cashFlow.toFixed(2));
+        const initialCapitalAtRisk = Number(legSummary.capitalAtRisk);
+        enriched.capitalAtRisk = Number.isFinite(initialCapitalAtRisk)
+            ? Number(initialCapitalAtRisk.toFixed(2))
+            : initialCapitalAtRisk;
+        enriched.fees = enriched.totalFees;
+        enriched.primaryLeg = legSummary.primaryLeg;
 
-        const maxRiskOverride = Number(enriched.maxRiskOverride);
-        enriched.maxRiskOverride = Number.isFinite(maxRiskOverride) && maxRiskOverride > 0 ? maxRiskOverride : null;
-
-        const rawQuantity = Number(enriched.quantity);
-        const absQuantity = Math.abs(Number.isNaN(rawQuantity) ? 0 : rawQuantity);
-        if (absQuantity > 0) {
-            enriched.quantity = direction === 'short' ? -absQuantity : absQuantity;
+        const userRiskOverride = Number(trade.maxRiskOverride);
+        if (Number.isFinite(userRiskOverride) && userRiskOverride > 0) {
+            enriched.maxRiskOverride = userRiskOverride;
         } else {
-            enriched.quantity = absQuantity;
+            enriched.maxRiskOverride = null;
+        }
+
+        const primaryLeg = legSummary.primaryLeg;
+        enriched.tradeType = this.deriveTradeTypeFromLeg(primaryLeg);
+        enriched.tradeDirection = this.deriveTradeDirectionFromLeg(primaryLeg);
+
+        const normalizedQuantity = primaryLeg ? Math.abs(Number(primaryLeg.quantity) || 0) : 0;
+        enriched.quantity = enriched.tradeDirection === 'short' ? -normalizedQuantity : normalizedQuantity;
+        enriched.strikePrice = this.derivePrimaryStrike(legSummary);
+        enriched.multiplier = this.getLegMultiplier(primaryLeg);
+        enriched.displayStrike = this.buildStrikeDisplay(enriched, legSummary);
+
+        const entryPrice = legSummary.entryPrice;
+        const exitPrice = legSummary.exitPrice;
+        enriched.entryPrice = Number.isFinite(entryPrice) ? Number(entryPrice.toFixed(4)) : null;
+        enriched.exitPrice = Number.isFinite(exitPrice) ? Number(exitPrice.toFixed(4)) : null;
+        enriched.entryPriceLabel = this.buildEntryPriceDisplay(enriched, legSummary);
+
+        const riskInfo = this.assessRisk(enriched, legSummary);
+        if (enriched.maxRiskOverride) {
+            riskInfo.maxRiskValue = enriched.maxRiskOverride;
+            riskInfo.maxRiskLabel = this.formatCurrency(enriched.maxRiskOverride);
+            riskInfo.unlimited = false;
+            legSummary.capitalAtRisk = enriched.maxRiskOverride;
+        }
+
+        enriched.capitalAtRisk = riskInfo.maxRiskValue;
+        if (Number.isFinite(enriched.capitalAtRisk)) {
+            enriched.capitalAtRisk = Number(enriched.capitalAtRisk.toFixed(2));
+        }
+        enriched.maxRiskLabel = riskInfo.maxRiskLabel;
+        enriched.riskIsUnlimited = riskInfo.unlimited;
+
+        const openedDate = this.parseDateValue(enriched.openedDate || enriched.entryDate || legSummary.openedDate);
+        const closedDate = this.parseDateValue(enriched.closedDate || enriched.exitDate || (legSummary.closeLegs > 0 ? legSummary.closedDate : null));
+        const expirationDate = this.parseDateValue(enriched.expirationDate || legSummary.latestExpiration);
+
+        enriched.openedDate = openedDate ? openedDate.toISOString().slice(0, 10) : '';
+        enriched.closedDate = closedDate ? closedDate.toISOString().slice(0, 10) : '';
+        enriched.entryDate = enriched.openedDate;
+        enriched.exitDate = enriched.closedDate;
+        enriched.expirationDate = expirationDate ? expirationDate.toISOString().slice(0, 10) : '';
+
+        enriched.pl = this.calculatePL(enriched);
+        enriched.roi = this.calculateROI(enriched);
+        enriched.maxRisk = this.calculateMaxRisk(enriched);
+        if (!enriched.maxRiskLabel) {
+            enriched.maxRiskLabel = Number.isFinite(enriched.maxRisk)
+                ? this.formatCurrency(enriched.maxRisk)
+                : enriched.maxRisk === Number.POSITIVE_INFINITY
+                    ? 'Unlimited'
+                    : '—';
+        }
+
+        const lifecycle = this.determineTradeLifecycleStatus(enriched, legSummary);
+        enriched.lifecycleMeta = lifecycle.meta;
+        enriched.lifecycleStatus = lifecycle.status;
+
+        if (typeof lifecycle.openContractsOverride === 'number') {
+            enriched.openContracts = Math.max(0, lifecycle.openContractsOverride);
+        }
+
+        if (lifecycle.effectiveClosedDate) {
+            enriched.closedDate = lifecycle.effectiveClosedDate;
+            enriched.exitDate = lifecycle.effectiveClosedDate;
+        }
+
+        if (lifecycle.exitReason && !enriched.exitReason) {
+            enriched.exitReason = lifecycle.exitReason;
+        }
+
+        enriched.partialClose = Boolean(lifecycle.meta?.hasCloseActivity && lifecycle.meta?.unmatchedExposure > 0);
+        enriched.rolledForward = Boolean(lifecycle.meta?.hasRollLegs);
+        enriched.autoExpired = lifecycle.status === 'Expired' && Boolean(lifecycle.meta?.expirationPassed);
+
+        const manualStatus = this.normalizeTradeStatusInput(trade.statusOverride);
+        if (manualStatus) {
+            enriched.statusOverride = manualStatus;
+            enriched.status = manualStatus;
+        } else {
+            if ('statusOverride' in enriched) {
+                delete enriched.statusOverride;
+            }
+            enriched.status = lifecycle.status;
         }
 
         enriched.daysHeld = this.calculateDaysHeld(enriched);
         enriched.dte = this.calculateDTE(enriched.expirationDate, enriched);
-        enriched.pl = this.calculatePL(enriched);
-        enriched.roi = this.calculateROI(enriched);
         enriched.annualizedROI = this.calculateAnnualizedROI(enriched);
-        enriched.maxRisk = this.calculateMaxRisk(enriched);
-
-        enriched.cycleId = this.normalizeCycleId(enriched.cycleId);
-        enriched.cycleType = this.normalizeCycleType(enriched.cycleType, enriched.strategy);
-        enriched.cycleRole = this.normalizeCycleRole(enriched.cycleRole, enriched);
 
         return enriched;
     }
@@ -1006,6 +2453,14 @@ class GammaLedger {
         return (cycleId || '').toString().trim();
     }
 
+    normalizeUnderlyingType(type, { fallback = 'Stock' } = {}) {
+        const normalized = (type || '').toString().trim().toLowerCase();
+        if (['stock', 'etf', 'index', 'future'].includes(normalized)) {
+            return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+        }
+        return fallback;
+    }
+
     normalizeCycleType(cycleType, strategy = '') {
         const explicit = (cycleType || '').toString().trim().toLowerCase();
         if (explicit === 'wheel') return 'wheel';
@@ -1090,6 +2545,24 @@ class GammaLedger {
         return strategy.includes('poor man') && (trade.tradeDirection === 'short' || this.getTradeType(trade) === 'STO');
     }
 
+    isPmccTrade(trade = {}) {
+        if (!trade) {
+            return false;
+        }
+
+        const strategy = (trade.strategy || '').toLowerCase();
+        if (strategy.includes('poor man') || strategy.includes('pmcc')) {
+            return true;
+        }
+
+        const normalizedCycle = this.normalizeCycleType(trade.cycleType, trade.strategy);
+        if (normalizedCycle === 'pmcc') {
+            return true;
+        }
+
+        return this.isPmccBaseLeg(trade) || this.isPmccShortCall(trade);
+    }
+
     isAssignmentTrade(trade = {}) {
         const status = this.normalizeStatus(trade.status);
         if (status === 'assigned') {
@@ -1150,12 +2623,29 @@ class GammaLedger {
             });
         }
 
+    this.setupImportControls();
+    this.setupTradesMergeControls();
+
         // Add trade form
         const addTradeForm = document.getElementById('add-trade-form');
         if (addTradeForm) {
             addTradeForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 this.handleTradeSubmit();
+            });
+        }
+
+        const addLegButton = document.getElementById('add-leg-button');
+        if (addLegButton) {
+            addLegButton.addEventListener('click', () => this.addLegFormRow());
+        }
+
+        const cancelTradeButton = document.getElementById('cancel-trade');
+        if (cancelTradeButton) {
+            cancelTradeButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                this.resetAddTradeForm();
+                this.showView('trades-list');
             });
         }
 
@@ -1167,19 +2657,15 @@ class GammaLedger {
             });
         }
 
-        // Conviction level slider
-        const convictionInput = document.getElementById('convictionLevel');
-        if (convictionInput) {
-            convictionInput.addEventListener('input', (e) => {
-                const display = document.getElementById('conviction-display');
-                if (display) {
-                    display.textContent = e.target.value;
-                }
+        const underlyingTypeSelect = document.getElementById('underlyingType');
+        if (underlyingTypeSelect) {
+            underlyingTypeSelect.addEventListener('change', () => {
+                this.applyUnderlyingTypeToLegMultipliers({ force: false });
             });
         }
 
         // Trades list filters
-    ['filter-strategy', 'filter-status', 'filter-market-condition', 'filter-trade-type'].forEach(filterId => {
+        ['filter-strategy', 'filter-status'].forEach(filterId => {
             const filterElement = document.getElementById(filterId);
             if (filterElement) {
                 filterElement.addEventListener('change', () => this.filterTrades());
@@ -1253,6 +2739,9 @@ class GammaLedger {
                 }
             });
         }
+
+        // Ensure the trade form starts with at least one leg row
+        this.renderLegForms([]);
 
         this.setupAIChatResizeHandle();
 
@@ -1898,6 +3387,7 @@ class GammaLedger {
             dashboard: 'Options Trading Dashboard',
             'add-trade': this.currentEditingId ? 'Edit Trade' : 'Add New Trade',
             'trades-list': 'All Trades',
+            import: 'Import Activity',
             settings: 'Settings'
         };
         const titleText = titles[viewName] || 'GammaLedger';
@@ -1918,6 +3408,10 @@ class GammaLedger {
             case 'trades-list':
                 this.updateTradesList();
                 break;
+            case 'import':
+                this.setupImportControls();
+                this.renderImportLog();
+                break;
             case 'settings': {
                 const lastStatus = this.finnhub?.lastStatus;
                 if (lastStatus && this.finnhub?.elements?.status) {
@@ -1929,17 +3423,33 @@ class GammaLedger {
     }
 
     resetAddTradeForm() {
-        document.getElementById('add-trade-form').reset();
+        const form = document.getElementById('add-trade-form');
+        if (form) {
+            form.reset();
+        }
+
+        const underlyingTypeSelect = document.getElementById('underlyingType');
+        if (underlyingTypeSelect) {
+            underlyingTypeSelect.value = 'Stock';
+        }
+
+        const tradeStatusSelect = document.getElementById('tradeStatus');
+        if (tradeStatusSelect) {
+            tradeStatusSelect.value = '';
+        }
+
+        this.currentEditingId = null;
+        this.renderLegForms([]);
+
         this.setTodayDate();
         this.updateTickerPreview('');
-        document.getElementById('conviction-display').textContent = '5';
-        const cycleIdField = document.getElementById('cycleId');
-        const cycleTypeField = document.getElementById('cycleType');
-        const cycleRoleField = document.getElementById('cycleRole');
-        if (cycleIdField) cycleIdField.value = '';
-        if (cycleTypeField) cycleTypeField.value = '';
-        if (cycleRoleField) cycleRoleField.value = '';
-        this.currentEditingId = null;
+
+        ['cycleId', 'cycleType', 'cycleRole'].forEach((fieldId) => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.value = '';
+            }
+        });
     }
 
     parseDecimal(value, defaultValue = null, { allowNegative = true } = {}) {
@@ -1947,9 +3457,34 @@ class GammaLedger {
             return defaultValue;
         }
 
-        const normalized = typeof value === 'string' ? value.trim() : value;
-        if (normalized === '') {
-            return defaultValue;
+        let normalized = typeof value === 'string' ? value.trim() : value;
+        if (typeof normalized === 'string') {
+            if (normalized === '') {
+                return defaultValue;
+            }
+
+            let text = normalized.replace(/\s+/g, '');
+            if (!text) {
+                return defaultValue;
+            }
+
+            const hasComma = text.includes(',');
+            const hasDot = text.includes('.');
+
+            if (hasComma && !hasDot) {
+                text = text.replace(/,/g, '.');
+            } else if (hasComma && hasDot) {
+                const lastComma = text.lastIndexOf(',');
+                const lastDot = text.lastIndexOf('.');
+                if (lastComma > lastDot) {
+                    text = text.replace(/\./g, '').replace(/,/g, '.');
+                } else {
+                    text = text.replace(/,/g, '');
+                }
+            }
+
+            text = text.replace(/_/g, '');
+            normalized = text;
         }
 
         const parsedValue = Number(normalized);
@@ -1962,6 +3497,28 @@ class GammaLedger {
         }
 
         return parsedValue;
+    }
+
+    parseDateValue(value) {
+        if (!value) {
+            return null;
+        }
+
+        if (value instanceof Date) {
+            return Number.isNaN(value.getTime()) ? null : value;
+        }
+
+        const normalized = value.toString().trim();
+        if (!normalized) {
+            return null;
+        }
+
+        const parsed = new Date(normalized);
+        if (Number.isNaN(parsed.getTime())) {
+            return null;
+        }
+
+        return parsed;
     }
 
     parseInteger(value, defaultValue = null, { allowNegative = true } = {}) {
@@ -1995,65 +3552,69 @@ class GammaLedger {
     // FIXED: Handle trade submission for both new and edited trades
     handleTradeSubmit() {
         const form = document.getElementById('add-trade-form');
-        const formData = new FormData(form);
-
-        // Set quantity based on trade type
-        const tradeType = formData.get('tradeType');
-        const baseQuantity = Math.abs(this.parseInteger(formData.get('quantity'), 0, { allowNegative: false }) || 0);
-        let quantity = baseQuantity;
-        if (['STO', 'BTC'].includes(tradeType)) {
-            quantity = -baseQuantity;
+        if (!form) {
+            return;
         }
 
-        const definedRiskWidthRaw = this.parseDecimal(formData.get('definedRiskWidth'), null, { allowNegative: false });
-        const maxRiskOverrideRaw = this.parseDecimal(formData.get('maxRiskOverride'), null, { allowNegative: false });
+        const formData = new FormData(form);
+        const legs = this.collectLegsFromForm();
+        if (legs === null) {
+            return;
+        }
+        if (legs.length === 0) {
+            this.showNotification('Add at least one leg before saving the trade.', 'error');
+            return;
+        }
+
+        const tickerRaw = (formData.get('ticker') || '').toString().trim().toUpperCase();
+        if (!tickerRaw) {
+            this.showNotification('Ticker is required.', 'error');
+            return;
+        }
+
+        const strategyRaw = (formData.get('strategy') || '').toString().trim();
+        if (!strategyRaw) {
+            this.showNotification('Strategy is required.', 'error');
+            return;
+        }
+
+        const underlyingType = this.normalizeUnderlyingType(formData.get('underlyingType'), { fallback: 'Stock' });
+        const statusOverride = this.normalizeTradeStatusInput(formData.get('tradeStatus'));
 
         const tradeData = {
-            ticker: formData.get('ticker').toUpperCase(),
-            strategy: formData.get('strategy'),
-            tradeType: tradeType,
-            quantity: quantity,
-            entryDate: formData.get('entryDate'),
-            expirationDate: formData.get('expirationDate'),
-            exitDate: formData.get('exitDate') || null,
-            status: formData.get('status'),
-            stockPriceAtEntry: this.parseDecimal(formData.get('stockPriceAtEntry')),
-            strikePrice: this.parseDecimal(formData.get('strikePrice')),
-            entryPrice: this.parseDecimal(formData.get('entryPrice')),
-            exitPrice: this.parseExitPrice(formData.get('exitPrice')),
-            fees: this.parseDecimal(formData.get('fees'), 0),
-            ivRank: this.parseInteger(formData.get('ivRank')),
-            marketCondition: formData.get('marketCondition'),
-            convictionLevel: this.parseInteger(formData.get('convictionLevel'), 5, { allowNegative: false }),
-            notes: formData.get('notes'),
-            exitReason: formData.get('exitReason') || null,
-            cycleId: formData.get('cycleId'),
-            cycleType: formData.get('cycleType'),
-            cycleRole: formData.get('cycleRole'),
-            definedRiskWidth: definedRiskWidthRaw !== null && definedRiskWidthRaw > 0 ? definedRiskWidthRaw : null,
-            maxRiskOverride: maxRiskOverrideRaw !== null && maxRiskOverrideRaw > 0 ? maxRiskOverrideRaw : null
+            ticker: tickerRaw,
+            strategy: strategyRaw,
+            exitReason: (formData.get('exitReason') || '').toString().trim(),
+            notes: (formData.get('notes') || '').toString().trim(),
+            legs,
+            cycleId: (formData.get('cycleId') || '').toString().trim(),
+            cycleType: (formData.get('cycleType') || '').toString().trim(),
+            cycleRole: (formData.get('cycleRole') || '').toString().trim(),
+            underlyingType
         };
 
+        if (statusOverride) {
+            tradeData.statusOverride = statusOverride;
+        }
+
         if (this.currentEditingId) {
-            // Update existing trade
+            tradeData.id = this.currentEditingId;
             if (this.updateTrade(tradeData)) {
                 this.showNotification('Trade updated successfully', 'success');
-                this.currentEditingId = null;
-                document.getElementById('page-title').textContent = 'All Trades'; // Update title
                 this.resetAddTradeForm();
-                this.showView('trades-list'); // FIXED: Stay on trades list instead of dashboard
+                this.showView('trades-list');
             }
-        } else {
-            // Add new trade
-            tradeData.id = Date.now();
-            const enrichedTrade = this.enrichTradeData(tradeData);
-            this.trades.push(enrichedTrade);
-            this.saveToStorage();
-            this.markUnsavedChanges();
-
-            this.resetAddTradeForm();
-            this.showView('dashboard');
+            return;
         }
+
+        tradeData.id = Date.now();
+        const enrichedTrade = this.enrichTradeData(tradeData);
+        this.trades.push(enrichedTrade);
+        this.saveToStorage();
+        this.markUnsavedChanges();
+
+        this.resetAddTradeForm();
+        this.showView('dashboard');
     }
 
     updateTrade(tradeData) {
@@ -2082,6 +3643,8 @@ class GammaLedger {
             closedTradesList
         } = stats;
 
+        this.latestStats = stats;
+
         if (this.aiAgent) {
             this.aiAgent.updateContext({
                 stats,
@@ -2102,9 +3665,6 @@ class GammaLedger {
         document.getElementById('total-roi').textContent = `${stats.annualizedROI.toFixed(2)}%`;
         document.getElementById('max-drawdown').textContent = `${stats.maxDrawdown.toFixed(1)}%`;
 
-        // Update risk metrics
-        this.updateRiskMetrics(closedTradesList, stats);
-
         // Update tables
         this.updateActivePositionsTable(openTradesList);
         this.updateRecentTradesTable(closedTradesList, stats.activePositions);
@@ -2118,7 +3678,7 @@ class GammaLedger {
 
     calculateAdvancedStats() {
         const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
-        const openTrades = this.trades.filter(trade => this.normalizeStatus(trade.status) === 'open');
+        const openTrades = this.trades.filter(trade => this.isActiveStatus(trade.status));
         const winningTrades = closedTrades.filter(trade => trade.pl > 0);
         const losingTrades = closedTrades.filter(trade => trade.pl < 0);
 
@@ -2131,7 +3691,7 @@ class GammaLedger {
 
         const totalWins = winningTrades.reduce((sum, trade) => sum + trade.pl, 0);
         const totalLosses = Math.abs(losingTrades.reduce((sum, trade) => sum + trade.pl, 0));
-    const profitFactor = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? 999 : 0;
+        const profitFactor = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? 999 : 0;
 
         // Calculate max drawdown
         let maxDrawdown = 0;
@@ -2154,6 +3714,78 @@ class GammaLedger {
         const avgDaysHeld = closedTrades.length > 0 ? closedTrades.reduce((sum, trade) => sum + trade.daysHeld, 0) / closedTrades.length : 0;
         const annualizedROI = avgDaysHeld > 0 ? (Math.pow(1 + totalROI / 100, 365 / avgDaysHeld) - 1) * 100 : 0;
 
+        const totalFees = closedTrades.reduce((sum, trade) => {
+            const fees = Number(trade.totalFees);
+            if (Number.isFinite(fees)) {
+                return sum + fees;
+            }
+            const fallback = Number(trade.fees);
+            return Number.isFinite(fallback) ? sum + fallback : sum;
+        }, 0);
+
+        const grossExposure = totalFees + totalWins + totalLosses;
+        const feeShareOfGross = grossExposure > 0 ? (totalFees / grossExposure) * 100 : 0;
+
+        const dailyReturns = closedTrades
+            .map(trade => {
+                const roiPercent = Number(trade.roi);
+                const daysHeldValue = Math.max(1, Number(trade.daysHeld) || 0);
+
+                if (Number.isFinite(roiPercent)) {
+                    const growth = 1 + roiPercent / 100;
+                    if (growth > 0) {
+                        return Math.pow(growth, 1 / daysHeldValue) - 1;
+                    }
+                    return (roiPercent / 100) / daysHeldValue;
+                }
+
+                const capital = this.getCapitalAtRisk(trade);
+                const plValue = Number(trade.pl) || 0;
+                if (!(capital > 0)) {
+                    return null;
+                }
+                const derivedRoi = (plValue / capital) * 100;
+                if (!Number.isFinite(derivedRoi)) {
+                    return null;
+                }
+                const growth = 1 + derivedRoi / 100;
+                if (growth > 0) {
+                    return Math.pow(growth, 1 / daysHeldValue) - 1;
+                }
+                return (derivedRoi / 100) / daysHeldValue;
+            })
+            .filter(value => Number.isFinite(value));
+
+        const meanDailyReturn = dailyReturns.length
+            ? dailyReturns.reduce((sum, value) => sum + value, 0) / dailyReturns.length
+            : 0;
+
+        let dailyStdDev = 0;
+        if (dailyReturns.length > 1) {
+            const variance = dailyReturns.reduce((sum, value) => sum + Math.pow(value - meanDailyReturn, 2), 0) / (dailyReturns.length - 1);
+            dailyStdDev = variance > 0 ? Math.sqrt(variance) : 0;
+        }
+
+        const downsideReturns = dailyReturns.filter(value => value < 0);
+        const downsideDeviation = downsideReturns.length
+            ? Math.sqrt(downsideReturns.reduce((sum, value) => sum + value * value, 0) / downsideReturns.length)
+            : 0;
+
+        const sharpeRatio = dailyStdDev > 0 ? (meanDailyReturn / dailyStdDev) * Math.sqrt(252) : null;
+        const sortinoRatio = downsideDeviation > 0
+            ? (meanDailyReturn / downsideDeviation) * Math.sqrt(252)
+            : (downsideReturns.length === 0 && meanDailyReturn > 0 ? Number.POSITIVE_INFINITY : null);
+
+        const avgWinnerDays = winningTrades.length > 0
+            ? winningTrades.reduce((sum, trade) => sum + (Number(trade.daysHeld) || 0), 0) / winningTrades.length
+            : 0;
+
+        const avgLoserDays = losingTrades.length > 0
+            ? losingTrades.reduce((sum, trade) => sum + (Number(trade.daysHeld) || 0), 0) / losingTrades.length
+            : 0;
+
+        const tickerPerformance = this.calculateTickerPerformance(closedTrades);
+
         return {
             totalTrades: this.trades.length,
             totalPL,
@@ -2168,7 +3800,64 @@ class GammaLedger {
             closedTrades: closedTrades.length,
             totalInvestment,
             closedTradesList: closedTrades,
-            openTradesList: openTrades
+            openTradesList: openTrades,
+            totalFees,
+            feeShareOfGross,
+            dailyReturns,
+            meanDailyReturn,
+            dailyStdDev,
+            downsideDeviation,
+            sharpeRatio,
+            sortinoRatio,
+            avgWinnerDays,
+            avgLoserDays,
+            tickerPerformance
+        };
+    }
+
+    calculateTickerPerformance(trades = []) {
+        const map = new Map();
+
+        trades.forEach(trade => {
+            const ticker = (trade.ticker || 'Unknown').toString().trim().toUpperCase() || 'UNKNOWN';
+            if (!map.has(ticker)) {
+                map.set(ticker, {
+                    ticker,
+                    totalPL: 0,
+                    tradeCount: 0,
+                    wins: 0,
+                    losses: 0
+                });
+            }
+
+            const entry = map.get(ticker);
+            const plValue = Number(trade.pl) || 0;
+            entry.totalPL += plValue;
+            entry.tradeCount += 1;
+            if (plValue > 0) {
+                entry.wins += 1;
+            } else if (plValue < 0) {
+                entry.losses += 1;
+            }
+        });
+
+        const items = Array.from(map.values())
+            .map(entry => {
+                const winRate = entry.tradeCount > 0 ? (entry.wins / entry.tradeCount) * 100 : 0;
+                const avgPL = entry.tradeCount > 0 ? entry.totalPL / entry.tradeCount : 0;
+                return {
+                    ...entry,
+                    avgPL,
+                    winRate
+                };
+            })
+            .sort((a, b) => Math.abs(b.totalPL) - Math.abs(a.totalPL));
+
+        const maxMagnitude = items.length ? Math.max(...items.map(item => Math.abs(item.totalPL))) : 0;
+
+        return {
+            items,
+            maxMagnitude
         };
     }
 
@@ -2417,7 +4106,7 @@ class GammaLedger {
         return {
             cycleId: cycle.cycleId,
             cycleType,
-            typeLabel: cycleType === 'pmcc' ? 'PMCC' : cycleType === 'wheel' ? 'Wheel' : (cycleType ? cycleType.toUpperCase() : 'Custom'),
+            typeLabel: cycleType === 'pmcc' ? 'Poor Man\'s Covered Call' : cycleType === 'wheel' ? 'Wheel' : (cycleType ? cycleType.toUpperCase() : 'Custom'),
             ticker: cycle.ticker || trades[0]?.ticker || '—',
             trades,
             startDate: startIso,
@@ -2585,57 +4274,7 @@ class GammaLedger {
         });
     }
 
-    updateRiskMetrics(closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status)), stats = null) {
-        const trades = Array.isArray(closedTrades) ? closedTrades : [];
-        if (trades.length === 0) {
-            document.getElementById('sharpe-ratio').textContent = '0.00';
-            document.getElementById('calmar-ratio').textContent = '0.00';
-            document.getElementById('volatility').textContent = '0.00%';
-            document.getElementById('expectancy').textContent = '$0.00';
-            return;
-        }
-
-        const returns = trades
-            .map(trade => Number(trade.roi) / 100)
-            .filter(ret => Number.isFinite(ret));
-
-        if (returns.length === 0) {
-            document.getElementById('sharpe-ratio').textContent = '0.00';
-            document.getElementById('calmar-ratio').textContent = '0.00';
-            document.getElementById('volatility').textContent = '0.00%';
-            document.getElementById('expectancy').textContent = '$0.00';
-            return;
-        }
-
-        const avgReturn = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
-        const variance = returns.reduce((sum, ret) => sum + Math.pow(ret - avgReturn, 2), 0) / returns.length;
-        const stdDev = Math.sqrt(variance);
-        const volatility = stdDev * 100;
-
-        const sharpeRatio = stdDev > 0 ? (avgReturn * Math.sqrt(252)) / stdDev : 0;
-
-        const wins = trades.filter(trade => trade.pl > 0);
-        const losses = trades.filter(trade => trade.pl < 0);
-        const avgWin = wins.length > 0 ? wins.reduce((sum, trade) => sum + trade.pl, 0) / wins.length : 0;
-        const avgLoss = losses.length > 0 ? Math.abs(losses.reduce((sum, trade) => sum + trade.pl, 0) / losses.length) : 0;
-
-        const expectancy = (avgWin * (wins.length / trades.length)) - (avgLoss * (losses.length / trades.length));
-
-        // Calculate Calmar ratio
-        const aggregates = stats ?? this.calculateAdvancedStats();
-        const totalReturn = aggregates.totalPL;
-        const totalInvestment = aggregates.totalInvestment;
-        const annualReturn = totalInvestment > 0 ? (totalReturn / totalInvestment) * 100 : 0;
-
-        const calmarRatio = aggregates.maxDrawdown > 0 ? annualReturn / aggregates.maxDrawdown : 0;
-
-        document.getElementById('sharpe-ratio').textContent = sharpeRatio.toFixed(2);
-        document.getElementById('calmar-ratio').textContent = calmarRatio.toFixed(2);
-        document.getElementById('volatility').textContent = `${volatility.toFixed(2)}%`;
-        document.getElementById('expectancy').textContent = this.formatCurrency(expectancy);
-    }
-
-    updateActivePositionsTable(openTrades = this.trades.filter(trade => trade.status === 'Open')) {
+    updateActivePositionsTable(openTrades = this.trades.filter(trade => this.isActiveStatus(trade.status))) {
         const tbody = document.querySelector('#active-positions-table tbody');
 
         if (tbody) {
@@ -2647,7 +4286,7 @@ class GammaLedger {
                 return dteA - dteB;
             });
 
-            const columnLabels = ['Ticker', 'Strategy', 'Trade Type', 'Strike', 'Current Price', 'DTE', 'Max Risk', 'Notes'];
+            const columnLabels = ['Ticker', 'Strategy', 'Strike', 'Current Price', 'DTE', 'Max Risk', 'Notes'];
             const quoteEntries = new Map();
 
             sortedTrades.forEach(trade => {
@@ -2667,19 +4306,8 @@ class GammaLedger {
 
                 row.insertCell(1).textContent = trade.strategy || '—';
 
-                const tradeTypeCell = row.insertCell(2);
-                const tradeType = this.getTradeType(trade);
-                tradeTypeCell.textContent = tradeType;
-                const tradeTypeClassMap = {
-                    'BTO': 'trade-type-bto',
-                    'STO': 'trade-type-sto',
-                    'STC': 'trade-type-stc',
-                    'BTC': 'trade-type-btc'
-                };
-                tradeTypeCell.className = tradeTypeClassMap[tradeType] || '';
-
                 const strikePrice = this.parseDecimal(trade.strikePrice);
-                const strikeCell = row.insertCell(3);
+                const strikeCell = row.insertCell(2);
                 strikeCell.textContent = strikePrice !== null ? `$${strikePrice.toFixed(2)}` : '—';
                 if (Number.isFinite(strikePrice)) {
                     row.dataset.strikePrice = String(strikePrice);
@@ -2687,7 +4315,7 @@ class GammaLedger {
                     delete row.dataset.strikePrice;
                 }
 
-                const priceCell = row.insertCell(4);
+                const priceCell = row.insertCell(3);
                 priceCell.className = 'quote-cell';
                 const baseQuoteKey = this.getQuoteEntryKey(trade);
                 const quoteKey = `${baseQuoteKey}|row:${quoteEntries.size}`;
@@ -2696,14 +4324,14 @@ class GammaLedger {
                 quoteEntries.set(quoteKey, { trade, row, cell: priceCell, key: quoteKey });
 
                 const dteValue = this.parseInteger(trade.dte, null, { allowNegative: false });
-                row.insertCell(5).textContent = dteValue !== null ? dteValue : '—';
+                row.insertCell(4).textContent = dteValue !== null ? dteValue : '—';
                 if (Number.isFinite(dteValue)) {
                     row.dataset.dte = String(dteValue);
                 } else {
                     delete row.dataset.dte;
                 }
 
-                const maxRiskCell = row.insertCell(6);
+                const maxRiskCell = row.insertCell(5);
                 const maxRiskValue = this.parseDecimal(trade.maxRisk, null, { allowNegative: false });
                 if (maxRiskValue !== null) {
                     maxRiskCell.textContent = this.formatCurrency(maxRiskValue);
@@ -2713,9 +4341,13 @@ class GammaLedger {
                     maxRiskCell.className = 'pl-neutral';
                 }
 
-                const notesCell = row.insertCell(7);
+                const notesCell = row.insertCell(6);
                 const noteText = (trade.notes || '').trim();
                 notesCell.textContent = noteText || '—';
+                notesCell.classList.add('notes-cell');
+                if (noteText) {
+                    notesCell.title = noteText;
+                }
 
                 this.updateExpirationHighlight(row, trade);
 
@@ -2731,7 +4363,7 @@ class GammaLedger {
 
     updateRecentTradesTable(
         closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status)),
-        activeCount = this.trades.filter(trade => this.normalizeStatus(trade.status) === 'open').length
+        activeCount = this.trades.filter(trade => this.isActiveStatus(trade.status)).length
     ) {
         const normalizedActiveCount = Number(activeCount);
         const desiredRowCount = Math.max(Number.isFinite(normalizedActiveCount) ? normalizedActiveCount : 0, 10);
@@ -2788,7 +4420,500 @@ class GammaLedger {
         this.updateCumulativePLChart();
         this.updateStrategyPerformanceChart();
         this.updateWinRateByStrategyChart();
-        this.updateMarketConditionChart();
+        this.updatePerformanceGauges();
+        this.updateCommissionImpactChart();
+        this.updateTimeInTradeChart();
+        this.updateMonteCarloChart();
+        this.renderTickerHeatmap();
+    }
+
+    updatePerformanceGauges() {
+        const stats = this.latestStats;
+        this.renderRatioGauge({
+            chartKey: 'sharpeGauge',
+            canvasId: 'sharpeGaugeChart',
+            valueElementId: 'sharpeGaugeValue',
+            value: stats?.sharpeRatio,
+            min: -1,
+            max: 3
+        });
+
+        this.renderRatioGauge({
+            chartKey: 'sortinoGauge',
+            canvasId: 'sortinoGaugeChart',
+            valueElementId: 'sortinoGaugeValue',
+            value: stats?.sortinoRatio,
+            min: -1,
+            max: 4
+        });
+    }
+
+    renderRatioGauge({ chartKey, canvasId, valueElementId, value, min = 0, max = 1 }) {
+        const valueElement = document.getElementById(valueElementId);
+        if (valueElement) {
+            valueElement.textContent = Number.isFinite(value) ? value.toFixed(2) : '—';
+        }
+
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            return;
+        }
+
+        if (!Number.isFinite(value)) {
+            if (this.charts[chartKey]) {
+                this.charts[chartKey].destroy();
+                delete this.charts[chartKey];
+            }
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            return;
+        }
+
+        const clamped = Math.min(Math.max(value, min), max);
+        const range = Math.max(max - min, 1);
+        const progress = (clamped - min) / range;
+        const normalized = Number.isFinite(progress) ? Math.max(Math.min(progress, 1), 0) : 0;
+        const remainder = Math.max(1 - normalized, 0);
+
+        const primaryColor = value >= 1.5
+            ? '#1FB8CD'
+            : value >= 0.75
+                ? '#FFC185'
+                : '#B4413C';
+
+        if (this.charts[chartKey]) {
+            this.charts[chartKey].destroy();
+        }
+
+        this.charts[chartKey] = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Ratio', 'Remaining'],
+                datasets: [{
+                    data: [normalized, remainder],
+                    backgroundColor: [primaryColor, 'rgba(148, 163, 184, 0.25)'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                rotation: -90,
+                circumference: 180,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: () => `Ratio: ${value.toFixed(2)}`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    updateCommissionImpactChart() {
+        const canvas = document.getElementById('commissionImpactChart');
+        const summaryElement = document.getElementById('commissionImpactSummary');
+        const stats = this.latestStats;
+
+        if (!canvas) {
+            return;
+        }
+
+        if (!stats) {
+            if (summaryElement) {
+                summaryElement.textContent = 'No closed trades yet.';
+            }
+            if (this.charts.commissionImpact) {
+                this.charts.commissionImpact.destroy();
+                delete this.charts.commissionImpact;
+            }
+            return;
+        }
+
+        const totalFees = Number(stats.totalFees) || 0;
+        const netPL = Number(stats.totalPL) || 0;
+        const feeShare = Number(stats.feeShareOfGross) || 0;
+
+        if (summaryElement) {
+            if (totalFees === 0 && netPL === 0) {
+                summaryElement.textContent = 'No closed trades yet.';
+            } else {
+                const shareText = Number.isFinite(feeShare) ? feeShare.toFixed(1) : '0.0';
+                summaryElement.textContent = `${this.formatCurrency(totalFees)} in fees (${shareText}% of realized turnover).`;
+            }
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            return;
+        }
+
+        if (this.charts.commissionImpact) {
+            this.charts.commissionImpact.destroy();
+        }
+
+        const formatCurrency = (value) => this.formatCurrency(value || 0);
+
+        this.charts.commissionImpact = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Fees', 'Net P&L'],
+                datasets: [{
+                    label: 'Amount',
+                    data: [totalFees, netPL],
+                    backgroundColor: [
+                        '#B4413C',
+                        netPL >= 0 ? '#1FB8CD' : '#B4413C'
+                    ],
+                    borderRadius: 8,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        ticks: {
+                            callback: (value) => `$${Number(value).toLocaleString()}`
+                        },
+                        grid: {
+                            drawBorder: false
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${context.label}: ${formatCurrency(context.raw)}`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    renderTickerHeatmap() {
+        const container = document.getElementById('tickerHeatmap');
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+
+        const stats = this.latestStats;
+        const items = stats?.tickerPerformance?.items || [];
+        if (!items.length) {
+            const empty = document.createElement('div');
+            empty.className = 'heatmap-empty';
+            empty.textContent = 'Add more closed trades to see per-ticker performance.';
+            container.appendChild(empty);
+            return;
+        }
+
+        const maxMagnitude = stats?.tickerPerformance?.maxMagnitude || 1;
+        const subset = items.slice(0, 12);
+
+        subset.forEach((item) => {
+            const card = document.createElement('div');
+            card.className = 'heatmap-card';
+
+            const baseColor = item.totalPL >= 0 ? [31, 184, 205] : [180, 65, 60];
+            const normalized = maxMagnitude > 0 ? Math.min(Math.abs(item.totalPL) / maxMagnitude, 1) : 0;
+            const alpha = 0.15 + normalized * 0.55;
+            const borderAlpha = Math.min(alpha + 0.1, 0.9);
+
+            card.style.backgroundColor = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${alpha.toFixed(2)})`;
+            card.style.borderColor = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${borderAlpha.toFixed(2)})`;
+
+            const tickerEl = document.createElement('div');
+            tickerEl.className = 'heatmap-card__ticker';
+            tickerEl.textContent = item.ticker;
+
+            const plEl = document.createElement('div');
+            plEl.className = `heatmap-card__pl ${item.totalPL >= 0 ? 'pl-positive' : 'pl-negative'}`;
+            plEl.textContent = this.formatCurrency(item.totalPL);
+
+            const metaEl = document.createElement('div');
+            metaEl.className = 'heatmap-card__meta';
+            const winRate = Number.isFinite(item.winRate) ? item.winRate.toFixed(0) : '0';
+            metaEl.textContent = `${item.tradeCount} trades • Win ${winRate}%`;
+
+            card.appendChild(tickerEl);
+            card.appendChild(plEl);
+            card.appendChild(metaEl);
+
+            container.appendChild(card);
+        });
+    }
+
+    updateTimeInTradeChart() {
+        const canvas = document.getElementById('timeInTradeChart');
+        const stats = this.latestStats;
+
+        if (!canvas) {
+            return;
+        }
+
+        if (!stats || stats.closedTrades === 0 || (!Number.isFinite(stats.avgWinnerDays) && !Number.isFinite(stats.avgLoserDays))) {
+            if (this.charts.timeInTrade) {
+                this.charts.timeInTrade.destroy();
+                delete this.charts.timeInTrade;
+            }
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            return;
+        }
+
+        if (this.charts.timeInTrade) {
+            this.charts.timeInTrade.destroy();
+        }
+
+        const winners = Number.isFinite(stats.avgWinnerDays) ? stats.avgWinnerDays : 0;
+        const losers = Number.isFinite(stats.avgLoserDays) ? stats.avgLoserDays : 0;
+
+        this.charts.timeInTrade = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Winners', 'Losers'],
+                datasets: [{
+                    label: 'Average Days Held',
+                    data: [winners, losers],
+                    backgroundColor: ['#1FB8CD', '#B4413C'],
+                    borderRadius: 8,
+                    borderSkipped: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: (value) => `${value}d`
+                        },
+                        grid: {
+                            drawBorder: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${context.label}: ${context.raw.toFixed(1)} days`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    updateMonteCarloChart() {
+        const canvas = document.getElementById('monteCarloChart');
+        const summaryElement = document.getElementById('monteCarloSummary');
+        const stats = this.latestStats;
+
+        if (!canvas) {
+            return;
+        }
+
+        if (!stats || !Array.isArray(stats.dailyReturns) || stats.dailyReturns.length < 2) {
+            if (summaryElement) {
+                summaryElement.textContent = 'Need more closed trades to run projections.';
+            }
+            if (this.charts.monteCarlo) {
+                this.charts.monteCarlo.destroy();
+                delete this.charts.monteCarlo;
+            }
+            return;
+        }
+
+        const projection = this.generateMonteCarloProjection(stats.dailyReturns, { periods: 60, simulations: 400 });
+        if (!projection) {
+            if (summaryElement) {
+                summaryElement.textContent = 'Need more closed trades to run projections.';
+            }
+            if (this.charts.monteCarlo) {
+                this.charts.monteCarlo.destroy();
+                delete this.charts.monteCarlo;
+            }
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            return;
+        }
+
+        if (this.charts.monteCarlo) {
+            this.charts.monteCarlo.destroy();
+        }
+
+        const medianTerminal = projection.percentiles.p50[projection.percentiles.p50.length - 1] || 1;
+        if (summaryElement) {
+            const pctChange = (medianTerminal - 1) * 100;
+            const formatted = `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`;
+            summaryElement.textContent = `Median path suggests ${formatted} over 60 trading days.`;
+        }
+
+        const formatPercent = (value) => {
+            const percent = (Number(value) - 1) * 100;
+            return `${percent >= 0 ? '+' : ''}${percent.toFixed(1)}%`;
+        };
+
+        this.charts.monteCarlo = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: projection.labels,
+                datasets: [
+                    {
+                        label: '10th percentile',
+                        data: projection.percentiles.p10,
+                        borderColor: 'rgba(180, 65, 60, 0.6)',
+                        backgroundColor: 'rgba(180, 65, 60, 0.12)',
+                        borderWidth: 1.5,
+                        fill: false,
+                        tension: 0.25
+                    },
+                    {
+                        label: '90th percentile',
+                        data: projection.percentiles.p90,
+                        borderColor: 'rgba(31, 184, 205, 0.6)',
+                        backgroundColor: 'rgba(31, 184, 205, 0.12)',
+                        borderWidth: 1.5,
+                        fill: '-1',
+                        tension: 0.25
+                    },
+                    {
+                        label: 'Median',
+                        data: projection.percentiles.p50,
+                        borderColor: '#1FB8CD',
+                        borderWidth: 2,
+                        tension: 0.25,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: (value) => formatPercent(value)
+                        },
+                        grid: {
+                            drawBorder: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            maxTicksLimit: 12
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `${context.dataset.label}: ${formatPercent(context.parsed.y)}`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    generateMonteCarloProjection(dailyReturns = [], { periods = 60, simulations = 400 } = {}) {
+        if (!Array.isArray(dailyReturns) || dailyReturns.length === 0) {
+            return null;
+        }
+
+        const sanitized = dailyReturns.filter(value => Number.isFinite(value));
+        if (!sanitized.length) {
+            return null;
+        }
+
+        const trajectory = Array.from({ length: periods }, () => []);
+
+        for (let sim = 0; sim < simulations; sim += 1) {
+            let equity = 1;
+            for (let step = 0; step < periods; step += 1) {
+                const randomIndex = Math.floor(Math.random() * sanitized.length);
+                const sample = sanitized[randomIndex];
+                equity *= 1 + sample;
+                trajectory[step].push(Number(equity.toFixed(6)));
+            }
+        }
+
+        const percentilesList = [0.1, 0.25, 0.5, 0.75, 0.9];
+        const percentileSeries = percentilesList.map(() => []);
+
+        trajectory.forEach(stepValues => {
+            if (!stepValues.length) {
+                percentilesList.forEach((_, idx) => percentileSeries[idx].push(1));
+                return;
+            }
+
+            const sorted = stepValues.slice().sort((a, b) => a - b);
+            percentilesList.forEach((percentile, index) => {
+                const target = (sorted.length - 1) * percentile;
+                const lowerIndex = Math.floor(target);
+                const upperIndex = Math.ceil(target);
+                if (lowerIndex === upperIndex) {
+                    percentileSeries[index].push(sorted[lowerIndex]);
+                    return;
+                }
+                const lower = sorted[lowerIndex];
+                const upper = sorted[upperIndex];
+                const weight = target - lowerIndex;
+                const interpolated = lower + (upper - lower) * weight;
+                percentileSeries[index].push(Number(interpolated.toFixed(6)));
+            });
+        });
+
+        return {
+            labels: Array.from({ length: periods }, (_, idx) => `Day ${idx + 1}`),
+            percentiles: {
+                p10: percentileSeries[0],
+                p25: percentileSeries[1],
+                p50: percentileSeries[2],
+                p75: percentileSeries[3],
+                p90: percentileSeries[4]
+            }
+        };
     }
 
     initializeGeminiControls() {
@@ -4489,65 +6614,6 @@ class GammaLedger {
         });
     }
 
-    updateMarketConditionChart() {
-        const canvas = document.getElementById('marketConditionChart');
-        if (!canvas) return;
-
-        const ctx = canvas.getContext('2d');
-
-        if (this.charts.marketCondition) {
-            this.charts.marketCondition.destroy();
-        }
-
-        const conditionPL = {};
-        this.trades.filter(trade => this.isClosedStatus(trade.status)).forEach(trade => {
-            if (!conditionPL[trade.marketCondition]) {
-                conditionPL[trade.marketCondition] = 0;
-            }
-            conditionPL[trade.marketCondition] += trade.pl;
-        });
-
-        this.charts.marketCondition = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: Object.keys(conditionPL),
-                datasets: [{
-                    label: 'P&L by Market Condition',
-                    data: Object.values(conditionPL),
-                    backgroundColor: Object.values(conditionPL).map(val => val >= 0 ? '#1FB8CD' : '#B4413C'),
-                    borderColor: Object.values(conditionPL).map(val => val >= 0 ? '#1FB8CD' : '#B4413C'),
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function (value) {
-                                return '$' + value.toLocaleString();
-                            }
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function (context) {
-                                return 'P&L: $' + context.raw.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    }
-
     updateTradesList() {
         this.populateFilters();
         this.filterTrades();
@@ -4555,19 +6621,10 @@ class GammaLedger {
 
     populateFilters() {
         const strategySelect = document.getElementById('filter-strategy');
-        const tradeTypeSelect = document.getElementById('filter-trade-type');
-
-        const previousSelections = {
-            strategy: strategySelect?.value || '',
-            tradeType: tradeTypeSelect?.value || ''
-        };
+        const previousStrategy = strategySelect?.value || '';
 
         const strategies = [...new Set(this.trades.map(trade => trade.strategy))]
             .filter(Boolean)
-            .sort((a, b) => a.localeCompare(b));
-
-        const tradeTypes = [...new Set(this.trades.map(trade => this.getTradeType(trade)))]
-            .filter(type => type && type !== '—')
             .sort((a, b) => a.localeCompare(b));
 
         if (strategySelect) {
@@ -4578,21 +6635,8 @@ class GammaLedger {
                 option.textContent = strategy;
                 strategySelect.appendChild(option);
             });
-            if (previousSelections.strategy && strategies.includes(previousSelections.strategy)) {
-                strategySelect.value = previousSelections.strategy;
-            }
-        }
-
-        if (tradeTypeSelect) {
-            tradeTypeSelect.innerHTML = '<option value="">All Trade Types</option>';
-            tradeTypes.forEach(type => {
-                const option = document.createElement('option');
-                option.value = type;
-                option.textContent = type;
-                tradeTypeSelect.appendChild(option);
-            });
-            if (previousSelections.tradeType && tradeTypes.includes(previousSelections.tradeType)) {
-                tradeTypeSelect.value = previousSelections.tradeType;
+            if (previousStrategy && strategies.includes(previousStrategy)) {
+                strategySelect.value = previousStrategy;
             }
         }
     }
@@ -4600,8 +6644,6 @@ class GammaLedger {
     filterTrades() {
         const strategyFilter = document.getElementById('filter-strategy')?.value || '';
         const statusFilter = document.getElementById('filter-status')?.value || '';
-        const marketFilter = document.getElementById('filter-market-condition')?.value || '';
-        const tradeTypeFilter = document.getElementById('filter-trade-type')?.value || '';
         const searchTerm = (document.getElementById('search-ticker')?.value || '').toString().trim().toLowerCase();
 
         const filteredTrades = this.trades.filter(trade => {
@@ -4617,23 +6659,23 @@ class GammaLedger {
                     matchesStatus = normalizedStatus === filterStatus;
                 }
             }
-            const matchesMarket = !marketFilter || trade.marketCondition === marketFilter;
-            const tradeTypeValue = this.getTradeType(trade);
-            const matchesTradeType = !tradeTypeFilter || tradeTypeValue === tradeTypeFilter;
             const tickerValueRaw = (trade.ticker ?? '').toString();
             const tickerLower = tickerValueRaw.toLowerCase();
             const tradeCycleId = this.normalizeCycleId(trade.cycleId);
             const cycleLower = tradeCycleId.toLowerCase();
             const cycleType = this.normalizeCycleType(trade.cycleType, trade.strategy) || '';
             const cycleTypeLower = cycleType.toLowerCase();
+            const notesLower = (trade.notes ?? '').toString().toLowerCase();
             const matchesSearch = !searchTerm ||
                 tickerLower.includes(searchTerm) ||
                 cycleLower.includes(searchTerm) ||
-                (cycleTypeLower && cycleTypeLower.includes(searchTerm));
+                (cycleTypeLower && cycleTypeLower.includes(searchTerm)) ||
+                notesLower.includes(searchTerm);
 
-            return matchesStrategy && matchesStatus && matchesMarket && matchesTradeType && matchesSearch;
+            return matchesStrategy && matchesStatus && matchesSearch;
         });
 
+        this.currentFilteredTrades = filteredTrades.slice();
         this.renderTradesTable(filteredTrades);
     }
 
@@ -4651,7 +6693,7 @@ class GammaLedger {
             searchInput.focus();
         }
 
-        ['filter-strategy', 'filter-status', 'filter-market-condition', 'filter-trade-type'].forEach(filterId => {
+        ['filter-strategy', 'filter-status'].forEach(filterId => {
             const filterElement = document.getElementById(filterId);
             if (filterElement && filterElement.value !== '') {
                 filterElement.value = '';
@@ -4680,10 +6722,17 @@ class GammaLedger {
         this.filterTrades();
     }
 
-    // UPDATED: New table structure with required columns
+    // UPDATED: table now includes selection column for merge workflow
     renderTradesTable(trades = this.trades) {
         const tbody = document.querySelector('#trades-table tbody');
         if (!tbody) return;
+
+        const tradesToRender = Array.isArray(trades) ? trades.slice() : [];
+        this.currentFilteredTrades = tradesToRender;
+
+        if (typeof this.setupTradesMergeControls === 'function') {
+            this.setupTradesMergeControls();
+        }
 
         tbody.innerHTML = '';
 
@@ -4698,103 +6747,112 @@ class GammaLedger {
             this.tradeDetailCharts.clear();
         }
 
+        this.pruneTradeMergeSelection();
+
         const safeNumber = (value) => {
             const num = Number(value);
             return Number.isFinite(num) ? num : null;
         };
 
         const columnLabels = [
-            'Ticker', 'Strategy', 'Cycle', 'Trade Type', 'Strike', 'Qty', 'Entry Price',
-            'Exit Price', 'Entry Date', 'Expiration', 'DTE', 'Exit Date', 'Days Held',
-            'Max Risk', 'P&L', 'ROI', 'Annual ROI', 'Status', 'Actions'
+            '', 'Ticker', 'Strategy', 'Strike', 'Qty', 'Net Credit/Debit', 'Entry Date', 'Expiration Date',
+            'DTE', 'Exit Date', 'Days Held', 'Max Risk', 'P&L', 'ROI', 'Annual ROI', 'Status', 'Actions'
         ];
 
-        trades.forEach((trade, index) => {
+        tradesToRender.forEach((trade, index) => {
             const row = tbody.insertRow();
             row.classList.add('trade-summary-row');
 
-            // 1. Ticker
-            const tickerCell = row.insertCell(0);
+            const selectionCell = row.insertCell();
+            selectionCell.className = 'trade-select-cell';
+            selectionCell.classList.toggle('is-hidden', !this.tradesMergePanelOpen);
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'trade-merge-checkbox';
+            checkbox.dataset.tradeId = trade.id || '';
+            checkbox.checked = trade.id ? this.tradeMergeSelection.has(trade.id) : false;
+            checkbox.disabled = !this.tradesMergePanelOpen;
+            checkbox.tabIndex = this.tradesMergePanelOpen ? 0 : -1;
+            checkbox.setAttribute('aria-label', `Select trade ${trade.ticker || ''}`.trim());
+            checkbox.addEventListener('change', (event) => {
+                event.stopPropagation();
+                if (!this.tradesMergePanelOpen) {
+                    event.target.checked = trade.id ? this.tradeMergeSelection.has(trade.id) : false;
+                    return;
+                }
+                const id = trade.id;
+                if (!id) {
+                    event.target.checked = false;
+                    return;
+                }
+                if (event.target.checked) {
+                    this.tradeMergeSelection.add(id);
+                } else {
+                    this.tradeMergeSelection.delete(id);
+                }
+                this.syncSelectAllCheckbox();
+                this.refreshTradesMergePanelContents();
+            });
+            selectionCell.appendChild(checkbox);
+
+            const tickerCell = row.insertCell();
             tickerCell.appendChild(this.createTickerElement(trade.ticker));
 
-            // 2. Strategy
-            row.insertCell(1).textContent = trade.strategy || '—';
+            const strategyCell = row.insertCell();
+            strategyCell.textContent = trade.strategy || '—';
 
-            // 3. Cycle Summary
-            const cycleCell = row.insertCell(2);
-            const cycleId = this.normalizeCycleId(trade.cycleId);
-            if (cycleId) {
-                const cycleType = this.normalizeCycleType(trade.cycleType, trade.strategy);
-                const cycleButton = document.createElement('button');
-                cycleButton.type = 'button';
-                cycleButton.className = 'cycle-chip cycle-chip--link';
-                cycleButton.textContent = cycleType ? `${cycleId} (${cycleType.toUpperCase()})` : cycleId;
-                cycleButton.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    this.openTradesFilteredByCycle(cycleId, trade.ticker);
-                });
-                cycleButton.title = 'View trades in this cycle';
-                cycleCell.appendChild(cycleButton);
+            const strikeCell = row.insertCell();
+            const strikeDisplay = trade.displayStrike || null;
+            const strikePrice = safeNumber(trade.strikePrice);
+            if (strikeDisplay) {
+                strikeCell.textContent = strikeDisplay;
+            } else if (strikePrice !== null) {
+                strikeCell.textContent = `$${strikePrice.toFixed(2)}`;
             } else {
-                cycleCell.textContent = '—';
+                strikeCell.textContent = '—';
             }
 
-            // 4. Trade Type
-            const tradeTypeCell = row.insertCell(3);
-            const tradeTypeDisplay = this.getTradeType(trade);
-            tradeTypeCell.textContent = tradeTypeDisplay;
-            const tradeTypeClassMap = {
-                'BTO': 'trade-type-bto',
-                'STO': 'trade-type-sto',
-                'STC': 'trade-type-stc',
-                'BTC': 'trade-type-btc'
-            };
-            tradeTypeCell.className = tradeTypeClassMap[tradeTypeDisplay] || '';
-
-            // 5. Strike
-            const strikeCell = row.insertCell(4);
-            const strikePrice = safeNumber(trade.strikePrice);
-            strikeCell.textContent = strikePrice !== null ? `$${strikePrice.toFixed(2)}` : '—';
-
-            // 6. Qty
-            const quantityCell = row.insertCell(5);
+            const quantityCell = row.insertCell();
             const quantityValue = safeNumber(trade.quantity);
             quantityCell.textContent = quantityValue !== null ? Math.abs(quantityValue) : '—';
 
-            // 7. Entry Price
-            const entryCell = row.insertCell(6);
+            const entryCell = row.insertCell();
+            const entryLabel = trade.entryPriceLabel || null;
             const entryPrice = safeNumber(trade.entryPrice);
-            entryCell.textContent = entryPrice !== null ? `$${entryPrice.toFixed(2)}` : '—';
+            if (entryLabel && entryLabel !== '—') {
+                entryCell.textContent = entryLabel;
+            } else if (entryPrice !== null) {
+                entryCell.textContent = `$${entryPrice.toFixed(2)}`;
+            } else {
+                entryCell.textContent = '—';
+            }
 
-            // 8. Exit Price
-            const exitPriceCell = row.insertCell(7);
-            const exitPrice = safeNumber(trade.exitPrice);
-            exitPriceCell.textContent = exitPrice !== null ? `$${exitPrice.toFixed(2)}` : '-';
+            const entryDateCell = row.insertCell();
+            entryDateCell.textContent = this.formatDate(trade.entryDate);
 
-            // 9. Entry Date
-            row.insertCell(8).textContent = this.formatDate(trade.entryDate);
+            const expirationCell = row.insertCell();
+            expirationCell.textContent = this.formatDate(trade.expirationDate);
 
-            // 10. Expiration Date
-            row.insertCell(9).textContent = this.formatDate(trade.expirationDate);
-
-            // 11. DTE
-            const dteCell = row.insertCell(10);
+            const dteCell = row.insertCell();
             const dteValue = safeNumber(trade.dte);
             dteCell.textContent = dteValue !== null ? dteValue : '—';
 
-            // 12. Exit Date
-            const exitDateCell = row.insertCell(11);
-            exitDateCell.textContent = trade.exitDate ? this.formatDate(trade.exitDate) : '-';
+            const exitDateCell = row.insertCell();
+            exitDateCell.textContent = trade.exitDate ? this.formatDate(trade.exitDate) : '—';
 
-            // 13. Days Held
-            const daysHeldCell = row.insertCell(12);
+            const daysHeldCell = row.insertCell();
             const daysHeldValue = safeNumber(trade.daysHeld);
             daysHeldCell.textContent = daysHeldValue !== null ? daysHeldValue : '—';
 
-            // 14. Max Risk
-            const maxRiskCell = row.insertCell(13);
+            const maxRiskCell = row.insertCell();
             const maxRiskValue = safeNumber(trade.maxRisk);
-            if (maxRiskValue !== null) {
+            if (trade.maxRiskLabel) {
+                maxRiskCell.textContent = trade.maxRiskLabel;
+                maxRiskCell.className = trade.riskIsUnlimited ? 'pl-negative' : 'pl-neutral';
+                if (!trade.riskIsUnlimited && maxRiskValue !== null) {
+                    maxRiskCell.className = 'pl-negative';
+                }
+            } else if (maxRiskValue !== null) {
                 maxRiskCell.textContent = this.formatCurrency(maxRiskValue);
                 maxRiskCell.className = 'pl-negative';
             } else {
@@ -4802,8 +6860,7 @@ class GammaLedger {
                 maxRiskCell.className = 'pl-neutral';
             }
 
-            // 15. P&L
-            const plCell = row.insertCell(14);
+            const plCell = row.insertCell();
             const plValue = safeNumber(trade.pl);
             if (plValue !== null) {
                 plCell.textContent = this.formatCurrency(plValue);
@@ -4813,8 +6870,7 @@ class GammaLedger {
                 plCell.className = 'pl-neutral';
             }
 
-            // 16. ROI
-            const roiCell = row.insertCell(15);
+            const roiCell = row.insertCell();
             const roiValue = safeNumber(trade.roi);
             if (roiValue !== null) {
                 roiCell.textContent = `${roiValue.toFixed(2)}%`;
@@ -4824,20 +6880,18 @@ class GammaLedger {
                 roiCell.className = 'pl-neutral';
             }
 
-            // 17. Annual ROI
-            const annRoiCell = row.insertCell(16);
+            const annRoiCell = row.insertCell();
             const annualROIValue = safeNumber(trade.annualizedROI);
             const hasAnnualROI = this.isClosedStatus(trade.status) && annualROIValue !== null;
             if (hasAnnualROI) {
                 annRoiCell.textContent = `${annualROIValue.toFixed(2)}%`;
                 annRoiCell.className = annualROIValue > 0 ? 'pl-positive' : annualROIValue < 0 ? 'pl-negative' : 'pl-neutral';
             } else {
-                annRoiCell.textContent = '-';
+                annRoiCell.textContent = '—';
                 annRoiCell.className = 'pl-neutral';
             }
 
-            // 18. Status (badge styling)
-            const statusCell = row.insertCell(17);
+            const statusCell = row.insertCell();
             const statusBadge = document.createElement('span');
             const displayStatus = this.getDisplayStatus(trade);
             const statusClass = displayStatus.toLowerCase().replace(/\s+/g, '-');
@@ -4845,8 +6899,7 @@ class GammaLedger {
             statusBadge.textContent = displayStatus;
             statusCell.appendChild(statusBadge);
 
-            // 19. Actions
-            const actionsCell = row.insertCell(18);
+            const actionsCell = row.insertCell();
             actionsCell.className = 'actions-cell';
 
             const chartKeyBase = trade.id ?? trade.tradeId ?? trade.uniqueId ?? `${trade.ticker || 'trade'}-${index}`;
@@ -4914,6 +6967,10 @@ class GammaLedger {
 
             this.applyResponsiveLabels(row, columnLabels);
         });
+
+        this.syncTradeSelectionCheckboxes();
+        this.updateMergeColumnVisibility();
+        this.refreshTradesMergePanelContents();
     }
 
     toggleTradePayoffDetail(row, detailRow, trade, chartId, footnoteId) {
@@ -6024,63 +8081,61 @@ class GammaLedger {
 
     editTrade(id) {
         const trade = this.trades.find(t => t.id === id);
-        if (trade) {
-            // Set the current editing ID
-            this.currentEditingId = id;
-
-            // Populate form with trade data using proper date formatting
-            const form = document.getElementById('add-trade-form');
-            const elements = form.elements;
-
-            elements.ticker.value = trade.ticker;
-            elements.strategy.value = trade.strategy;
-            const normalizedType = this.getTradeType(trade);
-            elements.tradeType.value = VALID_TRADE_TYPES.has(normalizedType) ? normalizedType : 'BTO';
-            elements.quantity.value = Math.abs(trade.quantity);
-            elements.entryDate.value = this.formatDateForInput(trade.entryDate);
-            elements.expirationDate.value = this.formatDateForInput(trade.expirationDate);
-            elements.exitDate.value = this.formatDateForInput(trade.exitDate);
-            elements.status.value = trade.status;
-            elements.stockPriceAtEntry.value = trade.stockPriceAtEntry;
-            elements.strikePrice.value = trade.strikePrice;
-            elements.entryPrice.value = trade.entryPrice;
-            elements.exitPrice.value = (trade.exitPrice !== null && trade.exitPrice !== undefined) ? trade.exitPrice : '';
-            elements.fees.value = trade.fees;
-            elements.ivRank.value = trade.ivRank || '';
-            if (elements.definedRiskWidth) {
-                elements.definedRiskWidth.value = Number.isFinite(Number(trade.definedRiskWidth)) ? trade.definedRiskWidth : '';
-            }
-            if (elements.maxRiskOverride) {
-                elements.maxRiskOverride.value = Number.isFinite(Number(trade.maxRiskOverride)) ? trade.maxRiskOverride : '';
-            }
-            elements.marketCondition.value = trade.marketCondition;
-            elements.convictionLevel.value = trade.convictionLevel;
-            elements.notes.value = trade.notes || '';
-            elements.exitReason.value = trade.exitReason || '';
-            if (elements.cycleId) {
-                elements.cycleId.value = trade.cycleId || '';
-            }
-            if (elements.cycleType) {
-                elements.cycleType.value = trade.cycleType || '';
-            }
-            if (elements.cycleRole) {
-                elements.cycleRole.value = trade.cycleRole || '';
-            }
-
-            document.getElementById('conviction-display').textContent = trade.convictionLevel;
-            this.updateTickerPreview(trade.ticker);
-
-            // Show add form for editing
-            this.showView('add-trade');
+        if (!trade) {
+            return;
         }
+
+        this.resetAddTradeForm();
+        this.currentEditingId = id;
+
+        const form = document.getElementById('add-trade-form');
+        if (!form) {
+            return;
+        }
+
+        const elements = form.elements;
+
+        if (elements.ticker) {
+            elements.ticker.value = trade.ticker || '';
+        }
+        if (elements.strategy) {
+            elements.strategy.value = trade.strategy || '';
+        }
+        if (elements.exitReason) {
+            elements.exitReason.value = trade.exitReason || '';
+        }
+        if (elements.notes) {
+            elements.notes.value = trade.notes || '';
+        }
+        if (elements.cycleId) {
+            elements.cycleId.value = trade.cycleId || '';
+        }
+        if (elements.cycleType) {
+            elements.cycleType.value = trade.cycleType || '';
+        }
+        if (elements.cycleRole) {
+            elements.cycleRole.value = trade.cycleRole || '';
+        }
+        if (elements.underlyingType) {
+            const normalizedUnderlying = this.normalizeUnderlyingType(trade.underlyingType, { fallback: 'Stock' }) || 'Stock';
+            elements.underlyingType.value = normalizedUnderlying;
+        }
+        if (elements.tradeStatus) {
+            const manualStatus = this.normalizeTradeStatusInput(trade.statusOverride);
+            elements.tradeStatus.value = manualStatus || '';
+        }
+
+        this.renderLegForms(trade.legs || []);
+        this.updateTickerPreview(trade.ticker || '');
+
+        this.showView('add-trade');
     }
 
     exportToCSV() {
         const headers = [
-            'Ticker', 'Strategy', 'Trade Type', 'Strike', 'Defined Risk Width', 'Qty', 'Entry Price', 'Exit Price', 'DTE', 'Days Held',
+            'Ticker', 'Strategy', 'Trade Type', 'Strike', 'Defined Risk Width', 'Qty', 'Net Credit/Debit', 'Exit Price', 'DTE', 'Days Held',
             'Entry Date', 'Expiration Date', 'Exit Date', 'Max Risk', 'P&L', 'ROI %', 'Annual ROI %', 'Status',
-            'Stock Price at Entry', 'Fees', 'Max Risk Override', 'IV Rank', 'Market Condition',
-            'Conviction Level', 'Notes', 'Exit Reason', 'Cycle ID', 'Cycle Type', 'Cycle Role'
+            'Stock Price at Entry', 'Fees', 'Max Risk Override', 'IV Rank', 'Notes', 'Exit Reason', 'Cycle ID', 'Cycle Type', 'Cycle Role'
         ];
 
         const csvContent = [
@@ -6108,8 +8163,6 @@ class GammaLedger {
                 trade.fees,
                 Number.isFinite(Number(trade.maxRiskOverride)) ? Number(trade.maxRiskOverride).toFixed(2) : '',
                 trade.ivRank || '',
-                trade.marketCondition,
-                trade.convictionLevel,
                 `"${trade.notes || ''}"`,
                 trade.exitReason || '',
                 trade.cycleId || '',
@@ -6272,6 +8325,1953 @@ class GammaLedger {
         fileInput.click();
     }
 
+    setupImportControls() {
+        if (this.importControlsInitialized) {
+            return;
+        }
+
+        const ofxButton = document.getElementById('import-ofx-btn');
+        const jsonButton = document.getElementById('import-json-btn');
+        const ofxInput = document.getElementById('import-ofx-input');
+        const jsonInput = document.getElementById('import-json-input');
+
+        if (ofxButton && ofxInput) {
+            ofxButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                ofxInput.value = '';
+                ofxInput.click();
+            });
+
+            ofxInput.addEventListener('change', (event) => {
+                this.handleOfxFileSelection(event);
+            });
+        }
+
+        if (jsonButton && jsonInput) {
+            jsonButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                jsonInput.value = '';
+                jsonInput.click();
+            });
+
+            jsonInput.addEventListener('change', async (event) => {
+                const input = event?.target;
+                if (!input || !input.files || input.files.length === 0) {
+                    return;
+                }
+                const [file] = input.files;
+                input.value = '';
+
+                if (!file) {
+                    return;
+                }
+
+                try {
+                    this.showLoadingIndicator('Importing JSON...');
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    const tradeCount = Array.isArray(data?.trades) ? data.trades.length : 0;
+                    this.processLoadedData(data, { fileName: file.name || 'Imported JSON', source: 'json-import' });
+                    this.appendImportLog({
+                        type: 'success',
+                        message: `Imported ${tradeCount} trades from ${file.name || 'JSON file'}.`,
+                        timestamp: new Date()
+                    });
+                } catch (error) {
+                    console.error('JSON import error:', error);
+                    this.showNotification('Invalid JSON file', 'error');
+                    this.appendImportLog({
+                        type: 'error',
+                        message: `Failed to import JSON: ${error?.message || 'Unknown error'}.`,
+                        timestamp: new Date()
+                    });
+                } finally {
+                    this.hideLoadingIndicator();
+                }
+            });
+        }
+
+        const mergeButton = document.getElementById('import-merge-btn');
+        if (mergeButton) {
+            mergeButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                this.mergeSelectedImportTrades();
+            });
+        }
+
+        const mergeHintButton = document.getElementById('import-merge-hint-btn');
+        if (mergeHintButton) {
+            mergeHintButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                this.showView('trades-list');
+                this.setupTradesMergeControls();
+                this.toggleTradesMergePanel(true);
+            });
+        }
+
+        this.renderImportSummary();
+        this.refreshImportMergeList();
+        this.importControlsInitialized = true;
+    }
+
+    setupTradesMergeControls() {
+        const panel = document.getElementById('trades-merge-panel');
+        if (!panel) {
+            return;
+        }
+
+        if (!this.tradesMergeInitialized) {
+            const mergeButton = document.getElementById('trades-merge-btn');
+            if (mergeButton) {
+                mergeButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    this.mergeSelectedTradesFromList();
+                });
+            }
+
+            const selectAll = document.getElementById('trades-select-all');
+            if (selectAll) {
+                selectAll.addEventListener('change', (event) => {
+                    this.handleSelectAllTrades(Boolean(event.target.checked));
+                });
+            }
+
+            const toggleButton = document.getElementById('trades-merge-toggle');
+            if (toggleButton) {
+                toggleButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    this.toggleTradesMergePanel();
+                });
+            }
+
+            panel.classList.add('is-collapsed');
+            panel.setAttribute('aria-hidden', 'true');
+            this.tradesMergePanelOpen = false;
+            this.tradesMergeInitialized = true;
+        }
+
+        this.updateTradesMergeToggleLabel();
+        this.updateMergeColumnVisibility();
+        this.syncSelectAllCheckbox();
+        this.refreshTradesMergePanelContents();
+    }
+
+    toggleTradesMergePanel(forceOpen = null) {
+        const targetState = typeof forceOpen === 'boolean'
+            ? forceOpen
+            : !this.tradesMergePanelOpen;
+
+        this.tradesMergePanelOpen = targetState;
+
+        const panel = document.getElementById('trades-merge-panel');
+        if (panel) {
+            panel.classList.toggle('is-collapsed', !targetState);
+            panel.setAttribute('aria-hidden', String(!targetState));
+        }
+
+        this.updateTradesMergeToggleLabel();
+        this.updateMergeColumnVisibility();
+        this.syncSelectAllCheckbox();
+        this.refreshTradesMergePanelContents();
+    }
+
+    updateTradesMergeToggleLabel() {
+        const toggleButton = document.getElementById('trades-merge-toggle');
+        if (!toggleButton) {
+            return;
+        }
+
+        const expanded = Boolean(this.tradesMergePanelOpen);
+        toggleButton.textContent = expanded ? 'Hide Merge Trades' : 'Merge Trades';
+        toggleButton.setAttribute('aria-expanded', String(expanded));
+        toggleButton.classList.toggle('is-active', expanded);
+    }
+
+    updateMergeColumnVisibility() {
+        const hidden = !this.tradesMergePanelOpen;
+        const headerCell = document.querySelector('.trade-select-header');
+        if (headerCell) {
+            headerCell.classList.toggle('is-hidden', hidden);
+            headerCell.setAttribute('aria-hidden', String(hidden));
+        }
+
+        const selectAll = document.getElementById('trades-select-all');
+        if (selectAll) {
+            if (hidden) {
+                selectAll.checked = false;
+                selectAll.indeterminate = false;
+            }
+            selectAll.disabled = hidden;
+        }
+
+        document.querySelectorAll('.trade-select-cell').forEach((cell) => {
+            cell.classList.toggle('is-hidden', hidden);
+        });
+
+        document.querySelectorAll('.trade-merge-checkbox').forEach((checkbox) => {
+            checkbox.disabled = hidden;
+            checkbox.tabIndex = hidden ? -1 : 0;
+        });
+    }
+
+    refreshTradesMergePanelContents() {
+        const summary = document.getElementById('trades-merge-summary');
+        const groupsContainer = document.getElementById('trades-merge-groups');
+        const mergeButton = document.getElementById('trades-merge-btn');
+
+        if (!this.tradesMergePanelOpen) {
+            if (summary) {
+                summary.textContent = 'Select "Merge Trades" to analyze possible combinations grouped by ticker.';
+            }
+            if (groupsContainer) {
+                groupsContainer.innerHTML = '<p class="trades-merge-groups__empty">Enable the merge panel to review grouped trades.</p>';
+            }
+            if (mergeButton) {
+                mergeButton.disabled = true;
+                mergeButton.textContent = 'Merge Selected Trades';
+                mergeButton.title = 'Enable the merge panel to review trade combinations.';
+            }
+            return;
+        }
+
+        if (mergeButton) {
+            mergeButton.title = 'Merge selected trades that share a ticker.';
+        }
+
+        this.renderTradeMergeSelectionSummary();
+        this.renderTradeMergeGroups(this.currentFilteredTrades);
+        this.updateTradesMergeButtonState();
+    }
+
+    appendImportLog(entry = {}) {
+        const timestamp = entry.timestamp instanceof Date ? entry.timestamp : new Date();
+        const type = entry.type || 'info';
+        const message = entry.message || '';
+        if (!message) {
+            return;
+        }
+
+        this.importLog = [{ timestamp, type, message }, ...this.importLog].slice(0, 12);
+        this.renderImportLog();
+    }
+
+    renderImportLog() {
+        const container = document.getElementById('import-log');
+        if (!container) {
+            return;
+        }
+
+        if (!Array.isArray(this.importLog) || this.importLog.length === 0) {
+            container.innerHTML = '<p>No imports recorded yet.</p>';
+            return;
+        }
+
+        const formatter = new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+
+        container.innerHTML = this.importLog.map((entry) => {
+            const timeLabel = formatter.format(entry.timestamp);
+            const statusLabel = entry.type === 'error' ? 'Error' : entry.type === 'success' ? 'Success' : 'Info';
+            return `<div class="import-log__entry"><strong>${statusLabel} · ${timeLabel}</strong><span>${this.escapeHTML(entry.message)}</span></div>`;
+        }).join('');
+    }
+
+    updateImportSummary(details = {}) {
+        const timestamp = details.timestamp instanceof Date
+            ? details.timestamp
+            : new Date(details.timestamp || Date.now());
+
+        const summary = {
+            timestamp,
+            fileName: details.fileName || 'OFX import',
+            batchId: details.batchId || null,
+            stats: { ...(details.stats || {}) },
+            reviewTradeIds: Array.isArray(details.reviewTradeIds)
+                ? details.reviewTradeIds.slice()
+                : [],
+            mergedTrades: Number.isFinite(details.mergedTrades) ? Number(details.mergedTrades) : 0
+        };
+
+        this.importSummary = summary;
+        this.importMergeSelection.clear();
+    }
+
+    renderImportSummary() {
+        const container = document.getElementById('import-summary');
+        if (!container) {
+            return;
+        }
+
+        if (!this.importSummary) {
+            container.innerHTML = '<p class="import-summary__empty">Run an OFX import to see how many trades and legs were created.</p>';
+            return;
+        }
+
+        const summary = this.importSummary;
+        const stats = summary.stats || {};
+        const fileName = summary.fileName || 'OFX import';
+        const timestamp = summary.timestamp instanceof Date
+            ? summary.timestamp
+            : new Date(summary.timestamp || Date.now());
+        const dateFormatter = new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+        const timestampLabel = Number.isNaN(timestamp.getTime()) ? '—' : dateFormatter.format(timestamp);
+        const formatValue = (value) => {
+            if (Number.isFinite(value)) {
+                return value.toLocaleString();
+            }
+            if (value === null || value === undefined) {
+                return '0';
+            }
+            return value.toString();
+        };
+
+        const legsImported = (stats.legsAddedToNewTrades || 0) + (stats.legsAddedToUpdates || 0);
+        const reviewThisBatch = this.countImportReviewTrades(summary.batchId);
+        const reviewAll = this.countImportReviewTrades();
+
+        const metrics = [
+            { label: 'Transactions processed', value: stats.totalTransactions ?? 0 },
+            { label: 'Trades created', value: stats.totalTradesCreated ?? ((stats.tradesCreated || 0) + (stats.reviewTradesCreated || 0)) },
+            { label: 'Trades updated', value: stats.tradesUpdated ?? 0 },
+            { label: summary.batchId ? 'Review trades (this import)' : 'Review trades pending', value: reviewThisBatch },
+            { label: 'Legs imported', value: legsImported },
+            { label: 'Duplicate legs skipped', value: stats.duplicateLegs ?? 0 }
+        ];
+
+        if ((summary.mergedTrades || 0) > 0) {
+            metrics.push({ label: 'Manual merges', value: summary.mergedTrades });
+        }
+
+        if (summary.batchId && reviewAll > reviewThisBatch) {
+            metrics.push({ label: 'Review trades (all)', value: reviewAll });
+        }
+
+        container.innerHTML = `
+            <div class="import-summary__meta">
+                <span title="Imported file">${this.escapeHTML(fileName)}</span>
+                <span title="Imported at">${this.escapeHTML(timestampLabel)}</span>
+            </div>
+            <div class="import-summary__grid">
+                ${metrics.map((metric) => `
+                    <div class="import-summary__item">
+                        <span class="import-summary__value">${this.escapeHTML(formatValue(metric.value))}</span>
+                        <span class="import-summary__label">${this.escapeHTML(metric.label)}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    countImportReviewTrades(batchId = null) {
+        return this.trades.filter((trade) => {
+            if (!trade?.importReview) {
+                return false;
+            }
+            if (batchId && trade.importBatchId !== batchId) {
+                return false;
+            }
+            return true;
+        }).length;
+    }
+
+    getImportReviewTrades() {
+        return this.trades
+            .filter((trade) => trade?.importReview)
+            .slice()
+            .sort((a, b) => {
+                const aDate = new Date(a.openedDate || a.entryDate || 0).getTime();
+                const bDate = new Date(b.openedDate || b.entryDate || 0).getTime();
+                return bDate - aDate;
+            });
+    }
+
+    refreshImportMergeList() {
+        const container = document.getElementById('import-merge-list');
+        const hintElement = document.getElementById('import-merge-hint');
+        const hintButton = document.getElementById('import-merge-hint-btn');
+        const mergeButton = document.getElementById('import-merge-btn');
+        const reviewTrades = this.getImportReviewTrades();
+
+        if (!reviewTrades.length) {
+            this.importMergeSelection.clear();
+        } else {
+            const presentIds = new Set(reviewTrades.map((trade) => trade.id));
+            Array.from(this.importMergeSelection).forEach((id) => {
+                if (!presentIds.has(id)) {
+                    this.importMergeSelection.delete(id);
+                }
+            });
+        }
+
+        if (hintElement) {
+            if (!reviewTrades.length) {
+                hintElement.textContent = 'No review trades require manual merging right now.';
+            } else {
+                const tradeLabel = reviewTrades.length === 1 ? 'review trade' : 'review trades';
+                hintElement.textContent = `Detected ${reviewTrades.length} ${tradeLabel} that might be combined. Open the All Trades page and enable "Merge Trades" to review them.`;
+            }
+        }
+
+        if (hintButton) {
+            if (!reviewTrades.length) {
+                hintButton.disabled = true;
+                hintButton.title = 'No merge opportunities detected from the latest import.';
+            } else {
+                hintButton.disabled = false;
+                hintButton.title = 'Review potential merges on the All Trades page.';
+            }
+        }
+
+        if (!container) {
+            if (mergeButton) {
+                mergeButton.disabled = true;
+                mergeButton.textContent = 'Merge Selected Trades';
+            }
+            return;
+        }
+
+        if (!reviewTrades.length) {
+            container.innerHTML = '<p class="import-merge__empty">No review trades are waiting to be merged.</p>';
+            if (mergeButton) {
+                mergeButton.disabled = true;
+                mergeButton.textContent = 'Merge Selected Trades';
+            }
+            return;
+        }
+
+        const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+
+        container.innerHTML = reviewTrades.map((trade) => {
+            const isChecked = this.importMergeSelection.has(trade.id);
+            const legsCount = Array.isArray(trade.legs) ? trade.legs.length : 0;
+            const rawDate = trade.openedDate || trade.entryDate || '';
+            const parsedDate = rawDate ? new Date(rawDate) : null;
+            const dateLabel = parsedDate && !Number.isNaN(parsedDate.getTime()) ? dateFormatter.format(parsedDate) : '—';
+            let notePreview = (trade.notes || '').trim();
+            if (notePreview.length > 140) {
+                notePreview = `${notePreview.slice(0, 137)}…`;
+            }
+            const batchLabel = trade.importBatchId ? `Batch ${trade.importBatchId}` : 'Manual Review';
+            const cardClasses = ['import-merge-card'];
+            if (isChecked) {
+                cardClasses.push('is-selected');
+            }
+
+            return `
+                <div class="${cardClasses.join(' ')}" data-trade-id="${this.escapeHTML(trade.id)}">
+                    <label class="import-merge-card__label">
+                        <input type="checkbox" value="${this.escapeHTML(trade.id)}" ${isChecked ? 'checked' : ''} />
+                        <div class="import-merge-card__content">
+                            <div class="import-merge-card__header">
+                                <span class="import-merge-card__ticker">${this.escapeHTML(trade.ticker || '—')}</span>
+                                <span class="import-merge-card__legs">${legsCount} leg${legsCount === 1 ? '' : 's'}</span>
+                            </div>
+                            <div class="import-merge-card__meta">
+                                <span>${this.escapeHTML(batchLabel)}</span>
+                                <span>${this.escapeHTML(dateLabel)}</span>
+                            </div>
+                            ${notePreview ? `<p class="import-merge-card__notes">${this.escapeHTML(notePreview)}</p>` : ''}
+                        </div>
+                    </label>
+                </div>
+            `;
+        }).join('');
+
+        container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+            input.addEventListener('change', (event) => {
+                const checkbox = event.target;
+                const value = checkbox.value;
+                if (!value) {
+                    return;
+                }
+                if (checkbox.checked) {
+                    this.importMergeSelection.add(value);
+                } else {
+                    this.importMergeSelection.delete(value);
+                }
+                const card = checkbox.closest('.import-merge-card');
+                if (card) {
+                    card.classList.toggle('is-selected', checkbox.checked);
+                }
+                this.updateImportMergeButtonState();
+            });
+        });
+
+        this.updateImportMergeButtonState();
+    }
+
+    updateImportMergeButtonState() {
+        const mergeButton = document.getElementById('import-merge-btn');
+        if (!mergeButton) {
+            return;
+        }
+
+        const count = this.importMergeSelection.size;
+        mergeButton.disabled = count < 2;
+        mergeButton.textContent = count >= 2
+            ? `Merge ${count} Trades`
+            : 'Merge Selected Trades';
+    }
+
+    resolveMergedExitReason(trades = []) {
+        const reasons = Array.isArray(trades)
+            ? trades
+                .map((trade) => (trade?.exitReason || '').toString().trim())
+                .filter(Boolean)
+            : [];
+
+        if (reasons.length === 0) {
+            return '';
+        }
+
+        const uniqueReasons = Array.from(new Set(reasons));
+        if (uniqueReasons.length === 1) {
+            return uniqueReasons[0];
+        }
+
+        return `${uniqueReasons[0]} (+${uniqueReasons.length - 1} more)`;
+    }
+
+    buildMergedTradeNote(trades = [], prefix = '') {
+        const timestamp = new Date();
+        const safePrefix = (prefix || '').toString().trim().replace(/\.*$/, '');
+        const prefixText = safePrefix ? `${safePrefix}. ` : '';
+        const count = Array.isArray(trades) ? trades.length : 0;
+        const header = `${prefixText}Merged ${count} trade${count === 1 ? '' : 's'} on ${timestamp.toLocaleDateString()} at ${timestamp.toLocaleTimeString()}.`;
+        const idLine = `Source trades: ${trades.map((trade) => trade.id).join(', ')}.`;
+        const priorNotes = trades
+            .map((trade) => (trade.notes || '').trim())
+            .filter(Boolean);
+
+        if (!priorNotes.length) {
+            return `${header} ${idLine}`;
+        }
+
+        return `${header} ${idLine}\n\n${priorNotes.join('\n\n')}`;
+    }
+
+    createMergedTradeFromTrades(trades = [], options = {}) {
+        const candidates = Array.isArray(trades)
+            ? trades.filter((trade) => trade && Array.isArray(trade.legs) && trade.legs.length > 0)
+            : [];
+
+        if (candidates.length < 2) {
+            throw new Error('At least two trades with legs are required to merge.');
+        }
+
+        const tickerSet = new Set(
+            candidates
+                .map((trade) => (trade.ticker || '').toUpperCase())
+                .filter(Boolean)
+        );
+
+        if (tickerSet.size > 1) {
+            throw new Error('Trades must share the same ticker before merging.');
+        }
+
+        const mergedLegs = [];
+        let batchId = typeof options.batchId === 'string' ? options.batchId : null;
+
+        candidates.forEach((trade) => {
+            if (!batchId && trade.importBatchId) {
+                batchId = trade.importBatchId;
+            }
+            (trade.legs || []).forEach((leg, index) => {
+                if (!leg) {
+                    return;
+                }
+                const clone = { ...leg };
+                if (!clone.id) {
+                    clone.id = `LEG-${trade.id}-${index}`;
+                }
+                if (batchId && !clone.importBatchId) {
+                    clone.importBatchId = batchId;
+                }
+                mergedLegs.push(clone);
+            });
+        });
+
+        if (!mergedLegs.length) {
+            throw new Error('No legs were found to merge.');
+        }
+
+        const idPrefix = options.idPrefix || 'MERGED';
+        const mergedId = `${idPrefix}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+        const baseTrade = options.baseTrade || candidates[0];
+        const ticker = tickerSet.size ? Array.from(tickerSet)[0] : 'UNKNOWN';
+
+        const strategyOverride = options.strategyOverride && options.strategyOverride.toString().trim();
+        const strategyCandidates = candidates
+            .map((trade) => (trade.strategy || '').toString().trim())
+            .filter(Boolean);
+        const preferredStrategy = strategyCandidates.find((value) => value && value !== 'Import Review' && value !== 'Imported Multi-Leg');
+        const fallbackStrategy = strategyCandidates[0] || 'Imported Multi-Leg';
+        const strategy = strategyOverride || preferredStrategy || fallbackStrategy;
+
+        const normalizedUnderlying = this.normalizeUnderlyingType(baseTrade?.underlyingType, { fallback: 'Stock' });
+        const manualStatus = this.normalizeTradeStatusInput(baseTrade?.statusOverride);
+
+        const mergedTrade = this.enrichTradeData({
+            id: mergedId,
+            ticker,
+            strategy,
+            status: baseTrade?.status || 'Open',
+            statusOverride: manualStatus || null,
+            notes: this.buildMergedTradeNote(candidates, options.notePrefix || ''),
+            legs: mergedLegs,
+            importBatchId: batchId || null,
+            importReview: false,
+            exitReason: options.exitReasonOverride || this.resolveMergedExitReason(candidates),
+            cycleId: baseTrade?.cycleId || '',
+            cycleType: baseTrade?.cycleType || '',
+            cycleRole: baseTrade?.cycleRole || '',
+            underlyingType: normalizedUnderlying
+        });
+
+        return mergedTrade;
+    }
+
+    mergeSelectedImportTrades() {
+        const selectedIds = Array.from(this.importMergeSelection);
+        if (selectedIds.length < 2) {
+            this.showNotification('Select at least two review trades to merge.', 'info');
+            return;
+        }
+
+        const tradesToMerge = selectedIds
+            .map((id) => this.trades.find((trade) => trade.id === id))
+            .filter(Boolean);
+
+        if (tradesToMerge.length < 2) {
+            this.showNotification('Unable to locate all selected trades. Refresh the list and try again.', 'error');
+            this.refreshImportMergeList();
+            return;
+        }
+
+        let mergedTrade;
+        try {
+            mergedTrade = this.createMergedTradeFromTrades(tradesToMerge, {
+                idPrefix: 'IMP-MERGED',
+                notePrefix: 'Import review merge'
+            });
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+            return;
+        }
+
+        const removalSet = new Set(tradesToMerge.map((trade) => trade.id));
+        this.trades = this.trades.filter((trade) => !removalSet.has(trade.id));
+        this.trades.push(mergedTrade);
+
+        if (this.importSummary) {
+            this.importSummary.mergedTrades = (this.importSummary.mergedTrades || 0) + 1;
+            if (Array.isArray(this.importSummary.reviewTradeIds)) {
+                this.importSummary.reviewTradeIds = this.importSummary.reviewTradeIds.filter((id) => !removalSet.has(id));
+            }
+        }
+
+        this.importMergeSelection.clear();
+        tradesToMerge.forEach((trade) => this.tradeMergeSelection.delete(trade.id));
+        this.saveToStorage({ fileName: this.currentFileName });
+        this.markUnsavedChanges();
+        this.updateDashboard();
+        if (typeof this.updateTradesList === 'function') {
+            this.updateTradesList();
+        }
+
+        const ticker = mergedTrade.ticker || 'Trade';
+        this.appendImportLog({
+            type: 'success',
+            message: `Merged ${tradesToMerge.length} review trades into a ${mergedTrade.legsCount}-leg trade for ${ticker}.`,
+            timestamp: new Date()
+        });
+        this.showNotification('Review trades merged into a single multi-leg trade.', 'success');
+
+        this.renderImportSummary();
+        this.refreshImportMergeList();
+    this.refreshTradesMergePanelContents();
+    }
+
+    mergeSelectedTradesFromList() {
+        const selectedIds = Array.from(this.tradeMergeSelection);
+        if (selectedIds.length < 2) {
+            this.showNotification('Select at least two trades to merge.', 'info');
+            return;
+        }
+
+        const tradesToMerge = selectedIds
+            .map((id) => this.trades.find((trade) => trade.id === id))
+            .filter(Boolean);
+
+        if (tradesToMerge.length < 2) {
+            this.showNotification('Unable to locate all selected trades. Refresh the table and try again.', 'error');
+            this.pruneTradeMergeSelection();
+            return;
+        }
+
+        const tickerSet = new Set(
+            tradesToMerge
+                .map((trade) => (trade.ticker || '').toUpperCase())
+                .filter(Boolean)
+        );
+
+        if (tickerSet.size !== 1) {
+            this.showNotification('Trades must share the same ticker before merging.', 'error');
+            return;
+        }
+
+        const ticker = Array.from(tickerSet)[0];
+        const totalLegs = tradesToMerge.reduce((acc, trade) => acc + ((trade.legs || []).length || 0), 0);
+        const statuses = Array.from(new Set(tradesToMerge.map((trade) => this.getDisplayStatus(trade)))).filter(Boolean);
+        const entryDates = tradesToMerge
+            .map((trade) => this.parseDateValue(trade.entryDate || trade.openedDate))
+            .filter((date) => date instanceof Date && !Number.isNaN(date.getTime()))
+            .sort((a, b) => a.getTime() - b.getTime());
+        const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+        const entryRange = entryDates.length
+            ? `${dateFormatter.format(entryDates[0])} - ${dateFormatter.format(entryDates[entryDates.length - 1])}`
+            : 'N/A';
+        const netOpenContracts = tradesToMerge.reduce((acc, trade) => acc + Math.max(0, Number(trade.openContracts) || 0), 0);
+
+        const confirmMessage = [
+            `Merge ${tradesToMerge.length} trades for ${ticker}?`,
+            `Total legs: ${totalLegs}`,
+            `Status mix: ${statuses.join(', ') || 'N/A'}`,
+            `Entry range: ${entryRange}`,
+            `Open contracts (net): ${netOpenContracts}`,
+            'The original trades will be replaced by a single multi-leg trade.',
+            'Continue?'
+        ].join('\n');
+
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+
+        let mergedTrade;
+        try {
+            mergedTrade = this.createMergedTradeFromTrades(tradesToMerge, {
+                idPrefix: 'MANUAL-MERGED',
+                notePrefix: 'Manual merge'
+            });
+        } catch (error) {
+            this.showNotification(error.message, 'error');
+            return;
+        }
+
+        const removalSet = new Set(tradesToMerge.map((trade) => trade.id));
+        this.trades = this.trades.filter((trade) => !removalSet.has(trade.id));
+        this.trades.push(mergedTrade);
+
+        if (this.importSummary) {
+            this.importSummary.mergedTrades = (this.importSummary.mergedTrades || 0) + 1;
+        }
+
+        this.tradeMergeSelection.clear();
+        this.saveToStorage({ fileName: this.currentFileName });
+        this.markUnsavedChanges();
+        this.filterTrades();
+        this.updateDashboard();
+        this.renderImportSummary();
+        this.refreshImportMergeList();
+
+        this.appendImportLog({
+            type: 'success',
+            message: `Merged ${tradesToMerge.length} trades into a ${mergedTrade.legsCount}-leg trade for ${mergedTrade.ticker}.`,
+            timestamp: new Date()
+        });
+        this.showNotification(`Merged ${tradesToMerge.length} trades for ${mergedTrade.ticker}.`, 'success');
+    }
+
+    renderTradeMergeSelectionSummary() {
+        const summary = document.getElementById('trades-merge-summary');
+        if (!summary) {
+            return;
+        }
+
+        const selectedIds = Array.from(this.tradeMergeSelection);
+        if (!selectedIds.length) {
+            summary.textContent = 'Select two or more trades with the same ticker to enable merging.';
+            return;
+        }
+
+        const selectedTrades = selectedIds
+            .map((id) => this.trades.find((trade) => trade.id === id))
+            .filter(Boolean);
+
+        if (!selectedTrades.length) {
+            this.tradeMergeSelection.clear();
+            summary.textContent = 'Select two or more trades with the same ticker to enable merging.';
+            return;
+        }
+
+        const tickers = Array.from(new Set(selectedTrades.map((trade) => (trade.ticker || '').toUpperCase()).filter(Boolean)));
+        const totalLegs = selectedTrades.reduce((acc, trade) => acc + ((trade.legs || []).length || 0), 0);
+        const statuses = Array.from(new Set(selectedTrades.map((trade) => this.getDisplayStatus(trade)))).filter(Boolean);
+        const parts = [
+            `<strong>${this.escapeHTML(`${selectedTrades.length} trade${selectedTrades.length === 1 ? '' : 's'} selected`)}</strong>`,
+            tickers.length ? `<span>${this.escapeHTML(tickers.length === 1 ? `Ticker: ${tickers[0]}` : `Tickers: ${tickers.join(', ')}`)}</span>` : '',
+            `<span>${this.escapeHTML(`Total legs: ${totalLegs}`)}</span>`,
+            statuses.length ? `<span>${this.escapeHTML(`Status mix: ${statuses.join(', ')}`)}</span>` : ''
+        ];
+
+        if (tickers.length > 1) {
+            parts.push(`<span>${this.escapeHTML('Different tickers selected - merge disabled')}</span>`);
+        }
+
+        summary.innerHTML = parts.filter(Boolean).join(' ');
+    }
+
+    renderTradeMergeGroups(trades = this.currentFilteredTrades) {
+        const container = document.getElementById('trades-merge-groups');
+        if (!container) {
+            return;
+        }
+
+        const list = Array.isArray(trades) ? trades : [];
+        const grouped = list.reduce((acc, trade) => {
+            const ticker = (trade.ticker || '').toUpperCase();
+            if (!ticker) {
+                return acc;
+            }
+            if (!acc.has(ticker)) {
+                acc.set(ticker, []);
+            }
+            acc.get(ticker).push(trade);
+            return acc;
+        }, new Map());
+
+        const eligible = Array.from(grouped.entries())
+            .filter(([, tradesForTicker]) => tradesForTicker.length >= 2)
+            .sort(([a], [b]) => a.localeCompare(b));
+
+        if (!eligible.length) {
+            container.innerHTML = '<p class="trades-merge-groups__empty">Need at least two trades sharing a ticker to merge.</p>';
+            return;
+        }
+
+        container.innerHTML = eligible.map(([ticker, tradesForTicker]) => {
+            const selectedCount = tradesForTicker.filter((trade) => this.tradeMergeSelection.has(trade.id)).length;
+            const statuses = Array.from(new Set(tradesForTicker.map((trade) => this.getDisplayStatus(trade)))).filter(Boolean);
+            const legCount = tradesForTicker.reduce((acc, trade) => acc + ((trade.legs || []).length || 0), 0);
+            const allSelected = selectedCount === tradesForTicker.length;
+            const remaining = tradesForTicker.length - selectedCount;
+            const buttonLabel = allSelected
+                ? `Clear ${ticker} selection`
+                : remaining === tradesForTicker.length
+                    ? `Select ${tradesForTicker.length} trades`
+                    : `Select remaining (${remaining})`;
+
+            return `
+                <div class="trades-merge-group" data-ticker="${this.escapeHTML(ticker)}">
+                    <div class="trades-merge-group__header">
+                        <span class="trades-merge-group__ticker">${this.escapeHTML(ticker)}</span>
+                        <span class="trades-merge-group__count">${this.escapeHTML(`${tradesForTicker.length} trades • ${legCount} legs`)}</span>
+                    </div>
+                    <div class="trades-merge-group__body">
+                        ${statuses.length ? `<span>Statuses: ${this.escapeHTML(statuses.join(', '))}</span>` : ''}
+                        <span>Selected: ${this.escapeHTML(`${selectedCount}/${tradesForTicker.length}`)}</span>
+                    </div>
+                    <div class="trades-merge-group__actions">
+                        <button type="button" class="btn btn--sm btn--secondary trades-merge-group__toggle" data-ticker="${this.escapeHTML(ticker)}">${this.escapeHTML(buttonLabel)}</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.querySelectorAll('.trades-merge-group__toggle').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                const ticker = (button.getAttribute('data-ticker') || '').toUpperCase();
+                if (!ticker) {
+                    return;
+                }
+                const tradesForTicker = (Array.isArray(this.currentFilteredTrades) ? this.currentFilteredTrades : [])
+                    .filter((trade) => (trade.ticker || '').toUpperCase() === ticker);
+                if (!tradesForTicker.length) {
+                    return;
+                }
+                const allSelected = tradesForTicker.every((trade) => this.tradeMergeSelection.has(trade.id));
+                tradesForTicker.forEach((trade) => {
+                    if (allSelected) {
+                        this.tradeMergeSelection.delete(trade.id);
+                    } else {
+                        this.tradeMergeSelection.add(trade.id);
+                    }
+                });
+                this.syncTradeSelectionCheckboxes();
+                this.refreshTradesMergePanelContents();
+            });
+        });
+    }
+
+    updateTradesMergeButtonState() {
+        const mergeButton = document.getElementById('trades-merge-btn');
+        if (!mergeButton) {
+            return;
+        }
+
+        if (!this.tradesMergePanelOpen) {
+            mergeButton.disabled = true;
+            mergeButton.textContent = 'Merge Selected Trades';
+            mergeButton.title = 'Enable the merge panel to review trade combinations.';
+            return;
+        }
+
+        const selectedTrades = Array.from(this.tradeMergeSelection)
+            .map((id) => this.trades.find((trade) => trade.id === id))
+            .filter(Boolean);
+
+        if (selectedTrades.length < 2) {
+            mergeButton.disabled = true;
+            mergeButton.textContent = 'Merge Selected Trades';
+            mergeButton.title = 'Select at least two trades to merge.';
+            return;
+        }
+
+        const tickers = new Set(selectedTrades.map((trade) => (trade.ticker || '').toUpperCase()).filter(Boolean));
+        if (tickers.size !== 1) {
+            mergeButton.disabled = true;
+            mergeButton.textContent = 'Merge Selected Trades';
+            mergeButton.title = 'Select trades that share the same ticker.';
+            return;
+        }
+
+        mergeButton.disabled = false;
+        mergeButton.textContent = `Merge ${selectedTrades.length} Trades`;
+        mergeButton.title = `Merge ${selectedTrades.length} trades for ${Array.from(tickers)[0]}.`;
+    }
+
+    syncTradeSelectionCheckboxes() {
+        document.querySelectorAll('.trade-merge-checkbox').forEach((checkbox) => {
+            const id = checkbox.dataset.tradeId;
+            checkbox.checked = !!id && this.tradeMergeSelection.has(id);
+        });
+        this.syncSelectAllCheckbox();
+    }
+
+    syncSelectAllCheckbox() {
+        const selectAll = document.getElementById('trades-select-all');
+        if (!selectAll) {
+            return;
+        }
+
+        const checkboxes = Array.from(document.querySelectorAll('.trade-merge-checkbox'));
+        const mergeEnabled = this.tradesMergePanelOpen && checkboxes.length;
+
+        if (!mergeEnabled) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+            selectAll.disabled = true;
+            return;
+        }
+
+        selectAll.disabled = false;
+
+        const selectedVisible = checkboxes.filter((checkbox) => {
+            const id = checkbox.dataset.tradeId;
+            return id && this.tradeMergeSelection.has(id);
+        }).length;
+
+        if (selectedVisible === 0) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        } else if (selectedVisible === checkboxes.length) {
+            selectAll.checked = true;
+            selectAll.indeterminate = false;
+        } else {
+            selectAll.checked = false;
+            selectAll.indeterminate = true;
+        }
+    }
+
+    handleSelectAllTrades(checked) {
+        if (!this.tradesMergePanelOpen) {
+            return;
+        }
+
+        const checkboxes = Array.from(document.querySelectorAll('.trade-merge-checkbox'));
+        if (!checkboxes.length) {
+            return;
+        }
+
+        checkboxes.forEach((checkbox) => {
+            const id = checkbox.dataset.tradeId;
+            if (!id) {
+                return;
+            }
+            if (checked) {
+                this.tradeMergeSelection.add(id);
+            } else {
+                this.tradeMergeSelection.delete(id);
+            }
+            checkbox.checked = checked;
+        });
+
+        this.syncSelectAllCheckbox();
+        this.refreshTradesMergePanelContents();
+    }
+
+    pruneTradeMergeSelection() {
+        if (!(this.tradeMergeSelection instanceof Set) || this.tradeMergeSelection.size === 0) {
+            return;
+        }
+
+        const existingIds = new Set(this.trades.map((trade) => trade.id));
+        let changed = false;
+        this.tradeMergeSelection.forEach((id) => {
+            if (!existingIds.has(id)) {
+                this.tradeMergeSelection.delete(id);
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            this.syncTradeSelectionCheckboxes();
+            this.refreshTradesMergePanelContents();
+        }
+    }
+
+    async handleOfxFileSelection(event) {
+        const input = event?.target;
+        if (!input || !input.files || input.files.length === 0) {
+            return;
+        }
+
+        const [file] = input.files;
+        input.value = '';
+
+        if (!file) {
+            return;
+        }
+
+        try {
+            this.showLoadingIndicator('Importing OFX...');
+            await this.importOfxFile(file, { fileName: file.name || 'OFX import' });
+        } catch (error) {
+            console.error('OFX import error:', error);
+            const message = error?.message || 'Unknown error';
+            this.showNotification(`Failed to import OFX: ${message}`, 'error');
+            this.appendImportLog({
+                type: 'error',
+                message: `Failed to import ${file.name || 'OFX file'}: ${message}`,
+                timestamp: new Date()
+            });
+        } finally {
+            this.hideLoadingIndicator();
+        }
+    }
+
+    async importOfxFile(file, context = {}) {
+        if (!file) {
+            throw new Error('No file selected.');
+        }
+
+        const text = await file.text();
+        await this.importOfxContent(text, { ...context, fileSize: file.size || 0 });
+    }
+
+    async importOfxContent(raw, context = {}) {
+        const batchId = context.batchId || `OFX-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+        const importContext = { ...context, batchId };
+        const parsed = this.parseOfx(raw);
+        const importResult = this.buildOfxImportPayload(parsed, importContext);
+        this.applyOfxImportResult(importResult, importContext);
+    }
+
+    parseOfx(raw) {
+        if (typeof raw !== 'string') {
+            throw new Error('OFX payload is invalid.');
+        }
+
+        const startIndex = raw.indexOf('<OFX');
+        if (startIndex === -1) {
+            throw new Error('Invalid OFX file: missing OFX root.');
+        }
+
+        const xmlContent = raw.slice(startIndex).trim();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlContent, 'application/xml');
+        const parserError = doc.querySelector('parsererror');
+        if (parserError) {
+            throw new Error('Unable to parse OFX document.');
+        }
+
+        const securities = this.extractOfxSecurities(doc);
+        const transactions = this.extractOfxTransactions(doc, securities);
+
+        return {
+            securities,
+            transactions
+        };
+    }
+
+    extractOfxSecurities(doc) {
+        const map = new Map();
+        const secList = doc.getElementsByTagName('SECLIST')[0];
+        if (!secList) {
+            return map;
+        }
+
+        const getText = (root, tag) => {
+            if (!root) {
+                return '';
+            }
+            const node = root.getElementsByTagName(tag)[0];
+            return node ? node.textContent.trim() : '';
+        };
+
+        Array.from(secList.children).forEach((node) => {
+            if (!(node instanceof Element)) {
+                return;
+            }
+            const tagName = node.tagName;
+            const secInfo = node.getElementsByTagName('SECINFO')[0];
+            if (!secInfo) {
+                return;
+            }
+
+            const uniqueId = getText(secInfo, 'UNIQUEID');
+            if (!uniqueId) {
+                return;
+            }
+
+            const ticker = getText(secInfo, 'TICKER');
+            const name = getText(secInfo, 'SECNAME');
+            const info = {
+                id: uniqueId,
+                tag: tagName,
+                ticker,
+                name,
+                option: null
+            };
+
+            if (tagName === 'OPTINFO') {
+                const strikeRaw = getText(node, 'STRIKEPRICE');
+                const multiplierRaw = getText(node, 'SHPERCTRCT');
+                const expireRaw = getText(node, 'DTEXPIRE');
+                const optTypeRaw = getText(node, 'OPTTYPE');
+
+                const parsedSymbol = this.parseOptionContractSymbol(ticker || name);
+                const expirationDate = this.parseOfxDate(expireRaw);
+
+                info.option = {
+                    underlying: parsedSymbol?.underlying || (ticker ? ticker.split(' ')[0].trim() : ''),
+                    type: (optTypeRaw || parsedSymbol?.type || '').toUpperCase(),
+                    strike: strikeRaw ? Number(strikeRaw) : parsedSymbol?.strike ?? null,
+                    expiration: expirationDate ? expirationDate.toISOString().slice(0, 10) : parsedSymbol?.expiration || '',
+                    multiplier: multiplierRaw ? Number(multiplierRaw) : parsedSymbol?.multiplier ?? 100
+                };
+            }
+
+            map.set(uniqueId, info);
+        });
+
+        return map;
+    }
+
+    parseOptionContractSymbol(symbol = '') {
+        const compact = (symbol || '').toString().replace(/\s+/g, '').toUpperCase();
+        const match = compact.match(/^([A-Z]{1,6})(\d{6})([CP])(\d{8})/);
+        if (!match) {
+            return null;
+        }
+
+        const underlying = match[1];
+        const dateDigits = match[2];
+        const typeChar = match[3];
+        const strikeDigits = match[4];
+
+        const expirationDate = this.parseOfxDate(dateDigits);
+        const strike = Number(parseInt(strikeDigits, 10) / 1000);
+
+        return {
+            underlying,
+            expiration: expirationDate ? expirationDate.toISOString().slice(0, 10) : '',
+            type: typeChar === 'P' ? 'PUT' : 'CALL',
+            strike,
+            multiplier: 100
+        };
+    }
+
+    parseOfxDate(value) {
+        if (!value) {
+            return null;
+        }
+
+        const digits = value.toString().replace(/[^0-9]/g, '');
+        if (!digits) {
+            return null;
+        }
+
+        if (digits.length === 6) {
+            const yearTwo = Number(digits.slice(0, 2));
+            if (!Number.isFinite(yearTwo)) {
+                return null;
+            }
+            const year = yearTwo >= 70 ? 1900 + yearTwo : 2000 + yearTwo;
+            const month = Number(digits.slice(2, 4)) - 1;
+            const day = Number(digits.slice(4, 6));
+            const date = new Date(Date.UTC(year, month, day));
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        if (digits.length >= 8) {
+            const year = Number(digits.slice(0, 4));
+            const month = Number(digits.slice(4, 6)) - 1;
+            const day = Number(digits.slice(6, 8));
+            const hours = digits.length >= 10 ? Number(digits.slice(8, 10)) : 0;
+            const minutes = digits.length >= 12 ? Number(digits.slice(10, 12)) : 0;
+            const seconds = digits.length >= 14 ? Number(digits.slice(12, 14)) : 0;
+            const date = new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        return null;
+    }
+
+    mapOfxOrderType(tag, rawType, units = 0) {
+        const normalized = (rawType || '').toString().trim().toUpperCase();
+        switch (tag) {
+            case 'BUYOPT':
+                return normalized === 'BUYTOCLOSE' ? 'BTC' : 'BTO';
+            case 'SELLOPT':
+                return normalized === 'SELLTOCLOSE' ? 'STC' : 'STO';
+            case 'BUYSTOCK':
+                return normalized === 'BUYTOCOVER' ? 'BTC' : 'BTO';
+            case 'SELLSTOCK':
+                if (normalized === 'SELLSHORT') {
+                    return 'STO';
+                }
+                if (normalized === 'SELLTOCLOSE') {
+                    return 'STC';
+                }
+                return units < 0 ? 'STO' : 'STC';
+            default:
+                return 'BTO';
+        }
+    }
+
+    extractOfxTransactions(doc, securities) {
+        const transactions = [];
+        const invTranList = doc.getElementsByTagName('INVTRANLIST')[0];
+        if (!invTranList) {
+            return transactions;
+        }
+
+        const getText = (root, tag) => {
+            if (!root) {
+                return '';
+            }
+            const node = root.getElementsByTagName(tag)[0];
+            return node ? node.textContent.trim() : '';
+        };
+
+        Array.from(invTranList.children).forEach((node) => {
+            if (!(node instanceof Element)) {
+                return;
+            }
+
+            const tag = node.tagName;
+            if (!['BUYOPT', 'SELLOPT', 'BUYSTOCK', 'SELLSTOCK'].includes(tag)) {
+                return;
+            }
+
+            const detailNode = tag === 'BUYOPT' || tag === 'BUYSTOCK'
+                ? node.getElementsByTagName('INVBUY')[0]
+                : node.getElementsByTagName('INVSELL')[0];
+            if (!detailNode) {
+                return;
+            }
+
+            const invTran = detailNode.getElementsByTagName('INVTRAN')[0];
+            const fitIdRaw = getText(invTran, 'FITID') || getText(node, 'FITID');
+            const sanitizedFitId = this.sanitizeFitId(fitIdRaw);
+            if (!sanitizedFitId) {
+                return;
+            }
+
+            const dtTradeRaw = getText(invTran, 'DTTRADE') || getText(node, 'DTTRADE');
+            const tradeDate = this.parseOfxDate(dtTradeRaw);
+            const tradeDateIso = tradeDate ? tradeDate.toISOString().slice(0, 10) : '';
+            const digitKey = (dtTradeRaw || '').replace(/[^0-9]/g, '');
+            const timeKey = digitKey.length >= 14 ? digitKey.slice(0, 14) : digitKey.slice(0, 8) || tradeDateIso.replace(/-/g, '');
+
+            const securityId = getText(detailNode, 'UNIQUEID');
+            const security = securityId ? securities.get(securityId) : null;
+
+            const units = Number(getText(detailNode, 'UNITS') || '0');
+            const unitPrice = Number(getText(detailNode, 'UNITPRICE') || '0');
+            const total = Number(getText(detailNode, 'TOTAL') || '0');
+            const commissionRaw = Number(getText(detailNode, 'COMMISSION') || '0');
+
+            const rawOrderType = tag === 'BUYOPT'
+                ? getText(node, 'OPTBUYTYPE')
+                : tag === 'SELLOPT'
+                    ? getText(node, 'OPTSELLTYPE')
+                    : tag === 'BUYSTOCK'
+                        ? getText(node, 'BUYTYPE')
+                        : getText(node, 'SELLTYPE');
+
+            const orderType = this.mapOfxOrderType(tag, rawOrderType, units);
+            const actionSide = this.mapOrderTypeToActionSide(orderType);
+
+            const isOption = tag.includes('OPT');
+            let underlying = '';
+            let optionType = '';
+            let strike = null;
+            let expiration = '';
+            let multiplier = isOption ? 100 : 1;
+            let ticker = '';
+
+            if (security && security.option) {
+                underlying = (security.option.underlying || '').toUpperCase();
+                optionType = security.option.type || '';
+                strike = Number.isFinite(Number(security.option.strike)) ? Number(security.option.strike) : null;
+                expiration = security.option.expiration || '';
+                multiplier = security.option.multiplier || multiplier;
+                ticker = underlying;
+            } else if (security) {
+                const inferredTicker = (security.ticker || security.name || '').split(' ')[0].trim();
+                ticker = inferredTicker.toUpperCase();
+                if (isOption) {
+                    const parsed = this.parseOptionContractSymbol(security.ticker || security.name || '');
+                    if (parsed) {
+                        underlying = parsed.underlying.toUpperCase();
+                        optionType = parsed.type;
+                        strike = parsed.strike;
+                        expiration = parsed.expiration;
+                        multiplier = parsed.multiplier || multiplier;
+                        ticker = underlying;
+                    }
+                } else {
+                    underlying = ticker;
+                }
+            }
+
+            if (!ticker) {
+                ticker = (underlying || '').toUpperCase();
+            }
+
+            const underlyingSymbol = (underlying || ticker || '').toUpperCase();
+            const categoryLabel = isOption ? 'OPTION' : 'STOCK';
+            const baseKeyParts = [
+                timeKey || tradeDateIso.replace(/-/g, ''),
+                underlyingSymbol,
+                actionSide.side,
+                categoryLabel
+            ];
+            if (isOption) {
+                baseKeyParts.push(expiration || '');
+            }
+            const groupKey = baseKeyParts.filter(Boolean).join('|') || sanitizedFitId;
+
+            transactions.push({
+                fitId: sanitizedFitId,
+                originalFitId: fitIdRaw,
+                groupKey,
+                tag,
+                orderType,
+                tradeDate: tradeDateIso,
+                tradeTimeKey: timeKey,
+                ticker,
+                underlying: (underlying || ticker || '').toUpperCase(),
+                optionType: optionType || (isOption ? (rawOrderType && rawOrderType.includes('CALL') ? 'CALL' : 'PUT') : ''),
+                strike,
+                expiration,
+                multiplier: multiplier || (isOption ? 100 : 1),
+                quantity: Math.abs(units),
+                price: Math.abs(unitPrice),
+                total,
+                fees: Math.abs(commissionRaw),
+                side: actionSide.side,
+                action: actionSide.action,
+                category: isOption ? 'OPTION' : 'STOCK',
+                securityId,
+                memo: getText(invTran, 'MEMO') || '',
+                currency: getText(detailNode, 'CURSYM') || getText(node, 'CURSYM') || 'USD'
+            });
+        });
+
+        return transactions;
+    }
+
+    sanitizeFitId(fitId) {
+        if (!fitId) {
+            return '';
+        }
+        return fitId.toString().replace(/[^A-Za-z0-9]/g, '');
+    }
+
+    groupTransactionsForImport(transactions = []) {
+        const groups = new Map();
+        transactions.forEach((tx) => {
+            if (!tx || !tx.groupKey) {
+                return;
+            }
+            let group = groups.get(tx.groupKey);
+            if (!group) {
+                group = {
+                    key: tx.groupKey,
+                    ticker: (tx.underlying || tx.ticker || '').toUpperCase(),
+                    transactions: []
+                };
+                groups.set(tx.groupKey, group);
+            }
+            if (!group.ticker && (tx.underlying || tx.ticker)) {
+                group.ticker = (tx.underlying || tx.ticker || '').toUpperCase();
+            }
+            group.transactions.push(tx);
+        });
+        return groups;
+    }
+
+    buildLegFromTransaction(transaction) {
+        if (!transaction) {
+            return null;
+        }
+
+        const quantity = Math.abs(Number(transaction.quantity) || 0);
+        if (!quantity) {
+            return null;
+        }
+
+        const type = transaction.optionType || (transaction.category === 'STOCK' ? 'STOCK' : 'UNKNOWN');
+
+        return {
+            id: transaction.fitId ? `FIT-${transaction.fitId}` : `LEG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+            orderType: transaction.orderType,
+            action: transaction.action,
+            side: transaction.side,
+            type,
+            quantity,
+            multiplier: transaction.multiplier || (type === 'STOCK' ? 1 : 100),
+            executionDate: transaction.tradeDate || '',
+            expirationDate: transaction.expiration || '',
+            strike: Number.isFinite(Number(transaction.strike)) ? Number(transaction.strike) : null,
+            premium: Number.isFinite(Number(transaction.price)) ? Number(transaction.price) : 0,
+            fees: Number.isFinite(Number(transaction.fees)) ? Number(transaction.fees) : 0,
+            underlyingPrice: null,
+            fitId: transaction.fitId || null,
+            importGroupId: transaction.groupKey || null,
+            importSource: 'OFX',
+            tickerSymbol: (transaction.underlying || transaction.ticker || '').toUpperCase()
+        };
+    }
+
+    sanitizeImportedLeg(leg) {
+        if (!leg) {
+            return null;
+        }
+        const clone = { ...leg };
+        delete clone.tickerSymbol;
+        return clone;
+    }
+
+    buildPositionKey(ticker, leg) {
+        if (!leg) {
+            return '';
+        }
+        const symbol = (ticker || '').toString().trim().toUpperCase();
+        if (!symbol) {
+            return '';
+        }
+
+        const type = (leg.type || '').toString().trim().toUpperCase();
+        if (!type) {
+            return '';
+        }
+
+        const direction = this.normalizeLegAction(leg.action) === 'SELL' ? 'short' : 'long';
+
+        if (type === 'STOCK') {
+            return [symbol, type, direction].join('|');
+        }
+
+        const strike = Number.isFinite(Number(leg.strike)) ? Number(leg.strike) : 0;
+        const expiration = (leg.expirationDate || '').toString().trim();
+
+        return [symbol, type, strike || 0, expiration || '', direction].join('|');
+    }
+
+    buildPositionIndex(trades = []) {
+        const index = new Map();
+
+        trades.forEach((trade) => {
+            if (!trade || !Array.isArray(trade.legs) || trade.legs.length === 0) {
+                return;
+            }
+
+            const ticker = (trade.ticker || '').toUpperCase();
+            if (!ticker) {
+                return;
+            }
+
+            const aggregates = new Map();
+            trade.legs.forEach((leg) => {
+                if (!leg) {
+                    return;
+                }
+                const key = this.buildPositionKey(ticker, leg);
+                if (!key) {
+                    return;
+                }
+
+                const quantity = Math.abs(Number(leg.quantity) || 0);
+                if (!quantity) {
+                    return;
+                }
+
+                let direction = 0;
+                if (leg.side === 'OPEN') {
+                    direction = 1;
+                } else if (leg.side === 'CLOSE') {
+                    direction = -1;
+                }
+
+                if (!direction) {
+                    return;
+                }
+
+                const current = aggregates.get(key) || 0;
+                aggregates.set(key, current + direction * quantity);
+            });
+
+            aggregates.forEach((net, key) => {
+                if (net > 0) {
+                    const bucket = index.get(key) || [];
+                    bucket.push({ trade, remaining: net });
+                    index.set(key, bucket);
+                }
+            });
+        });
+
+        return index;
+    }
+
+    consumePositionMatches(index, key, leg) {
+        const result = { matched: [], unmatched: Math.abs(Number(leg?.quantity) || 0) };
+        if (!key || !index.has(key) || !leg) {
+            return result;
+        }
+
+        let remaining = result.unmatched;
+        const entries = index.get(key) || [];
+
+        entries.forEach((entry) => {
+            if (remaining <= 0 || entry.remaining <= 0) {
+                return;
+            }
+            const quantity = Math.min(entry.remaining, remaining);
+            result.matched.push({ trade: entry.trade, quantity });
+            entry.remaining -= quantity;
+            remaining -= quantity;
+        });
+
+        result.unmatched = remaining;
+
+        const filtered = entries.filter((entry) => entry.remaining > 0);
+        if (filtered.length > 0) {
+            index.set(key, filtered);
+        } else {
+            index.delete(key);
+        }
+
+        return result;
+    }
+
+    buildExistingFitIdSet() {
+        const ids = new Set();
+        this.trades.forEach((trade) => {
+            if (!trade || !Array.isArray(trade.legs)) {
+                return;
+            }
+            trade.legs.forEach((leg) => {
+                if (leg?.fitId) {
+                    ids.add(leg.fitId);
+                }
+            });
+        });
+        return ids;
+    }
+
+    tradeContainsFitId(trade, fitId) {
+        if (!fitId || !trade || !Array.isArray(trade.legs)) {
+            return false;
+        }
+        return trade.legs.some((leg) => leg?.fitId && leg.fitId === fitId);
+    }
+
+    inferStrategyFromLegs(legs = []) {
+        if (!Array.isArray(legs) || legs.length === 0) {
+            return 'Imported Trade';
+        }
+
+        const openLegs = legs.filter((leg) => leg.side === 'OPEN');
+        const relevant = openLegs.length ? openLegs : legs;
+
+        if (relevant.length === 1) {
+            const leg = relevant[0];
+            if (!leg) {
+                return 'Imported Trade';
+            }
+            if (leg.type === 'PUT') {
+                return leg.action === 'SELL' ? 'Cash-Secured Put' : 'Long Put';
+            }
+            if (leg.type === 'CALL') {
+                return leg.action === 'SELL' ? 'Short Call' : 'Long Call';
+            }
+            if (leg.type === 'STOCK') {
+                return leg.action === 'SELL' ? 'Stock Sale' : 'Stock Purchase';
+            }
+        }
+
+        const optionLegs = relevant.filter((leg) => leg.type === 'PUT' || leg.type === 'CALL');
+        if (optionLegs.length === 2) {
+            const [first, second] = optionLegs;
+            if (first && second && first.type === second.type) {
+                const shortLeg = optionLegs.find((leg) => leg.action === 'SELL');
+                if (shortLeg) {
+                    const longLeg = optionLegs.find((leg) => leg !== shortLeg);
+                    if (longLeg) {
+                        const shortStrike = Number(shortLeg.strike) || 0;
+                        const longStrike = Number(longLeg.strike) || 0;
+                        if (shortLeg.type === 'PUT') {
+                            return shortStrike > longStrike ? 'Bull Put Spread' : 'Bear Put Spread';
+                        }
+                        return shortStrike < longStrike ? 'Bear Call Spread' : 'Bull Call Spread';
+                    }
+                }
+            }
+        }
+
+        return 'Imported Multi-Leg';
+    }
+
+    composeImportNotes(context = {}, options = {}) {
+        const fileName = context.fileName || 'OFX file';
+        const timestamp = new Date();
+        const parts = [`Imported from ${fileName} on ${timestamp.toLocaleDateString()} at ${timestamp.toLocaleTimeString()}.`];
+
+        if (options.legCount) {
+            parts.push(`${options.legCount} leg${options.legCount === 1 ? '' : 's'} detected.`);
+        }
+
+        if (options.hasClosings) {
+            parts.push('Includes adjustments to existing positions.');
+        }
+
+        if (options.note) {
+            parts.push(options.note);
+        }
+
+        return parts.join(' ');
+    }
+
+    buildOfxImportPayload(parsed, context = {}) {
+        const transactions = Array.isArray(parsed?.transactions) ? parsed.transactions : [];
+        const batchId = context.batchId || null;
+        const updates = new Map();
+        const newTrades = [];
+        const reviewTradeIds = [];
+
+        const stats = {
+            totalTransactions: transactions.length,
+            totalGroups: 0,
+            openingLegs: 0,
+            closingLegs: 0,
+            matchedClosingLegs: 0,
+            unmatchedClosingLegs: 0,
+            duplicateLegs: 0,
+            legsAddedToUpdates: 0,
+            legsAddedToNewTrades: 0,
+            tradesCreated: 0,
+            reviewTradesCreated: 0,
+            totalTradesCreated: 0,
+            tradesUpdated: 0,
+            reviewLegs: 0
+        };
+
+        if (!transactions.length) {
+            return { newTrades, updates, stats, batchId, reviewTradeIds };
+        }
+
+        const groups = this.groupTransactionsForImport(transactions);
+        const positionIndex = this.buildPositionIndex(this.trades);
+        const existingFitIds = this.buildExistingFitIdSet();
+        const seenFitIds = new Set();
+
+        stats.totalGroups = groups.size;
+
+        groups.forEach((group) => {
+            if (!group || !Array.isArray(group.transactions) || group.transactions.length === 0) {
+                return;
+            }
+
+            const legs = [];
+            group.transactions.forEach((tx) => {
+                const leg = this.buildLegFromTransaction(tx);
+                if (!leg) {
+                    return;
+                }
+                if (leg.fitId && (existingFitIds.has(leg.fitId) || seenFitIds.has(leg.fitId))) {
+                    stats.duplicateLegs += 1;
+                    return;
+                }
+                if (batchId) {
+                    leg.importBatchId = batchId;
+                }
+                legs.push(leg);
+            });
+
+            if (!legs.length) {
+                return;
+            }
+
+            const ticker = (group.ticker || legs[0]?.tickerSymbol || '').toUpperCase();
+            const openingLegs = legs.filter((leg) => leg.side === 'OPEN');
+            const closingLegs = legs.filter((leg) => leg.side === 'CLOSE');
+            const unmatchedClosingLegs = [];
+
+            stats.openingLegs += openingLegs.length;
+            stats.closingLegs += closingLegs.length;
+
+            closingLegs.forEach((leg) => {
+                const key = this.buildPositionKey(ticker, leg);
+                const match = this.consumePositionMatches(positionIndex, key, leg);
+
+                if (match.matched.length) {
+                    match.matched.forEach((entry) => {
+                        const targetTrade = entry.trade;
+                        if (this.tradeContainsFitId(targetTrade, leg.fitId)) {
+                            return;
+                        }
+                        if (leg.fitId && (existingFitIds.has(leg.fitId) || seenFitIds.has(leg.fitId))) {
+                            return;
+                        }
+
+                        const bucket = updates.get(targetTrade.id) || [];
+                        const legClone = { ...leg, quantity: entry.quantity };
+                        if (batchId) {
+                            legClone.importBatchId = batchId;
+                        }
+                        bucket.push(this.sanitizeImportedLeg(legClone));
+                        updates.set(targetTrade.id, bucket);
+                        stats.legsAddedToUpdates += 1;
+                        stats.matchedClosingLegs += entry.quantity;
+                    });
+                }
+
+                const unmatchedQty = Math.max(0, match.unmatched);
+                if (!match.matched.length || unmatchedQty > 0) {
+                    const remainder = { ...leg };
+                    if (unmatchedQty > 0 && remainder.quantity !== unmatchedQty) {
+                        remainder.quantity = unmatchedQty;
+                    }
+                    if (match.matched.length && remainder.fitId) {
+                        remainder.fitId = `${remainder.fitId}-UNMATCHED`;
+                    }
+                    if (batchId) {
+                        remainder.importBatchId = batchId;
+                    }
+                    unmatchedClosingLegs.push(remainder);
+                    stats.unmatchedClosingLegs += remainder.quantity || 0;
+                }
+
+                if (leg.fitId) {
+                    seenFitIds.add(leg.fitId);
+                }
+            });
+
+            if (openingLegs.length > 0) {
+                const note = this.composeImportNotes(context, {
+                    legCount: openingLegs.length,
+                    hasClosings: closingLegs.length > 0
+                });
+
+                const sanitizedLegs = openingLegs.map((leg) => {
+                    if (leg.fitId) {
+                        seenFitIds.add(leg.fitId);
+                    }
+                    return this.sanitizeImportedLeg(leg);
+                });
+
+                const resolvedTicker = (ticker || (openingLegs[0]?.tickerSymbol || '')).toUpperCase() || 'UNKNOWN';
+                const tradeId = `IMP-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+                newTrades.push({
+                    id: tradeId,
+                    ticker: resolvedTicker,
+                    strategy: this.inferStrategyFromLegs(openingLegs),
+                    exitReason: '',
+                    notes: note,
+                    legs: sanitizedLegs,
+                    cycleId: '',
+                    cycleType: '',
+                    cycleRole: '',
+                    importBatchId: batchId,
+                    importReview: false
+                });
+
+                stats.tradesCreated += 1;
+                stats.legsAddedToNewTrades += sanitizedLegs.length;
+            }
+
+            if (unmatchedClosingLegs.length > 0) {
+                const note = this.composeImportNotes(context, {
+                    legCount: unmatchedClosingLegs.length,
+                    note: 'Review required: closing legs have no matching open position.'
+                });
+
+                const sanitizedLegs = unmatchedClosingLegs.map((leg) => {
+                    if (leg.fitId) {
+                        seenFitIds.add(leg.fitId);
+                    }
+                    return this.sanitizeImportedLeg(leg);
+                });
+
+                const resolvedTicker = (ticker || (unmatchedClosingLegs[0]?.tickerSymbol || '')).toUpperCase() || 'UNKNOWN';
+                const reviewId = `IMP-REVIEW-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+                newTrades.push({
+                    id: reviewId,
+                    ticker: resolvedTicker,
+                    strategy: 'Import Review',
+                    exitReason: '',
+                    notes: note,
+                    legs: sanitizedLegs,
+                    cycleId: '',
+                    cycleType: '',
+                    cycleRole: '',
+                    importBatchId: batchId,
+                    importReview: true
+                });
+
+                reviewTradeIds.push(reviewId);
+                stats.reviewTradesCreated += 1;
+                stats.legsAddedToNewTrades += sanitizedLegs.length;
+            }
+        });
+
+        stats.totalTradesCreated = newTrades.length;
+        stats.tradesUpdated = updates.size;
+        stats.reviewLegs = newTrades
+            .filter((trade) => trade.importReview)
+            .reduce((acc, trade) => acc + ((trade.legs || []).length), 0);
+
+        return { newTrades, updates, stats, batchId, reviewTradeIds };
+    }
+
+    applyOfxImportResult(importResult, context = {}) {
+        if (!importResult) {
+            return;
+        }
+
+        const stats = importResult.stats || {};
+        const batchId = importResult.batchId || context.batchId || null;
+        const reviewTradeIds = Array.isArray(importResult.reviewTradeIds)
+            ? importResult.reviewTradeIds.slice()
+            : [];
+
+        let created = 0;
+        let updated = 0;
+
+        if (importResult.updates instanceof Map) {
+            importResult.updates.forEach((legs, tradeId) => {
+                if (!Array.isArray(legs) || legs.length === 0) {
+                    return;
+                }
+
+                const index = this.trades.findIndex((trade) => trade.id === tradeId);
+                if (index === -1) {
+                    return;
+                }
+
+                const existing = this.trades[index];
+                const mergedLegs = [...existing.legs, ...legs.map((leg) => ({ ...leg }))];
+                const note = this.composeImportNotes(context, {
+                    legCount: legs.length,
+                    note: 'Existing trade updated from OFX import.'
+                });
+
+                const updatedTrade = this.enrichTradeData({
+                    ...existing,
+                    legs: mergedLegs,
+                    notes: existing.notes ? `${existing.notes}\n${note}` : note
+                });
+
+                this.trades[index] = updatedTrade;
+                updated += 1;
+            });
+        }
+
+        if (Array.isArray(importResult.newTrades)) {
+            importResult.newTrades.forEach((tradeData) => {
+                if (!tradeData || !Array.isArray(tradeData.legs) || tradeData.legs.length === 0) {
+                    return;
+                }
+                if (tradeData.importReview && !reviewTradeIds.includes(tradeData.id)) {
+                    reviewTradeIds.push(tradeData.id);
+                }
+                const enriched = this.enrichTradeData(tradeData);
+                this.trades.push(enriched);
+                created += 1;
+            });
+        }
+
+        const fileName = context?.fileName || 'OFX file';
+
+        stats.totalTradesCreated = stats.totalTradesCreated ?? created;
+        stats.tradesUpdated = updated;
+        stats.reviewTradesCreated = stats.reviewTradesCreated ?? reviewTradeIds.length;
+
+        if (created || updated) {
+            this.saveToStorage();
+            this.markUnsavedChanges();
+            this.updateDashboard();
+
+            const segments = [];
+            if (created) {
+                segments.push(`${created} new trade${created === 1 ? '' : 's'}`);
+            }
+            if (updated) {
+                segments.push(`${updated} trade${updated === 1 ? '' : 's'} updated`);
+            }
+
+            const message = segments.length
+                ? `OFX import completed: ${segments.join(', ')}.`
+                : 'OFX import completed.';
+            this.showNotification(message, 'success');
+            this.appendImportLog({
+                type: 'success',
+                message: `${message} Source: ${fileName}.`,
+                timestamp: new Date()
+            });
+        } else {
+            this.showNotification('OFX import completed. No changes detected.', 'info');
+            this.appendImportLog({
+                type: 'info',
+                message: `OFX import from ${fileName} completed with no changes.`,
+                timestamp: new Date()
+            });
+        }
+
+        this.updateImportSummary({
+            fileName,
+            batchId,
+            stats,
+            reviewTradeIds,
+            timestamp: new Date()
+        });
+        this.renderImportSummary();
+        this.refreshImportMergeList();
+        this.initializeAIChat();
+    }
+
     processLoadedData(data, metadata = {}) {
         if (!data || !Array.isArray(data.trades)) {
             throw new Error('Invalid data format');
@@ -6301,6 +10301,11 @@ class GammaLedger {
         }
         this.updateFileNameDisplay();
         this.initializeAIChat();
+
+        this.importSummary = null;
+        this.importMergeSelection.clear();
+        this.renderImportSummary();
+        this.refreshImportMergeList();
     }
 
     newDatabase() {
@@ -6445,6 +10450,19 @@ class GammaLedger {
             return fallback;
         }
         return `${numeric.toFixed(2)}%`;
+    }
+
+    getStrategyDisplayName(strategy = '') {
+        const raw = (strategy || '').toString().trim();
+        if (!raw) {
+            return '';
+        }
+
+        if (raw.toUpperCase() === 'PMCC') {
+            return 'Poor Man\'s Covered Call';
+        }
+
+        return raw;
     }
 
     formatCycleDateRange(startIso, endIso, isOpen) {
