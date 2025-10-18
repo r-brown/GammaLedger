@@ -81,9 +81,9 @@ Let's see who writes the next best hack — you, or the machine?
 
   ...or
 
-1. Download release ZIP from [Releases](https://github.com/r-brown/GammaLedger/releases)
+1. Download release application.zip from [Releases](https://github.com/r-brown/GammaLedger/releases)
 2. Extract the ZIP file to a folder of your choice
-3. Open `./src/index.html` in a modern browser (Chrome, Edge, or Firefox)
+3. Open `index.html` in a modern browser (Chrome, Edge, or Firefox)
 4. Create new database or import your options trading log to start tracking new trades immediately
 
 
