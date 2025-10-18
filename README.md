@@ -23,7 +23,7 @@ Let's see who writes the next best hack — you, or the machine?
 ## 💼 Ideal For ...
 
 ### ... Active Traders
-- Track complex multi-leg strategies like Spreads, Strangles, Straddles, Condors, Wheels and PMCC
+ - Track complex multi-leg strategies like Spreads, Strangles, Straddles, Condors, Wheels and Poor Man's Covered Calls
 - Monitor time decay and adjustment opportunities
 - Analyze win rates and profitability by strategy type
 - Maintain detailed trade journals for continuous improvement
