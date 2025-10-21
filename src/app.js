@@ -2076,6 +2076,46 @@ class GammaLedger {
         return anyOption ? Number(anyOption.strike) : null;
     }
 
+    getActiveStrikeForDisplay(summary) {
+        if (!summary || !Array.isArray(summary.legs) || summary.legs.length === 0) {
+            return null;
+        }
+
+        const legsWithStrike = summary.legs.filter((leg) => Number.isFinite(Number(leg?.strike)));
+        if (legsWithStrike.length === 0) {
+            return null;
+        }
+
+        const openLegs = legsWithStrike.filter((leg) => leg.side === 'OPEN');
+        const candidates = openLegs.length ? openLegs : legsWithStrike;
+
+        let chosenLeg = null;
+        let chosenTimestamp = Number.NEGATIVE_INFINITY;
+        let chosenPriority = Number.NEGATIVE_INFINITY;
+        let chosenIndex = -1;
+
+        candidates.forEach((leg, index) => {
+            const executionDate = leg.executionDate ? new Date(leg.executionDate) : null;
+            const timestamp = executionDate && !Number.isNaN(executionDate.getTime())
+                ? executionDate.getTime()
+                : Number.NEGATIVE_INFINITY;
+            const actionPriority = leg.action === 'SELL' ? 1 : 0;
+
+            if (
+                timestamp > chosenTimestamp ||
+                (timestamp === chosenTimestamp && actionPriority > chosenPriority) ||
+                (timestamp === chosenTimestamp && actionPriority === chosenPriority && index > chosenIndex)
+            ) {
+                chosenLeg = leg;
+                chosenTimestamp = timestamp;
+                chosenPriority = actionPriority;
+                chosenIndex = index;
+            }
+        });
+
+        return chosenLeg ? Number(chosenLeg.strike) : null;
+    }
+
     buildStrikeDisplay(trade, summary = null) {
         const legSummary = summary || this.summarizeLegs(trade?.legs || []);
         const legs = legSummary?.legs || [];
@@ -2533,7 +2573,7 @@ class GammaLedger {
                 </div>
                 <div class="form-group">
                     <label class="form-label">Premium (per share)</label>
-                    <input type="number" class="form-control" data-leg-field="premium" step="0.01" min="0">
+                    <input type="number" class="form-control" data-leg-field="premium" step="0.000001" min="0">
                 </div>
             </div>
             <div class="form-row">
@@ -5337,10 +5377,16 @@ class GammaLedger {
 
                 const strikePrice = this.parseDecimal(trade.strikePrice);
                 const strikeCell = row.insertCell(2);
-                strikeCell.textContent = strikePrice !== null ? `$${strikePrice.toFixed(2)}` : '—';
-                if (Number.isFinite(strikePrice)) {
+                const strikeSummary = this.summarizeLegs(trade.legs || []);
+                const activeStrike = this.getActiveStrikeForDisplay(strikeSummary);
+                if (activeStrike !== null) {
+                    strikeCell.textContent = `$${activeStrike.toFixed(2)}`;
+                    row.dataset.strikePrice = String(activeStrike);
+                } else if (strikePrice !== null) {
+                    strikeCell.textContent = `$${strikePrice.toFixed(2)}`;
                     row.dataset.strikePrice = String(strikePrice);
                 } else {
+                    strikeCell.textContent = '—';
                     delete row.dataset.strikePrice;
                 }
 
