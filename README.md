@@ -3,7 +3,7 @@
 # 🎯 GammaLedger
 
 [![Website](https://img.shields.io/badge/%F0%9F%8C%90%20GammaLedger-Website-8b5cf6.svg)](https://gammaledger.com)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/r-brown/GammaLedger/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](https://github.com/r-brown/GammaLedger/blob/main/LICENSE)
 [![Version](https://img.shields.io/github/v/release/r-brown/gammaledger)](https://github.com/r-brown/GammaLedger/releases)
 [![Last Commit](https://img.shields.io/github/last-commit/r-brown/gammaledger)](https://github.com/r-brown/GammaLedger/commits/main/)
 [![Stars](https://img.shields.io/github/stars/r-brown/gammaledger)](#-star-history)
