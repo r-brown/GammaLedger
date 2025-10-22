@@ -2,10 +2,10 @@
 
 # 🎯 GammaLedger
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/github/v/release/r-brown/gammaledger)
-![Last Commit](https://img.shields.io/github/last-commit/r-brown/gammaledger)
-![Stars](https://img.shields.io/github/stars/r-brown/gammaledger)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/r-brown/GammaLedger/blob/main/LICENSE)
+[![Version](https://img.shields.io/github/v/release/r-brown/gammaledger)](https://github.com/r-brown/GammaLedger/releases)
+[![Last Commit](https://img.shields.io/github/last-commit/r-brown/gammaledger)](https://github.com/r-brown/GammaLedger/commits/main/)
+[![Stars](https://img.shields.io/github/stars/r-brown/gammaledger)](#-star-history)
 
 **GammaLedger** is a desktop application for active options traders and investors who want to analyze, track, and optimize options trading strategies. Designed for sophisticated users, the app delivers flexible dashboards, local file persistence, and advanced analytics to support performance monitoring and decision-making.
 
