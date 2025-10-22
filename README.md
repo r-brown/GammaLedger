@@ -31,7 +31,7 @@ Let's see who writes the next best hack — you, or the machine?
 - **Zero Dependencies**: No account registration, no subscriptions, no third-party data sharing
 - **Professional Grade**: Tools designed by traders, for traders with real-world experience
 - **AI-Powered Insights**: Built-in AI Coach to help you analyze trades and improve decision-making
-- **Completely Free**: Open source and free forever under MIT license
+- **Completely Free**: Open source and freely available for non-commercial use under the AGPLv3 license
 
 
 ## 💼 Ideal For ...
@@ -210,7 +210,7 @@ Currently optimized for options trading. Stock position tracking and futures sup
 Not automatically. For privacy and security, data is stored locally. You can manually export/import JSON backups to sync data across devices.
 
 ### Is there a paid version?
-No. GammaLedger is **completely free and open source** under MIT license. No subscriptions, no hidden costs, no premium tiers. Forever.
+GammaLedger is open source and free forever under the AGPLv3 license for non-commercial and open-source compliant use. For proprietary, commercial, or institutional applications without AGPL restrictions, a commercial license is available.
 
 ### What brokers work with GammaLedger?
 Any broker that exports OFX files trade logs. We have direct integration with Interactive Brokers. Other popular brokers (TD Ameritrade, Schwab, E*TRADE, Fidelity) support OFX export.
@@ -274,7 +274,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines and coding standa
 
 ## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+GammaLedger is open source and free forever under the AGPLv3 license for non-commercial and open-source compliant use. See the [LICENSE](LICENSE) file for full terms.
+
+This means you can freely use, modify, and distribute GammaLedger for personal projects, research, or open-source applications, as long as you share any modifications under the same license—especially if deployed over a network (e.g., in SaaS setups).
+
+For proprietary integrations, commercial deployments, or use without sharing your changes (ideal for fintech startups or hedge funds protecting IP), we offer a flexible commercial license. Benefits include:
+- No copyleft requirements
+- Priority support
+- Custom features or indemnification
+
+For commercial use, please contact us to obtain a commercial license
 
 
 ## ⚖️ Disclaimer
