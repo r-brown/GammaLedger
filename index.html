@@ -3,15 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GammaLedger - Elite Trading Analytics Platform</title>
-    <meta name="description" content="Professional-grade options trading analytics with complete privacy. Track complex strategies, monitor performance, and optimize your trading with our dark-themed fintech platform.">
+    <title>GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely</title>
+    <meta name="description" content="Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.">
+    <meta name="keywords" content="GammaLedger, options trading analytics, portfolio management, derivatives strategies, trade journal, fintech">
+    <meta name="author" content="GammaLedger Contributors">
+    <meta name="copyright" content="GammaLedger">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gammaledger.com">
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="GammaLedger">
+    <meta property="og:title" content="GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely">
+    <meta property="og:description" content="Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.">
+    <meta property="og:url" content="https://gammaledger.com">
+    <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
+    <meta property="og:image:alt" content="GammaLedger dashboard preview">
+    <meta property="og:locale" content="en_US">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely">
+    <meta name="twitter:description" content="Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.">
+    <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
+    <meta name="twitter:image:alt" content="GammaLedger dark theme trading dashboard preview">
+    <!-- Dublin Core -->
+    <meta name="DC.Title" content="GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely">
+    <meta name="DC.Description" content="Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.">
+    <meta name="DC.Subject" content="GammaLedger, options trading analytics, portfolio management, derivatives strategies, trade journal, fintech">
+    <meta name="DC.Creator" content="GammaLedger Contributors">
+    <meta name="DC.Publisher" content="GammaLedger">
+    <meta name="DC.Type" content="Text">
+    <meta name="DC.Format" content="text/html">
+    <meta name="DC.Language" content="en">
+    <meta name="DC.Date" content="2025-10-23">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="favicon-16x16.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="64x64" href="favicon-64x64.png">
+    <link rel="icon" type="image/png" href="./assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/img/gammaledger-logo-32x32.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="./assets/img/gammaledger-logo-64x64.png">
     <style>
         /* Design System Variables */
         :root {
@@ -166,6 +196,12 @@
             align-items: center;
             gap: var(--space-2);
         }
+
+        .logo img {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+        }
         
         .nav-links {
             display: none;
@@ -255,7 +291,7 @@
             display: flex;
             align-items: center;
             position: relative;
-            background-image: url('./gammaledger-stage.jpeg');
+            background-image: url('./assets/img/gammaledger-stage-main.jpg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -812,7 +848,8 @@
         <div class="container">
             <div class="nav-content">
                 <a href="#" class="logo">
-                    📊 GammaLedger
+                    <img src="./assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo" width="32" height="32">
+                    GammaLedger
                 </a>
                 <ul class="nav-links">
                     <li><a href="#features">Features</a></li>
@@ -916,7 +953,7 @@
             </div>
             <div class="dashboard-preview">
                 <div class="dashboard-image">
-                    <img src="./gammaledger-dashboard.png" alt="Dark theme finance dashboard" loading="lazy">
+                    <img src="./assets/img/gammaledger-stage-01.jpg" alt="Dark theme finance dashboard" loading="lazy">
                 </div>
             </div>
         </div>
