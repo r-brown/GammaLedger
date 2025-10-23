@@ -3310,7 +3310,7 @@ class GammaLedger {
         enriched.openLegs = Math.max(0, legSummary.openLegs - legSummary.closeLegs);
         enriched.rollLegs = legSummary.rollLegs;
         enriched.netPremium = Number(legSummary.netPremium.toFixed(2));
-    enriched.totalFees = Number(legSummary.totalFees.toFixed(4));
+        enriched.totalFees = Number(legSummary.totalFees.toFixed(4));
         enriched.totalDebit = Number(legSummary.totalDebit.toFixed(2));
         enriched.totalCredit = Number(legSummary.totalCredit.toFixed(2));
         enriched.cashFlow = Number(legSummary.cashFlow.toFixed(2));
@@ -3337,6 +3337,9 @@ class GammaLedger {
         enriched.strikePrice = this.derivePrimaryStrike(legSummary);
         enriched.multiplier = this.getLegMultiplier(primaryLeg);
         enriched.displayStrike = this.buildStrikeDisplay(enriched, legSummary);
+
+        const activeStrike = this.getActiveStrikeForDisplay(legSummary);
+        enriched.activeStrikePrice = Number.isFinite(activeStrike) ? Number(activeStrike) : null;
 
         const entryPrice = legSummary.entryPrice;
         const exitPrice = legSummary.exitPrice;
@@ -4724,13 +4727,22 @@ class GammaLedger {
 
         // Update overview cards
         document.getElementById('total-pl').textContent = this.formatCurrency(stats.totalPL);
-        document.getElementById('pl-percentage').textContent = `${stats.totalROI.toFixed(2)}% Return`;
-        document.getElementById('win-rate').textContent = `${stats.winRate.toFixed(1)}%`;
+
+        const totalROIFormatted = this.formatNumber(stats.totalROI, { style: 'percent' });
+        document.getElementById('pl-percentage').textContent = totalROIFormatted
+            ? `${totalROIFormatted} Return`
+            : '—';
+
+        const winRateFormatted = this.formatNumber(stats.winRate, { style: 'percent', decimals: 1 });
+        document.getElementById('win-rate').textContent = winRateFormatted ?? '—';
         document.getElementById('win-loss-count').textContent = `${stats.wins}W / ${stats.losses}L`;
-        document.getElementById('profit-factor').textContent = stats.profitFactor.toFixed(2);
+        const profitFactorValue = Number(stats.profitFactor);
+        document.getElementById('profit-factor').textContent = Number.isFinite(profitFactorValue)
+            ? this.formatNumber(profitFactorValue, { decimals: 2, useGrouping: false }).toString()
+            : '∞';
         document.getElementById('active-positions').textContent = stats.activePositions;
-        document.getElementById('total-roi').textContent = `${stats.annualizedROI.toFixed(2)}%`;
-        document.getElementById('max-drawdown').textContent = `${stats.maxDrawdown.toFixed(1)}%`;
+        document.getElementById('total-roi').textContent = this.formatNumber(stats.annualizedROI, { style: 'percent' }) ?? '—';
+        document.getElementById('max-drawdown').textContent = this.formatNumber(stats.maxDrawdown, { style: 'percent', decimals: 1 }) ?? '—';
 
         // Update tables
         this.updateActivePositionsTable(openTradesList);
@@ -5375,16 +5387,24 @@ class GammaLedger {
 
                 row.insertCell(1).textContent = trade.strategy || '—';
 
-                const strikePrice = this.parseDecimal(trade.strikePrice);
                 const strikeCell = row.insertCell(2);
-                const strikeSummary = this.summarizeLegs(trade.legs || []);
-                const activeStrike = this.getActiveStrikeForDisplay(strikeSummary);
-                if (activeStrike !== null) {
-                    strikeCell.textContent = `$${activeStrike.toFixed(2)}`;
-                    row.dataset.strikePrice = String(activeStrike);
-                } else if (strikePrice !== null) {
-                    strikeCell.textContent = `$${strikePrice.toFixed(2)}`;
-                    row.dataset.strikePrice = String(strikePrice);
+                let resolvedStrike = this.parseDecimal(trade.activeStrikePrice, null, { allowNegative: false });
+
+                if (resolvedStrike === null && Array.isArray(trade.legs) && trade.legs.length > 0) {
+                    const strikeSummary = this.summarizeLegs(trade.legs);
+                    const summaryStrike = this.getActiveStrikeForDisplay(strikeSummary);
+                    if (Number.isFinite(summaryStrike)) {
+                        resolvedStrike = summaryStrike;
+                    }
+                }
+
+                if (resolvedStrike === null) {
+                    resolvedStrike = this.parseDecimal(trade.strikePrice, null, { allowNegative: false });
+                }
+
+                if (Number.isFinite(resolvedStrike)) {
+                    strikeCell.textContent = `$${resolvedStrike.toFixed(2)}`;
+                    row.dataset.strikePrice = String(resolvedStrike);
                 } else {
                     strikeCell.textContent = '—';
                     delete row.dataset.strikePrice;
@@ -7748,15 +7768,55 @@ class GammaLedger {
         if (!row) {
             return;
         }
-        const isItm = this.isInTheMoney(trade, currentPrice);
+        const isItm = this.isInTheMoney(trade, currentPrice, row);
         row.classList.toggle('position-itm', Boolean(isItm));
     }
 
-    isInTheMoney(trade, currentPrice) {
+    resolveStrikeForHighlight(trade, row) {
+        const candidateValues = [];
+
+        if (row?.dataset?.strikePrice !== undefined) {
+            candidateValues.push(row.dataset.strikePrice);
+        }
+
+        if (trade) {
+            candidateValues.push(
+                trade.activeStrikePrice,
+                trade.strikePrice,
+                trade.primaryStrike,
+                trade.shortStrike,
+                trade.longStrike
+            );
+        }
+
+        for (const candidate of candidateValues) {
+            const numeric = this.parseDecimal(candidate, null, { allowNegative: false });
+            if (Number.isFinite(numeric)) {
+                return numeric;
+            }
+        }
+
+        if (trade && Array.isArray(trade.legs) && trade.legs.length > 0) {
+            const summary = this.summarizeLegs(trade.legs);
+            const activeStrike = this.getActiveStrikeForDisplay(summary);
+            if (Number.isFinite(activeStrike)) {
+                return activeStrike;
+            }
+            const primaryStrike = this.derivePrimaryStrike(summary);
+            if (Number.isFinite(primaryStrike)) {
+                return primaryStrike;
+            }
+        }
+
+        return null;
+    }
+
+    isInTheMoney(trade, currentPrice, row) {
         if (!Number.isFinite(currentPrice)) {
             return false;
         }
-        const strike = Number(trade?.strikePrice);
+
+        const strike = this.resolveStrikeForHighlight(trade, row);
         if (!Number.isFinite(strike)) {
             return false;
         }
@@ -12018,6 +12078,43 @@ class GammaLedger {
         }
 
         return false;
+    }
+
+    formatNumber(value, options = {}) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return null;
+        }
+
+        const style = options.style || 'number';
+        const fallbackDecimals = style === 'currency' ? 2 : 2;
+        const decimals = Number.isInteger(options.decimals) ? Math.max(0, options.decimals) : fallbackDecimals;
+        const currencyCode = options.currency || 'USD';
+        const groupingDefault = style === 'currency';
+        const useGrouping = typeof options.useGrouping === 'boolean' ? options.useGrouping : groupingDefault;
+
+        const formatWithIntl = (num, fractionDigits = decimals) => new Intl.NumberFormat('en-US', {
+            useGrouping,
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits
+        }).format(num);
+
+        if (style === 'currency') {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: currencyCode,
+                useGrouping,
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            }).format(numeric);
+        }
+
+        if (style === 'percent') {
+            const percentDigits = Number.isInteger(options.decimals) ? Math.max(0, options.decimals) : decimals;
+            return `${formatWithIntl(numeric, percentDigits)}%`;
+        }
+
+        return formatWithIntl(numeric, decimals);
     }
 
     formatPercent(value, fallback = '—') {
