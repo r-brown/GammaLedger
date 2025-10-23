@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/gammaledger.png"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/img/gammaledger.png"></p>
 
 # 🎯 GammaLedger
 
@@ -108,7 +108,7 @@ Let's see who writes the next best hack — you, or the machine?
 
 ## 🚀 Quick Start
 
-<p align="center"><img src="https://raw.githubusercontent.com/r-brown/gammaledger/refs/heads/main/gammaledger-dashboard.png"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/r-brown/gammaledger/refs/heads/main/assets/img/gammaledger-dashboard.png"></p>
 
 ### Option 1: Web Application (Recommended)
 1. Visit [GammaLedger](https://gammaledger.com)
