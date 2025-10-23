@@ -614,6 +614,26 @@ select.form-control {
   background-color: rgba(var(--color-success-rgb, 33, 128, 141),
       var(--status-bg-opacity));
   color: var(--color-success);
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.sidebar-brand__logo {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+
+.sidebar-brand__name {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: #5900c6;
+}
   border: 1px solid rgba(var(--color-success-rgb, 33, 128, 141), var(--status-border-opacity));
 }
 
@@ -814,15 +834,8 @@ select.form-control {
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-12);
-}
-
-.sidebar-header h2 {
-  color: var(--color-primary);
-  font-size: var(--font-size-xl);
-  margin: 0;
-  position: relative;
 }
 
 .sidebar-toggle {
@@ -876,6 +889,30 @@ select.form-control {
   margin-top: 0;
 }
 
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.sidebar-brand__logo {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  display: block;
+  flex-shrink: 0;
+}
+
+.sidebar-brand__name {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: #5900c6;
+  text-shadow: 0 2px 6px rgba(89, 0, 198, 0.35);
+  white-space: nowrap;
+  line-height: 1.1;
+}
+
 .sidebar-link {
   display: flex;
   align-items: center;
@@ -926,6 +963,19 @@ select.form-control {
   flex-shrink: 0;
 }
 
+.nav-icon--logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-icon--logo img {
+  width: 24px;
+  height: 24px;
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
 .nav-label {
   display: inline-flex;
   align-items: center;
@@ -933,16 +983,21 @@ select.form-control {
   min-width: 0;
 }
 
-.sidebar.is-collapsed .sidebar-header h2 {
-  font-size: 0;
-  text-align: center;
+.sidebar.is-collapsed .sidebar-brand {
+  flex-direction: column;
+  gap: var(--space-8);
 }
 
-.sidebar.is-collapsed .sidebar-header h2::after {
+.sidebar.is-collapsed .sidebar-brand__name {
+  font-size: 0;
+  position: relative;
+}
+
+.sidebar.is-collapsed .sidebar-brand__name::after {
   content: 'GL';
   font-size: var(--font-size-lg);
   letter-spacing: 0.08em;
-  color: var(--color-primary);
+  color: #5900c6;
 }
 
 .app-container.is-sidebar-collapsed .sidebar-toggle::before {
@@ -1032,6 +1087,7 @@ select.form-control {
 
 .header-left {
   flex: 1;
+  color: var(--color-secondary);
 }
 
 .share-action {
