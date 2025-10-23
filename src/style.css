@@ -2722,7 +2722,7 @@ td {
   width: 170px;
   min-width: 170px;
   text-align: center;
-  padding-top: var(--space-4);
+  padding-top: var(--space-16);
 }
 
 #trades-table td.actions-cell {
