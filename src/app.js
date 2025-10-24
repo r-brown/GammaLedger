@@ -9,6 +9,7 @@ const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1bet
 const GEMINI_STORAGE_KEY = 'GammaLedgerGeminiConfig';
 const GEMINI_SECRET_STORAGE_KEY = 'GammaLedgerGeminiSecret';
 const DISCLAIMER_STORAGE_KEY = 'GammaLedgerDisclaimerAcceptedAt';
+const AI_COACH_CONSENT_STORAGE_KEY = 'GammaLedgerAICoachConsentAt';
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'GammaLedgerSidebarCollapsed';
 const LOCAL_STORAGE_KEY = 'GammaLedgerLocalDatabase';
 const LEGACY_STORAGE_KEY = 'GammaLedgerTrades';
@@ -1532,6 +1533,19 @@ class GammaLedger {
         };
         this.disclaimerFadeMs = 280;
 
+        this.aiCoachConsent = {
+            element: null,
+            panel: null,
+            agreeButton: null,
+            agreeHandler: null,
+            dismissButtons: [],
+            dismissHandlers: [],
+            escapeHandler: null,
+            restoreFocus: null,
+            pendingAction: null,
+            isVisible: false
+        };
+
         this.finnhub = {
             apiKey: '',
             encryptionKey: null,
@@ -1614,8 +1628,9 @@ class GammaLedger {
         this.initializeAIChat();
         this.initializeFinnhubControls();
         this.initializeDisclaimerBanner();
+        this.initializeAICoachConsent();
         this.initializeSidebarToggle();
-    this.initializeShareCard();
+        this.initializeShareCard();
         this.updateFileNameDisplay();
         this.checkBrowserCompatibility();
 
@@ -4006,6 +4021,10 @@ class GammaLedger {
         const shouldOpen = forceOpen === null ? panel.classList.contains('hidden') : Boolean(forceOpen);
 
         if (shouldOpen) {
+            if (!this.hasAICoachConsent()) {
+                this.promptAICoachConsent(() => this.toggleAIChat(true));
+                return;
+            }
             panel.classList.remove('hidden');
             panel.setAttribute('aria-hidden', 'false');
             toggle.setAttribute('aria-expanded', 'true');
@@ -4033,6 +4052,16 @@ class GammaLedger {
 
         const query = input.value.trim();
         if (!query) {
+            return;
+        }
+
+        if (!this.hasAICoachConsent()) {
+            this.promptAICoachConsent(() => {
+                if (!input.value.trim()) {
+                    input.value = query;
+                }
+                this.handleAIChatSubmit();
+            });
             return;
         }
 
@@ -4066,6 +4095,11 @@ class GammaLedger {
 
     async handleAIQuickPrompt(prompt) {
         if (this.aiChatPendingRequest || !prompt) {
+            return;
+        }
+
+        if (!this.hasAICoachConsent()) {
+            this.promptAICoachConsent(() => this.handleAIQuickPrompt(prompt));
             return;
         }
 
@@ -6219,10 +6253,14 @@ class GammaLedger {
         }
 
         const hasKey = Boolean(this.gemini?.apiKey);
-        if (hasKey) {
-            subtitleEl.textContent = 'Ask about your portfolio for AI-guided insights.';
-        } else {
+        const hasConsent = this.hasAICoachConsent();
+
+        if (!hasKey) {
             subtitleEl.innerHTML = 'Connect your Gemini API key in <a href="#settings" class="ai-chat__settings-link">Settings</a> to get tailored analysis.';
+        } else if (!hasConsent) {
+            subtitleEl.textContent = 'Review and accept the AI Coach data-sharing notice to start asking questions.';
+        } else {
+            subtitleEl.textContent = 'Ask about your portfolio for AI-guided insights.';
         }
     }
 
@@ -6644,6 +6682,203 @@ class GammaLedger {
             localStorage.setItem(DISCLAIMER_STORAGE_KEY, value);
         } catch (error) {
             console.warn('Failed to persist disclaimer acceptance:', error);
+        }
+    }
+
+    initializeAICoachConsent() {
+        const consent = this.aiCoachConsent;
+        const element = document.getElementById('ai-coach-consent');
+        if (!element) {
+            return;
+        }
+
+        consent.element = element;
+        consent.panel = element.querySelector('.ai-consent-modal__panel') || element;
+        const agreeButton = element.querySelector('[data-action="ai-consent-agree"]');
+
+        if (consent.agreeButton && consent.agreeHandler) {
+            consent.agreeButton.removeEventListener('click', consent.agreeHandler);
+        }
+
+        consent.agreeButton = agreeButton;
+        const agreeHandler = () => this.acceptAICoachConsent();
+        consent.agreeHandler = agreeHandler;
+        if (agreeButton) {
+            agreeButton.addEventListener('click', agreeHandler);
+        }
+
+        consent.dismissButtons.forEach((button, index) => {
+            const handler = consent.dismissHandlers[index];
+            if (button && handler) {
+                button.removeEventListener('click', handler);
+            }
+        });
+
+        const dismissButtons = Array.from(element.querySelectorAll('[data-action="ai-consent-dismiss"]'));
+        consent.dismissButtons = dismissButtons;
+        consent.dismissHandlers = dismissButtons.map((button) => {
+            const handler = (event) => {
+                event.preventDefault();
+                this.cancelAICoachConsent();
+            };
+            button.addEventListener('click', handler);
+            return handler;
+        });
+
+        if (consent.escapeHandler) {
+            element.removeEventListener('keydown', consent.escapeHandler);
+        }
+
+        const escapeHandler = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                this.cancelAICoachConsent();
+            }
+        };
+        consent.escapeHandler = escapeHandler;
+        element.addEventListener('keydown', escapeHandler);
+
+        element.setAttribute('aria-hidden', 'true');
+
+        if (!element.classList.contains('is-hidden')) {
+            element.classList.add('is-hidden');
+        }
+
+        this.updateAIChatHeader();
+    }
+
+    showAICoachConsent() {
+        const consent = this.aiCoachConsent;
+        const { element, panel } = consent;
+        if (!element) {
+            return;
+        }
+
+        consent.restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+        element.classList.remove('is-hidden');
+        requestAnimationFrame(() => {
+            element.classList.add('is-visible');
+            element.setAttribute('aria-hidden', 'false');
+            consent.isVisible = true;
+
+            if (panel && typeof panel.focus === 'function') {
+                panel.setAttribute('tabindex', '-1');
+                try {
+                    panel.focus({ preventScroll: true });
+                } catch (_error) {
+                    panel.focus();
+                }
+            }
+        });
+    }
+
+    hideAICoachConsent({ immediate = false } = {}) {
+        const consent = this.aiCoachConsent;
+        const { element } = consent;
+        if (!element) {
+            return;
+        }
+
+        const finalize = () => {
+            element.classList.add('is-hidden');
+            element.setAttribute('aria-hidden', 'true');
+            consent.isVisible = false;
+
+            const target = consent.restoreFocus;
+            consent.restoreFocus = null;
+            if (target && typeof target.focus === 'function') {
+                try {
+                    target.focus({ preventScroll: true });
+                } catch (_error) {
+                    target.focus();
+                }
+            }
+        };
+
+        if (immediate) {
+            element.classList.remove('is-visible');
+            finalize();
+            return;
+        }
+
+        element.classList.remove('is-visible');
+        element.setAttribute('aria-hidden', 'true');
+        consent.isVisible = false;
+
+        setTimeout(() => {
+            if (!element.classList.contains('is-visible')) {
+                finalize();
+            }
+        }, 220);
+    }
+
+    promptAICoachConsent(nextAction = null) {
+        if (!this.aiCoachConsent.element) {
+            this.initializeAICoachConsent();
+        }
+
+        if (this.hasAICoachConsent()) {
+            if (typeof nextAction === 'function') {
+                try {
+                    nextAction();
+                } catch (error) {
+                    console.error('AI Coach consent follow-up failed:', error);
+                }
+            }
+            return true;
+        }
+
+        this.aiCoachConsent.pendingAction = typeof nextAction === 'function' ? nextAction : null;
+        this.showAICoachConsent();
+        return false;
+    }
+
+    acceptAICoachConsent() {
+        this.setAICoachConsent(new Date().toISOString());
+        const followUp = this.aiCoachConsent.pendingAction;
+        this.aiCoachConsent.pendingAction = null;
+        this.hideAICoachConsent();
+        this.updateAIChatHeader();
+
+        if (typeof followUp === 'function') {
+            try {
+                followUp();
+            } catch (error) {
+                console.error('AI Coach consent follow-up failed:', error);
+            }
+        }
+    }
+
+    cancelAICoachConsent() {
+        this.aiCoachConsent.pendingAction = null;
+        this.hideAICoachConsent();
+        this.updateAIChatHeader();
+    }
+
+    hasAICoachConsent() {
+        return Boolean(this.getAICoachConsent());
+    }
+
+    getAICoachConsent() {
+        try {
+            const value = localStorage.getItem(AI_COACH_CONSENT_STORAGE_KEY);
+            return value || null;
+        } catch (error) {
+            console.warn('Failed to read AI Coach consent from storage:', error);
+            return null;
+        }
+    }
+
+    setAICoachConsent(value) {
+        try {
+            if (!value) {
+                localStorage.removeItem(AI_COACH_CONSENT_STORAGE_KEY);
+                return;
+            }
+            localStorage.setItem(AI_COACH_CONSENT_STORAGE_KEY, value);
+        } catch (error) {
+            console.warn('Failed to persist AI Coach consent:', error);
         }
     }
 

@@ -75,6 +75,32 @@
             </div>
         </div>
     </div>
+    <div id="ai-coach-consent" class="ai-consent-modal is-hidden" role="dialog" aria-modal="true"
+        aria-labelledby="ai-consent-title" aria-describedby="ai-consent-description">
+        <div class="ai-consent-modal__overlay" data-action="ai-consent-dismiss"></div>
+        <div class="ai-consent-modal__panel" role="document">
+            <button type="button" class="ai-consent-modal__close" data-action="ai-consent-dismiss"
+                aria-label="Close AI Coach consent dialog">×</button>
+            <div class="ai-consent-modal__header">
+                <h2 id="ai-consent-title" class="ai-consent-modal__title">AI Coach Data Sharing</h2>
+                <p id="ai-consent-description" class="ai-consent-modal__lead">By using this feature, you agree that your
+                    portfolio data — including trade details and summary information — will be securely sent to the AI Agent
+                    for analysis and response generation.</p>
+            </div>
+            <div class="ai-consent-modal__body">
+                <ul class="ai-consent-modal__list">
+                    <li>The AI Coach uses your shared data only to craft responses for this session.</li>
+                    <li>Your API key and portfolio remain saved locally; requests are transmitted securely to your configured
+                        AI endpoint.</li>
+                    <li>You can revoke access any time by clearing the AI key in Settings.</li>
+                </ul>
+            </div>
+            <div class="ai-consent-modal__actions">
+                <button type="button" class="btn btn--secondary" data-action="ai-consent-dismiss">Cancel</button>
+                <button type="button" class="btn btn--primary" data-action="ai-consent-agree">I Understand &amp; Agree</button>
+            </div>
+        </div>
+    </div>
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
