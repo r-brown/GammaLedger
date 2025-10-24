@@ -4457,7 +4457,7 @@ class GammaLedger {
             dashboard: 'Options Trading Dashboard',
             'add-trade': this.currentEditingId ? 'Edit Trade' : 'Add New Trade',
             'trades-list': 'All Trades',
-            import: 'Import Activity',
+            import: 'Import Trades',
             settings: 'Settings'
         };
         const titleText = titles[viewName] || 'GammaLedger';

@@ -25,6 +25,12 @@
   --color-orange-400: rgba(230, 129, 97, 1);
   --color-orange-500: rgba(168, 75, 47, 1);
 
+  /* Brand Colors */
+  --color-brand-purple: #5900c6;
+  --color-brand-purple-hover: #6d1ae0;
+  --color-brand-purple-active: #4a00a5;
+  --color-brand-purple-rgb: 89, 0, 198;
+
   /* RGB versions for opacity control */
   --color-brown-600-rgb: 94, 82, 64;
   --color-teal-500-rgb: 33, 128, 141;
@@ -456,16 +462,24 @@ pre code {
 }
 
 .btn--primary {
-  background: var(--color-primary);
+  background: var(--color-brand-purple);
   color: var(--color-btn-primary-text);
+  box-shadow: 0 8px 18px rgba(var(--color-brand-purple-rgb), 0.18);
 }
 
 .btn--primary:hover {
-  background: var(--color-primary-hover);
+  background: var(--color-brand-purple-hover);
+  box-shadow: 0 10px 22px rgba(var(--color-brand-purple-rgb), 0.24);
 }
 
 .btn--primary:active {
-  background: var(--color-primary-active);
+  background: var(--color-brand-purple-active);
+  box-shadow: 0 6px 16px rgba(var(--color-brand-purple-rgb), 0.22);
+}
+
+.btn--primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-brand-purple-rgb), 0.3);
 }
 
 .btn--secondary {
@@ -861,9 +875,9 @@ select.form-control {
 
 .sidebar-toggle:hover,
 .sidebar-toggle:focus-visible {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background-color: var(--color-secondary);
+  border-color: var(--color-brand-purple);
+  color: var(--color-brand-purple);
+  background-color: rgba(var(--color-brand-purple-rgb), 0.12);
   outline: none;
 }
 
@@ -917,7 +931,7 @@ select.form-control {
   display: flex;
   align-items: center;
   gap: var(--space-12);
-  color: var(--color-text-secondary);
+  color: var(--color-brand-purple);
   text-decoration: none;
   font-size: var(--font-size-base);
   transition: color var(--duration-fast) var(--ease-standard);
@@ -925,7 +939,8 @@ select.form-control {
 
 .sidebar-link:hover,
 .sidebar-link:focus-visible {
-  color: var(--color-primary);
+  color: var(--color-brand-purple);
+  text-decoration: underline;
   outline: none;
 }
 
@@ -949,13 +964,14 @@ select.form-control {
 }
 
 .nav-item:hover {
-  background-color: var(--color-secondary);
+  background-color: rgba(var(--color-brand-purple-rgb), 0.16);
   color: var(--color-text);
 }
 
 .nav-item.active {
-  background-color: var(--color-primary);
+  background-color: var(--color-brand-purple);
   color: var(--color-btn-primary-text);
+  box-shadow: 0 6px 14px rgba(var(--color-brand-purple-rgb), 0.22);
 }
 
 .nav-icon {
@@ -1151,9 +1167,9 @@ select.form-control {
 
 .icon-button:hover,
 .icon-button:focus-visible {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background-color: var(--color-secondary);
+  border-color: var(--color-brand-purple);
+  color: var(--color-brand-purple);
+  background-color: rgba(var(--color-brand-purple-rgb), 0.12);
   outline: none;
 }
 
@@ -2088,7 +2104,7 @@ select.form-control {
 }
 
 .ai-chat__toggle {
-  background-color: var(--color-primary);
+  background-color: var(--color-brand-purple);
   color: var(--color-btn-primary-text);
   border: none;
   border-radius: var(--radius-full);
@@ -2096,7 +2112,7 @@ select.form-control {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  box-shadow: 0 12px 32px rgba(var(--color-teal-500-rgb), 0.22);
+  box-shadow: 0 12px 32px rgba(var(--color-brand-purple-rgb), 0.24);
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
@@ -2105,8 +2121,15 @@ select.form-control {
 }
 
 .ai-chat__toggle:hover {
+  background-color: var(--color-brand-purple-hover);
   transform: translateY(-2px);
-  box-shadow: 0 16px 40px rgba(var(--color-teal-500-rgb), 0.28);
+  box-shadow: 0 16px 40px rgba(var(--color-brand-purple-rgb), 0.3);
+}
+
+.ai-chat__toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 12px 32px rgba(var(--color-brand-purple-rgb), 0.24),
+    0 0 0 3px rgba(var(--color-brand-purple-rgb), 0.3);
 }
 
 .ai-chat__panel {
@@ -2188,7 +2211,7 @@ select.form-control {
 
 .ai-chat__header h3 {
   margin: 0;
-  color: var(--color-primary);
+  color: var(--color-brand-purple);
   font-size: var(--font-size-base);
 }
 
@@ -2199,14 +2222,14 @@ select.form-control {
 }
 
 .ai-chat__settings-link {
-  color: var(--color-primary);
+  color: var(--color-brand-purple);
   font-weight: var(--font-weight-medium);
   text-decoration: underline;
 }
 
 .ai-chat__settings-link:hover,
 .ai-chat__settings-link:focus {
-  color: var(--color-primary-hover);
+  color: var(--color-brand-purple-hover);
 }
 
 .ai-chat__close {
@@ -2294,7 +2317,7 @@ select.form-control {
 }
 
 .ai-chat__bubble a {
-  color: var(--color-primary);
+  color: var(--color-brand-purple);
   text-decoration: underline;
 }
 
@@ -2313,7 +2336,7 @@ select.form-control {
 }
 
 .ai-chat__quote {
-  border-left: 3px solid rgba(var(--color-teal-500-rgb), 0.4);
+  border-left: 3px solid rgba(var(--color-brand-purple-rgb), 0.4);
   margin: 0 0 var(--space-12);
   padding-left: var(--space-12);
   color: var(--color-text-secondary);
@@ -2331,13 +2354,13 @@ select.form-control {
 }
 
 .ai-chat__message--user .ai-chat__bubble {
-  background-color: var(--color-primary);
+  background-color: var(--color-brand-purple);
   color: var(--color-btn-primary-text);
   border-top-right-radius: var(--space-4);
 }
 
 .ai-chat__message--ai .ai-chat__bubble {
-  background-color: rgba(var(--color-teal-500-rgb), 0.08);
+  background-color: rgba(var(--color-brand-purple-rgb), 0.08);
   color: var(--color-text);
   border-top-left-radius: var(--space-4);
 }
@@ -2364,6 +2387,22 @@ select.form-control {
 
 .ai-chat__send {
   white-space: nowrap;
+}
+
+.ai-chat__send.btn--primary {
+  background: var(--color-brand-purple);
+}
+
+.ai-chat__send.btn--primary:hover {
+  background: var(--color-brand-purple-hover);
+}
+
+.ai-chat__send.btn--primary:active {
+  background: var(--color-brand-purple-active);
+}
+
+.ai-chat__send.btn--primary:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--color-brand-purple-rgb), 0.3);
 }
 
 .ai-chat__quick {
@@ -2402,9 +2441,14 @@ select.form-control {
 }
 
 .ai-chat__quick-btn:hover {
-  background-color: rgba(var(--color-teal-500-rgb), 0.12);
-  color: var(--color-primary);
+  background-color: rgba(var(--color-brand-purple-rgb), 0.16);
+  color: var(--color-brand-purple);
   transform: translateY(-1px);
+}
+
+.ai-chat__quick-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--color-brand-purple-rgb), 0.3);
 }
 
 @media (max-width: 768px) {
