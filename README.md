@@ -195,6 +195,17 @@ GammaLedger automatically parses OFX files to extract:
 - **Portfolio Images** - Beautiful charts ready for social media
 
 
+## 📘 Documentation
+
+For comprehensive setup instructions, configuration details, and developer guides, refer to the [GammaLedger Wiki](https://github.com/r-brown/GammaLedger/wiki).
+
+The Wiki covers key areas, including:
+- **Installation & Setup** – step-by-step environment configuration and system requirements
+- **Trade Import Formats** – supported data sources, OFX/JSON structure, and integration workflows
+- **Analytics Features** – portfolio metrics, ROI calculations, and performance visualization tools
+- **Contribution Guidelines** – how to propose features, report issues, or submit pull requests
+
+
 ## ❓ FAQ
 
 ### Is my data safe?
