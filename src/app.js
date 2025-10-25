@@ -20,6 +20,11 @@ const LEGACY_STORAGE_KEYS = [
     'GammaLedgerState'
 ];
 
+const SHARE_CARD_EXPORT_SIZE = 1080;
+const SHARE_CARD_CHART_WIDTH_RATIO = 0.78;
+const SHARE_CARD_CHART_HEIGHT_RATIO = 0.42;
+const SHARE_CARD_CHART_MIN_HEIGHT = 320;
+
 const BUILTIN_SAMPLE_DATA = createBuiltinSampleData();
 
 function createBuiltinSampleData() {
@@ -1604,7 +1609,8 @@ class GammaLedger {
             chartCanvas: null,
             chart: null,
             metrics: {},
-            timestamp: null
+            timestamp: null,
+            exportSize: SHARE_CARD_EXPORT_SIZE
         };
 
         // Current date for calculations (always use actual current date)
@@ -7149,6 +7155,23 @@ class GammaLedger {
             return;
         }
 
+        const exportSize = Number(this.shareCard?.exportSize) || SHARE_CARD_EXPORT_SIZE;
+        const cardWidth = this.shareCard.card?.clientWidth || exportSize;
+        const exportMode = this.shareCard.card?.dataset.exportMode === 'true';
+        const baseSize = exportMode ? exportSize : cardWidth;
+
+        const canvasWidth = Math.round(Math.max(320, baseSize * SHARE_CARD_CHART_WIDTH_RATIO));
+        const canvasHeight = Math.round(Math.max(SHARE_CARD_CHART_MIN_HEIGHT, baseSize * SHARE_CARD_CHART_HEIGHT_RATIO));
+
+        this.shareCard.chartCanvas.width = canvasWidth;
+        this.shareCard.chartCanvas.height = canvasHeight;
+
+        if (exportMode) {
+            this.shareCard.chartCanvas.style.setProperty('min-height', `${canvasHeight}px`);
+        } else {
+            this.shareCard.chartCanvas.style.removeProperty('min-height');
+        }
+
         if (this.shareCard.chart) {
             this.shareCard.chart.destroy();
             this.shareCard.chart = null;
@@ -7159,7 +7182,7 @@ class GammaLedger {
         const labels = hasData ? series.labels : ['No Data'];
         const dataPoints = hasData ? series.dataPoints : [0];
 
-        const gradient = ctx.createLinearGradient(0, 0, 0, this.shareCard.chartCanvas.height || 360);
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
         gradient.addColorStop(0, 'rgba(79, 195, 247, 0.38)');
         gradient.addColorStop(1, 'rgba(79, 195, 247, 0.05)');
 
@@ -7239,10 +7262,25 @@ class GammaLedger {
             return;
         }
 
+        const exportSize = Number(this.shareCard?.exportSize) || SHARE_CARD_EXPORT_SIZE;
+
         const previousDisabled = button.disabled;
         button.disabled = true;
         button.setAttribute('aria-busy', 'true');
-    button.blur();
+        button.blur();
+
+    const previousExportFlag = card.dataset.exportMode;
+        const previousWidth = card.style.width;
+        const previousHeight = card.style.height;
+        const previousMaxWidth = card.style.maxWidth;
+        const previousMaxHeight = card.style.maxHeight;
+
+    // Force the card into a deterministic square frame for export.
+        card.dataset.exportMode = 'true';
+        card.style.width = `${exportSize}px`;
+        card.style.height = `${exportSize}px`;
+        card.style.maxWidth = `${exportSize}px`;
+        card.style.maxHeight = `${exportSize}px`;
 
         this.updateShareCard(this.latestStats);
         root.classList.add('is-active');
@@ -7259,6 +7297,8 @@ class GammaLedger {
         try {
             const scale = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
             canvas = await window.html2canvas(card, {
+                width: exportSize,
+                height: exportSize,
                 scale,
                 useCORS: true,
                 logging: false,
@@ -7274,9 +7314,25 @@ class GammaLedger {
         button.removeAttribute('aria-busy');
         button.disabled = previousDisabled;
 
+        if (previousExportFlag) {
+            card.dataset.exportMode = previousExportFlag;
+        } else {
+            delete card.dataset.exportMode;
+        }
+
+        // Restore the card's natural sizing after capture.
+        card.style.width = previousWidth;
+        card.style.height = previousHeight;
+        card.style.maxWidth = previousMaxWidth;
+        card.style.maxHeight = previousMaxHeight;
+
         if (this.shareCard.chart) {
             this.shareCard.chart.destroy();
             this.shareCard.chart = null;
+        }
+
+        if (this.shareCard.chartCanvas) {
+            this.shareCard.chartCanvas.style.removeProperty('min-height');
         }
 
         if (!canvas) {
