@@ -2054,20 +2054,90 @@ class GammaLedger {
         }
 
         summary.netPremium = netCreditDollars;
+        summary.capitalAtRisk = this.computeMaxRiskUsingFormula({ legs: normalizedLegs }, summary);
 
-        const grossDebitExposure = summary.totalDebit - summary.totalCredit;
-        const capitalCandidate = Math.max(grossDebitExposure, summary.totalDebit, Math.abs(summary.netPremium));
-        summary.capitalAtRisk = Number.isFinite(capitalCandidate) && capitalCandidate > 0 ? capitalCandidate : Math.abs(summary.netPremium);
+        return summary;
+    }
 
-        if (verticalSpreadInfo && Number.isFinite(netCreditDollars) && netCreditDollars >= 0) {
-            const spreadExposure = verticalSpreadInfo.width * verticalSpreadInfo.multiplier * verticalSpreadInfo.contracts;
-            if (Number.isFinite(spreadExposure) && spreadExposure > 0) {
-                const maxLoss = Math.max(spreadExposure - netCreditDollars, 0);
-                summary.capitalAtRisk = maxLoss;
+    computeMaxRiskUsingFormula(trade = {}, summary = null) {
+        const details = summary || this.summarizeLegs(trade?.legs || []);
+        if (!details) {
+            return 0;
+        }
+
+        let strike = Number(trade?.strikePrice);
+        if (!(Number.isFinite(strike) && strike > 0)) {
+            const activeStrike = Number(trade?.activeStrikePrice);
+            if (Number.isFinite(activeStrike) && activeStrike > 0) {
+                strike = activeStrike;
+            }
+        }
+        if (!(Number.isFinite(strike) && strike > 0)) {
+            const primaryStrike = Number(details?.primaryLeg?.strike);
+            if (Number.isFinite(primaryStrike) && primaryStrike > 0) {
+                strike = primaryStrike;
+            } else {
+                const derivedStrike = this.derivePrimaryStrike(details);
+                if (Number.isFinite(derivedStrike) && derivedStrike > 0) {
+                    strike = derivedStrike;
+                }
             }
         }
 
-        return summary;
+        if (!(Number.isFinite(strike) && strike > 0)) {
+            return 0;
+        }
+
+        let contracts = Math.abs(Number(trade?.quantity)) || 0;
+        if (!(contracts > 0)) {
+            const summaryContracts = Number(details?.openBaseContracts);
+            if (Number.isFinite(summaryContracts) && summaryContracts > 0) {
+                contracts = summaryContracts;
+            }
+        }
+        if (!(contracts > 0)) {
+            const primaryQuantity = Number(details?.primaryLeg?.quantity);
+            if (Number.isFinite(primaryQuantity) && primaryQuantity !== 0) {
+                contracts = Math.abs(primaryQuantity);
+            }
+        }
+        if (!(contracts > 0)) {
+            return 0;
+        }
+
+        let multiplier = Math.abs(Number(trade?.multiplier)) || 0;
+        if (!(multiplier > 0)) {
+            if (details?.primaryLeg) {
+                const primaryMultiplier = this.getLegMultiplier(details.primaryLeg);
+                if (Number.isFinite(primaryMultiplier) && primaryMultiplier > 0) {
+                    multiplier = primaryMultiplier;
+                }
+            }
+        }
+        if (!(multiplier > 0) && Array.isArray(details?.legs)) {
+            const legWithMultiplier = details.legs.find((leg) => Number.isFinite(Number(leg?.multiplier)) && Number(leg.multiplier) > 0);
+            if (legWithMultiplier) {
+                multiplier = Math.abs(Number(legWithMultiplier.multiplier));
+            }
+        }
+        if (!(multiplier > 0)) {
+            multiplier = 100;
+        }
+
+        const entryNetCredit = Number(details?.entryNetCredit);
+        const denominator = contracts * multiplier;
+        const premiumPerShare = denominator > 0 && Number.isFinite(entryNetCredit)
+            ? entryNetCredit / denominator
+            : 0;
+
+        const riskPerShare = strike - (Number.isFinite(premiumPerShare) ? premiumPerShare : 0);
+        const maxRisk = Math.max(riskPerShare, 0) * contracts * multiplier;
+
+        if (!Number.isFinite(maxRisk) || maxRisk <= 0) {
+            return 0;
+        }
+
+        return parseFloat(maxRisk.toFixed(2));
     }
 
     formatStrikeValue(value) {
@@ -2204,203 +2274,20 @@ class GammaLedger {
     }
 
     assessRisk(trade, summary) {
+        const details = summary || this.summarizeLegs(trade?.legs || []);
+        const maxRisk = this.computeMaxRiskUsingFormula(trade, details);
+
         const result = {
-            maxRiskValue: Number(summary?.capitalAtRisk) || 0,
+            maxRiskValue: Number.isFinite(maxRisk) && maxRisk > 0 ? maxRisk : 0,
             maxRiskLabel: null,
             unlimited: false
         };
 
-        if (!summary || !Array.isArray(summary.legs) || summary.legs.length === 0) {
-            result.maxRiskLabel = this.formatCurrency(result.maxRiskValue);
-            return result;
-        }
+        details.capitalAtRisk = result.maxRiskValue;
 
-        if (this.isPmccTrade(trade)) {
-            const candidates = [];
-            const openCashFlow = Number(summary.openCashFlow);
-            if (Number.isFinite(openCashFlow)) {
-                candidates.push(Math.max(0, -openCashFlow));
-            }
-
-            const entryNetCredit = Number(summary.entryNetCredit);
-            if (Number.isFinite(entryNetCredit)) {
-                candidates.push(Math.max(0, -entryNetCredit));
-            }
-
-            const openDebit = Number(summary.openDebitGross);
-            const openCredit = Number(summary.openCreditGross);
-            const openFees = Number(summary.openFees);
-            if ([openDebit, openCredit, openFees].some(value => Number.isFinite(value) && value !== 0)) {
-                const grossNetDebit = Math.max(0, (Number.isFinite(openDebit) ? openDebit : 0) + (Number.isFinite(openFees) ? openFees : 0) - (Number.isFinite(openCredit) ? openCredit : 0));
-                candidates.push(grossNetDebit);
-            }
-
-            if (candidates.length > 0) {
-                const maxDebit = Math.max(...candidates);
-                if (Number.isFinite(maxDebit)) {
-                    result.maxRiskValue = maxDebit;
-                    summary.capitalAtRisk = maxDebit;
-                    result.unlimited = false;
-                    result.maxRiskLabel = this.formatCurrency(maxDebit);
-                    if (maxDebit === 0) {
-                        result.maxRiskLabel = '$0.00';
-                    }
-                    return result;
-                }
-            }
-        }
-
-        const spreadMeta = summary.verticalSpread;
-        if (spreadMeta && Number.isFinite(summary.entryNetCredit)) {
-            const contracts = spreadMeta.contracts || 1;
-            const spreadExposure = spreadMeta.width * spreadMeta.multiplier * contracts;
-            if (Number.isFinite(spreadExposure) && spreadExposure > 0) {
-                const netCredit = summary.entryNetCredit;
-                if (netCredit >= 0) {
-                    const maxLoss = Math.max(spreadExposure - netCredit, 0);
-                    result.maxRiskValue = maxLoss;
-                    summary.capitalAtRisk = maxLoss;
-                    result.maxRiskLabel = this.formatCurrency(maxLoss);
-                    if (maxLoss === 0) {
-                        result.maxRiskLabel = '$0.00';
-                    }
-                    return result;
-                }
-
-                if (netCredit < 0) {
-                    const netDebit = Math.abs(netCredit);
-                    const maxLoss = Math.min(netDebit, spreadExposure);
-                    result.maxRiskValue = maxLoss;
-                    summary.capitalAtRisk = maxLoss;
-                    result.maxRiskLabel = this.formatCurrency(maxLoss);
-                    if (maxLoss === 0) {
-                        result.maxRiskLabel = '$0.00';
-                    }
-                    return result;
-                }
-            }
-        }
-
-        const legs = summary.legs;
-        const openLegs = legs.filter(leg => leg.side === 'OPEN');
-        const relevantLegs = openLegs.length ? openLegs : legs;
-
-        const openStockLegs = relevantLegs.filter(leg => leg.type === 'STOCK');
-        const openShortCalls = relevantLegs.filter(leg => leg.type === 'CALL' && leg.action === 'SELL');
-        const hasProtectivePut = relevantLegs.some(leg => leg.type === 'PUT' && leg.action === 'BUY');
-
-        const shareExposure = (leg) => (Number(leg.quantity) || 0) * this.getLegMultiplier(leg);
-
-        let availableStockCover = relevantLegs
-            .filter(leg => leg.type === 'STOCK')
-            .reduce((sum, leg) => {
-                const shares = shareExposure(leg);
-                return sum + (leg.action === 'BUY' ? shares : -shares);
-            }, 0);
-        availableStockCover = Math.max(0, availableStockCover);
-
-        const shortCalls = relevantLegs
-            .filter(leg => leg.type === 'CALL' && leg.action === 'SELL' && Number.isFinite(Number(leg.strike)))
-            .map(leg => ({ strike: Number(leg.strike), shares: shareExposure(leg) }))
-            .sort((a, b) => a.strike - b.strike);
-
-        const longCallsPool = relevantLegs
-            .filter(leg => leg.type === 'CALL' && leg.action === 'BUY' && Number.isFinite(Number(leg.strike)))
-            .map(leg => ({ strike: Number(leg.strike), shares: shareExposure(leg) }))
-            .sort((a, b) => a.strike - b.strike);
-
-        for (const shortCall of shortCalls) {
-            let remainingShares = shortCall.shares;
-
-            if (availableStockCover > 0) {
-                const coveredByStock = Math.min(remainingShares, availableStockCover);
-                remainingShares -= coveredByStock;
-                availableStockCover -= coveredByStock;
-            }
-
-            if (remainingShares > 0) {
-                for (const cover of longCallsPool) {
-                    if (cover.strike >= shortCall.strike && cover.shares > 0) {
-                        const coverAmount = Math.min(cover.shares, remainingShares);
-                        cover.shares -= coverAmount;
-                        remainingShares -= coverAmount;
-                        if (remainingShares === 0) {
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (remainingShares > 0) {
-                result.unlimited = true;
-                result.maxRiskValue = Number.POSITIVE_INFINITY;
-                result.maxRiskLabel = 'Unlimited';
-                summary.capitalAtRisk = result.maxRiskValue;
-                return result;
-            }
-        }
-
-        const shortPutsRaw = relevantLegs
-            .filter(leg => leg.type === 'PUT' && leg.action === 'SELL' && Number.isFinite(Number(leg.strike)))
-            .map(leg => ({ leg, strike: Number(leg.strike), shares: shareExposure(leg) }))
-            .sort((a, b) => b.strike - a.strike);
-
-        const longPutsPool = relevantLegs
-            .filter(leg => leg.type === 'PUT' && leg.action === 'BUY' && Number.isFinite(Number(leg.strike)))
-            .map(leg => ({ strike: Number(leg.strike), shares: shareExposure(leg) }))
-            .sort((a, b) => b.strike - a.strike);
-
-        let assessedPutRisk = 0;
-
-        shortPutsRaw.forEach(shortPut => {
-            const totalShares = shortPut.shares;
-            const netCreditTotal = (shortPut.leg.premium * shortPut.leg.multiplier * shortPut.leg.quantity) - (shortPut.leg.fees || 0);
-            const netCreditPerShare = totalShares > 0 ? netCreditTotal / totalShares : 0;
-
-            let remainingShares = totalShares;
-
-            for (const cover of longPutsPool) {
-                if (cover.strike <= shortPut.strike && cover.shares > 0 && remainingShares > 0) {
-                    const coverShares = Math.min(cover.shares, remainingShares);
-                    cover.shares -= coverShares;
-                    remainingShares -= coverShares;
-
-                    const spreadWidth = shortPut.strike - cover.strike;
-                    const coveredRiskPerShare = Math.max(0, spreadWidth - netCreditPerShare);
-                    assessedPutRisk += coveredRiskPerShare * coverShares;
-                }
-            }
-
-            if (remainingShares > 0) {
-                const uncoveredRiskPerShare = Math.max(0, shortPut.strike - netCreditPerShare);
-                assessedPutRisk += uncoveredRiskPerShare * remainingShares;
-            }
-        });
-
-        if (assessedPutRisk > result.maxRiskValue) {
-            result.maxRiskValue = assessedPutRisk;
-        }
-
-        if (openStockLegs.length > 0 && openShortCalls.length > 0 && !hasProtectivePut) {
-            const netOutlay = ((Number(summary.openDebitGross) || 0) + (Number(summary.openFees) || 0) - (Number(summary.openCreditGross) || 0));
-            if (Number.isFinite(netOutlay)) {
-                const coveredCallRisk = Math.max(0, netOutlay);
-                if (assessedPutRisk > 0) {
-                    result.maxRiskValue = Math.max(result.maxRiskValue, coveredCallRisk);
-                } else {
-                    result.maxRiskValue = coveredCallRisk;
-                }
-            }
-        }
-
-        summary.capitalAtRisk = result.maxRiskValue;
-        result.maxRiskLabel = Number.isFinite(result.maxRiskValue)
+        result.maxRiskLabel = result.maxRiskValue > 0
             ? this.formatCurrency(result.maxRiskValue)
-            : '—';
-
-        if (result.maxRiskValue === 0) {
-            result.maxRiskLabel = '$0.00';
-        }
+            : '$0.00';
 
         return result;
     }
@@ -3064,6 +2951,12 @@ class GammaLedger {
             return overrideValue;
         }
 
+        const summary = this.summarizeLegs(trade.legs || []);
+        const computed = this.computeMaxRiskUsingFormula(trade, summary);
+        if (Number.isFinite(computed) && computed > 0) {
+            return computed;
+        }
+
         const stored = Number(trade.capitalAtRisk);
         if (Number.isFinite(stored) && stored > 0) {
             return stored;
@@ -3074,11 +2967,25 @@ class GammaLedger {
             return legacy;
         }
 
-        const summary = this.summarizeLegs(trade.legs || []);
-        return Number(summary.capitalAtRisk) || 0;
+        return 0;
     }
 
     getCapitalAtRisk(trade) {
+        if (!trade) {
+            return 0;
+        }
+
+        const overrideValue = Number(trade.maxRiskOverride);
+        if (Number.isFinite(overrideValue) && overrideValue > 0) {
+            return overrideValue;
+        }
+
+        const summary = this.summarizeLegs(trade.legs || []);
+        const computed = this.computeMaxRiskUsingFormula(trade, summary);
+        if (Number.isFinite(computed) && computed > 0) {
+            return computed;
+        }
+
         const stored = Number(trade.capitalAtRisk);
         if (Number.isFinite(stored) && stored > 0) {
             return stored;
@@ -3088,7 +2995,8 @@ class GammaLedger {
         if (Number.isFinite(legacy) && legacy > 0) {
             return legacy;
         }
-        return this.calculateMaxRisk(trade);
+
+        return 0;
     }
 
     // VERIFIED: Annualized ROI calculation
