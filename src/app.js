@@ -4712,15 +4712,20 @@ class GammaLedger {
         const losingTrades = closedTrades.filter(trade => trade.pl < 0);
 
         const totalPL = closedTrades.reduce((sum, trade) => sum + trade.pl, 0);
-        const totalInvestment = closedTrades.reduce((sum, trade) => {
+        const totalMaxRisk = closedTrades.reduce((sum, trade) => {
             const capital = this.getCapitalAtRisk(trade);
-            return capital > 0 ? sum + capital : sum;
+            return Number.isFinite(capital) && capital > 0 ? sum + capital : sum;
         }, 0);
         const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length) * 100 : 0;
 
-        const totalWins = winningTrades.reduce((sum, trade) => sum + trade.pl, 0);
-        const totalLosses = Math.abs(losingTrades.reduce((sum, trade) => sum + trade.pl, 0));
-        const profitFactor = totalLosses > 0 ? totalWins / totalLosses : totalWins > 0 ? 999 : 0;
+        const totalWins = winningTrades.reduce((sum, trade) => sum + Math.max(trade.pl, 0), 0);
+        const totalLosses = losingTrades.reduce((sum, trade) => sum + Math.abs(trade.pl), 0);
+        let profitFactor = 0;
+        if (totalLosses > 0) {
+            profitFactor = totalWins / totalLosses;
+        } else if (totalWins > 0) {
+            profitFactor = Number.POSITIVE_INFINITY;
+        }
 
         // Calculate max drawdown
         let maxDrawdown = 0;
@@ -4739,7 +4744,7 @@ class GammaLedger {
             }
         });
 
-        const totalROI = totalInvestment > 0 ? (totalPL / totalInvestment) * 100 : 0;
+    const totalROI = totalMaxRisk > 0 ? (totalPL / totalMaxRisk) * 100 : 0;
         const avgDaysHeld = closedTrades.length > 0 ? closedTrades.reduce((sum, trade) => sum + trade.daysHeld, 0) / closedTrades.length : 0;
         const annualizedROI = avgDaysHeld > 0 ? (Math.pow(1 + totalROI / 100, 365 / avgDaysHeld) - 1) * 100 : 0;
 
@@ -4827,7 +4832,8 @@ class GammaLedger {
             annualizedROI,
             maxDrawdown,
             closedTrades: closedTrades.length,
-            totalInvestment,
+            totalInvestment: totalMaxRisk,
+            totalMaxRisk,
             closedTradesList: closedTrades,
             openTradesList: openTrades,
             totalFees,
@@ -7034,9 +7040,9 @@ class GammaLedger {
         }
         if (metrics.profitFactor) {
             const profitFactor = Number(safeStats.profitFactor);
-            metrics.profitFactor.textContent = !Number.isFinite(profitFactor) || profitFactor >= 999
-                ? '∞'
-                : profitFactor.toFixed(2);
+            metrics.profitFactor.textContent = Number.isFinite(profitFactor)
+                ? profitFactor.toFixed(2)
+                : '∞';
         }
         if (metrics.totalROI) {
             metrics.totalROI.textContent = formatPercent(safeStats.totalROI, 2);
@@ -12495,7 +12501,11 @@ class LocalInsightsAgent {
         }
 
         const winRate = Number.isFinite(stats.winRate) ? `${stats.winRate.toFixed(1)}%` : '—';
-        const profitFactor = Number.isFinite(stats.profitFactor) ? stats.profitFactor.toFixed(2) : '—';
+        const profitFactor = stats.profitFactor === Number.POSITIVE_INFINITY
+            ? '∞'
+            : Number.isFinite(stats.profitFactor)
+                ? stats.profitFactor.toFixed(2)
+                : '—';
         const totalROI = Number.isFinite(stats.totalROI) ? `${stats.totalROI.toFixed(2)}%` : '—';
         return `Closed trades: ${closed}, realised P&L ${this.formatCurrency(stats.totalPL)}, win rate ${winRate}, profit factor ${profitFactor}, total ROI ${totalROI}.`;
     }
@@ -12737,7 +12747,9 @@ class GeminiInsightsAgent {
         const totals = {
             totalPL: this.formatNumber(stats.totalPL, { style: 'currency' }),
             winRate: this.formatNumber(stats.winRate, { style: 'percent' }),
-            profitFactor: this.formatNumber(stats.profitFactor),
+            profitFactor: Number.isFinite(stats.profitFactor)
+                ? this.formatNumber(stats.profitFactor)
+                : (stats.profitFactor === Number.POSITIVE_INFINITY ? '∞' : null),
             totalROI: this.formatNumber(stats.totalROI, { style: 'percent' }),
             annualizedROI: this.formatNumber(stats.annualizedROI, { style: 'percent' }),
             maxDrawdown: this.formatNumber(stats.maxDrawdown, { style: 'percent' }),
