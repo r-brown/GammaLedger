@@ -4689,7 +4689,7 @@ class GammaLedger {
             ? this.formatNumber(profitFactorValue, { decimals: 2, useGrouping: false }).toString()
             : '∞';
         document.getElementById('active-positions').textContent = stats.activePositions;
-        document.getElementById('total-roi').textContent = this.formatNumber(stats.annualizedROI, { style: 'percent' }) ?? '—';
+        document.getElementById('total-roi').textContent = this.formatNumber(stats.totalROI, { style: 'percent' }) ?? '—';
         document.getElementById('max-drawdown').textContent = this.formatNumber(stats.maxDrawdown, { style: 'percent', decimals: 1 }) ?? '—';
 
         // Update tables
