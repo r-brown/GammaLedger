@@ -13231,13 +13231,13 @@ class LocalInsightsAgent {
             return 'No closed trades yet. Once you realize some P&L I\'ll summarize your performance here.';
         }
 
-    const winRate = this.formatPercent(stats.winRate, '—', { decimals: 1 });
+        const winRate = this.formatPercent(stats.winRate, '—', { decimals: 1 });
         const profitFactor = stats.profitFactor === Number.POSITIVE_INFINITY
             ? 'Infinite'
             : Number.isFinite(stats.profitFactor)
                 ? stats.profitFactor.toFixed(2)
                 : '—';
-    const totalROI = this.formatPercent(stats.totalROI, '—');
+        const totalROI = this.formatPercent(stats.totalROI, '—');
         return `Closed trades: ${closed}, realised P&L ${this.formatCurrency(stats.totalPL)}, win rate ${winRate}, profit factor ${profitFactor}, total ROI ${totalROI}.`;
     }
 
@@ -13348,6 +13348,22 @@ class LocalInsightsAgent {
 
     formatCurrency(value, options) {
         return this.app.formatCurrency(value, options);
+    }
+
+    formatPercent(value, fallback = '—', options = {}) {
+        if (this.app && typeof this.app.formatPercent === 'function') {
+            return this.app.formatPercent(value, fallback, options);
+        }
+
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return fallback;
+        }
+
+        const specifiedDecimals = options && Number.isInteger(options.decimals)
+            ? Math.max(0, options.decimals)
+            : 2;
+        return `${numeric.toFixed(specifiedDecimals)}%`;
     }
 }
 
