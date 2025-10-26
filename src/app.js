@@ -26,7 +26,6 @@ const RUNTIME_TRADE_FIELDS = new Set([
     'closeContracts',
     'openLegs',
     'rollLegs',
-    'netPremium',
     'totalFees',
     'totalDebit',
     'totalCredit',
@@ -43,7 +42,6 @@ const RUNTIME_TRADE_FIELDS = new Set([
     'activeStrikePrice',
     'entryPrice',
     'exitPrice',
-    'entryPriceLabel',
     'pmccShortExpiration',
     'longExpirationDate',
     'openedDate',
@@ -1928,7 +1926,6 @@ class GammaLedger {
             totalFees: 0,
             totalDebit: 0,
             totalCredit: 0,
-            netPremium: 0,
             cashFlow: 0,
             openCashFlow: 0,
             closeCashFlow: 0,
@@ -1946,7 +1943,6 @@ class GammaLedger {
             openDebitGross: 0,
             openFees: 0,
             openBaseContracts: 0,
-            entryNetCredit: 0,
             verticalSpread: null,
             nearestShortCallExpiration: null,
             nextShortCallExpiration: null
@@ -2051,10 +2047,7 @@ class GammaLedger {
             summary.primaryLeg = normalizedLegs[0];
         }
 
-        // Calculate net credit/debit for opening legs (including fees)
-        const netCreditDollars = summary.openCreditGross - summary.openDebitGross - summary.openFees;
-        summary.entryNetCredit = netCreditDollars;
-
+        // Aggregate opening-leg cash flows and gross premium components
         // Attempt to detect a vertical spread for precise risk math
         let verticalSpreadInfo = null;
         for (const legsGroup of openOptionGroups.values()) {
@@ -2099,8 +2092,9 @@ class GammaLedger {
         const effectiveContractsForEntry = verticalSpreadInfo?.contracts || summary.openBaseContracts || fallbackContracts;
         const contractsForExit = summary.closeContracts || 0;
 
-        if (Number.isFinite(netCreditDollars) && effectiveContractsForEntry > 0 && primaryMultiplier > 0) {
-            summary.entryPrice = Math.abs(netCreditDollars) / (effectiveContractsForEntry * primaryMultiplier);
+        const openEntryCash = Number(summary.openCashFlow);
+        if (Number.isFinite(openEntryCash) && effectiveContractsForEntry > 0 && primaryMultiplier > 0) {
+            summary.entryPrice = Math.abs(openEntryCash) / (effectiveContractsForEntry * primaryMultiplier);
         } else if (fallbackContracts > 0 && primaryMultiplier > 0) {
             summary.entryPrice = Math.abs(summary.openCashFlow) / (fallbackContracts * primaryMultiplier);
         }
@@ -2109,7 +2103,6 @@ class GammaLedger {
             summary.exitPrice = Math.abs(summary.closeCashFlow) / (contractsForExit * primaryMultiplier);
         }
 
-        summary.netPremium = netCreditDollars;
         summary.capitalAtRisk = this.computeMaxRiskUsingFormula({ legs: normalizedLegs }, summary);
 
         return summary;
@@ -2179,7 +2172,6 @@ class GammaLedger {
             return null;
         }
 
-        const entryNetCreditDollars = Number(summary?.entryNetCredit);
         const creditDollars = Number(summary?.openCreditGross) || 0;
         const debitDollars = Number(summary?.openDebitGross) || 0;
         const feesDollars = Number(summary?.openFees) || 0;
@@ -2189,9 +2181,6 @@ class GammaLedger {
         const netPremiumPerShare = premiumReceivedPerShare - premiumPaidPerShare;
         const netCreditPerShare = Math.max(netPremiumPerShare, 0);
         const netDebitPerShare = Math.max(-netPremiumPerShare, 0);
-        const entryNetPremiumPerShare = contractValue > 0 && Number.isFinite(entryNetCreditDollars)
-            ? entryNetCreditDollars / contractValue
-            : 0;
         const totalFeesPerShare = contractValue > 0 ? feesDollars / contractValue : 0;
 
         const openLegs = Array.isArray(summary?.legs)
@@ -2311,8 +2300,6 @@ class GammaLedger {
             contracts,
             multiplier,
             contractValue,
-            entryNetCreditDollars,
-            entryNetPremiumPerShare,
             netPremium: netPremiumPerShare,
             netCredit: netCreditPerShare,
             netDebit: netDebitPerShare,
@@ -2353,23 +2340,13 @@ class GammaLedger {
             return 0;
         }
 
-        const strike = Number(context.referenceStrike);
-        if (!Number.isFinite(strike) || strike <= 0) {
-            return 0;
+        const netDebitPerShare = Number(context.netDebit);
+        if (Number.isFinite(netDebitPerShare) && netDebitPerShare > 0) {
+            const value = context.toNotional(netDebitPerShare);
+            return Number.isFinite(value) ? value : 0;
         }
 
-        const premiumPerShare = Number(context.entryNetPremiumPerShare);
-        if (!Number.isFinite(premiumPerShare)) {
-            return 0;
-        }
-
-        const riskPerShare = strike - premiumPerShare;
-        if (!Number.isFinite(riskPerShare)) {
-            return 0;
-        }
-
-        const value = Math.max(riskPerShare, 0) * context.contractValue;
-        return Number.isFinite(value) ? value : 0;
+        return 0;
     }
 
     getStrategyRiskHandlers() {
@@ -2742,25 +2719,6 @@ class GammaLedger {
         }
 
         return '—';
-    }
-
-    buildEntryPriceDisplay(trade, summary = null) {
-        const entryPrice = Number(trade?.entryPrice);
-        if (!Number.isFinite(entryPrice)) {
-            return '—';
-        }
-
-        const legSummary = summary || this.summarizeLegs(trade?.legs || []);
-        const openCashFlow = Number(legSummary?.openCashFlow) || 0;
-    const formatted = this.formatCurrency(Math.abs(entryPrice));
-
-        if (openCashFlow > 0.0001) {
-            return `Cr ${formatted}`;
-        }
-        if (openCashFlow < -0.0001) {
-            return `Db ${formatted}`;
-        }
-        return formatted;
     }
 
     assessRisk(trade, summary) {
@@ -3758,7 +3716,6 @@ class GammaLedger {
         enriched.closeContracts = legSummary.closeContracts;
         enriched.openLegs = Math.max(0, legSummary.openLegs - legSummary.closeLegs);
         enriched.rollLegs = legSummary.rollLegs;
-        enriched.netPremium = Number(legSummary.netPremium.toFixed(2));
         enriched.totalFees = Number(legSummary.totalFees.toFixed(4));
         enriched.totalDebit = Number(legSummary.totalDebit.toFixed(2));
         enriched.totalCredit = Number(legSummary.totalCredit.toFixed(2));
@@ -3794,7 +3751,6 @@ class GammaLedger {
         const exitPrice = legSummary.exitPrice;
         enriched.entryPrice = Number.isFinite(entryPrice) ? Number(entryPrice.toFixed(4)) : null;
         enriched.exitPrice = Number.isFinite(exitPrice) ? Number(exitPrice.toFixed(4)) : null;
-        enriched.entryPriceLabel = this.buildEntryPriceDisplay(enriched, legSummary);
 
         const riskInfo = this.assessRisk(enriched, legSummary);
         if (enriched.maxRiskOverride) {
@@ -9128,7 +9084,7 @@ class GammaLedger {
         };
 
         const columnLabels = [
-            '', 'Ticker', 'Strategy', 'Strike', 'Qty', 'Net Credit/Debit', 'Entry Date', 'Expiration Date',
+            '', 'Ticker', 'Strategy', 'Strike', 'Qty', 'Entry Date', 'Expiration Date',
             'DTE', 'Exit Date', 'Days Held', 'Max Risk', 'P&L', 'ROI', 'Annual ROI', 'Status', 'Actions'
         ];
 
@@ -9188,17 +9144,6 @@ class GammaLedger {
             const quantityCell = row.insertCell();
             const quantityValue = safeNumber(trade.quantity);
             quantityCell.textContent = quantityValue !== null ? Math.abs(quantityValue) : '—';
-
-            const entryCell = row.insertCell();
-            const entryLabel = trade.entryPriceLabel || null;
-            const entryPrice = safeNumber(trade.entryPrice);
-            if (entryLabel && entryLabel !== '—') {
-                entryCell.textContent = entryLabel;
-            } else if (entryPrice !== null) {
-                entryCell.textContent = `$${entryPrice.toFixed(2)}`;
-            } else {
-                entryCell.textContent = '—';
-            }
 
             const entryDateCell = row.insertCell();
             entryDateCell.textContent = this.formatDate(trade.entryDate);
@@ -10507,7 +10452,7 @@ class GammaLedger {
 
     exportToCSV() {
         const headers = [
-            'Ticker', 'Strategy', 'Trade Type', 'Strike', 'Defined Risk Width', 'Qty', 'Net Credit/Debit', 'Exit Price', 'DTE', 'Days Held',
+            'Ticker', 'Strategy', 'Trade Type', 'Strike', 'Defined Risk Width', 'Qty', 'Exit Price', 'DTE', 'Days Held',
             'Entry Date', 'Expiration Date', 'Exit Date', 'Max Risk', 'P&L', 'ROI %', 'Annual ROI %', 'Status',
             'Stock Price at Entry', 'Fees', 'Max Risk Override', 'IV Rank', 'Notes', 'Exit Reason', 'Cycle ID', 'Cycle Type', 'Cycle Role'
         ];
@@ -10575,7 +10520,6 @@ class GammaLedger {
                 formatOptionalCurrency(trade.strikePrice),
                 formatOptionalCurrency(trade.definedRiskWidth),
                 formatOptionalNumber(Math.abs(trade.quantity), 0),
-                formatOptionalCurrency(trade.entryPrice),
                 formatOptionalCurrency(trade.exitPrice),
                 formatOptionalNumber(trade.dte, 0),
                 formatOptionalNumber(trade.daysHeld, 0),
