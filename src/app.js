@@ -44,11 +44,8 @@ const RUNTIME_TRADE_FIELDS = new Set([
     'exitPrice',
     'pmccShortExpiration',
     'longExpirationDate',
-    'openedDate',
-    'closedDate',
     'entryDate',
     'exitDate',
-    'expirationDate',
     'pl',
     'roi',
     'maxRisk',
@@ -59,7 +56,6 @@ const RUNTIME_TRADE_FIELDS = new Set([
     'partialClose',
     'rolledForward',
     'autoExpired',
-    'status',
     'daysHeld',
     'dte',
     'annualizedROI',
@@ -79,11 +75,10 @@ const SHARE_CARD_CHART_WIDTH_RATIO = 0.78;
 const SHARE_CARD_CHART_HEIGHT_RATIO = 0.42;
 const SHARE_CARD_CHART_MIN_HEIGHT = 320;
 
-const BUILTIN_SAMPLE_DATA = createBuiltinSampleData();
+const BUILTIN_SAMPLE_DATA = (() => {
+    const reference = new Date();
+    reference.setUTCHours(0, 0, 0, 0);
 
-function createBuiltinSampleData() {
-    const now = new Date();
-    const reference = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const toIso = (date) => date.toISOString().slice(0, 10);
     const offset = (days) => {
         const date = new Date(reference);
@@ -97,11 +92,11 @@ function createBuiltinSampleData() {
             ticker: 'SPY',
             strategy: 'Iron Condor',
             status: 'Closed',
-            openedDate: offset(-210),
-            closedDate: offset(-182),
-            expirationDate: offset(-174),
+            openedDate: offset(-60),
+            closedDate: offset(-32),
+            expirationDate: offset(-28),
             exitReason: 'Closed early for 70% max profit.',
-            notes: 'Monthly condor sized at 3% of capital with 12 delta wings.',
+            notes: 'Monthly condor sized at 3% of capital with 12-delta wings.',
             legs: [
                 {
                     id: 'TRD-2001-L1',
@@ -110,8 +105,8 @@ function createBuiltinSampleData() {
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-210),
-                    expirationDate: offset(-174),
+                    executionDate: offset(-60),
+                    expirationDate: offset(-28),
                     strike: 455,
                     premium: 1.2,
                     fees: 0.35,
@@ -124,8 +119,8 @@ function createBuiltinSampleData() {
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-210),
-                    expirationDate: offset(-174),
+                    executionDate: offset(-60),
+                    expirationDate: offset(-28),
                     strike: 460,
                     premium: 0.45,
                     fees: 0.2
@@ -137,8 +132,8 @@ function createBuiltinSampleData() {
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-210),
-                    expirationDate: offset(-174),
+                    executionDate: offset(-60),
+                    expirationDate: offset(-28),
                     strike: 430,
                     premium: 1.35,
                     fees: 0.35
@@ -150,8 +145,8 @@ function createBuiltinSampleData() {
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-210),
-                    expirationDate: offset(-174),
+                    executionDate: offset(-60),
+                    expirationDate: offset(-28),
                     strike: 425,
                     premium: 0.5,
                     fees: 0.2
@@ -163,8 +158,8 @@ function createBuiltinSampleData() {
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-182),
-                    expirationDate: offset(-174),
+                    executionDate: offset(-32),
+                    expirationDate: offset(-28),
                     strike: 455,
                     premium: 0.35,
                     fees: 0.35
@@ -176,8 +171,8 @@ function createBuiltinSampleData() {
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-182),
-                    expirationDate: offset(-174),
+                    executionDate: offset(-32),
+                    expirationDate: offset(-28),
                     strike: 460,
                     premium: 0.15,
                     fees: 0.2
@@ -189,8 +184,8 @@ function createBuiltinSampleData() {
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-182),
-                    expirationDate: offset(-174),
+                    executionDate: offset(-32),
+                    expirationDate: offset(-28),
                     strike: 430,
                     premium: 0.45,
                     fees: 0.35
@@ -202,8 +197,8 @@ function createBuiltinSampleData() {
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-182),
-                    expirationDate: offset(-174),
+                    executionDate: offset(-32),
+                    expirationDate: offset(-28),
                     strike: 425,
                     premium: 0.18,
                     fees: 0.2
@@ -212,14 +207,14 @@ function createBuiltinSampleData() {
         },
         {
             id: 'TRD-2002',
-            ticker: 'QQQ',
-            strategy: 'Bull Put Spread',
-            status: 'Closed',
-            openedDate: offset(-195),
-            closedDate: offset(-168),
-            expirationDate: offset(-160),
-            exitReason: 'Profit target hit at 65% of credit.',
-            notes: 'Put spread aligned with rising 50-day moving average.',
+            ticker: 'F',
+            strategy: 'Wheel',
+            status: 'Open',
+            openedDate: offset(-45),
+            closedDate: '',
+            expirationDate: offset(21),
+            exitReason: '',
+            notes: 'Experimenting with the wheel using 100 shares of Ford.',
             legs: [
                 {
                     id: 'TRD-2002-L1',
@@ -228,1326 +223,37 @@ function createBuiltinSampleData() {
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-195),
-                    expirationDate: offset(-160),
-                    strike: 290,
-                    premium: 2.05,
-                    fees: 0.3,
-                    underlyingPrice: 302.4
+                    executionDate: offset(-45),
+                    expirationDate: offset(-21),
+                    strike: 12,
+                    premium: 0.55,
+                    fees: 0.15
                 },
                 {
                     id: 'TRD-2002-L2',
                     action: 'BUY',
-                    side: 'OPEN',
+                    side: 'CLOSE',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-195),
-                    expirationDate: offset(-160),
-                    strike: 280,
-                    premium: 0.9,
-                    fees: 0.2
+                    executionDate: offset(-21),
+                    expirationDate: offset(-21),
+                    strike: 12,
+                    premium: 0.05,
+                    fees: 0.15
                 },
                 {
                     id: 'TRD-2002-L3',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-168),
-                    expirationDate: offset(-160),
-                    strike: 290,
-                    premium: 0.75,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2002-L4',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-168),
-                    expirationDate: offset(-160),
-                    strike: 280,
-                    premium: 0.38,
-                    fees: 0.2
-                }
-            ]
-        },
-        {
-            id: 'TRD-2003',
-            ticker: 'IWM',
-            strategy: 'Calendar Spread',
-            status: 'Closed',
-            openedDate: offset(-180),
-            closedDate: offset(-152),
-            expirationDate: offset(-150),
-            exitReason: 'Closed before near-term expiration to avoid pin risk.',
-            notes: 'Theta harvest with seasonal small-cap rally expectations.',
-            legs: [
-                {
-                    id: 'TRD-2003-L1',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-180),
-                    expirationDate: offset(-90),
-                    strike: 205,
-                    premium: 8.9,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2003-L2',
                     action: 'SELL',
                     side: 'OPEN',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
-                    executionDate: offset(-180),
-                    expirationDate: offset(-150),
-                    strike: 205,
-                    premium: 4.1,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2003-L3',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-152),
-                    expirationDate: offset(-150),
-                    strike: 205,
-                    premium: 1.25,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2003-L4',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-152),
-                    expirationDate: offset(-90),
-                    strike: 205,
-                    premium: 10.3,
-                    fees: 0.45
-                }
-            ]
-        },
-        {
-            id: 'TRD-2004',
-            ticker: 'AAPL',
-            strategy: 'Covered Call',
-            status: 'Closed',
-            openedDate: offset(-165),
-            closedDate: offset(-135),
-            expirationDate: offset(-128),
-            exitReason: 'Shares called away at target strike.',
-            notes: 'Income overlay on core share position with rolling plan at 21 DTE.',
-            legs: [
-                {
-                    id: 'TRD-2004-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-165),
-                    expirationDate: offset(-128),
-                    strike: 190,
-                    premium: 2.4,
-                    fees: 0.35,
-                    underlyingPrice: 184.2
-                },
-                {
-                    id: 'TRD-2004-L2',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-135),
-                    expirationDate: offset(-128),
-                    strike: 190,
-                    premium: 0.58,
-                    fees: 0.35
-                }
-            ]
-        },
-        {
-            id: 'TRD-2005',
-            ticker: 'TSLA',
-            strategy: 'Short Strangle',
-            status: 'Closed',
-            openedDate: offset(-150),
-            closedDate: offset(-120),
-            expirationDate: offset(-112),
-            exitReason: 'Closed for risk management after breakout.',
-            notes: 'Accepted a small loss after upside breach; drawdown contained to <1R.',
-            legs: [
-                {
-                    id: 'TRD-2005-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-150),
-                    expirationDate: offset(-112),
-                    strike: 320,
-                    premium: 3.9,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2005-L2',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-150),
-                    expirationDate: offset(-112),
-                    strike: 260,
-                    premium: 3.6,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2005-L3',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-120),
-                    expirationDate: offset(-112),
-                    strike: 320,
-                    premium: 6.2,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2005-L4',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-120),
-                    expirationDate: offset(-112),
-                    strike: 260,
-                    premium: 1.4,
-                    fees: 0.45
-                }
-            ]
-        },
-        {
-            id: 'TRD-2006',
-            ticker: 'MSFT',
-            strategy: 'Diagonal Call Spread',
-            status: 'Closed',
-            openedDate: offset(-135),
-            closedDate: offset(-108),
-            expirationDate: offset(-100),
-            exitReason: 'Delta target reached ahead of earnings.',
-            notes: 'Diagonalized to express bullish momentum while capping risk.',
-            legs: [
-                {
-                    id: 'TRD-2006-L1',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-135),
-                    expirationDate: offset(-30),
-                    strike: 320,
-                    premium: 23.5,
-                    fees: 0.6
-                },
-                {
-                    id: 'TRD-2006-L2',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-135),
-                    expirationDate: offset(-100),
-                    strike: 340,
-                    premium: 5.1,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2006-L3',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-108),
-                    expirationDate: offset(-100),
-                    strike: 340,
-                    premium: 1.65,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2006-L4',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-108),
-                    expirationDate: offset(-30),
-                    strike: 320,
-                    premium: 27.8,
-                    fees: 0.6
-                }
-            ]
-        },
-        {
-            id: 'TRD-2007',
-            ticker: 'AMZN',
-            strategy: 'Iron Condor',
-            status: 'Closed',
-            openedDate: offset(-120),
-            closedDate: offset(-92),
-            expirationDate: offset(-84),
-            exitReason: 'Closed for 75% of credit heading into earnings.',
-            notes: 'Condor sized at 2% of portfolio; trimmed risk into catalyst.',
-            legs: [
-                {
-                    id: 'TRD-2007-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-120),
-                    expirationDate: offset(-84),
-                    strike: 150,
-                    premium: 1.65,
-                    fees: 0.32
-                },
-                {
-                    id: 'TRD-2007-L2',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-120),
-                    expirationDate: offset(-84),
-                    strike: 155,
-                    premium: 0.62,
-                    fees: 0.22
-                },
-                {
-                    id: 'TRD-2007-L3',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-120),
-                    expirationDate: offset(-84),
-                    strike: 130,
-                    premium: 1.72,
-                    fees: 0.32
-                },
-                {
-                    id: 'TRD-2007-L4',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-120),
-                    expirationDate: offset(-84),
-                    strike: 125,
-                    premium: 0.58,
-                    fees: 0.22
-                },
-                {
-                    id: 'TRD-2007-L5',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-92),
-                    expirationDate: offset(-84),
-                    strike: 150,
-                    premium: 0.48,
-                    fees: 0.32
-                },
-                {
-                    id: 'TRD-2007-L6',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-92),
-                    expirationDate: offset(-84),
-                    strike: 155,
-                    premium: 0.22,
-                    fees: 0.22
-                },
-                {
-                    id: 'TRD-2007-L7',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-92),
-                    expirationDate: offset(-84),
-                    strike: 130,
-                    premium: 0.62,
-                    fees: 0.32
-                },
-                {
-                    id: 'TRD-2007-L8',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-92),
-                    expirationDate: offset(-84),
-                    strike: 125,
-                    premium: 0.26,
-                    fees: 0.22
-                }
-            ]
-        },
-        {
-            id: 'TRD-2008',
-            ticker: 'XOP',
-            strategy: 'Bear Call Spread',
-            status: 'Closed',
-            openedDate: offset(-105),
-            closedDate: offset(-78),
-            expirationDate: offset(-70),
-            exitReason: 'Trend broke lower, captured 80% of credit.',
-            notes: 'Energy ETF roll-down after OPEC meeting volatility.',
-            legs: [
-                {
-                    id: 'TRD-2008-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-105),
-                    expirationDate: offset(-70),
-                    strike: 155,
-                    premium: 1.95,
-                    fees: 0.28
-                },
-                {
-                    id: 'TRD-2008-L2',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-105),
-                    expirationDate: offset(-70),
-                    strike: 160,
-                    premium: 0.75,
-                    fees: 0.2
-                },
-                {
-                    id: 'TRD-2008-L3',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-78),
-                    expirationDate: offset(-70),
-                    strike: 155,
-                    premium: 0.48,
-                    fees: 0.28
-                },
-                {
-                    id: 'TRD-2008-L4',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-78),
-                    expirationDate: offset(-70),
-                    strike: 160,
-                    premium: 0.18,
-                    fees: 0.2
-                }
-            ]
-        },
-        {
-            id: 'TRD-2009',
-            ticker: 'RUT',
-            strategy: 'Iron Butterfly',
-            status: 'Closed',
-            openedDate: offset(-90),
-            closedDate: offset(-61),
-            expirationDate: offset(-56),
-            exitReason: 'Took profit at 65% after mean reversion.',
-            notes: 'Focused on slow grind environment with flattening skew.',
-            legs: [
-                {
-                    id: 'TRD-2009-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-90),
-                    expirationDate: offset(-56),
-                    strike: 2050,
-                    premium: 5.6,
-                    fees: 0.5
-                },
-                {
-                    id: 'TRD-2009-L2',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-90),
-                    expirationDate: offset(-56),
-                    strike: 1950,
-                    premium: 6.2,
-                    fees: 0.5
-                },
-                {
-                    id: 'TRD-2009-L3',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-90),
-                    expirationDate: offset(-56),
-                    strike: 2075,
-                    premium: 2.4,
-                    fees: 0.4
-                },
-                {
-                    id: 'TRD-2009-L4',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-90),
-                    expirationDate: offset(-56),
-                    strike: 1925,
-                    premium: 2.6,
-                    fees: 0.4
-                },
-                {
-                    id: 'TRD-2009-L5',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-61),
-                    expirationDate: offset(-56),
-                    strike: 2050,
-                    premium: 1.85,
-                    fees: 0.5
-                },
-                {
-                    id: 'TRD-2009-L6',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-61),
-                    expirationDate: offset(-56),
-                    strike: 1950,
-                    premium: 2.05,
-                    fees: 0.5
-                },
-                {
-                    id: 'TRD-2009-L7',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-61),
-                    expirationDate: offset(-56),
-                    strike: 2075,
-                    premium: 0.92,
-                    fees: 0.4
-                },
-                {
-                    id: 'TRD-2009-L8',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-61),
-                    expirationDate: offset(-56),
-                    strike: 1925,
-                    premium: 1.08,
-                    fees: 0.4
-                }
-            ]
-        },
-        {
-            id: 'TRD-2010',
-            ticker: 'GLD',
-            strategy: 'Long Straddle',
-            status: 'Closed',
-            openedDate: offset(-75),
-            closedDate: offset(-48),
-            expirationDate: offset(-40),
-            exitReason: 'Exited on breakout momentum.',
-            notes: 'Volatility expansion play into CPI release.',
-            legs: [
-                {
-                    id: 'TRD-2010-L1',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-75),
-                    expirationDate: offset(-40),
-                    strike: 190,
-                    premium: 3.05,
-                    fees: 0.35
-                },
-                {
-                    id: 'TRD-2010-L2',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-75),
-                    expirationDate: offset(-40),
-                    strike: 190,
-                    premium: 2.85,
-                    fees: 0.35
-                },
-                {
-                    id: 'TRD-2010-L3',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-48),
-                    expirationDate: offset(-40),
-                    strike: 190,
-                    premium: 5.1,
-                    fees: 0.35
-                },
-                {
-                    id: 'TRD-2010-L4',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-48),
-                    expirationDate: offset(-40),
-                    strike: 190,
-                    premium: 3.95,
-                    fees: 0.35
-                }
-            ]
-        },
-        {
-            id: 'TRD-2011',
-            ticker: 'NVDA',
-            strategy: 'Poor Man\'s Covered Call',
-            status: 'Closed',
-            openedDate: offset(-60),
-            closedDate: offset(-32),
-            expirationDate: offset(320),
-            exitReason: 'Rolled to capture additional upside after runaway rally.',
-            notes: 'Diagonal structure managed by delta and theta thresholds.',
-            legs: [
-                {
-                    id: 'TRD-2011-L1',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-60),
-                    expirationDate: offset(320),
-                    strike: 900,
-                    premium: 78.5,
-                    fees: 0.75
-                },
-                {
-                    id: 'TRD-2011-L2',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-60),
-                    expirationDate: offset(-20),
-                    strike: 1150,
-                    premium: 14.2,
-                    fees: 0.35
-                },
-                {
-                    id: 'TRD-2011-L3',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-32),
-                    expirationDate: offset(-20),
-                    strike: 1150,
-                    premium: 4.1,
-                    fees: 0.35
-                },
-                {
-                    id: 'TRD-2011-L4',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-32),
-                    expirationDate: offset(320),
-                    strike: 900,
-                    premium: 82.9,
-                    fees: 0.75
-                }
-            ]
-        },
-        {
-            id: 'TRD-2012',
-            ticker: 'AMD',
-            strategy: 'Iron Condor',
-            status: 'Closed',
-            openedDate: offset(-48),
-            closedDate: offset(-24),
-            expirationDate: offset(-18),
-            exitReason: 'Hit trailing stop after volatility compression.',
-            notes: 'Short premium targeting 21 DTE roll cadence.',
-            legs: [
-                {
-                    id: 'TRD-2012-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-48),
-                    expirationDate: offset(-18),
-                    strike: 150,
-                    premium: 2.15,
-                    fees: 0.32
-                },
-                {
-                    id: 'TRD-2012-L2',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-48),
-                    expirationDate: offset(-18),
-                    strike: 155,
-                    premium: 0.78,
-                    fees: 0.22
-                },
-                {
-                    id: 'TRD-2012-L3',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-48),
-                    expirationDate: offset(-18),
-                    strike: 130,
-                    premium: 1.98,
-                    fees: 0.32
-                },
-                {
-                    id: 'TRD-2012-L4',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-48),
-                    expirationDate: offset(-18),
-                    strike: 125,
-                    premium: 0.68,
-                    fees: 0.22
-                },
-                {
-                    id: 'TRD-2012-L5',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-24),
-                    expirationDate: offset(-18),
-                    strike: 150,
-                    premium: 0.68,
-                    fees: 0.32
-                },
-                {
-                    id: 'TRD-2012-L6',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-24),
-                    expirationDate: offset(-18),
-                    strike: 155,
-                    premium: 0.28,
-                    fees: 0.22
-                },
-                {
-                    id: 'TRD-2012-L7',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-24),
-                    expirationDate: offset(-18),
-                    strike: 130,
-                    premium: 0.75,
-                    fees: 0.32
-                },
-                {
-                    id: 'TRD-2012-L8',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-24),
-                    expirationDate: offset(-18),
-                    strike: 125,
-                    premium: 0.26,
-                    fees: 0.22
-                }
-            ]
-        },
-        {
-            id: 'TRD-2013',
-            ticker: 'META',
-            strategy: 'Broken Wing Butterfly',
-            status: 'Closed',
-            openedDate: offset(-36),
-            closedDate: offset(-16),
-            expirationDate: offset(-12),
-            exitReason: 'Closed near pinned short strike for planned profit.',
-            notes: 'Risk-defined structure into product launch event.',
-            legs: [
-                {
-                    id: 'TRD-2013-L1',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-36),
-                    expirationDate: offset(-12),
-                    strike: 500,
-                    premium: 4.1,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2013-L2',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 2,
-                    multiplier: 100,
-                    executionDate: offset(-36),
-                    expirationDate: offset(-12),
-                    strike: 520,
-                    premium: 3.25,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2013-L3',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-36),
-                    expirationDate: offset(-12),
-                    strike: 545,
-                    premium: 1.35,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2013-L4',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-16),
-                    expirationDate: offset(-12),
-                    strike: 520,
-                    premium: 2.15,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2013-L5',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-16),
-                    expirationDate: offset(-12),
-                    strike: 520,
-                    premium: 2.1,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2013-L6',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-16),
-                    expirationDate: offset(-12),
-                    strike: 500,
-                    premium: 3.85,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2013-L7',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-16),
-                    expirationDate: offset(-12),
-                    strike: 545,
-                    premium: 0.65,
-                    fees: 0.3
-                }
-            ]
-        },
-        {
-            id: 'TRD-2014',
-            ticker: 'SPX',
-            strategy: 'Iron Condor',
-            status: 'Closed',
-            openedDate: offset(-24),
-            closedDate: offset(-8),
-            expirationDate: offset(-4),
-            exitReason: 'Closed at 60% profit to avoid NFP volatility.',
-            notes: 'Wide wings with automated scaling rules.',
-            legs: [
-                {
-                    id: 'TRD-2014-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-24),
-                    expirationDate: offset(-4),
-                    strike: 5650,
-                    premium: 2.6,
-                    fees: 0.55
-                },
-                {
-                    id: 'TRD-2014-L2',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-24),
-                    expirationDate: offset(-4),
-                    strike: 5750,
-                    premium: 1.1,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2014-L3',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-24),
-                    expirationDate: offset(-4),
-                    strike: 5300,
-                    premium: 3.1,
-                    fees: 0.55
-                },
-                {
-                    id: 'TRD-2014-L4',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-24),
-                    expirationDate: offset(-4),
-                    strike: 5200,
-                    premium: 1.25,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2014-L5',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-8),
-                    expirationDate: offset(-4),
-                    strike: 5650,
-                    premium: 1.02,
-                    fees: 0.55
-                },
-                {
-                    id: 'TRD-2014-L6',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-8),
-                    expirationDate: offset(-4),
-                    strike: 5750,
-                    premium: 0.44,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2014-L7',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-8),
-                    expirationDate: offset(-4),
-                    strike: 5300,
-                    premium: 1.18,
-                    fees: 0.55
-                },
-                {
-                    id: 'TRD-2014-L8',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-8),
-                    expirationDate: offset(-4),
-                    strike: 5200,
+                    executionDate: offset(-14),
+                    expirationDate: offset(21),
+                    strike: 13.5,
                     premium: 0.42,
-                    fees: 0.45
-                }
-            ]
-        },
-        {
-            id: 'TRD-2015',
-            ticker: 'CRM',
-            strategy: 'Calendar Spread',
-            status: 'Closed',
-            openedDate: offset(-18),
-            closedDate: offset(-6),
-            expirationDate: offset(-4),
-            exitReason: 'Closed at 80% of planned target.',
-            notes: 'Focused on repeatable monthly ROI with low drawdown.',
-            legs: [
-                {
-                    id: 'TRD-2015-L1',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-18),
-                    expirationDate: offset(180),
-                    strike: 280,
-                    premium: 12.4,
-                    fees: 0.45
-                },
-                {
-                    id: 'TRD-2015-L2',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-18),
-                    expirationDate: offset(-4),
-                    strike: 280,
-                    premium: 4.65,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2015-L3',
-                    action: 'BUY',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-6),
-                    expirationDate: offset(-4),
-                    strike: 280,
-                    premium: 1.95,
-                    fees: 0.3
-                },
-                {
-                    id: 'TRD-2015-L4',
-                    action: 'SELL',
-                    side: 'CLOSE',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-6),
-                    expirationDate: offset(180),
-                    strike: 280,
-                    premium: 14.8,
-                    fees: 0.45
-                }
-            ]
-        },
-        {
-            id: 'TRD-2016',
-            ticker: 'SPY',
-            strategy: 'Iron Condor',
-            status: 'Open',
-            openedDate: offset(-14),
-            closedDate: null,
-            expirationDate: offset(28),
-            notes: 'Current focus trade sized at 2% risk, monitoring gamma into FOMC.',
-            legs: [
-                {
-                    id: 'TRD-2016-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-14),
-                    expirationDate: offset(28),
-                    strike: 560,
-                    premium: 1.48,
-                    fees: 0.32,
-                    underlyingPrice: 548.1
-                },
-                {
-                    id: 'TRD-2016-L2',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-14),
-                    expirationDate: offset(28),
-                    strike: 570,
-                    premium: 0.62,
-                    fees: 0.22
-                },
-                {
-                    id: 'TRD-2016-L3',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-14),
-                    expirationDate: offset(28),
-                    strike: 520,
-                    premium: 1.62,
-                    fees: 0.32
-                },
-                {
-                    id: 'TRD-2016-L4',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-14),
-                    expirationDate: offset(28),
-                    strike: 510,
-                    premium: 0.68,
-                    fees: 0.22
-                }
-            ]
-        },
-        {
-            id: 'TRD-2017',
-            ticker: 'NVDA',
-            strategy: 'Diagonal Call Spread',
-            status: 'Open',
-            openedDate: offset(-10),
-            closedDate: null,
-            expirationDate: offset(60),
-            notes: 'Scaling call diagonal as part of trend-following play.',
-            legs: [
-                {
-                    id: 'TRD-2017-L1',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-10),
-                    expirationDate: offset(240),
-                    strike: 980,
-                    premium: 88.4,
-                    fees: 0.75,
-                    underlyingPrice: 928.5
-                },
-                {
-                    id: 'TRD-2017-L2',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-10),
-                    expirationDate: offset(60),
-                    strike: 1150,
-                    premium: 17.6,
-                    fees: 0.35
-                }
-            ]
-        },
-        {
-            id: 'TRD-2018',
-            ticker: 'IWM',
-            strategy: 'Short Strangle',
-            status: 'Open',
-            openedDate: offset(-21),
-            closedDate: null,
-            expirationDate: offset(35),
-            notes: 'Defined monitoring triggers at 2x credit and 21 DTE roll.',
-            legs: [
-                {
-                    id: 'TRD-2018-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-21),
-                    expirationDate: offset(35),
-                    strike: 230,
-                    premium: 1.92,
-                    fees: 0.3,
-                    underlyingPrice: 213.7
-                },
-                {
-                    id: 'TRD-2018-L2',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-21),
-                    expirationDate: offset(35),
-                    strike: 195,
-                    premium: 1.98,
-                    fees: 0.3
-                }
-            ]
-        },
-        {
-            id: 'TRD-2019',
-            ticker: 'TSLA',
-            strategy: 'Covered Call',
-            status: 'Open',
-            openedDate: offset(-5),
-            closedDate: null,
-            expirationDate: offset(40),
-            notes: 'Income overlay targeting 2% monthly yield; ready to roll at 0.35 delta.',
-            legs: [
-                {
-                    id: 'TRD-2019-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'CALL',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-5),
-                    expirationDate: offset(40),
-                    strike: 305,
-                    premium: 3.25,
-                    fees: 0.35,
-                    underlyingPrice: 292.4
-                }
-            ]
-        },
-        {
-            id: 'TRD-2020',
-            ticker: 'GLD',
-            strategy: 'Bull Put Spread',
-            status: 'Open',
-            openedDate: offset(-17),
-            closedDate: null,
-            expirationDate: offset(45),
-            notes: 'Risk-defined bullish structure aligned with macro trend.',
-            legs: [
-                {
-                    id: 'TRD-2020-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-17),
-                    expirationDate: offset(45),
-                    strike: 180,
-                    premium: 2.1,
-                    fees: 0.3,
-                    underlyingPrice: 187.6
-                },
-                {
-                    id: 'TRD-2020-L2',
-                    action: 'BUY',
-                    side: 'OPEN',
-                    type: 'PUT',
-                    quantity: 1,
-                    multiplier: 100,
-                    executionDate: offset(-17),
-                    expirationDate: offset(45),
-                    strike: 175,
-                    premium: 0.9,
-                    fees: 0.2
+                    fees: 0.15
                 }
             ]
         }
@@ -1558,7 +264,7 @@ function createBuiltinSampleData() {
         exportDate: reference.toISOString(),
         version: '3.1'
     };
-}
+})();
 
 class GammaLedger {
     constructor() {
@@ -1567,7 +273,6 @@ class GammaLedger {
         this.sortDirection = {};
         this.charts = {};
         this.tradeDetailCharts = new Map();
-        this.cycleAnalytics = [];
         this.latestStats = null;
         this.currentFileHandle = null;
         this.currentFileName = 'Unsaved Database';
@@ -3924,10 +2629,6 @@ class GammaLedger {
         });
     }
 
-    normalizeCycleId(cycleId) {
-        return (cycleId || '').toString().trim();
-    }
-
     normalizeUnderlyingType(type, { fallback = 'Stock' } = {}) {
         const normalized = (type || '').toString().trim().toLowerCase();
         if (['stock', 'etf', 'index', 'future'].includes(normalized)) {
@@ -3935,89 +2636,28 @@ class GammaLedger {
         }
         return fallback;
     }
-
-    normalizeCycleType(cycleType, strategy = '') {
-        const explicit = (cycleType || '').toString().trim().toLowerCase();
-        if (explicit === 'wheel') return 'wheel';
-        if (explicit === 'pmcc' || explicit === 'pmc') return 'pmcc';
-
-        const inferred = this.inferCycleTypeFromStrategy(strategy);
-        return inferred || (explicit ? explicit : '');
-    }
-
-    inferCycleTypeFromStrategy(strategy = '') {
-        const strategyLower = strategy.toString().trim().toLowerCase();
-        if (!strategyLower) {
-            return '';
-        }
-        if (strategyLower.includes('poor man') || strategyLower.includes('pmcc')) {
-            return 'pmcc';
-        }
-        if (strategyLower.includes('cash-secured put') || strategyLower.includes('covered call') || strategyLower.includes('wheel')) {
-            return 'wheel';
-        }
-        return '';
-    }
-
-    normalizeCycleRole(cycleRole, trade = {}) {
-        const provided = (cycleRole || '').toString().trim().toLowerCase();
-        if (provided) {
-            return provided;
-        }
-        return this.inferCycleRole(trade);
-    }
-
-    inferCycleRole(trade = {}) {
-        const strategy = (trade.strategy || '').toString().toLowerCase();
-        const direction = trade.tradeDirection || this.inferTradeDirection(trade);
-        const tradeType = this.getTradeType(trade);
-
-        if (strategy.includes('cash-secured put')) {
-            return 'wheel-put';
-        }
-        if (strategy.includes('covered call')) {
-            return 'wheel-call';
-        }
-        if (strategy.includes('poor man')) {
-            if (direction === 'long' || tradeType === 'BTO') {
-                return 'pmcc-base';
-            }
-            if (direction === 'short' || tradeType === 'STO') {
-                return 'pmcc-short';
-            }
-        }
-        if (this.isAssignmentTrade(trade)) {
-            return 'assignment';
-        }
-        return '';
-    }
-
     isWheelPut(trade = {}) {
-        const role = (trade.cycleRole || '').toLowerCase();
-        if (role === 'wheel-put') return true;
         const strategy = (trade.strategy || '').toLowerCase();
         return strategy.includes('cash-secured put');
     }
 
     isCoveredCall(trade = {}) {
-        const role = (trade.cycleRole || '').toLowerCase();
-        if (role === 'wheel-call' || role === 'covered-call') return true;
         const strategy = (trade.strategy || '').toLowerCase();
         return strategy.includes('covered call');
     }
 
     isPmccBaseLeg(trade = {}) {
-        const role = (trade.cycleRole || '').toLowerCase();
-        if (role === 'pmcc-base') return true;
         const strategy = (trade.strategy || '').toLowerCase();
-        return strategy.includes('poor man') && (trade.tradeDirection === 'long' || this.getTradeType(trade) === 'BTO');
+        const direction = trade.tradeDirection || this.inferTradeDirection(trade);
+        const tradeType = this.getTradeType(trade);
+        return strategy.includes('poor man') && (direction === 'long' || tradeType === 'BTO');
     }
 
     isPmccShortCall(trade = {}) {
-        const role = (trade.cycleRole || '').toLowerCase();
-        if (role === 'pmcc-short') return true;
         const strategy = (trade.strategy || '').toLowerCase();
-        return strategy.includes('poor man') && (trade.tradeDirection === 'short' || this.getTradeType(trade) === 'STO');
+        const direction = trade.tradeDirection || this.inferTradeDirection(trade);
+        const tradeType = this.getTradeType(trade);
+        return strategy.includes('poor man') && (direction === 'short' || tradeType === 'STO');
     }
 
     isPmccTrade(trade = {}) {
@@ -4027,11 +2667,6 @@ class GammaLedger {
 
         const strategy = (trade.strategy || '').toLowerCase();
         if (strategy.includes('poor man') || strategy.includes('pmcc')) {
-            return true;
-        }
-
-        const normalizedCycle = this.normalizeCycleType(trade.cycleType, trade.strategy);
-        if (normalizedCycle === 'pmcc') {
             return true;
         }
 
@@ -4937,14 +3572,7 @@ class GammaLedger {
 
         this.setTodayDate();
         this.updateTickerPreview('');
-
-        ['cycleId', 'cycleType', 'cycleRole'].forEach((fieldId) => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.value = '';
-            }
-        });
-    }
+        }
 
     parseDecimal(value, defaultValue = null, { allowNegative = true } = {}) {
         if (value === null || value === undefined) {
@@ -5081,9 +3709,6 @@ class GammaLedger {
             exitReason: (formData.get('exitReason') || '').toString().trim(),
             notes: (formData.get('notes') || '').toString().trim(),
             legs,
-            cycleId: (formData.get('cycleId') || '').toString().trim(),
-            cycleType: (formData.get('cycleType') || '').toString().trim(),
-            cycleRole: (formData.get('cycleRole') || '').toString().trim(),
             underlyingType
         };
 
@@ -5147,8 +3772,6 @@ class GammaLedger {
             });
         }
 
-        this.cycleAnalytics = this.calculateCycleAnalytics();
-
         // Update overview cards
         document.getElementById('total-pl').textContent = this.formatCurrency(stats.totalPL);
 
@@ -5171,8 +3794,6 @@ class GammaLedger {
         // Update tables
         this.updateActivePositionsTable(openTradesList);
         this.updateRecentTradesTable(closedTradesList, stats.activePositions);
-        this.updateCycleSummaryTable(this.cycleAnalytics);
-
         this.updateShareCard(stats);
 
         // Update charts with delay
@@ -5372,418 +3993,6 @@ class GammaLedger {
         };
     }
 
-    calculateCycleAnalytics() {
-        const cycleMap = new Map();
-
-        this.trades.forEach(trade => {
-            const cycleId = this.normalizeCycleId(trade.cycleId);
-            if (!cycleId) {
-                return;
-            }
-
-            const existing = cycleMap.get(cycleId) || {
-                cycleId,
-                cycleType: this.normalizeCycleType(trade.cycleType, trade.strategy),
-                trades: [],
-                ticker: trade.ticker || ''
-            };
-
-            if (!existing.ticker && trade.ticker) {
-                existing.ticker = trade.ticker;
-            }
-
-            if (!existing.cycleType) {
-                existing.cycleType = this.normalizeCycleType(trade.cycleType, trade.strategy);
-            }
-
-            existing.trades.push(trade);
-            cycleMap.set(cycleId, existing);
-        });
-
-        const summaries = Array.from(cycleMap.values()).map(cycle => this.computeCycleMetrics(cycle));
-        summaries.sort((a, b) => {
-            const aTime = a.startDate ? new Date(a.startDate).getTime() : 0;
-            const bTime = b.startDate ? new Date(b.startDate).getTime() : 0;
-            return bTime - aTime;
-        });
-        return summaries;
-    }
-
-    computeCycleMetrics(cycle) {
-        const trades = [...cycle.trades].sort((a, b) => new Date(a.entryDate) - new Date(b.entryDate));
-        const cycleType = this.normalizeCycleType(cycle.cycleType, trades[0]?.strategy || '');
-
-        let startDate = null;
-        let endDate = null;
-        let hasOpenTrade = false;
-        let totalPremiums = 0;
-        let totalPL = 0;
-    let putPremiums = 0;
-    let callPremiums = 0;
-    let baseCost = 0;
-    let baseInitialCost = 0;
-    let capitalAtRisk = 0;
-    let initialStrike = null;
-    let baseStrike = null;
-    let openBaseStrike = null;
-        let assignmentCount = 0;
-        let maxContracts = 0;
-
-        trades.forEach(trade => {
-            const entry = trade.entryDate ? new Date(trade.entryDate) : null;
-            if (entry && !isNaN(entry.getTime())) {
-                if (!startDate || entry < startDate) {
-                    startDate = entry;
-                }
-            }
-
-            const exit = trade.exitDate ? new Date(trade.exitDate) : null;
-            if (exit && !isNaN(exit.getTime())) {
-                if (!endDate || exit > endDate) {
-                    endDate = exit;
-                }
-            } else {
-                hasOpenTrade = true;
-            }
-
-            const pl = Number(trade.pl) || 0;
-            totalPL += pl;
-
-            const quantity = Math.abs(Number(trade.quantity) || 0);
-            if (quantity > maxContracts) {
-                maxContracts = quantity;
-            }
-
-            const direction = trade.tradeDirection || this.inferTradeDirection(trade);
-            if (direction === 'short') {
-                const premium = this.calculateOptionPremium(trade);
-                totalPremiums += premium;
-
-                if (this.isWheelPut(trade)) {
-                    putPremiums += premium;
-                    const strike = Number(trade.strikePrice) || 0;
-                    if (!initialStrike && strike > 0) {
-                        initialStrike = strike;
-                    }
-                    const capital = strike * quantity * 100;
-                    if (capital > capitalAtRisk) {
-                        capitalAtRisk = capital;
-                    }
-                }
-
-                if (this.isCoveredCall(trade) || this.isPmccShortCall(trade)) {
-                    callPremiums += premium;
-                }
-            } else if (this.isPmccBaseLeg(trade)) {
-                const entryPrice = Number(trade.entryPrice);
-                const exitPrice = Number(trade.exitPrice);
-                const fees = Number(trade.fees);
-                const entryCost = Number.isFinite(entryPrice) ? entryPrice * quantity * 100 : 0;
-                const exitProceeds = Number.isFinite(exitPrice) ? exitPrice * quantity * 100 : 0;
-                const feeCost = Number.isFinite(fees) ? Math.max(fees, 0) : 0;
-
-                baseCost += entryCost - exitProceeds + feeCost;
-                if (entryCost > 0) {
-                    baseInitialCost += entryCost + feeCost;
-                }
-
-                const strike = Number(trade.strikePrice);
-                if (Number.isFinite(strike) && strike > 0) {
-                    if (!this.isClosedStatus(trade.status)) {
-                        openBaseStrike = strike;
-                    }
-                    baseStrike = strike;
-                }
-            }
-
-            if (this.isAssignmentTrade(trade)) {
-                assignmentCount += quantity;
-
-                const assignmentStrike = Number(trade.strikePrice) || Number(trade.stockPriceAtEntry) || null;
-                if (!initialStrike && Number.isFinite(assignmentStrike) && assignmentStrike > 0) {
-                    initialStrike = assignmentStrike;
-                }
-
-                if (Number.isFinite(assignmentStrike) && assignmentStrike > 0) {
-                    const assignmentCapital = assignmentStrike * quantity * 100;
-                    if (assignmentCapital > capitalAtRisk) {
-                        capitalAtRisk = assignmentCapital;
-                    }
-                }
-            }
-        });
-
-        if (Number.isFinite(openBaseStrike) && openBaseStrike > 0) {
-            baseStrike = openBaseStrike;
-        }
-
-        const status = hasOpenTrade ? 'In Progress' : 'Closed';
-        const startIso = startDate ? startDate.toISOString() : null;
-        const endIso = (!hasOpenTrade && endDate) ? endDate.toISOString() : null;
-
-        let effectiveCostBasis = null;
-        let breakevenPrice = null;
-        let roiDenominator = null;
-        let netBasis = null;
-
-        if (cycleType === 'wheel' && initialStrike && maxContracts > 0) {
-            effectiveCostBasis = initialStrike - (totalPremiums / (maxContracts * 100));
-            breakevenPrice = effectiveCostBasis;
-            roiDenominator = capitalAtRisk || (initialStrike * maxContracts * 100);
-        } else if (cycleType === 'pmcc') {
-            netBasis = baseCost - callPremiums;
-            const positiveNetBasis = Number.isFinite(netBasis) && netBasis > 0 ? netBasis : null;
-            const positiveBaseCost = baseCost > 0 ? baseCost : null;
-            const positiveInitialCost = baseInitialCost > 0 ? baseInitialCost : null;
-
-            if (positiveNetBasis) {
-                roiDenominator = positiveNetBasis;
-            } else if (positiveBaseCost) {
-                roiDenominator = positiveBaseCost;
-            } else if (positiveInitialCost) {
-                roiDenominator = positiveInitialCost;
-            }
-
-            const capitalCandidate = positiveNetBasis || positiveBaseCost || positiveInitialCost;
-            if (capitalCandidate && capitalCandidate > capitalAtRisk) {
-                capitalAtRisk = capitalCandidate;
-            }
-
-            if (Number.isFinite(baseStrike) && baseStrike > 0 && maxContracts > 0 && Number.isFinite(netBasis)) {
-                breakevenPrice = baseStrike + (netBasis / (maxContracts * 100));
-            }
-        }
-
-        if (Number.isFinite(baseCost) && Math.abs(baseCost) < 1e-6) {
-            baseCost = 0;
-        }
-        if (Number.isFinite(netBasis) && Math.abs(netBasis) < 1e-6) {
-            netBasis = 0;
-        }
-
-        let costBasis = roiDenominator;
-
-        if (!costBasis || costBasis <= 0) {
-            if (cycleType === 'wheel') {
-                costBasis = capitalAtRisk || (initialStrike && maxContracts > 0 ? initialStrike * maxContracts * 100 : null);
-            } else if (cycleType === 'pmcc') {
-                if (Number.isFinite(netBasis) && netBasis > 0) {
-                    costBasis = netBasis;
-                } else if (baseCost > 0) {
-                    costBasis = baseCost;
-                } else if (baseInitialCost > 0) {
-                    costBasis = baseInitialCost;
-                }
-            }
-        }
-
-        if (!costBasis || costBasis <= 0) {
-            const fallbackDebit = trades.reduce((sum, trade) => {
-                const quantity = Math.abs(Number(trade.quantity) || 0);
-                if (!quantity) {
-                    return sum;
-                }
-                const entryPrice = Number(trade.entryPrice);
-                const fees = Number(trade.fees) || 0;
-                const tradeType = this.getTradeType(trade);
-                if (tradeType === 'BTO' || tradeType === 'BTC') {
-                    const debit = (Number.isFinite(entryPrice) ? entryPrice : 0) * quantity * 100;
-                    const totalDebit = debit + (Number.isFinite(fees) ? Math.max(fees, 0) : 0);
-                    return sum + Math.max(totalDebit, 0);
-                }
-                return sum;
-            }, 0);
-
-            costBasis = fallbackDebit > 0 ? fallbackDebit : null;
-        }
-
-        if (!roiDenominator || roiDenominator <= 0) {
-            roiDenominator = costBasis && costBasis > 0 ? costBasis : null;
-        }
-
-        const roiPercent = roiDenominator ? (totalPL / roiDenominator) * 100 : null;
-
-        let keyMetricLabel = '';
-        let keyMetricValue = null;
-
-        if (cycleType === 'wheel' && effectiveCostBasis !== null) {
-            keyMetricLabel = 'Eff. Basis';
-            keyMetricValue = effectiveCostBasis;
-        } else if (cycleType === 'pmcc' && netBasis !== null) {
-            keyMetricLabel = 'Net Basis';
-            keyMetricValue = netBasis;
-        }
-
-        return {
-            cycleId: cycle.cycleId,
-            cycleType,
-            typeLabel: cycleType === 'pmcc' ? 'Poor Man\'s Covered Call' : cycleType === 'wheel' ? 'Wheel' : (cycleType ? cycleType.toUpperCase() : 'Custom'),
-            ticker: cycle.ticker || trades[0]?.ticker || '—',
-            trades,
-            startDate: startIso,
-            endDate: endIso,
-            status,
-            totalPremiums,
-            totalPL,
-            putPremiums,
-            callPremiums,
-            baseCost,
-            baseInitialCost,
-            capitalAtRisk,
-            effectiveCostBasis,
-            netBasis,
-            costBasis,
-            assignments: assignmentCount,
-            maxContracts,
-            roiPercent,
-            keyMetricLabel,
-            keyMetricValue,
-            breakevenPrice,
-            hasOpenTrade,
-            durationDays: startDate ? this.calculateDaysBetween(startDate, endDate || this.currentDate) : 0
-        };
-    }
-
-    updateCycleSummaryTable(cycles = this.cycleAnalytics || []) {
-        const tableBody = document.querySelector('#cycle-summary-table tbody');
-        const emptyState = document.getElementById('cycle-summary-empty');
-
-        if (!tableBody) {
-            return;
-        }
-
-        tableBody.innerHTML = '';
-
-        if (!Array.isArray(cycles) || cycles.length === 0) {
-            if (emptyState) {
-                emptyState.classList.remove('hidden');
-            }
-            return;
-        }
-
-        if (emptyState) {
-            emptyState.classList.add('hidden');
-        }
-
-        const columnLabels = [
-            'Cycle', 'Type', 'Ticker', 'Status', 'Trades', 'Premiums', 'Total P&L',
-            'ROI', 'Cost Basis', 'Key Metrics', 'Timeline'
-        ];
-
-        cycles.forEach(cycle => {
-            const row = tableBody.insertRow();
-
-            const cycleCell = row.insertCell(0);
-            const cycleId = this.normalizeCycleId(cycle.cycleId);
-            if (cycleId) {
-                const cycleButton = document.createElement('button');
-                cycleButton.type = 'button';
-                cycleButton.className = 'cycle-chip cycle-chip--link';
-                cycleButton.textContent = cycleId;
-                cycleButton.title = 'Open All Trades filtered by this cycle';
-                cycleButton.addEventListener('click', () => {
-                    this.openTradesFilteredByCycle(cycleId, cycle.ticker);
-                });
-                cycleCell.appendChild(cycleButton);
-            } else {
-                cycleCell.textContent = '—';
-            }
-            row.insertCell(1).textContent = cycle.typeLabel;
-            row.insertCell(2).textContent = cycle.ticker || '—';
-
-            const statusCell = row.insertCell(3);
-            const statusBadge = document.createElement('span');
-            const statusNormalized = cycle.status === 'Closed' ? 'closed' : 'open';
-            statusBadge.className = `status-badge ${statusNormalized}`;
-            statusBadge.textContent = cycle.status;
-            statusCell.appendChild(statusBadge);
-
-            row.insertCell(4).textContent = cycle.trades.length;
-
-            const premiumCell = row.insertCell(5);
-            premiumCell.textContent = this.formatCurrency(cycle.totalPremiums);
-
-            const plCell = row.insertCell(6);
-            plCell.textContent = this.formatCurrency(cycle.totalPL);
-            if (cycle.totalPL > 0) {
-                plCell.className = 'pl-positive';
-            } else if (cycle.totalPL < 0) {
-                plCell.className = 'pl-negative';
-            } else {
-                plCell.className = 'pl-neutral';
-            }
-
-            const roiCell = row.insertCell(7);
-            roiCell.textContent = this.formatPercent(cycle.roiPercent);
-            if (cycle.roiPercent > 0) {
-                roiCell.className = 'pl-positive';
-            } else if (cycle.roiPercent < 0) {
-                roiCell.className = 'pl-negative';
-            } else {
-                roiCell.className = 'pl-neutral';
-            }
-
-            const costCell = row.insertCell(8);
-            if (Number.isFinite(cycle.costBasis)) {
-                costCell.textContent = this.formatCurrency(cycle.costBasis);
-            } else {
-                costCell.textContent = '—';
-                costCell.className = 'pl-neutral';
-            }
-
-            const metricCell = row.insertCell(9);
-            const hasKeyMetric = cycle.keyMetricLabel && Number.isFinite(cycle.keyMetricValue);
-
-            if (hasKeyMetric) {
-                const label = document.createElement('div');
-                label.className = 'cell-metric__label';
-                label.textContent = `${cycle.keyMetricLabel}: ${this.formatCurrency(cycle.keyMetricValue)}`;
-                metricCell.appendChild(label);
-
-                if (cycle.breakevenPrice && Number.isFinite(cycle.breakevenPrice)) {
-                    const breakevenEl = document.createElement('div');
-                    breakevenEl.className = 'cell-metric__subtext';
-                    breakevenEl.textContent = `Breakeven: ${this.formatCurrency(cycle.breakevenPrice)}`;
-                    metricCell.appendChild(breakevenEl);
-                }
-
-                if (cycle.cycleType === 'wheel' && cycle.assignments) {
-                    const assignmentEl = document.createElement('div');
-                    assignmentEl.className = 'cell-metric__subtext';
-                    assignmentEl.textContent = `Assignments: ${cycle.assignments}`;
-                    metricCell.appendChild(assignmentEl);
-                }
-            } else if (Number.isFinite(cycle.costBasis)) {
-                const basisEl = document.createElement('div');
-                basisEl.className = 'cell-metric__label';
-                basisEl.textContent = `Cost Basis: ${this.formatCurrency(cycle.costBasis)}`;
-                metricCell.appendChild(basisEl);
-
-                if (cycle.breakevenPrice && Number.isFinite(cycle.breakevenPrice)) {
-                    const breakevenEl = document.createElement('div');
-                    breakevenEl.className = 'cell-metric__subtext';
-                    breakevenEl.textContent = `Breakeven: ${this.formatCurrency(cycle.breakevenPrice)}`;
-                    metricCell.appendChild(breakevenEl);
-                }
-
-                if (cycle.cycleType === 'wheel' && cycle.assignments) {
-                    const assignmentEl = document.createElement('div');
-                    assignmentEl.className = 'cell-metric__subtext';
-                    assignmentEl.textContent = `Assignments: ${cycle.assignments}`;
-                    metricCell.appendChild(assignmentEl);
-                }
-            } else if (cycle.cycleType === 'wheel' && cycle.assignments) {
-                metricCell.textContent = `Assignments: ${cycle.assignments}`;
-            } else {
-                metricCell.textContent = '—';
-            }
-
-            const timelineCell = row.insertCell(10);
-            timelineCell.textContent = this.formatCycleDateRange(cycle.startDate, cycle.endDate, cycle.hasOpenTrade);
-
-            this.applyResponsiveLabels(row, columnLabels);
-        });
-    }
 
     updateActivePositionsTable(openTrades = this.trades.filter(trade => this.isActiveStatus(trade.status))) {
         const tbody = document.querySelector('#active-positions-table tbody');
@@ -8417,6 +6626,7 @@ class GammaLedger {
         const low = Number(payload?.l);
 
         return {
+            symbol,
             price,
             change: Number.isFinite(change) ? change : null,
             changePercent: Number.isFinite(changePercent) ? changePercent : null,
@@ -8990,15 +7200,11 @@ class GammaLedger {
             }
             const tickerValueRaw = (trade.ticker ?? '').toString();
             const tickerLower = tickerValueRaw.toLowerCase();
-            const tradeCycleId = this.normalizeCycleId(trade.cycleId);
-            const cycleLower = tradeCycleId.toLowerCase();
-            const cycleType = this.normalizeCycleType(trade.cycleType, trade.strategy) || '';
-            const cycleTypeLower = cycleType.toLowerCase();
+            const strategyLower = (trade.strategy ?? '').toString().toLowerCase();
             const notesLower = (trade.notes ?? '').toString().toLowerCase();
             const matchesSearch = !searchTerm ||
                 tickerLower.includes(searchTerm) ||
-                cycleLower.includes(searchTerm) ||
-                (cycleTypeLower && cycleTypeLower.includes(searchTerm)) ||
+                strategyLower.includes(searchTerm) ||
                 notesLower.includes(searchTerm);
 
             return matchesStrategy && matchesStatus && matchesSearch;
@@ -9028,25 +7234,6 @@ class GammaLedger {
                 filterElement.value = '';
             }
         });
-
-        this.filterTrades();
-    }
-
-    openTradesFilteredByCycle(cycleId, ticker = '') {
-        const normalizedCycle = this.normalizeCycleId(cycleId);
-
-        if (!normalizedCycle) {
-            return;
-        }
-
-        this.showView('trades-list');
-
-        const tickerSearch = document.getElementById('search-ticker');
-
-        if (tickerSearch) {
-            tickerSearch.value = normalizedCycle;
-            tickerSearch.focus();
-        }
 
         this.filterTrades();
     }
@@ -9379,33 +7566,7 @@ class GammaLedger {
         let maxY = Math.max(...yValues, 0);
 
         if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
-            minY = 0;
-            maxY = 0;
-        }
-
-        if (minY === maxY) {
-            minY -= 1;
-            maxY += 1;
-        }
-
-        const positiveArea = payoff.points.map(point => ({
-            x: point.x,
-            y: point.y >= 0 ? point.y : null
-        }));
-
-        const negativeArea = payoff.points.map(point => ({
-            x: point.x,
-            y: point.y <= 0 ? point.y : null
-        }));
-
-        const profitFill = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        profitFill.addColorStop(0, 'rgba(34, 197, 94, 0.18)');
-        profitFill.addColorStop(1, 'rgba(34, 197, 94, 0.02)');
-
-        const lossFill = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        lossFill.addColorStop(0, 'rgba(248, 113, 113, 0.18)');
-        lossFill.addColorStop(1, 'rgba(248, 113, 113, 0.02)');
-
+            }
         const currentPrice = await this.getUnderlyingPriceForPayoff(trade);
 
         const detailRowElement = document.querySelector(`.trade-detail-row[data-chart-id="${chartId}"]`);
@@ -9764,10 +7925,9 @@ class GammaLedger {
             return { type: 'unsupported', reason: 'Add a strategy name to unlock payoff diagrams.' };
         }
 
-        const normalizedCycleType = this.normalizeCycleType(trade.cycleType, strategyRaw);
         const isPmccStrategy = strategy.includes("poor man's covered call")
             || strategy.includes('poor man')
-            || normalizedCycleType === 'pmcc'
+            || strategy.includes('pmcc')
             || this.isPmccBaseLeg(trade)
             || this.isPmccShortCall(trade);
 
@@ -9776,7 +7936,7 @@ class GammaLedger {
             if (!pmccLegs.baseLeg) {
                 return {
                     type: 'unsupported',
-                    reason: 'Add the PMCC base leg to this cycle to unlock the payoff diagram.'
+                    reason: 'Add the PMCC base leg to this trade to unlock the payoff diagram.'
                 };
             }
             return {
@@ -10218,19 +8378,10 @@ class GammaLedger {
 
     extractPmccLegs(trade = {}) {
         const normalizeTicker = (value) => (value || '').toString().trim().toUpperCase();
-        const cycleId = this.normalizeCycleId(trade.cycleId);
-        let candidates = [];
-
-        if (cycleId) {
-            candidates = this.trades.filter(item => this.normalizeCycleId(item.cycleId) === cycleId);
-        }
-
-        if (candidates.length === 0) {
-            const ticker = normalizeTicker(trade.ticker);
-            if (ticker) {
-                candidates = this.trades.filter(item => normalizeTicker(item.ticker) === ticker && this.normalizeCycleType(item.cycleType, item.strategy) === 'pmcc');
-            }
-        }
+        const ticker = normalizeTicker(trade.ticker);
+        const candidates = ticker
+            ? this.trades.filter(item => normalizeTicker(item.ticker) === ticker)
+            : [];
 
         if (!candidates.includes(trade)) {
             candidates.push(trade);
@@ -10426,15 +8577,6 @@ class GammaLedger {
         if (elements.notes) {
             elements.notes.value = trade.notes || '';
         }
-        if (elements.cycleId) {
-            elements.cycleId.value = trade.cycleId || '';
-        }
-        if (elements.cycleType) {
-            elements.cycleType.value = trade.cycleType || '';
-        }
-        if (elements.cycleRole) {
-            elements.cycleRole.value = trade.cycleRole || '';
-        }
         if (elements.underlyingType) {
             const normalizedUnderlying = this.normalizeUnderlyingType(trade.underlyingType, { fallback: 'Stock' }) || 'Stock';
             elements.underlyingType.value = normalizedUnderlying;
@@ -10454,7 +8596,7 @@ class GammaLedger {
         const headers = [
             'Ticker', 'Strategy', 'Trade Type', 'Strike', 'Defined Risk Width', 'Qty', 'Exit Price', 'DTE', 'Days Held',
             'Entry Date', 'Expiration Date', 'Exit Date', 'Max Risk', 'P&L', 'ROI %', 'Annual ROI %', 'Status',
-            'Stock Price at Entry', 'Fees', 'Max Risk Override', 'IV Rank', 'Notes', 'Exit Reason', 'Cycle ID', 'Cycle Type', 'Cycle Role'
+            'Stock Price at Entry', 'Fees', 'Max Risk Override', 'IV Rank', 'Notes', 'Exit Reason'
         ];
 
         const escapeCsv = (value) => {
@@ -10536,10 +8678,7 @@ class GammaLedger {
                 formatOptionalCurrency(trade.maxRiskOverride),
                 formatOptionalNumber(trade.ivRank, 2),
                 trade.notes ?? '',
-                trade.exitReason ?? '',
-                trade.cycleId ?? '',
-                trade.cycleType ?? '',
-                trade.cycleRole ?? ''
+                trade.exitReason ?? ''
             ];
 
             return fields.map(escapeCsv).join(',');
@@ -11409,9 +9548,6 @@ class GammaLedger {
             importBatchId: batchId || null,
             importReview: false,
             exitReason: options.exitReasonOverride || this.resolveMergedExitReason(candidates),
-            cycleId: baseTrade?.cycleId || '',
-            cycleType: baseTrade?.cycleType || '',
-            cycleRole: baseTrade?.cycleRole || '',
             underlyingType: normalizedUnderlying
         });
 
@@ -12594,9 +10730,6 @@ class GammaLedger {
                     exitReason: '',
                     notes: note,
                     legs: sanitizedLegs,
-                    cycleId: '',
-                    cycleType: '',
-                    cycleRole: '',
                     importBatchId: batchId,
                     importReview: false
                 });
@@ -12628,9 +10761,6 @@ class GammaLedger {
                     exitReason: '',
                     notes: note,
                     legs: sanitizedLegs,
-                    cycleId: '',
-                    cycleType: '',
-                    cycleRole: '',
                     importBatchId: batchId,
                     importReview: true
                 });
@@ -13005,34 +11135,6 @@ class GammaLedger {
         }
 
         return raw;
-    }
-
-    formatCycleDateRange(startIso, endIso, isOpen) {
-        if (!startIso) {
-            return '—';
-        }
-
-        const start = new Date(startIso);
-        const end = endIso ? new Date(endIso) : null;
-        const formatter = new Intl.DateTimeFormat('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-
-        const startText = isNaN(start.getTime()) ? '—' : formatter.format(start);
-        let endText;
-        if (end && !isNaN(end.getTime())) {
-            endText = formatter.format(end);
-        } else {
-            endText = isOpen ? 'Present' : '—';
-        }
-
-        if (!endText) {
-            return startText;
-        }
-
-        return `${startText} — ${endText}`;
     }
 
     escapeHTML(value) {
@@ -13456,8 +11558,7 @@ class GeminiInsightsAgent {
             performanceHighlight: this.fallback.buildPerformanceSummary?.() || '',
             openPositions: this.buildOpenPositionsSummary(),
             recentClosedTrades: this.buildRecentClosedTradesSummary(),
-            topStrategies: this.buildStrategySummary(),
-            cycles: this.buildCycleSummary()
+            topStrategies: this.buildStrategySummary()
         };
 
         return JSON.stringify(contextData, null, 2);
@@ -13548,33 +11649,6 @@ class GeminiInsightsAgent {
         }));
     }
 
-    buildCycleSummary(limit = 3) {
-        const cycles = Array.isArray(this.app.cycleAnalytics) && this.app.cycleAnalytics.length
-            ? this.app.cycleAnalytics
-            : this.app.calculateCycleAnalytics();
-        return cycles.slice(0, limit).map(cycle => {
-            const snapshot = this.snapshotObjectForPrompt(cycle);
-            const derived = {
-                tradeCount: Array.isArray(cycle?.trades) ? cycle.trades.length : 0,
-                totalPLRounded: this.formatNumber(cycle?.totalPL, { style: 'currency' }),
-                roiPercentRounded: this.formatNumber(cycle?.roiPercent, { style: 'percent' }),
-                keyMetricLabel: cycle?.keyMetricLabel || null,
-                keyMetricValueRounded: this.formatCycleMetricValue(cycle?.keyMetricValue, cycle?.keyMetricLabel),
-                timelineLabel: this.app.formatCycleDateRange(cycle?.startDate, cycle?.endDate, cycle?.hasOpenTrade)
-            };
-
-            snapshot.__promptDerived = Object.fromEntries(
-                Object.entries(derived).filter(([, value]) => value !== null && value !== undefined)
-            );
-
-            if (!Object.keys(snapshot.__promptDerived).length) {
-                delete snapshot.__promptDerived;
-            }
-
-            return snapshot;
-        });
-    }
-
     snapshotObjectForPrompt(source) {
         const snapshot = this.snapshotForPrompt(source);
         if (snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot)) {
@@ -13662,23 +11736,6 @@ class GeminiInsightsAgent {
             return fallback ?? null;
         }
         return this.app.formatPercent(value, fallback, options);
-    }
-
-    formatCycleMetricValue(value, label = '') {
-        const normalizedLabel = (label || '').toString().toLowerCase();
-        if (!normalizedLabel) {
-            return this.formatNumber(value);
-        }
-
-        if (/(%|percent|roi|return|drawdown|rate|yield)/.test(normalizedLabel)) {
-            return this.formatNumber(value, { style: 'percent' });
-        }
-
-        if (/(\$|pl|p&l|profit|premium|risk|cost|credit|debit|revenue|balance|capital|cash|amount|value|exposure|loss)/.test(normalizedLabel)) {
-            return this.formatNumber(value, { style: 'currency' });
-        }
-
-        return this.formatNumber(value);
     }
 
     async callGemini({ model, body }) {
