@@ -2261,8 +2261,7 @@ class GammaLedger {
 
         const legSummary = summary || this.summarizeLegs(trade?.legs || []);
         const openCashFlow = Number(legSummary?.openCashFlow) || 0;
-        const precision = Math.abs(entryPrice) >= 100 ? 2 : 2;
-        const formatted = `$${Math.abs(entryPrice).toFixed(precision)}`;
+    const formatted = this.formatCurrency(Math.abs(entryPrice));
 
         if (openCashFlow > 0.0001) {
             return `Cr ${formatted}`;
@@ -4687,7 +4686,7 @@ class GammaLedger {
         const profitFactorValue = Number(stats.profitFactor);
         document.getElementById('profit-factor').textContent = Number.isFinite(profitFactorValue)
             ? this.formatNumber(profitFactorValue, { decimals: 2, useGrouping: false }).toString()
-            : '∞';
+            : 'Infinite';
         document.getElementById('active-positions').textContent = stats.activePositions;
         document.getElementById('total-roi').textContent = this.formatNumber(stats.totalROI, { style: 'percent' }) ?? '—';
         document.getElementById('max-drawdown').textContent = this.formatNumber(stats.maxDrawdown, { style: 'percent', decimals: 1 }) ?? '—';
@@ -5357,7 +5356,8 @@ class GammaLedger {
                 }
 
                 if (Number.isFinite(resolvedStrike)) {
-                    strikeCell.textContent = `$${resolvedStrike.toFixed(2)}`;
+                    const strikeLabel = this.formatNumber(resolvedStrike, { style: 'currency', decimals: 2 });
+                    strikeCell.textContent = strikeLabel ?? '—';
                     row.dataset.strikePrice = String(resolvedStrike);
                 } else {
                     strikeCell.textContent = '—';
@@ -5451,12 +5451,12 @@ class GammaLedger {
 
                 const roiCell = row.insertCell(5);
                 const roiValue = Number(trade.roi);
-                if (Number.isFinite(roiValue)) {
-                    roiCell.textContent = `${roiValue.toFixed(2)}%`;
-                    roiCell.className = roiValue >= 0 ? 'pl-positive' : 'pl-negative';
-                } else {
-                    roiCell.textContent = '—';
+                const roiDisplay = this.formatPercent(roiValue, '—');
+                roiCell.textContent = roiDisplay;
+                if (roiDisplay === '—') {
                     roiCell.className = 'pl-neutral';
+                } else {
+                    roiCell.className = roiValue >= 0 ? 'pl-positive' : 'pl-negative';
                 }
 
                 this.applyResponsiveLabels(row, columnLabels);
@@ -5500,7 +5500,7 @@ class GammaLedger {
     renderRatioGauge({ chartKey, canvasId, valueElementId, value, min = 0, max = 1 }) {
         const valueElement = document.getElementById(valueElementId);
         if (valueElement) {
-            valueElement.textContent = Number.isFinite(value) ? value.toFixed(2) : '—';
+            valueElement.textContent = this.formatNumber(value, { decimals: 2, useGrouping: false }) ?? '—';
         }
 
         const canvas = document.getElementById(canvasId);
@@ -5533,6 +5533,9 @@ class GammaLedger {
                 ? '#FFC185'
                 : '#B4413C';
 
+        const formattedValue = this.formatNumber(value, { decimals: 2, useGrouping: false })
+            ?? (Number.isFinite(value) ? value.toFixed(2) : '—');
+
         if (this.charts[chartKey]) {
             this.charts[chartKey].destroy();
         }
@@ -5557,7 +5560,7 @@ class GammaLedger {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: () => `Ratio: ${value.toFixed(2)}`
+                            label: () => `Ratio: ${formattedValue}`
                         }
                     }
                 }
@@ -5593,7 +5596,7 @@ class GammaLedger {
             if (totalFees === 0 && netPL === 0) {
                 summaryElement.textContent = 'No closed trades yet.';
             } else {
-                const shareText = Number.isFinite(feeShare) ? feeShare.toFixed(1) : '0.0';
+            const shareText = this.formatNumber(feeShare, { decimals: 1, useGrouping: true }) ?? '0.0';
                 summaryElement.textContent = `${this.formatCurrency(totalFees)} in fees (${shareText}% of realized turnover).`;
             }
         }
@@ -5607,7 +5610,7 @@ class GammaLedger {
             this.charts.commissionImpact.destroy();
         }
 
-        const formatCurrency = (value) => this.formatCurrency(value || 0);
+    const formatCurrencyValue = (value, decimals = 2) => this.formatCurrency(value, { decimals });
 
         this.charts.commissionImpact = new Chart(ctx, {
             type: 'bar',
@@ -5631,7 +5634,7 @@ class GammaLedger {
                 scales: {
                     x: {
                         ticks: {
-                            callback: (value) => `$${Number(value).toLocaleString()}`
+                            callback: (value) => formatCurrencyValue(value, 0)
                         },
                         grid: {
                             drawBorder: false
@@ -5647,7 +5650,7 @@ class GammaLedger {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: (context) => `${context.label}: ${formatCurrency(context.raw)}`
+                            label: (context) => `${context.label}: ${formatCurrencyValue(context.raw)}`
                         }
                     }
                 }
@@ -5698,8 +5701,9 @@ class GammaLedger {
 
             const metaEl = document.createElement('div');
             metaEl.className = 'heatmap-card__meta';
-            const winRate = Number.isFinite(item.winRate) ? item.winRate.toFixed(0) : '0';
-            metaEl.textContent = `${item.tradeCount} trades • Win ${winRate}%`;
+            const tradeCountLabel = this.formatNumber(item.tradeCount, { decimals: 0, useGrouping: true }) ?? String(item.tradeCount ?? 0);
+            const winRateLabel = this.formatPercent(item.winRate, '0%', { decimals: 0 });
+            metaEl.textContent = `${tradeCountLabel} trades • Win ${winRateLabel}`;
 
             card.appendChild(tickerEl);
             card.appendChild(plEl);
@@ -5736,6 +5740,13 @@ class GammaLedger {
 
         const winners = Number.isFinite(stats.avgWinnerDays) ? stats.avgWinnerDays : 0;
         const losers = Number.isFinite(stats.avgLoserDays) ? stats.avgLoserDays : 0;
+        const formatDayCount = (value, decimals = 1) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) {
+                return '';
+            }
+            return this.formatNumber(numeric, { decimals, useGrouping: true }) ?? numeric.toFixed(decimals);
+        };
 
         this.charts.timeInTrade = new Chart(ctx, {
             type: 'bar',
@@ -5756,7 +5767,10 @@ class GammaLedger {
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            callback: (value) => `${value}d`
+                            callback: (value) => {
+                                const label = formatDayCount(value, 0);
+                                return label ? `${label}d` : `${value}d`;
+                            }
                         },
                         grid: {
                             drawBorder: false
@@ -5772,7 +5786,10 @@ class GammaLedger {
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: (context) => `${context.label}: ${context.raw.toFixed(1)} days`
+                            label: (context) => {
+                                const label = formatDayCount(context.raw, 1);
+                                return `${context.label}: ${label || context.raw} days`;
+                            }
                         }
                     }
                 }
@@ -5824,13 +5841,18 @@ class GammaLedger {
         const medianTerminal = projection.percentiles.p50[projection.percentiles.p50.length - 1] || 1;
         if (summaryElement) {
             const pctChange = (medianTerminal - 1) * 100;
-            const formatted = `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`;
-            summaryElement.textContent = `Median path suggests ${formatted} over 60 trading days.`;
+            const formattedNumber = this.formatNumber(Math.abs(pctChange), { decimals: 1, useGrouping: true })
+                ?? Math.abs(pctChange).toFixed(1);
+            const prefix = pctChange >= 0 ? '+' : '-';
+            summaryElement.textContent = `Median path suggests ${prefix}${formattedNumber}% over 60 trading days.`;
         }
 
         const formatPercent = (value) => {
             const percent = (Number(value) - 1) * 100;
-            return `${percent >= 0 ? '+' : ''}${percent.toFixed(1)}%`;
+            const formattedNumber = this.formatNumber(Math.abs(percent), { decimals: 1, useGrouping: true })
+                ?? Math.abs(percent).toFixed(1);
+            const prefix = percent >= 0 ? '+' : '-';
+            return `${prefix}${formattedNumber}%`;
         };
 
         this.charts.monteCarlo = new Chart(ctx, {
@@ -7027,9 +7049,10 @@ class GammaLedger {
         const formatPercent = (value, decimals = 2) => {
             const numeric = Number(value);
             if (!Number.isFinite(numeric)) {
-                return '∞';
+                return 'Infinite';
             }
-            return `${numeric.toFixed(decimals)}%`;
+            const formatted = this.formatNumber(numeric, { decimals, useGrouping: true });
+            return formatted ? `${formatted}%` : `${numeric.toFixed(decimals)}%`;
         };
 
         if (metrics.totalPL) {
@@ -7042,14 +7065,14 @@ class GammaLedger {
             const profitFactor = Number(safeStats.profitFactor);
             metrics.profitFactor.textContent = Number.isFinite(profitFactor)
                 ? profitFactor.toFixed(2)
-                : '∞';
+                : 'Infinite';
         }
         if (metrics.totalROI) {
             metrics.totalROI.textContent = formatPercent(safeStats.totalROI, 2);
         }
         if (this.shareCard.timestamp) {
             const now = new Date();
-            this.shareCard.timestamp.textContent = now.toLocaleString(undefined, {
+            this.shareCard.timestamp.textContent = now.toLocaleString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric',
@@ -7100,7 +7123,9 @@ class GammaLedger {
         gradient.addColorStop(0, 'rgba(79, 195, 247, 0.38)');
         gradient.addColorStop(1, 'rgba(79, 195, 247, 0.05)');
 
-        this.shareCard.chart = new Chart(ctx, {
+    const formatCurrencyValue = (value, decimals = 2) => this.formatCurrency(value, { decimals });
+
+    this.shareCard.chart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels,
@@ -7140,7 +7165,7 @@ class GammaLedger {
                         },
                         ticks: {
                             color: 'rgba(255, 255, 255, 0.58)',
-                            callback: (value) => `$${Number(value).toLocaleString()}`,
+                            callback: (value) => formatCurrencyValue(value, 0),
                             font: {
                                 size: 12
                             }
@@ -7153,7 +7178,7 @@ class GammaLedger {
                     },
                     tooltip: {
                         callbacks: {
-                            label: (context) => `Cumulative P&L: $${Number(context.raw).toLocaleString()}`
+                            label: (context) => `Cumulative P&L: ${formatCurrencyValue(context.raw)}`
                         }
                     }
                 }
@@ -7685,7 +7710,11 @@ class GammaLedger {
             const changeEl = document.createElement('span');
             changeEl.className = 'quote-change';
 
-            const formattedPercent = `${changePercent > 0 ? '+' : changePercent < 0 ? '' : ''}${changePercent.toFixed(2)}%`;
+            const percentMagnitude = Math.abs(changePercent);
+            const percentNumber = this.formatNumber(percentMagnitude, { decimals: 2, useGrouping: true })
+                ?? percentMagnitude.toFixed(2);
+            const percentPrefix = changePercent > 0 ? '+' : changePercent < 0 ? '-' : '';
+            const formattedPercent = `${percentPrefix}${percentNumber}%`;
             changeEl.textContent = formattedPercent;
 
             if (changePercent > 0) {
@@ -7697,8 +7726,10 @@ class GammaLedger {
             }
 
             if (Number.isFinite(changeValue)) {
-                const formattedChange = `${changeValue > 0 ? '+' : changeValue < 0 ? '' : ''}${changeValue.toFixed(2)}`;
-                changeEl.title = `${formattedChange} (${formattedPercent})`;
+                const changeMagnitude = Math.abs(changeValue);
+                const changeNumber = this.formatCurrency(changeMagnitude);
+                const changePrefix = changeValue > 0 ? '+' : changeValue < 0 ? '-' : '';
+                changeEl.title = `${changePrefix}${changeNumber} (${formattedPercent})`;
             }
 
             cell.appendChild(changeEl);
@@ -8076,6 +8107,8 @@ class GammaLedger {
             this.charts.monthlyPL.destroy();
         }
 
+        const formatCurrencyValue = (value, decimals = 2) => this.formatCurrency(value, { decimals });
+
         const monthlyData = {};
         this.trades
             .filter(trade => this.isClosedStatus(trade.status) && trade.exitDate)
@@ -8112,9 +8145,7 @@ class GammaLedger {
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            callback: function (value) {
-                                return '$' + value.toLocaleString();
-                            }
+                            callback: (value) => formatCurrencyValue(value, 0)
                         }
                     },
                     x: {
@@ -8130,9 +8161,7 @@ class GammaLedger {
                     },
                     tooltip: {
                         callbacks: {
-                            label: function (context) {
-                                return 'P&L: $' + context.raw.toLocaleString();
-                            }
+                            label: (context) => `P&L: ${formatCurrencyValue(context.raw)}`
                         }
                     }
                 }
@@ -8152,6 +8181,8 @@ class GammaLedger {
         if (this.charts.cumulativePL) {
             this.charts.cumulativePL.destroy();
         }
+
+        const formatCurrencyValue = (value, decimals = 2) => this.formatCurrency(value, { decimals });
 
         const series = this.computeCumulativePLSeries();
 
@@ -8175,9 +8206,7 @@ class GammaLedger {
                     scales: {
                         y: {
                             ticks: {
-                                callback: function (value) {
-                                    return '$' + value.toLocaleString();
-                                }
+                                callback: (value) => formatCurrencyValue(value, 0)
                             }
                         }
                     },
@@ -8232,9 +8261,7 @@ class GammaLedger {
                     },
                     y: {
                         ticks: {
-                            callback: function (value) {
-                                return '$' + value.toLocaleString();
-                            }
+                            callback: (value) => formatCurrencyValue(value, 0)
                         }
                     }
                 },
@@ -8247,9 +8274,7 @@ class GammaLedger {
                             title: function (context) {
                                 return context[0]?.label || '';
                             },
-                            label: function (context) {
-                                return 'Cumulative P&L: $' + context.raw.toLocaleString();
-                            }
+                            label: (context) => `Cumulative P&L: ${formatCurrencyValue(context.raw)}`
                         }
                     }
                 }
@@ -8332,6 +8357,8 @@ class GammaLedger {
             .sort(([, a], [, b]) => b - a)
             .slice(0, 8);
 
+        const formatCurrencyValue = (value, decimals = 2) => this.formatCurrency(value, { decimals });
+
         this.charts.strategy = new Chart(ctx, {
             type: 'bar',
             data: {
@@ -8352,9 +8379,7 @@ class GammaLedger {
                     x: {
                         beginAtZero: true,
                         ticks: {
-                            callback: function (value) {
-                                return '$' + value.toLocaleString();
-                            }
+                            callback: (value) => formatCurrencyValue(value, 0)
                         }
                     }
                 },
@@ -8364,9 +8389,7 @@ class GammaLedger {
                     },
                     tooltip: {
                         callbacks: {
-                            label: function (context) {
-                                return 'P&L: $' + context.raw.toLocaleString();
-                            }
+                            label: (context) => `P&L: ${formatCurrencyValue(context.raw)}`
                         }
                     }
                 }
@@ -8432,8 +8455,9 @@ class GammaLedger {
                     },
                     tooltip: {
                         callbacks: {
-                            label: function (context) {
-                                return context.label + ': ' + context.raw.toFixed(2) + '%';
+                            label: (context) => {
+                                const percent = this.formatPercent(context.raw, '0%', { decimals: 2 });
+                                return `${context.label}: ${percent}`;
                             }
                         }
                     }
@@ -8700,19 +8724,20 @@ class GammaLedger {
 
             const roiCell = row.insertCell();
             const roiValue = safeNumber(trade.roi);
-            if (roiValue !== null) {
-                roiCell.textContent = `${roiValue.toFixed(2)}%`;
-                roiCell.className = roiValue > 0 ? 'pl-positive' : roiValue < 0 ? 'pl-negative' : 'pl-neutral';
-            } else {
-                roiCell.textContent = '—';
+            const roiDisplay = roiValue !== null ? this.formatPercent(roiValue, '—') : '—';
+            roiCell.textContent = roiDisplay;
+            if (roiDisplay === '—') {
                 roiCell.className = 'pl-neutral';
+            } else {
+                roiCell.className = roiValue > 0 ? 'pl-positive' : roiValue < 0 ? 'pl-negative' : 'pl-neutral';
             }
 
             const annRoiCell = row.insertCell();
             const annualROIValue = safeNumber(trade.annualizedROI);
             const hasAnnualROI = this.isClosedStatus(trade.status) && annualROIValue !== null;
             if (hasAnnualROI) {
-                annRoiCell.textContent = `${annualROIValue.toFixed(2)}%`;
+                const annualDisplay = this.formatPercent(annualROIValue, '—');
+                annRoiCell.textContent = annualDisplay;
                 annRoiCell.className = annualROIValue > 0 ? 'pl-positive' : annualROIValue < 0 ? 'pl-negative' : 'pl-neutral';
             } else {
                 annRoiCell.textContent = '—';
@@ -9966,37 +9991,98 @@ class GammaLedger {
             'Stock Price at Entry', 'Fees', 'Max Risk Override', 'IV Rank', 'Notes', 'Exit Reason', 'Cycle ID', 'Cycle Type', 'Cycle Role'
         ];
 
+        const escapeCsv = (value) => {
+            if (value === null || value === undefined) {
+                return '';
+            }
+
+            const text = String(value);
+            if (text === '') {
+                return '';
+            }
+
+            if (/[",\n]/.test(text)) {
+                return `"${text.replace(/"/g, '""')}"`;
+            }
+
+            return text;
+        };
+
+        const sanitize = (value) => {
+            if (value === null || value === undefined) {
+                return '';
+            }
+            return value === '—' ? '' : value;
+        };
+
+        const formatCurrencyValue = (value) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) {
+                return '';
+            }
+            return sanitize(this.formatCurrency(numeric));
+        };
+
+        const formatNumberValue = (value, decimals = 0) => {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric)) {
+                return '';
+            }
+            return sanitize(this.formatNumber(numeric, { decimals, useGrouping: true }));
+        };
+
+        const formatPercentValue = (value) => {
+            const numeric = Number(value);
+            if (numeric === Number.POSITIVE_INFINITY) {
+                return 'Infinite';
+            }
+            if (!Number.isFinite(numeric)) {
+                return '';
+            }
+            const formatted = sanitize(this.formatNumber(numeric, { decimals: 2, useGrouping: true }));
+            return formatted ? `${formatted}%` : `${numeric.toFixed(2)}%`;
+        };
+
+        const formatOptionalCurrency = (value) => (value === null || value === undefined ? '' : formatCurrencyValue(value));
+        const formatOptionalNumber = (value, decimals = 0) => (value === null || value === undefined ? '' : formatNumberValue(value, decimals));
+
+        const rows = this.trades.map(trade => {
+            const fields = [
+                trade.ticker ?? '',
+                trade.strategy ?? '',
+                this.getTradeType(trade) ?? '',
+                formatOptionalCurrency(trade.strikePrice),
+                formatOptionalCurrency(trade.definedRiskWidth),
+                formatOptionalNumber(Math.abs(trade.quantity), 0),
+                formatOptionalCurrency(trade.entryPrice),
+                formatOptionalCurrency(trade.exitPrice),
+                formatOptionalNumber(trade.dte, 0),
+                formatOptionalNumber(trade.daysHeld, 0),
+                trade.entryDate ?? '',
+                trade.expirationDate ?? '',
+                trade.exitDate ?? '',
+                formatOptionalCurrency(trade.maxRisk),
+                formatOptionalCurrency(trade.pl),
+                formatPercentValue(trade.roi),
+                formatPercentValue(trade.annualizedROI),
+                trade.status ?? '',
+                formatOptionalCurrency(trade.stockPriceAtEntry),
+                formatOptionalCurrency(trade.fees),
+                formatOptionalCurrency(trade.maxRiskOverride),
+                formatOptionalNumber(trade.ivRank, 2),
+                trade.notes ?? '',
+                trade.exitReason ?? '',
+                trade.cycleId ?? '',
+                trade.cycleType ?? '',
+                trade.cycleRole ?? ''
+            ];
+
+            return fields.map(escapeCsv).join(',');
+        });
+
         const csvContent = [
-            headers.join(','),
-            ...this.trades.map(trade => [
-                trade.ticker,
-                `"${trade.strategy}"`,
-                this.getTradeType(trade),
-                trade.strikePrice,
-                Number.isFinite(Number(trade.definedRiskWidth)) ? Number(trade.definedRiskWidth).toFixed(2) : '',
-                Math.abs(trade.quantity),
-                trade.entryPrice,
-                (trade.exitPrice !== null && trade.exitPrice !== undefined) ? trade.exitPrice : '',
-                trade.dte,
-                trade.daysHeld,
-                trade.entryDate,
-                trade.expirationDate,
-                trade.exitDate || '',
-                trade.maxRisk.toFixed(2),
-                trade.pl.toFixed(2),
-                trade.roi.toFixed(2),
-                trade.annualizedROI.toFixed(2),
-                trade.status,
-                trade.stockPriceAtEntry,
-                trade.fees,
-                Number.isFinite(Number(trade.maxRiskOverride)) ? Number(trade.maxRiskOverride).toFixed(2) : '',
-                trade.ivRank || '',
-                `"${trade.notes || ''}"`,
-                trade.exitReason || '',
-                trade.cycleId || '',
-                trade.cycleType || '',
-                trade.cycleRole || ''
-            ].join(','))
+            headers.map(escapeCsv).join(','),
+            ...rows
         ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -10394,7 +10480,7 @@ class GammaLedger {
             return;
         }
 
-        const formatter = new Intl.DateTimeFormat(undefined, {
+        const formatter = new Intl.DateTimeFormat('en-US', {
             dateStyle: 'medium',
             timeStyle: 'short'
         });
@@ -10443,14 +10529,15 @@ class GammaLedger {
         const timestamp = summary.timestamp instanceof Date
             ? summary.timestamp
             : new Date(summary.timestamp || Date.now());
-        const dateFormatter = new Intl.DateTimeFormat(undefined, {
+        const dateFormatter = new Intl.DateTimeFormat('en-US', {
             dateStyle: 'medium',
             timeStyle: 'short'
         });
         const timestampLabel = Number.isNaN(timestamp.getTime()) ? '—' : dateFormatter.format(timestamp);
         const formatValue = (value) => {
-            if (Number.isFinite(value)) {
-                return value.toLocaleString();
+            const numeric = Number(value);
+            if (Number.isFinite(numeric)) {
+                return this.formatNumber(numeric, { decimals: 0, useGrouping: true }) ?? '0';
             }
             if (value === null || value === undefined) {
                 return '0';
@@ -10572,7 +10659,7 @@ class GammaLedger {
             return;
         }
 
-        const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+    const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
 
         container.innerHTML = reviewTrades.map((trade) => {
             const isChecked = this.importMergeSelection.has(trade.id);
@@ -10670,7 +10757,9 @@ class GammaLedger {
         const safePrefix = (prefix || '').toString().trim().replace(/\.*$/, '');
         const prefixText = safePrefix ? `${safePrefix}. ` : '';
         const count = Array.isArray(trades) ? trades.length : 0;
-        const header = `${prefixText}Merged ${count} trade${count === 1 ? '' : 's'} on ${timestamp.toLocaleDateString()} at ${timestamp.toLocaleTimeString()}.`;
+    const dateLabel = timestamp.toLocaleDateString('en-US', { dateStyle: 'medium' });
+    const timeLabel = timestamp.toLocaleTimeString('en-US', { timeStyle: 'short' });
+    const header = `${prefixText}Merged ${count} trade${count === 1 ? '' : 's'} on ${dateLabel} at ${timeLabel}.`;
         const idLine = `Source trades: ${trades.map((trade) => trade.id).join(', ')}.`;
         const priorNotes = trades
             .map((trade) => (trade.notes || '').trim())
@@ -10860,7 +10949,7 @@ class GammaLedger {
             .map((trade) => this.parseDateValue(trade.entryDate || trade.openedDate))
             .filter((date) => date instanceof Date && !Number.isNaN(date.getTime()))
             .sort((a, b) => a.getTime() - b.getTime());
-        const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' });
+    const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
         const entryRange = entryDates.length
             ? `${dateFormatter.format(entryDates[0])} - ${dateFormatter.format(entryDates[entryDates.length - 1])}`
             : 'N/A';
@@ -11781,9 +11870,11 @@ class GammaLedger {
     }
 
     composeImportNotes(context = {}, options = {}) {
-        const fileName = context.fileName || 'OFX file';
-        const timestamp = new Date();
-        const parts = [`Imported from ${fileName} on ${timestamp.toLocaleDateString()} at ${timestamp.toLocaleTimeString()}.`];
+    const fileName = context.fileName || 'OFX file';
+    const timestamp = new Date();
+    const dateLabel = timestamp.toLocaleDateString('en-US', { dateStyle: 'medium' });
+    const timeLabel = timestamp.toLocaleTimeString('en-US', { timeStyle: 'short' });
+    const parts = [`Imported from ${fileName} on ${dateLabel} at ${timeLabel}.`];
 
         if (options.legCount) {
             parts.push(`${options.legCount} leg${options.legCount === 1 ? '' : 's'} detected.`);
@@ -12322,12 +12413,20 @@ class GammaLedger {
         return formatWithIntl(numeric, decimals);
     }
 
-    formatPercent(value, fallback = '—') {
+    formatPercent(value, fallback = '—', options = {}) {
         const numeric = Number(value);
+        if (numeric === Number.POSITIVE_INFINITY) {
+            return 'Infinite';
+        }
         if (!Number.isFinite(numeric)) {
             return fallback;
         }
-        return `${numeric.toFixed(2)}%`;
+
+        const decimals = Number.isInteger(options.decimals)
+            ? Math.max(0, options.decimals)
+            : 2;
+        const formatted = this.formatNumber(numeric, { decimals, useGrouping: true });
+        return formatted ? `${formatted}%` : `${numeric.toFixed(decimals)}%`;
     }
 
     getStrategyDisplayName(strategy = '') {
@@ -12384,15 +12483,26 @@ class GammaLedger {
             .replace(/'/g, '&#39;');
     }
 
-    formatCurrency(amount) {
+    formatCurrency(amount, options = {}) {
         const value = Number(amount);
         if (!Number.isFinite(value)) {
             return '—';
         }
 
+        const currency = options.currency || 'USD';
+        const decimals = Number.isInteger(options.decimals)
+            ? Math.max(0, options.decimals)
+            : 2;
+        const useGrouping = options.useGrouping !== undefined
+            ? Boolean(options.useGrouping)
+            : true;
+
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
-            currency: 'USD'
+            currency,
+            useGrouping,
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
         }).format(value);
     }
 
@@ -12500,13 +12610,13 @@ class LocalInsightsAgent {
             return 'No closed trades yet. Once you realize some P&L I\'ll summarize your performance here.';
         }
 
-        const winRate = Number.isFinite(stats.winRate) ? `${stats.winRate.toFixed(1)}%` : '—';
+    const winRate = this.formatPercent(stats.winRate, '—', { decimals: 1 });
         const profitFactor = stats.profitFactor === Number.POSITIVE_INFINITY
-            ? '∞'
+            ? 'Infinite'
             : Number.isFinite(stats.profitFactor)
                 ? stats.profitFactor.toFixed(2)
                 : '—';
-        const totalROI = Number.isFinite(stats.totalROI) ? `${stats.totalROI.toFixed(2)}%` : '—';
+    const totalROI = this.formatPercent(stats.totalROI, '—');
         return `Closed trades: ${closed}, realised P&L ${this.formatCurrency(stats.totalPL)}, win rate ${winRate}, profit factor ${profitFactor}, total ROI ${totalROI}.`;
     }
 
@@ -12615,8 +12725,8 @@ class LocalInsightsAgent {
         return Array.from(map.values()).sort((a, b) => b.pl - a.pl);
     }
 
-    formatCurrency(value) {
-        return this.app.formatCurrency(value);
+    formatCurrency(value, options) {
+        return this.app.formatCurrency(value, options);
     }
 }
 
@@ -12749,7 +12859,7 @@ class GeminiInsightsAgent {
             winRate: this.formatNumber(stats.winRate, { style: 'percent' }),
             profitFactor: Number.isFinite(stats.profitFactor)
                 ? this.formatNumber(stats.profitFactor)
-                : (stats.profitFactor === Number.POSITIVE_INFINITY ? '∞' : null),
+                : (stats.profitFactor === Number.POSITIVE_INFINITY ? 'Infinite' : null),
             totalROI: this.formatNumber(stats.totalROI, { style: 'percent' }),
             annualizedROI: this.formatNumber(stats.annualizedROI, { style: 'percent' }),
             maxDrawdown: this.formatNumber(stats.maxDrawdown, { style: 'percent' }),
@@ -12939,31 +13049,38 @@ class GeminiInsightsAgent {
     }
 
     formatNumber(value, options = {}) {
-        const numeric = Number(value);
-        if (!Number.isFinite(numeric)) {
-            return null;
+        const fallback = Object.prototype.hasOwnProperty.call(options || {}, 'fallback')
+            ? options.fallback
+            : null;
+
+        if (!this.app || typeof this.app.formatNumber !== 'function') {
+            return fallback;
         }
 
-        const style = options.style || 'number';
+        const normalizedOptions = { ...(options || {}) };
+        delete normalizedOptions.fallback;
 
-        if (style === 'currency') {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD',
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            }).format(numeric);
+        if (normalizedOptions.style === 'string') {
+            normalizedOptions.style = 'number';
         }
 
-        if (style === 'percent') {
-            return `${numeric.toFixed(2)}%`;
+        if (normalizedOptions.style === 'percent') {
+            const percentOptions = {};
+            if (Number.isInteger(normalizedOptions.decimals)) {
+                percentOptions.decimals = normalizedOptions.decimals;
+            }
+            return this.app.formatPercent(value, fallback, percentOptions);
         }
 
-        if (style === 'string') {
-            return numeric.toFixed(2);
-        }
+        const formatted = this.app.formatNumber(value, normalizedOptions);
+        return formatted ?? fallback;
+    }
 
-        return Number(numeric.toFixed(2));
+    formatPercent(value, fallback, options) {
+        if (!this.app || typeof this.app.formatPercent !== 'function') {
+            return fallback ?? null;
+        }
+        return this.app.formatPercent(value, fallback, options);
     }
 
     formatCycleMetricValue(value, label = '') {
