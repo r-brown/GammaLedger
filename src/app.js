@@ -2115,79 +2115,514 @@ class GammaLedger {
         return summary;
     }
 
-    computeMaxRiskUsingFormula(trade = {}, summary = null) {
-        const details = summary || this.summarizeLegs(trade?.legs || []);
-        if (!details) {
-            return 0;
+    buildRiskFormulaContext(trade = {}, details = null) {
+        const summary = details || this.summarizeLegs(trade?.legs || []);
+        if (!summary) {
+            return null;
         }
 
-        let strike = Number(trade?.strikePrice);
-        if (!(Number.isFinite(strike) && strike > 0)) {
+        let referenceStrike = Number(trade?.strikePrice);
+        if (!(Number.isFinite(referenceStrike) && referenceStrike > 0)) {
             const activeStrike = Number(trade?.activeStrikePrice);
             if (Number.isFinite(activeStrike) && activeStrike > 0) {
-                strike = activeStrike;
+                referenceStrike = activeStrike;
             }
         }
-        if (!(Number.isFinite(strike) && strike > 0)) {
-            const primaryStrike = Number(details?.primaryLeg?.strike);
+        if (!(Number.isFinite(referenceStrike) && referenceStrike > 0)) {
+            const primaryStrike = Number(summary?.primaryLeg?.strike);
             if (Number.isFinite(primaryStrike) && primaryStrike > 0) {
-                strike = primaryStrike;
+                referenceStrike = primaryStrike;
             } else {
-                const derivedStrike = this.derivePrimaryStrike(details);
+                const derivedStrike = this.derivePrimaryStrike(summary);
                 if (Number.isFinite(derivedStrike) && derivedStrike > 0) {
-                    strike = derivedStrike;
+                    referenceStrike = derivedStrike;
                 }
             }
         }
 
-        if (!(Number.isFinite(strike) && strike > 0)) {
-            return 0;
-        }
-
         let contracts = Math.abs(Number(trade?.quantity)) || 0;
         if (!(contracts > 0)) {
-            const summaryContracts = Number(details?.openBaseContracts);
+            const summaryContracts = Number(summary?.openBaseContracts);
             if (Number.isFinite(summaryContracts) && summaryContracts > 0) {
                 contracts = summaryContracts;
             }
         }
         if (!(contracts > 0)) {
-            const primaryQuantity = Number(details?.primaryLeg?.quantity);
+            const primaryQuantity = Number(summary?.primaryLeg?.quantity);
             if (Number.isFinite(primaryQuantity) && primaryQuantity !== 0) {
                 contracts = Math.abs(primaryQuantity);
             }
         }
         if (!(contracts > 0)) {
-            return 0;
+            return null;
         }
 
         let multiplier = Math.abs(Number(trade?.multiplier)) || 0;
-        if (!(multiplier > 0)) {
-            if (details?.primaryLeg) {
-                const primaryMultiplier = this.getLegMultiplier(details.primaryLeg);
-                if (Number.isFinite(primaryMultiplier) && primaryMultiplier > 0) {
-                    multiplier = primaryMultiplier;
-                }
+        if (!(multiplier > 0) && summary?.primaryLeg) {
+            const primaryMultiplier = this.getLegMultiplier(summary.primaryLeg);
+            if (Number.isFinite(primaryMultiplier) && primaryMultiplier > 0) {
+                multiplier = primaryMultiplier;
             }
         }
-        if (!(multiplier > 0) && Array.isArray(details?.legs)) {
-            const legWithMultiplier = details.legs.find((leg) => Number.isFinite(Number(leg?.multiplier)) && Number(leg.multiplier) > 0);
+        if (!(multiplier > 0) && Array.isArray(summary?.legs)) {
+            const legWithMultiplier = summary.legs.find((leg) => Number.isFinite(Number(leg?.multiplier)) && Number(leg.multiplier) > 0);
             if (legWithMultiplier) {
-                multiplier = Math.abs(Number(legWithMultiplier.multiplier));
+                multiplier = Math.abs(Number(this.getLegMultiplier(legWithMultiplier)));
             }
         }
         if (!(multiplier > 0)) {
             multiplier = 100;
         }
 
-        const entryNetCredit = Number(details?.entryNetCredit);
-        const denominator = contracts * multiplier;
-        const premiumPerShare = denominator > 0 && Number.isFinite(entryNetCredit)
-            ? entryNetCredit / denominator
-            : 0;
+        const contractValue = contracts * multiplier;
+        if (!(contractValue > 0)) {
+            return null;
+        }
 
-        const riskPerShare = strike - (Number.isFinite(premiumPerShare) ? premiumPerShare : 0);
-        const maxRisk = Math.max(riskPerShare, 0) * contracts * multiplier;
+        const entryNetCreditDollars = Number(summary?.entryNetCredit);
+        const creditDollars = Number(summary?.openCreditGross) || 0;
+        const debitDollars = Number(summary?.openDebitGross) || 0;
+        const feesDollars = Number(summary?.openFees) || 0;
+
+        const premiumReceivedPerShare = contractValue > 0 ? creditDollars / contractValue : 0;
+        const premiumPaidPerShare = contractValue > 0 ? debitDollars / contractValue : 0;
+        const netPremiumPerShare = premiumReceivedPerShare - premiumPaidPerShare;
+        const netCreditPerShare = Math.max(netPremiumPerShare, 0);
+        const netDebitPerShare = Math.max(-netPremiumPerShare, 0);
+        const entryNetPremiumPerShare = contractValue > 0 && Number.isFinite(entryNetCreditDollars)
+            ? entryNetCreditDollars / contractValue
+            : 0;
+        const totalFeesPerShare = contractValue > 0 ? feesDollars / contractValue : 0;
+
+        const openLegs = Array.isArray(summary?.legs)
+            ? summary.legs.filter((leg) => leg && leg.side === 'OPEN')
+            : [];
+        const optionLegs = openLegs.filter((leg) => ['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike)));
+
+        const strikeValues = optionLegs
+            .map((leg) => Number(leg.strike))
+            .filter((value) => Number.isFinite(value));
+        const uniqueStrikes = Array.from(new Set(strikeValues)).sort((a, b) => a - b);
+        const K1 = uniqueStrikes[0] ?? null;
+        const K2 = uniqueStrikes[1] ?? null;
+        const K3 = uniqueStrikes[2] ?? null;
+        const K4 = uniqueStrikes[3] ?? null;
+
+        const strikeDiffs = [];
+        for (let i = 1; i < uniqueStrikes.length; i += 1) {
+            const diff = uniqueStrikes[i] - uniqueStrikes[i - 1];
+            if (Number.isFinite(diff) && diff > 0) {
+                strikeDiffs.push(diff);
+            }
+        }
+        const minStrikeDiff = strikeDiffs.length ? Math.min(...strikeDiffs) : null;
+        const maxStrikeDiff = strikeDiffs.length ? Math.max(...strikeDiffs) : null;
+
+        const selectStrikes = (predicate) => optionLegs
+            .filter(predicate)
+            .map((leg) => Number(leg.strike))
+            .filter((value) => Number.isFinite(value))
+            .sort((a, b) => a - b);
+
+        const shortCalls = selectStrikes((leg) => leg.type === 'CALL' && this.normalizeLegAction(leg.action) === 'SELL');
+        const longCalls = selectStrikes((leg) => leg.type === 'CALL' && this.normalizeLegAction(leg.action) === 'BUY');
+        const shortPuts = selectStrikes((leg) => leg.type === 'PUT' && this.normalizeLegAction(leg.action) === 'SELL');
+        const longPuts = selectStrikes((leg) => leg.type === 'PUT' && this.normalizeLegAction(leg.action) === 'BUY');
+
+        const shortCallStrike = shortCalls.length ? shortCalls[0] : null;
+        const shortCallStrikeHigh = shortCalls.length ? shortCalls[shortCalls.length - 1] : null;
+        const longCallStrikeLow = longCalls.length ? longCalls[0] : null;
+        const longCallStrike = longCalls.length ? longCalls[longCalls.length - 1] : null;
+        const shortPutStrikeLow = shortPuts.length ? shortPuts[0] : null;
+        const shortPutStrike = shortPuts.length ? shortPuts[shortPuts.length - 1] : null;
+        const longPutStrikeLow = longPuts.length ? longPuts[0] : null;
+        const longPutStrike = longPuts.length ? longPuts[longPuts.length - 1] : null;
+
+        const lowerWidth = Number.isFinite(K1) && Number.isFinite(K2) ? Math.max(K2 - K1, 0) : null;
+        const middleWidth = Number.isFinite(K2) && Number.isFinite(K3) ? Math.max(K3 - K2, 0) : null;
+        const upperWidth = Number.isFinite(K3) && Number.isFinite(K4) ? Math.max(K4 - K3, 0) : null;
+        const maxWingWidth = Math.max(
+            Number.isFinite(lowerWidth) ? lowerWidth : 0,
+            Number.isFinite(upperWidth) ? upperWidth : 0
+        ) || null;
+        const defaultWidth = Number.isFinite(maxWingWidth) && maxWingWidth > 0
+            ? maxWingWidth
+            : Number.isFinite(middleWidth) && middleWidth > 0
+                ? middleWidth
+                : Number.isFinite(minStrikeDiff) && minStrikeDiff > 0
+                    ? minStrikeDiff
+                    : null;
+
+        const stockLegs = openLegs.filter((leg) => leg.type === 'STOCK');
+
+        const underlyingCandidates = [];
+        const addCandidate = (value) => {
+            const numeric = Number(value);
+            if (Number.isFinite(numeric) && numeric > 0) {
+                underlyingCandidates.push(numeric);
+            }
+        };
+
+        addCandidate(trade?.entryUnderlyingPrice);
+        addCandidate(trade?.underlyingEntryPrice);
+        addCandidate(trade?.underlyingPrice);
+        addCandidate(trade?.underlyingPriceAtEntry);
+        openLegs.forEach((leg) => addCandidate(leg?.underlyingPrice));
+
+        if (!underlyingCandidates.length && stockLegs.length) {
+            stockLegs
+                .map((leg) => Number(leg?.premium))
+                .filter((value) => Number.isFinite(value) && value > 0)
+                .forEach((value) => underlyingCandidates.push(value));
+        }
+
+        let S = null;
+        if (underlyingCandidates.length) {
+            const total = underlyingCandidates.reduce((sum, value) => sum + value, 0);
+            const average = total / underlyingCandidates.length;
+            if (Number.isFinite(average) && average > 0) {
+                S = average;
+            }
+        }
+
+        const effectiveStrike = Number.isFinite(referenceStrike) && referenceStrike > 0
+            ? referenceStrike
+            : (shortCallStrike ?? shortPutStrike ?? K1 ?? null);
+
+        const toNotional = (perShare) => {
+            if (perShare === null || perShare === undefined) {
+                return undefined;
+            }
+            if (perShare === Number.POSITIVE_INFINITY) {
+                return Number.POSITIVE_INFINITY;
+            }
+            const numeric = Number(perShare);
+            if (!Number.isFinite(numeric)) {
+                return undefined;
+            }
+            const normalized = Math.max(numeric, 0);
+            return normalized * contractValue;
+        };
+
+        return {
+            trade,
+            details: summary,
+            referenceStrike: effectiveStrike,
+            contracts,
+            multiplier,
+            contractValue,
+            entryNetCreditDollars,
+            entryNetPremiumPerShare,
+            netPremium: netPremiumPerShare,
+            netCredit: netCreditPerShare,
+            netDebit: netDebitPerShare,
+            premiumPaid: premiumPaidPerShare,
+            premiumReceived: premiumReceivedPerShare,
+            totalFeesPerShare,
+            strikes: uniqueStrikes,
+            K: effectiveStrike,
+            K1,
+            K2,
+            K3,
+            K4,
+            lowerWidth,
+            middleWidth,
+            upperWidth,
+            minStrikeDiff,
+            maxStrikeDiff,
+            maxWingWidth,
+            defaultWidth,
+            shortCallStrike,
+            shortCallStrikeHigh,
+            longCallStrike,
+            longCallStrikeLow,
+            shortPutStrike,
+            shortPutStrikeLow,
+            longPutStrike,
+            longPutStrikeLow,
+            S,
+            hasStockExposure: stockLegs.length > 0,
+            toNotional,
+            contractCount: contracts,
+            multiplierValue: multiplier
+        };
+    }
+
+    computeDefaultMaxRisk(context) {
+        if (!context || !(context.contractValue > 0)) {
+            return 0;
+        }
+
+        const strike = Number(context.referenceStrike);
+        if (!Number.isFinite(strike) || strike <= 0) {
+            return 0;
+        }
+
+        const premiumPerShare = Number(context.entryNetPremiumPerShare);
+        if (!Number.isFinite(premiumPerShare)) {
+            return 0;
+        }
+
+        const riskPerShare = strike - premiumPerShare;
+        if (!Number.isFinite(riskPerShare)) {
+            return 0;
+        }
+
+        const value = Math.max(riskPerShare, 0) * context.contractValue;
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    getStrategyRiskHandlers() {
+        if (!this.strategyRiskHandlersCache) {
+            const width = (lower, upper) => {
+                if (!Number.isFinite(lower) || !Number.isFinite(upper)) {
+                    return null;
+                }
+                return Math.max(upper - lower, 0);
+            };
+            const pickStrike = (...values) => {
+                for (const value of values) {
+                    const numeric = Number(value);
+                    if (Number.isFinite(numeric) && numeric > 0) {
+                        return numeric;
+                    }
+                }
+                return null;
+            };
+            const handlers = {};
+
+            const register = (name, fn) => {
+                if (name) {
+                    handlers[name] = fn;
+                }
+                return fn;
+            };
+
+            const debitRisk = (ctx) => ctx.toNotional(ctx.netDebit);
+            const creditWidthRisk = (ctx, lower, upper) => {
+                const diff = width(lower, upper);
+                if (diff === null) {
+                    return undefined;
+                }
+                return ctx.toNotional(diff - ctx.netCredit);
+            };
+            const widthMinusDebit = (ctx, lower, upper) => {
+                const diff = width(lower, upper);
+                if (diff === null) {
+                    return undefined;
+                }
+                return ctx.toNotional(diff - ctx.netDebit);
+            };
+            const condorWidthRisk = (ctx) => {
+                const diff = Number.isFinite(ctx.defaultWidth) && ctx.defaultWidth > 0
+                    ? ctx.defaultWidth
+                    : width(ctx.K1, ctx.K2);
+                if (!Number.isFinite(diff) || diff <= 0) {
+                    return undefined;
+                }
+                return ctx.toNotional(diff - ctx.netCredit);
+            };
+
+            register('Bear Call Ladder', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Bear Call Spread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Bear Put Ladder', (ctx) => {
+                const ladderWidth = width(ctx.K2, ctx.K3);
+                if (ladderWidth === null) {
+                    return undefined;
+                }
+                return ctx.toNotional(ctx.netDebit - ladderWidth);
+            });
+            register('Bear Put Spread', (ctx) => debitRisk(ctx));
+            register('Box Spread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Bull Call Ladder', (ctx) => {
+                const ladderWidth = width(ctx.K1, ctx.K2);
+                if (ladderWidth === null) {
+                    return undefined;
+                }
+                return ctx.toNotional(ctx.netDebit + ladderWidth);
+            });
+            register('Bull Call Spread', (ctx) => debitRisk(ctx));
+            register('Bull Put Ladder', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Bull Put Spread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Calendar Call Spread', debitRisk);
+            register('Calendar Put Spread', debitRisk);
+            register('Calendar Straddle', debitRisk);
+            register('Calendar Strangle', debitRisk);
+            register('Call Broken Wing', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Call Ratio Backspread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Call Ratio Spread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Cash-Secured Put', (ctx) => {
+                const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K, ctx.K1);
+                if (!Number.isFinite(strike)) {
+                    return undefined;
+                }
+                return ctx.toNotional(strike - ctx.netCredit);
+            });
+            register('Collar', (ctx) => {
+                const underlying = pickStrike(ctx.S, ctx.referenceStrike);
+                const putStrike = pickStrike(ctx.longPutStrike, ctx.shortPutStrike, ctx.K1);
+                if (underlying === null || putStrike === null) {
+                    return undefined;
+                }
+                return ctx.toNotional(underlying - putStrike - ctx.netCredit);
+            });
+            register('Covered Call', (ctx) => {
+                const underlying = pickStrike(ctx.S, ctx.referenceStrike);
+                if (underlying === null) {
+                    return undefined;
+                }
+                return ctx.toNotional(underlying - ctx.netCredit);
+            });
+            register('Covered Put', () => Number.POSITIVE_INFINITY);
+            register('Covered Short Straddle', () => Number.POSITIVE_INFINITY);
+            register('Covered Short Strangle', () => Number.POSITIVE_INFINITY);
+            register('Diagonal Call Spread', debitRisk);
+            register('Diagonal Put Spread', debitRisk);
+            register('Double Diagonal', debitRisk);
+            register('Guts', debitRisk);
+            register('Inverse Call Broken Wing', (ctx) => widthMinusDebit(ctx, ctx.K2, ctx.K3));
+            register('Inverse Iron Butterfly', (ctx) => {
+                const spreadWidth = width(ctx.K1, ctx.K2);
+                if (spreadWidth === null) {
+                    return undefined;
+                }
+                return ctx.toNotional(ctx.netDebit - spreadWidth);
+            });
+            register('Inverse Iron Condor', debitRisk);
+            register('Inverse Put Broken Wing', (ctx) => widthMinusDebit(ctx, ctx.K1, ctx.K2));
+            register('Iron Albatross', condorWidthRisk);
+            register('Iron Butterfly', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Iron Condor', condorWidthRisk);
+            register('Jade Lizard', (ctx) => {
+                const callStrike = pickStrike(ctx.shortCallStrike, ctx.shortCallStrikeHigh, ctx.K2, ctx.K3);
+                if (!Number.isFinite(callStrike)) {
+                    return undefined;
+                }
+                return ctx.toNotional(callStrike - ctx.netCredit);
+            });
+            register('Long Call', debitRisk);
+            register('Long Call Butterfly', debitRisk);
+            register('Long Call Condor', debitRisk);
+            register('Long Put', debitRisk);
+            register('Long Put Butterfly', debitRisk);
+            register('Long Put Condor', debitRisk);
+            register('Long Straddle', debitRisk);
+            register('Long Strangle', debitRisk);
+            register('Poor Man\'s Covered Call', debitRisk);
+            register('Protective Put', (ctx) => {
+                const underlying = pickStrike(ctx.S, ctx.referenceStrike);
+                const putStrike = pickStrike(ctx.longPutStrike, ctx.longPutStrikeLow, ctx.K1);
+                if (underlying === null || putStrike === null) {
+                    return undefined;
+                }
+                return ctx.toNotional(underlying - putStrike + ctx.netDebit);
+            });
+            register('Put Broken Wing', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Put Ratio Backspread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Put Ratio Spread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Reverse Jade Lizard', (ctx) => {
+                const putStrike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K1);
+                if (!Number.isFinite(putStrike)) {
+                    return undefined;
+                }
+                return ctx.toNotional(putStrike - ctx.netCredit);
+            });
+            register('Short Call', () => Number.POSITIVE_INFINITY);
+            register('Short Call Butterfly', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Short Call Condor', condorWidthRisk);
+            register('Short Guts', () => Number.POSITIVE_INFINITY);
+            register('Short Put', (ctx) => {
+                const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K, ctx.K1);
+                if (!Number.isFinite(strike)) {
+                    return undefined;
+                }
+                return ctx.toNotional(strike - ctx.netCredit);
+            });
+            register('Short Put Butterfly', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
+            register('Short Put Condor', condorWidthRisk);
+            register('Short Straddle', () => Number.POSITIVE_INFINITY);
+            register('Short Strangle', () => Number.POSITIVE_INFINITY);
+            register('Strap', debitRisk);
+            register('Strip', debitRisk);
+            register('Synthetic Long Stock', () => Number.POSITIVE_INFINITY);
+            register('Synthetic Short Stock', () => Number.POSITIVE_INFINITY);
+            register('Synthetic Put', () => Number.POSITIVE_INFINITY);
+            register('Wheel', (ctx) => {
+                const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K1);
+                if (!Number.isFinite(strike)) {
+                    return undefined;
+                }
+                return ctx.toNotional(strike - ctx.netCredit);
+            });
+
+            if (handlers['Calendar Call Spread']) {
+                register('Calendar Spread', handlers['Calendar Call Spread']);
+            }
+            if (handlers['Call Broken Wing']) {
+                register('Call Broken Wing Butterfly', handlers['Call Broken Wing']);
+                register('Broken Wing Butterfly', handlers['Call Broken Wing']);
+            }
+            if (handlers['Put Broken Wing']) {
+                register('Put Broken Wing Butterfly', handlers['Put Broken Wing']);
+            }
+            if (handlers['Wheel']) {
+                register('Wheel Strategy', handlers['Wheel']);
+            }
+            if (handlers['Cash-Secured Put']) {
+                register('Cash Secured Put', handlers['Cash-Secured Put']);
+            }
+            if (handlers['Poor Man\'s Covered Call']) {
+                register('Poor Mans Covered Call', handlers['Poor Man\'s Covered Call']);
+            }
+
+            this.strategyRiskHandlersCache = handlers;
+        }
+
+        return this.strategyRiskHandlersCache;
+    }
+
+    evaluateStrategyMaxRisk(strategyName, context) {
+        if (!context) {
+            return undefined;
+        }
+
+        const handlers = this.getStrategyRiskHandlers();
+        const key = (strategyName || '').toString().trim();
+        if (!key) {
+            return undefined;
+        }
+
+        const handler = handlers[key];
+        if (typeof handler !== 'function') {
+            return undefined;
+        }
+
+        return handler(context);
+    }
+
+    computeMaxRiskUsingFormula(trade = {}, summary = null) {
+        const details = summary || this.summarizeLegs(trade?.legs || []);
+        if (!details) {
+            return 0;
+        }
+
+        const context = this.buildRiskFormulaContext(trade, details);
+        if (!context) {
+            return 0;
+        }
+
+        const strategyName = this.getStrategyDisplayName(trade?.strategy || '');
+        let maxRisk = strategyName
+            ? this.evaluateStrategyMaxRisk(strategyName, context)
+            : undefined;
+
+        if (maxRisk === undefined) {
+            maxRisk = this.computeDefaultMaxRisk(context);
+        }
+
+        if (maxRisk === Number.POSITIVE_INFINITY) {
+            return Number.POSITIVE_INFINITY;
+        }
 
         if (!Number.isFinite(maxRisk) || maxRisk <= 0) {
             return 0;
@@ -2333,16 +2768,28 @@ class GammaLedger {
         const maxRisk = this.computeMaxRiskUsingFormula(trade, details);
 
         const result = {
-            maxRiskValue: Number.isFinite(maxRisk) && maxRisk > 0 ? maxRisk : 0,
-            maxRiskLabel: null,
+            maxRiskValue: 0,
+            maxRiskLabel: '$0.00',
             unlimited: false
         };
 
-        details.capitalAtRisk = result.maxRiskValue;
+        if (maxRisk === Number.POSITIVE_INFINITY) {
+            result.maxRiskValue = Number.POSITIVE_INFINITY;
+            result.maxRiskLabel = 'Unlimited';
+            result.unlimited = true;
+            details.capitalAtRisk = Number.POSITIVE_INFINITY;
+            return result;
+        }
 
-        result.maxRiskLabel = result.maxRiskValue > 0
-            ? this.formatCurrency(result.maxRiskValue)
-            : '$0.00';
+        if (Number.isFinite(maxRisk) && maxRisk > 0) {
+            result.maxRiskValue = maxRisk;
+            result.maxRiskLabel = this.formatCurrency(maxRisk);
+        } else {
+            result.maxRiskValue = 0;
+            result.maxRiskLabel = '$0.00';
+        }
+
+        details.capitalAtRisk = result.maxRiskValue;
 
         return result;
     }
@@ -3008,16 +3455,25 @@ class GammaLedger {
 
         const summary = this.summarizeLegs(trade.legs || []);
         const computed = this.computeMaxRiskUsingFormula(trade, summary);
+        if (computed === Number.POSITIVE_INFINITY) {
+            return Number.POSITIVE_INFINITY;
+        }
         if (Number.isFinite(computed) && computed > 0) {
             return computed;
         }
 
         const stored = Number(trade.capitalAtRisk);
+        if (stored === Number.POSITIVE_INFINITY) {
+            return Number.POSITIVE_INFINITY;
+        }
         if (Number.isFinite(stored) && stored > 0) {
             return stored;
         }
 
         const legacy = Number(trade.maxRisk);
+        if (legacy === Number.POSITIVE_INFINITY) {
+            return Number.POSITIVE_INFINITY;
+        }
         if (Number.isFinite(legacy) && legacy > 0) {
             return legacy;
         }
@@ -3037,16 +3493,25 @@ class GammaLedger {
 
         const summary = this.summarizeLegs(trade.legs || []);
         const computed = this.computeMaxRiskUsingFormula(trade, summary);
+        if (computed === Number.POSITIVE_INFINITY) {
+            return Number.POSITIVE_INFINITY;
+        }
         if (Number.isFinite(computed) && computed > 0) {
             return computed;
         }
 
         const stored = Number(trade.capitalAtRisk);
+        if (stored === Number.POSITIVE_INFINITY) {
+            return Number.POSITIVE_INFINITY;
+        }
         if (Number.isFinite(stored) && stored > 0) {
             return stored;
         }
 
         const legacy = Number(trade.maxRisk);
+        if (legacy === Number.POSITIVE_INFINITY) {
+            return Number.POSITIVE_INFINITY;
+        }
         if (Number.isFinite(legacy) && legacy > 0) {
             return legacy;
         }
