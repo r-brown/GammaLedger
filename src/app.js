@@ -20,6 +20,62 @@ const LEGACY_STORAGE_KEYS = [
     'GammaLedgerState'
 ];
 
+const RUNTIME_TRADE_FIELDS = new Set([
+    'legsCount',
+    'openContracts',
+    'closeContracts',
+    'openLegs',
+    'rollLegs',
+    'netPremium',
+    'totalFees',
+    'totalDebit',
+    'totalCredit',
+    'cashFlow',
+    'capitalAtRisk',
+    'fees',
+    'primaryLeg',
+    'tradeType',
+    'tradeDirection',
+    'quantity',
+    'strikePrice',
+    'multiplier',
+    'displayStrike',
+    'activeStrikePrice',
+    'entryPrice',
+    'exitPrice',
+    'entryPriceLabel',
+    'pmccShortExpiration',
+    'longExpirationDate',
+    'openedDate',
+    'closedDate',
+    'entryDate',
+    'exitDate',
+    'expirationDate',
+    'pl',
+    'roi',
+    'maxRisk',
+    'maxRiskLabel',
+    'riskIsUnlimited',
+    'lifecycleMeta',
+    'lifecycleStatus',
+    'partialClose',
+    'rolledForward',
+    'autoExpired',
+    'status',
+    'daysHeld',
+    'dte',
+    'annualizedROI',
+    'tradeReasoning'
+]);
+
+const RUNTIME_LEG_FIELDS = new Set([
+    'externalId',
+    'importGroupId',
+    'importSource',
+    'importBatchId',
+    'tickerSymbol'
+]);
+
 const SHARE_CARD_EXPORT_SIZE = 1080;
 const SHARE_CARD_CHART_WIDTH_RATIO = 0.78;
 const SHARE_CARD_CHART_HEIGHT_RATIO = 0.42;
@@ -10133,11 +10189,111 @@ class GammaLedger {
         this.hideLoadingIndicator();
     }
 
+    getStorageTrades() {
+        if (!Array.isArray(this.trades)) {
+            return [];
+        }
+
+        return this.trades
+            .map((trade) => this.buildTradeStorageSnapshot(trade))
+            .filter(Boolean);
+    }
+
+    buildTradeStorageSnapshot(trade) {
+        if (!trade || typeof trade !== 'object') {
+            return null;
+        }
+
+        const snapshot = {};
+
+        for (const [key, value] of Object.entries(trade)) {
+            if (RUNTIME_TRADE_FIELDS.has(key)) {
+                continue;
+            }
+
+            if (key === 'legs') {
+                if (!Array.isArray(value)) {
+                    snapshot.legs = [];
+                } else {
+                    const legs = value
+                        .map((leg) => this.buildLegStorageSnapshot(leg))
+                        .filter(Boolean);
+                    snapshot.legs = legs;
+                }
+                continue;
+            }
+
+            if (value === undefined) {
+                continue;
+            }
+
+            if (value === null) {
+                snapshot[key] = null;
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                snapshot[key] = value.map((item) => (typeof item === 'object' && item !== null ? { ...item } : item));
+                continue;
+            }
+
+            if (typeof value === 'object') {
+                snapshot[key] = { ...value };
+                continue;
+            }
+
+            snapshot[key] = value;
+        }
+
+        if (!Array.isArray(snapshot.legs)) {
+            snapshot.legs = [];
+        }
+
+        return snapshot;
+    }
+
+    buildLegStorageSnapshot(leg) {
+        if (!leg || typeof leg !== 'object') {
+            return null;
+        }
+
+        const snapshot = {};
+
+        for (const [key, value] of Object.entries(leg)) {
+            if (RUNTIME_LEG_FIELDS.has(key)) {
+                continue;
+            }
+
+            if (value === undefined) {
+                continue;
+            }
+
+            if (value === null) {
+                snapshot[key] = null;
+                continue;
+            }
+
+            if (Array.isArray(value)) {
+                snapshot[key] = value.slice();
+                continue;
+            }
+
+            if (typeof value === 'object') {
+                snapshot[key] = { ...value };
+                continue;
+            }
+
+            snapshot[key] = value;
+        }
+
+        return snapshot;
+    }
+
     buildDatabasePayload() {
         return {
-            trades: this.trades,
+            trades: this.getStorageTrades(),
             exportDate: new Date().toISOString(),
-            version: '2.4'
+            version: '2.5'
         };
     }
 
@@ -12298,10 +12454,10 @@ class GammaLedger {
     saveToStorage(metadata = {}) {
         try {
             const payload = {
-                version: '2.4',
+                version: '2.5',
                 timestamp: new Date().toISOString(),
                 fileName: metadata.fileName || this.currentFileName || 'Unsaved Database',
-                trades: this.trades
+                trades: this.getStorageTrades()
             };
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
             LEGACY_STORAGE_KEYS.forEach(key => {
