@@ -100,8 +100,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
             legs: [
                 {
                     id: 'TRD-2001-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
+                    orderType: 'STO',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
@@ -114,8 +113,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
                 },
                 {
                     id: 'TRD-2001-L2',
-                    action: 'BUY',
-                    side: 'OPEN',
+                    orderType: 'BTO',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
@@ -127,8 +125,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
                 },
                 {
                     id: 'TRD-2001-L3',
-                    action: 'SELL',
-                    side: 'OPEN',
+                    orderType: 'STO',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
@@ -140,8 +137,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
                 },
                 {
                     id: 'TRD-2001-L4',
-                    action: 'BUY',
-                    side: 'OPEN',
+                    orderType: 'BTO',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
@@ -153,8 +149,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
                 },
                 {
                     id: 'TRD-2001-L5',
-                    action: 'BUY',
-                    side: 'CLOSE',
+                    orderType: 'BTC',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
@@ -166,8 +161,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
                 },
                 {
                     id: 'TRD-2001-L6',
-                    action: 'SELL',
-                    side: 'CLOSE',
+                    orderType: 'STC',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
@@ -179,8 +173,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
                 },
                 {
                     id: 'TRD-2001-L7',
-                    action: 'BUY',
-                    side: 'CLOSE',
+                    orderType: 'BTC',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
@@ -192,8 +185,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
                 },
                 {
                     id: 'TRD-2001-L8',
-                    action: 'SELL',
-                    side: 'CLOSE',
+                    orderType: 'STC',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
@@ -218,8 +210,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
             legs: [
                 {
                     id: 'TRD-2002-L1',
-                    action: 'SELL',
-                    side: 'OPEN',
+                    orderType: 'STO',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
@@ -231,8 +222,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
                 },
                 {
                     id: 'TRD-2002-L2',
-                    action: 'BUY',
-                    side: 'CLOSE',
+                    orderType: 'BTC',
                     type: 'PUT',
                     quantity: 1,
                     multiplier: 100,
@@ -244,8 +234,7 @@ const BUILTIN_SAMPLE_DATA = (() => {
                 },
                 {
                     id: 'TRD-2002-L3',
-                    action: 'SELL',
-                    side: 'OPEN',
+                    orderType: 'STO',
                     type: 'CALL',
                     quantity: 1,
                     multiplier: 100,
@@ -486,6 +475,31 @@ class GammaLedger {
         }
     }
 
+    getLegOrderDescriptor(leg = {}) {
+        const normalizedOrderType = this.normalizeLegOrderType(leg?.orderType || leg?.order || leg?.tradeType);
+        if (normalizedOrderType) {
+            return this.mapOrderTypeToActionSide(normalizedOrderType);
+        }
+
+        const normalizedAction = this.normalizeLegAction(leg?.action);
+        const normalizedSide = this.normalizeLegSide(leg?.side);
+        if (normalizedAction || normalizedSide) {
+            return this.mapOrderTypeToActionSide(
+                this.deriveOrderTypeFromActionSide(normalizedAction || 'BUY', normalizedSide || 'OPEN')
+            );
+        }
+
+        return { action: 'BUY', side: 'OPEN' };
+    }
+
+    getLegAction(leg = {}) {
+        return this.getLegOrderDescriptor(leg).action;
+    }
+
+    getLegSide(leg = {}) {
+        return this.getLegOrderDescriptor(leg).side;
+    }
+
     deriveOrderTypeFromActionSide(action, side) {
         const normalizedAction = this.normalizeLegAction(action);
         const normalizedSide = this.normalizeLegSide(side);
@@ -517,6 +531,9 @@ class GammaLedger {
 
     normalizeLegSide(side) {
         const value = (side || '').toString().trim().toUpperCase();
+        if (value.startsWith('ROL')) {
+            return 'ROLL';
+        }
         if (["CALL", "PUT", "STOCK"].includes(value)) {
             return 'CLOSE';
         }
@@ -576,10 +593,6 @@ class GammaLedger {
             leg?.order ||
             this.deriveOrderTypeFromActionSide(leg?.action, leg?.side)
         );
-        const mapped = this.mapOrderTypeToActionSide(inferredOrderType);
-        const normalizedAction = this.normalizeLegAction(leg?.action || mapped.action);
-        const normalizedSide = this.normalizeLegSide(leg?.side || mapped.side);
-        const fitIdValue = leg?.fitId;
         const externalIdValue = leg?.externalId;
         const importGroupIdValue = leg?.importGroupId;
         const importSourceValue = leg?.importSource;
@@ -587,8 +600,6 @@ class GammaLedger {
         return {
             id: leg?.id || `LEG-${Date.now()}-${index}`,
             orderType: inferredOrderType,
-            action: normalizedAction,
-            side: normalizedSide,
             type: this.normalizeLegType(leg?.type),
             quantity: normalizedQuantity,
             multiplier: this.getLegMultiplier(leg),
@@ -599,7 +610,6 @@ class GammaLedger {
             fees: Number.isFinite(Number(leg?.fees)) ? Number(leg.fees) : 0,
             underlyingPrice: Number.isFinite(Number(leg?.underlyingPrice)) ? Number(leg.underlyingPrice) : null,
             underlyingType: this.normalizeUnderlyingType(leg?.underlyingType, { fallback: 'Stock' }),
-            fitId: fitIdValue === undefined || fitIdValue === null ? null : fitIdValue.toString().trim() || null,
             externalId: externalIdValue === undefined || externalIdValue === null ? null : externalIdValue.toString().trim() || null,
             importGroupId: importGroupIdValue === undefined || importGroupIdValue === null ? null : importGroupIdValue.toString().trim() || null,
             importSource: importSourceValue === undefined || importSourceValue === null ? null : importSourceValue.toString().trim() || null
@@ -617,7 +627,7 @@ class GammaLedger {
         const multiplier = this.getLegMultiplier(leg);
         const premium = Number(leg.premium) || 0;
         const fees = Number(leg.fees) || 0;
-        const direction = this.normalizeLegAction(leg.action) === 'SELL' ? 1 : -1;
+        const direction = this.getLegAction(leg) === 'SELL' ? 1 : -1;
         return direction * premium * multiplier * quantity - fees;
     }
 
@@ -663,21 +673,28 @@ class GammaLedger {
         const openOptionGroups = new Map();
         const now = this.currentDate instanceof Date ? this.currentDate : new Date();
 
-        normalizedLegs.forEach((leg) => {
+        normalizedLegs.forEach((leg, index) => {
+            const originalLeg = Array.isArray(legs) ? legs[index] : null;
+            const derivedAction = this.getLegAction(leg);
+            const derivedSide = this.getLegSide(leg);
+            const originalAction = this.normalizeLegAction(originalLeg?.action);
+            const originalSide = this.normalizeLegSide(originalLeg?.side);
+            const action = derivedAction || originalAction;
+            const side = originalSide === 'ROLL' ? 'ROLL' : derivedSide;
             const cashFlow = this.calculateLegCashFlow(leg);
             summary.cashFlow += cashFlow;
             summary.totalFees += Number(leg.fees) || 0;
 
             const quantity = Math.abs(Number(leg.quantity) || 0);
             if (quantity) {
-                if (leg.side === 'OPEN') {
+                if (side === 'OPEN') {
                     summary.openLegs += 1;
                     summary.openContracts += quantity;
                     summary.openCashFlow += cashFlow;
 
                     const multiplier = this.getLegMultiplier(leg) || 1;
                     const grossPremium = Math.abs(Number(leg.premium) || 0) * multiplier * quantity;
-                    if (leg.action === 'SELL') {
+                    if (action === 'SELL') {
                         summary.openCreditGross += grossPremium;
                     } else {
                         summary.openDebitGross += grossPremium;
@@ -692,18 +709,18 @@ class GammaLedger {
                         if (!openOptionGroups.has(key)) {
                             openOptionGroups.set(key, []);
                         }
-                        openOptionGroups.get(key).push(leg);
+                        openOptionGroups.get(key).push({ leg, action, side });
                     }
-                } else if (leg.side === 'CLOSE') {
+                } else if (side === 'CLOSE') {
                     summary.closeLegs += 1;
                     summary.closeContracts += quantity;
                     summary.closeCashFlow += cashFlow;
-                } else if (leg.side === 'ROLL') {
+                } else if (side === 'ROLL') {
                     summary.rollLegs += 1;
                 }
             }
 
-            if (leg.action === 'BUY') {
+            if (action === 'BUY') {
                 summary.totalDebit += Math.abs(cashFlow + (Number(leg.fees) || 0));
             } else {
                 summary.totalCredit += Math.abs(cashFlow + (Number(leg.fees) || 0));
@@ -730,7 +747,7 @@ class GammaLedger {
                     if (!summary.latestExpiration || exp > summary.latestExpiration) {
                         summary.latestExpiration = exp;
                     }
-                    if (leg.side === 'OPEN' && leg.action === 'SELL' && leg.type === 'CALL') {
+                    if (side === 'OPEN' && action === 'SELL' && leg.type === 'CALL') {
                         if (!summary.nearestShortCallExpiration || exp < summary.nearestShortCallExpiration) {
                             summary.nearestShortCallExpiration = exp;
                         }
@@ -743,7 +760,7 @@ class GammaLedger {
                 }
             }
 
-            if (!summary.primaryLeg && leg.side !== 'CLOSE') {
+            if (!summary.primaryLeg && side !== 'CLOSE') {
                 summary.primaryLeg = leg;
             }
         });
@@ -759,13 +776,13 @@ class GammaLedger {
             if (!Array.isArray(legsGroup) || legsGroup.length < 2) {
                 continue;
             }
-            const hasBuy = legsGroup.some(leg => leg.action === 'BUY');
-            const hasSell = legsGroup.some(leg => leg.action === 'SELL');
+            const hasBuy = legsGroup.some(({ action }) => action === 'BUY');
+            const hasSell = legsGroup.some(({ action }) => action === 'SELL');
             if (!hasBuy || !hasSell) {
                 continue;
             }
             const strikes = legsGroup
-                .map(leg => Number(leg.strike))
+                .map(({ leg }) => Number(leg.strike))
                 .filter(Number.isFinite);
             if (strikes.length < 2) {
                 continue;
@@ -774,9 +791,9 @@ class GammaLedger {
             if (!(spreadWidth > 0)) {
                 continue;
             }
-            const multiplier = this.getLegMultiplier(legsGroup[0]) || 1;
+            const multiplier = this.getLegMultiplier(legsGroup[0]?.leg) || 1;
             const contractCounts = legsGroup
-                .map(leg => Math.abs(Number(leg.quantity) || 0))
+                .map(({ leg }) => Math.abs(Number(leg.quantity) || 0))
                 .filter(value => value > 0);
             const contracts = contractCounts.length
                 ? Math.min(...contractCounts)
@@ -889,7 +906,7 @@ class GammaLedger {
         const totalFeesPerShare = contractValue > 0 ? feesDollars / contractValue : 0;
 
         const openLegs = Array.isArray(summary?.legs)
-            ? summary.legs.filter((leg) => leg && leg.side === 'OPEN')
+            ? summary.legs.filter((leg) => leg && this.getLegSide(leg) === 'OPEN')
             : [];
         const optionLegs = openLegs.filter((leg) => ['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike)));
 
@@ -918,10 +935,10 @@ class GammaLedger {
             .filter((value) => Number.isFinite(value))
             .sort((a, b) => a - b);
 
-        const shortCalls = selectStrikes((leg) => leg.type === 'CALL' && this.normalizeLegAction(leg.action) === 'SELL');
-        const longCalls = selectStrikes((leg) => leg.type === 'CALL' && this.normalizeLegAction(leg.action) === 'BUY');
-        const shortPuts = selectStrikes((leg) => leg.type === 'PUT' && this.normalizeLegAction(leg.action) === 'SELL');
-        const longPuts = selectStrikes((leg) => leg.type === 'PUT' && this.normalizeLegAction(leg.action) === 'BUY');
+        const shortCalls = selectStrikes((leg) => leg.type === 'CALL' && this.getLegAction(leg) === 'SELL');
+        const longCalls = selectStrikes((leg) => leg.type === 'CALL' && this.getLegAction(leg) === 'BUY');
+        const shortPuts = selectStrikes((leg) => leg.type === 'PUT' && this.getLegAction(leg) === 'SELL');
+        const longPuts = selectStrikes((leg) => leg.type === 'PUT' && this.getLegAction(leg) === 'BUY');
 
         const shortCallStrike = shortCalls.length ? shortCalls[0] : null;
         const shortCallStrikeHigh = shortCalls.length ? shortCalls[shortCalls.length - 1] : null;
@@ -998,6 +1015,10 @@ class GammaLedger {
             return normalized * contractValue;
         };
 
+        const verticalSpreadWidth = Number.isFinite(summary?.verticalSpread?.width) && summary.verticalSpread.width > 0
+            ? summary.verticalSpread.width
+            : null;
+
         return {
             trade,
             details: summary,
@@ -1032,6 +1053,7 @@ class GammaLedger {
             shortPutStrikeLow,
             longPutStrike,
             longPutStrikeLow,
+            verticalSpreadWidth,
             S,
             hasStockExposure: stockLegs.length > 0,
             toNotional,
@@ -1080,13 +1102,38 @@ class GammaLedger {
                 return fn;
             };
 
-            const debitRisk = (ctx) => ctx.toNotional(ctx.netDebit);
+            const debitRisk = (ctx) => {
+                const debit = Number(ctx.netDebit);
+                if (Number.isFinite(debit) && debit > 0) {
+                    return ctx.toNotional(debit);
+                }
+                const paid = Number(ctx.premiumPaid);
+                if (Number.isFinite(paid) && paid > 0) {
+                    return ctx.toNotional(paid);
+                }
+                return undefined;
+            };
+            const spreadWidthRisk = (ctx, diff) => {
+                const widthValue = Number.isFinite(ctx.verticalSpreadWidth) && ctx.verticalSpreadWidth > 0
+                    ? ctx.verticalSpreadWidth
+                    : diff;
+                if (!Number.isFinite(widthValue) || widthValue <= 0) {
+                    return undefined;
+                }
+                if (ctx.netCredit > 0) {
+                    return ctx.toNotional(widthValue - ctx.netCredit);
+                }
+                if (ctx.netDebit > 0) {
+                    return ctx.toNotional(widthValue + ctx.netDebit);
+                }
+                return ctx.toNotional(widthValue);
+            };
             const creditWidthRisk = (ctx, lower, upper) => {
                 const diff = width(lower, upper);
                 if (diff === null) {
                     return undefined;
                 }
-                return ctx.toNotional(diff - ctx.netCredit);
+                return spreadWidthRisk(ctx, diff);
             };
             const widthMinusDebit = (ctx, lower, upper) => {
                 const diff = width(lower, upper);
@@ -1102,7 +1149,7 @@ class GammaLedger {
                 if (!Number.isFinite(diff) || diff <= 0) {
                     return undefined;
                 }
-                return ctx.toNotional(diff - ctx.netCredit);
+                return spreadWidthRisk(ctx, diff);
             };
 
             register('Bear Call Ladder', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
@@ -1328,10 +1375,10 @@ class GammaLedger {
         if (!summary || !Array.isArray(summary.legs)) {
             return null;
         }
-        const openLegs = summary.legs.filter(leg => leg.side === 'OPEN');
+    const openLegs = summary.legs.filter(leg => this.getLegSide(leg) === 'OPEN');
         const relevantLegs = openLegs.length ? openLegs : summary.legs;
 
-        const shortOption = relevantLegs.find(leg => leg.action === 'SELL' && Number.isFinite(Number(leg.strike)));
+    const shortOption = relevantLegs.find(leg => this.getLegAction(leg) === 'SELL' && Number.isFinite(Number(leg.strike)));
         if (shortOption) {
             return Number(shortOption.strike);
         }
@@ -1350,7 +1397,7 @@ class GammaLedger {
             return null;
         }
 
-        const openLegs = legsWithStrike.filter((leg) => leg.side === 'OPEN');
+    const openLegs = legsWithStrike.filter((leg) => this.getLegSide(leg) === 'OPEN');
         const candidates = openLegs.length ? openLegs : legsWithStrike;
 
         let chosenLeg = null;
@@ -1363,7 +1410,7 @@ class GammaLedger {
             const timestamp = executionDate && !Number.isNaN(executionDate.getTime())
                 ? executionDate.getTime()
                 : Number.NEGATIVE_INFINITY;
-            const actionPriority = leg.action === 'SELL' ? 1 : 0;
+            const actionPriority = this.getLegAction(leg) === 'SELL' ? 1 : 0;
 
             if (
                 timestamp > chosenTimestamp ||
@@ -1387,7 +1434,7 @@ class GammaLedger {
             return '—';
         }
 
-        const openLegs = legs.filter(leg => leg.side === 'OPEN');
+    const openLegs = legs.filter(leg => this.getLegSide(leg) === 'OPEN');
         const relevantLegs = openLegs.length ? openLegs : legs;
         const optionLegs = relevantLegs.filter(leg => ['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike)));
 
@@ -1415,7 +1462,7 @@ class GammaLedger {
         if (stockLegs.length > 0) {
             const shares = stockLegs.reduce((sum, leg) => {
                 const quantity = leg.quantity * this.getLegMultiplier(leg);
-                return sum + (leg.action === 'BUY' ? quantity : -quantity);
+                return sum + (this.getLegAction(leg) === 'BUY' ? quantity : -quantity);
             }, 0);
             const totalShares = Math.abs(Math.round(shares));
             if (totalShares > 0) {
@@ -1832,9 +1879,6 @@ class GammaLedger {
             };
 
             const orderType = this.normalizeLegOrderType(getFieldValue('orderType') || 'BTO');
-            const mapping = this.mapOrderTypeToActionSide(orderType);
-            const action = this.normalizeLegAction(mapping.action);
-            const side = this.normalizeLegSide(mapping.side);
             const type = this.normalizeLegType(getFieldValue('type') || 'CALL');
 
             const quantityRaw = getFieldValue('quantity');
@@ -1868,8 +1912,6 @@ class GammaLedger {
             const legData = {
                 id: row.dataset.legId || this.generateLegId(index),
                 orderType,
-                action,
-                side,
                 type,
                 quantity: quantityParsed,
                 multiplier,
@@ -1901,7 +1943,7 @@ class GammaLedger {
         }
         if (Array.isArray(trade.legs) && trade.legs.length > 0) {
             const candidates = trade.legs.map((leg, index) => this.normalizeLeg(leg, index));
-            const firstOpen = candidates.find(leg => leg.side === 'OPEN') || candidates[0];
+            const firstOpen = candidates.find(leg => this.getLegSide(leg) === 'OPEN') || candidates[0];
             return firstOpen;
         }
         return null;
@@ -1911,8 +1953,8 @@ class GammaLedger {
         if (!leg) {
             return 'BTO';
         }
-        const action = this.normalizeLegAction(leg.action);
-        const side = this.normalizeLegSide(leg.side);
+        const action = this.getLegAction(leg);
+        const side = this.getLegSide(leg);
         if (action === 'BUY' && side === 'OPEN') {
             return 'BTO';
         }
@@ -1933,7 +1975,7 @@ class GammaLedger {
         if (!leg) {
             return 'long';
         }
-        const action = this.normalizeLegAction(leg.action);
+        const action = this.getLegAction(leg);
         if (action === 'SELL') {
             return 'short';
         }
@@ -2215,7 +2257,12 @@ class GammaLedger {
 
     getNormalizedLegOrderType(leg = {}) {
         const rawOrder = leg.orderType || leg.tradeType || leg.order;
-        return this.normalizeLegOrderType(rawOrder || this.deriveOrderTypeFromActionSide(leg.action, leg.side));
+        const normalizedOrder = this.normalizeLegOrderType(rawOrder);
+        if (normalizedOrder) {
+            return normalizedOrder;
+        }
+        const { action, side } = this.getLegOrderDescriptor(leg);
+        return this.normalizeLegOrderType(this.deriveOrderTypeFromActionSide(action, side));
     }
 
     determineTradeLifecycleStatus(trade = {}, summary = {}) {
@@ -2284,17 +2331,14 @@ class GammaLedger {
                     break;
             }
 
-            const side = (leg.side || '').toString().toUpperCase();
-            if (side === 'ROLL') {
+            const rawOrder = (leg.orderType || leg.tradeType || leg.order || '').toString().toUpperCase();
+            if (rawOrder.includes('ROLL')) {
                 hasRollLegs = true;
             }
-
-            const rawOrder = (leg.orderType || leg.tradeType || leg.order || '').toString().toUpperCase();
-            const action = (leg.action || '').toString().toUpperCase();
-            if (rawOrder.includes('ASSIGN') || action.includes('ASSIGN')) {
+            if (rawOrder.includes('ASSIGN')) {
                 hasAssignmentEvent = true;
             }
-            if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY') || action.includes('EXPIRE')) {
+            if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY')) {
                 hasExpirationEvent = true;
             }
         });
@@ -9363,7 +9407,7 @@ class GammaLedger {
             return;
         }
 
-    const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
+        const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
 
         container.innerHTML = reviewTrades.map((trade) => {
             const isChecked = this.importMergeSelection.has(trade.id);
@@ -9461,9 +9505,9 @@ class GammaLedger {
         const safePrefix = (prefix || '').toString().trim().replace(/\.*$/, '');
         const prefixText = safePrefix ? `${safePrefix}. ` : '';
         const count = Array.isArray(trades) ? trades.length : 0;
-    const dateLabel = timestamp.toLocaleDateString('en-US', { dateStyle: 'medium' });
-    const timeLabel = timestamp.toLocaleTimeString('en-US', { timeStyle: 'short' });
-    const header = `${prefixText}Merged ${count} trade${count === 1 ? '' : 's'} on ${dateLabel} at ${timeLabel}.`;
+        const dateLabel = timestamp.toLocaleDateString('en-US', { dateStyle: 'medium' });
+        const timeLabel = timestamp.toLocaleTimeString('en-US', { timeStyle: 'short' });
+        const header = `${prefixText}Merged ${count} trade${count === 1 ? '' : 's'} on ${dateLabel} at ${timeLabel}.`;
         const idLine = `Source trades: ${trades.map((trade) => trade.id).join(', ')}.`;
         const priorNotes = trades
             .map((trade) => (trade.notes || '').trim())
@@ -10207,9 +10251,9 @@ class GammaLedger {
             }
 
             const invTran = detailNode.getElementsByTagName('INVTRAN')[0];
-            const fitIdRaw = getText(invTran, 'FITID') || getText(node, 'FITID');
-            const sanitizedFitId = this.sanitizeFitId(fitIdRaw);
-            if (!sanitizedFitId) {
+            const externalIdRaw = getText(invTran, 'FITID') || getText(node, 'FITID');
+            const sanitizedExternalId = this.sanitizeExternalLegId(externalIdRaw);
+            if (!sanitizedExternalId) {
                 return;
             }
 
@@ -10286,11 +10330,10 @@ class GammaLedger {
             if (isOption) {
                 baseKeyParts.push(expiration || '');
             }
-            const groupKey = baseKeyParts.filter(Boolean).join('|') || sanitizedFitId;
+            const groupKey = baseKeyParts.filter(Boolean).join('|') || sanitizedExternalId;
 
             transactions.push({
-                fitId: sanitizedFitId,
-                originalFitId: fitIdRaw,
+                externalId: sanitizedExternalId,
                 groupKey,
                 tag,
                 orderType,
@@ -10306,8 +10349,6 @@ class GammaLedger {
                 price: Math.abs(unitPrice),
                 total,
                 fees: Math.abs(commissionRaw),
-                side: actionSide.side,
-                action: actionSide.action,
                 category: isOption ? 'OPTION' : 'STOCK',
                 securityId,
                 memo: getText(invTran, 'MEMO') || '',
@@ -10318,11 +10359,11 @@ class GammaLedger {
         return transactions;
     }
 
-    sanitizeFitId(fitId) {
-        if (!fitId) {
+    sanitizeExternalLegId(value) {
+        if (!value) {
             return '';
         }
-        return fitId.toString().replace(/[^A-Za-z0-9]/g, '');
+        return value.toString().replace(/[^A-Za-z0-9]/g, '');
     }
 
     groupTransactionsForImport(transactions = []) {
@@ -10361,10 +10402,8 @@ class GammaLedger {
         const type = transaction.optionType || (transaction.category === 'STOCK' ? 'STOCK' : 'UNKNOWN');
 
         return {
-            id: transaction.fitId ? `FIT-${transaction.fitId}` : `LEG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
-            orderType: transaction.orderType,
-            action: transaction.action,
-            side: transaction.side,
+            id: transaction.externalId ? `EXT-${transaction.externalId}` : `LEG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+            orderType: this.normalizeLegOrderType(transaction.orderType),
             type,
             quantity,
             multiplier: transaction.multiplier || (type === 'STOCK' ? 1 : 100),
@@ -10374,7 +10413,7 @@ class GammaLedger {
             premium: Number.isFinite(Number(transaction.price)) ? Number(transaction.price) : 0,
             fees: Number.isFinite(Number(transaction.fees)) ? Number(transaction.fees) : 0,
             underlyingPrice: null,
-            fitId: transaction.fitId || null,
+            externalId: transaction.externalId || null,
             importGroupId: transaction.groupKey || null,
             importSource: 'OFX',
             tickerSymbol: (transaction.underlying || transaction.ticker || '').toUpperCase()
@@ -10404,7 +10443,7 @@ class GammaLedger {
             return '';
         }
 
-        const direction = this.normalizeLegAction(leg.action) === 'SELL' ? 'short' : 'long';
+    const direction = this.getLegAction(leg) === 'SELL' ? 'short' : 'long';
 
         if (type === 'STOCK') {
             return [symbol, type, direction].join('|');
@@ -10444,10 +10483,11 @@ class GammaLedger {
                     return;
                 }
 
+                const side = this.getLegSide(leg);
                 let direction = 0;
-                if (leg.side === 'OPEN') {
+                if (side === 'OPEN') {
                     direction = 1;
-                } else if (leg.side === 'CLOSE') {
+                } else if (side === 'CLOSE') {
                     direction = -1;
                 }
 
@@ -10502,26 +10542,26 @@ class GammaLedger {
         return result;
     }
 
-    buildExistingFitIdSet() {
+    buildExistingExternalIdSet() {
         const ids = new Set();
         this.trades.forEach((trade) => {
             if (!trade || !Array.isArray(trade.legs)) {
                 return;
             }
             trade.legs.forEach((leg) => {
-                if (leg?.fitId) {
-                    ids.add(leg.fitId);
+                if (leg?.externalId) {
+                    ids.add(leg.externalId);
                 }
             });
         });
         return ids;
     }
 
-    tradeContainsFitId(trade, fitId) {
-        if (!fitId || !trade || !Array.isArray(trade.legs)) {
+    tradeContainsExternalId(trade, externalId) {
+        if (!externalId || !trade || !Array.isArray(trade.legs)) {
             return false;
         }
-        return trade.legs.some((leg) => leg?.fitId && leg.fitId === fitId);
+        return trade.legs.some((leg) => leg?.externalId && leg.externalId === externalId);
     }
 
     inferStrategyFromLegs(legs = []) {
@@ -10529,7 +10569,7 @@ class GammaLedger {
             return 'Imported Trade';
         }
 
-        const openLegs = legs.filter((leg) => leg.side === 'OPEN');
+    const openLegs = legs.filter((leg) => this.getLegSide(leg) === 'OPEN');
         const relevant = openLegs.length ? openLegs : legs;
 
         if (relevant.length === 1) {
@@ -10538,13 +10578,13 @@ class GammaLedger {
                 return 'Imported Trade';
             }
             if (leg.type === 'PUT') {
-                return leg.action === 'SELL' ? 'Cash-Secured Put' : 'Long Put';
+                return this.getLegAction(leg) === 'SELL' ? 'Cash-Secured Put' : 'Long Put';
             }
             if (leg.type === 'CALL') {
-                return leg.action === 'SELL' ? 'Short Call' : 'Long Call';
+                return this.getLegAction(leg) === 'SELL' ? 'Short Call' : 'Long Call';
             }
             if (leg.type === 'STOCK') {
-                return leg.action === 'SELL' ? 'Stock Sale' : 'Stock Purchase';
+                return this.getLegAction(leg) === 'SELL' ? 'Stock Sale' : 'Stock Purchase';
             }
         }
 
@@ -10552,7 +10592,7 @@ class GammaLedger {
         if (optionLegs.length === 2) {
             const [first, second] = optionLegs;
             if (first && second && first.type === second.type) {
-                const shortLeg = optionLegs.find((leg) => leg.action === 'SELL');
+                const shortLeg = optionLegs.find((leg) => this.getLegAction(leg) === 'SELL');
                 if (shortLeg) {
                     const longLeg = optionLegs.find((leg) => leg !== shortLeg);
                     if (longLeg) {
@@ -10622,8 +10662,8 @@ class GammaLedger {
 
         const groups = this.groupTransactionsForImport(transactions);
         const positionIndex = this.buildPositionIndex(this.trades);
-        const existingFitIds = this.buildExistingFitIdSet();
-        const seenFitIds = new Set();
+    const existingExternalIds = this.buildExistingExternalIdSet();
+    const seenExternalIds = new Set();
 
         stats.totalGroups = groups.size;
 
@@ -10638,7 +10678,7 @@ class GammaLedger {
                 if (!leg) {
                     return;
                 }
-                if (leg.fitId && (existingFitIds.has(leg.fitId) || seenFitIds.has(leg.fitId))) {
+                if (leg.externalId && (existingExternalIds.has(leg.externalId) || seenExternalIds.has(leg.externalId))) {
                     stats.duplicateLegs += 1;
                     return;
                 }
@@ -10653,8 +10693,8 @@ class GammaLedger {
             }
 
             const ticker = (group.ticker || legs[0]?.tickerSymbol || '').toUpperCase();
-            const openingLegs = legs.filter((leg) => leg.side === 'OPEN');
-            const closingLegs = legs.filter((leg) => leg.side === 'CLOSE');
+            const openingLegs = legs.filter((leg) => this.getLegSide(leg) === 'OPEN');
+            const closingLegs = legs.filter((leg) => this.getLegSide(leg) === 'CLOSE');
             const unmatchedClosingLegs = [];
 
             stats.openingLegs += openingLegs.length;
@@ -10667,10 +10707,10 @@ class GammaLedger {
                 if (match.matched.length) {
                     match.matched.forEach((entry) => {
                         const targetTrade = entry.trade;
-                        if (this.tradeContainsFitId(targetTrade, leg.fitId)) {
+                        if (this.tradeContainsExternalId(targetTrade, leg.externalId)) {
                             return;
                         }
-                        if (leg.fitId && (existingFitIds.has(leg.fitId) || seenFitIds.has(leg.fitId))) {
+                        if (leg.externalId && (existingExternalIds.has(leg.externalId) || seenExternalIds.has(leg.externalId))) {
                             return;
                         }
 
@@ -10692,8 +10732,8 @@ class GammaLedger {
                     if (unmatchedQty > 0 && remainder.quantity !== unmatchedQty) {
                         remainder.quantity = unmatchedQty;
                     }
-                    if (match.matched.length && remainder.fitId) {
-                        remainder.fitId = `${remainder.fitId}-UNMATCHED`;
+                    if (match.matched.length && remainder.externalId) {
+                        remainder.externalId = `${remainder.externalId}-UNMATCHED`;
                     }
                     if (batchId) {
                         remainder.importBatchId = batchId;
@@ -10702,8 +10742,8 @@ class GammaLedger {
                     stats.unmatchedClosingLegs += remainder.quantity || 0;
                 }
 
-                if (leg.fitId) {
-                    seenFitIds.add(leg.fitId);
+                if (leg.externalId) {
+                    seenExternalIds.add(leg.externalId);
                 }
             });
 
@@ -10714,8 +10754,8 @@ class GammaLedger {
                 });
 
                 const sanitizedLegs = openingLegs.map((leg) => {
-                    if (leg.fitId) {
-                        seenFitIds.add(leg.fitId);
+                    if (leg.externalId) {
+                        seenExternalIds.add(leg.externalId);
                     }
                     return this.sanitizeImportedLeg(leg);
                 });
@@ -10745,8 +10785,8 @@ class GammaLedger {
                 });
 
                 const sanitizedLegs = unmatchedClosingLegs.map((leg) => {
-                    if (leg.fitId) {
-                        seenFitIds.add(leg.fitId);
+                    if (leg.externalId) {
+                        seenExternalIds.add(leg.externalId);
                     }
                     return this.sanitizeImportedLeg(leg);
                 });
