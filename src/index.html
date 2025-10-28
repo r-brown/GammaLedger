@@ -530,10 +530,10 @@
                     </div>
                     <div class="trades-filters is-open" id="trades-filters-panel">
                         <div class="trades-filters-grid trades-filters-grid--compact">
-                            <select id="filter-strategy" class="form-control">
+                            <select id="filter-strategy" class="form-control" multiple size="6" aria-label="Filter by strategy">
                                 <option value="">All Strategies</option>
                             </select>
-                            <select id="filter-status" class="form-control">
+                            <select id="filter-status" class="form-control" multiple size="6" aria-label="Filter by status">
                                 <option value="">All Status</option>
                                 <option value="Open">Open</option>
                                 <option value="Rolling">Rolling</option>
@@ -542,6 +542,7 @@
                                 <option value="Expired">Expired</option>
                             </select>
                         </div>
+                        <div class="trades-filters-hint" id="trades-filters-hint">Hold Cmd (Mac) or Ctrl (Windows) to select multiple options.</div>
                         <div class="trades-filters-search">
                             <input type="text" id="search-ticker" class="form-control" placeholder="Search ticker, strategy, or notes...">
                         </div>

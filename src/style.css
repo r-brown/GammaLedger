@@ -3056,6 +3056,17 @@ tr:hover {
   width: 100%;
 }
 
+.trades-filters-grid .form-control[multiple] {
+  min-height: 8.75rem;
+  padding: var(--space-8);
+}
+
+.trades-filters-hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: calc(-1 * var(--space-6));
+}
+
 .trades-filters-search {
   display: flex;
 }
