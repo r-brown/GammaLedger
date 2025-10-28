@@ -1586,6 +1586,13 @@ select.form-control {
   color: rgba(255, 255, 255, 0.68);
 }
 
+.share-card__meta--range {
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.54);
+}
+
 .share-card__metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2145,6 +2152,57 @@ select.form-control {
   margin-bottom: var(--space-16);
   font-size: var(--font-size-lg);
   color: var(--color-text);
+}
+
+.chart-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-bottom: var(--space-12);
+}
+
+.chart-range__button {
+  border: 1px solid var(--color-card-border);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: var(--font-weight-semibold);
+  padding: 0.35rem 0.9rem;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.chart-range__button:hover:not(.is-active) {
+  border-color: var(--color-teal-500);
+  color: var(--color-teal-500);
+}
+
+.chart-range__button:focus-visible {
+  outline: 2px solid var(--color-teal-500);
+  outline-offset: 2px;
+}
+
+.chart-range__button.is-active {
+  background-color: var(--color-teal-500);
+  border-color: var(--color-teal-500);
+  color: var(--color-white);
+}
+
+[data-color-scheme="dark"] .chart-range__button {
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+[data-color-scheme="dark"] .chart-range__button:hover:not(.is-active) {
+  border-color: var(--color-teal-400);
+  color: var(--color-teal-400);
+}
+
+[data-color-scheme="dark"] .chart-range__button.is-active {
+  background-color: var(--color-teal-500);
+  border-color: var(--color-teal-500);
+  color: var(--color-white);
 }
 
 .trade-detail-row {

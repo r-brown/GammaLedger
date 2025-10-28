@@ -236,6 +236,14 @@
                 <div class="cumulative-pl-section">
                     <div class="chart-container chart-full-width">
                         <h3>Cumulative P&L Growth</h3>
+                        <div class="chart-range" id="cumulative-pl-controls" role="group" aria-label="Cumulative P&L time range">
+                            <button type="button" class="chart-range__button" data-range="7D">7D</button>
+                            <button type="button" class="chart-range__button" data-range="MTD">MTD</button>
+                            <button type="button" class="chart-range__button" data-range="1M">1M</button>
+                            <button type="button" class="chart-range__button" data-range="YTD">YTD</button>
+                            <button type="button" class="chart-range__button" data-range="1Y">1Y</button>
+                            <button type="button" class="chart-range__button" data-range="ALL">All</button>
+                        </div>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
                             <canvas id="cumulativePLChart"></canvas>
                         </div>
@@ -702,6 +710,7 @@
                 <div class="share-card__title">
                     <h2 class="share-card__heading">Portfolio Snapshot</h2>
                     <p class="share-card__meta" id="share-card-date">—</p>
+                    <p class="share-card__meta share-card__meta--range" id="share-card-range">Range: All Time</p>
                 </div>
             </header>
             <div class="share-card__metrics">

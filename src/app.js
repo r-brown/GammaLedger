@@ -74,6 +74,7 @@ const SHARE_CARD_EXPORT_SIZE = 1080;
 const SHARE_CARD_CHART_WIDTH_RATIO = 0.78;
 const SHARE_CARD_CHART_HEIGHT_RATIO = 0.42;
 const SHARE_CARD_CHART_MIN_HEIGHT = 320;
+const CUMULATIVE_PL_RANGES = ['7D', 'MTD', '1M', 'YTD', '1Y', 'ALL'];
 
 const BUILTIN_SAMPLE_DATA = (() => {
     const reference = new Date();
@@ -276,6 +277,7 @@ class GammaLedger {
         this.tradesMergeInitialized = false;
         this.tradesMergePanelOpen = false;
         this.currentFilteredTrades = [];
+    this.cumulativePLRange = 'ALL';
 
         this.disclaimerBanner = {
             element: null,
@@ -355,6 +357,8 @@ class GammaLedger {
             card: null,
             button: null,
             chartCanvas: null,
+            chartTitle: null,
+            rangeLabel: null,
             chart: null,
             metrics: {},
             timestamp: null,
@@ -2904,6 +2908,7 @@ class GammaLedger {
 
         // Responsive enhancements for trades filters
         this.setupResponsiveFilters();
+        this.initializeCumulativePLControls();
     }
 
     setupResponsiveFilters() {
@@ -2949,6 +2954,64 @@ class GammaLedger {
         });
 
         evaluateBreakpoint(true);
+    }
+
+    initializeCumulativePLControls() {
+        const controls = document.getElementById('cumulative-pl-controls');
+        if (!controls) {
+            return;
+        }
+
+        if (controls.dataset.initialized === 'true') {
+            this.syncCumulativePLControls();
+            return;
+        }
+
+        controls.addEventListener('click', (event) => {
+            const target = event.target instanceof HTMLElement
+                ? event.target.closest('button[data-range]')
+                : null;
+            if (!target) {
+                return;
+            }
+
+            const { range } = target.dataset;
+            if (!range) {
+                return;
+            }
+
+            this.setCumulativePLRange(range);
+        });
+
+        controls.dataset.initialized = 'true';
+        this.syncCumulativePLControls();
+    }
+
+    setCumulativePLRange(range) {
+        const normalized = this.normalizeCumulativePLRange(range);
+        if (normalized === this.cumulativePLRange) {
+            return;
+        }
+
+        this.cumulativePLRange = normalized;
+        this.syncCumulativePLControls();
+        this.updateCumulativePLChart();
+        this.refreshShareCardChart();
+    }
+
+    syncCumulativePLControls() {
+        const controls = document.getElementById('cumulative-pl-controls');
+        if (!controls) {
+            return;
+        }
+
+        const currentRange = this.normalizeCumulativePLRange(this.cumulativePLRange);
+        controls.querySelectorAll('button[data-range]').forEach((button) => {
+            const buttonRange = this.normalizeCumulativePLRange(button.dataset.range);
+            const isActive = buttonRange === currentRange;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+        });
     }
 
     setupAIChatResizeHandle() {
@@ -3839,6 +3902,8 @@ class GammaLedger {
         this.updateActivePositionsTable(openTradesList);
         this.updateRecentTradesTable(closedTradesList, stats.activePositions);
         this.updateShareCard(stats);
+        this.refreshShareCardChart();
+        this.syncCumulativePLControls();
 
         // Update charts with delay
         setTimeout(() => {
@@ -5693,6 +5758,8 @@ class GammaLedger {
         this.shareCard.root = root;
         this.shareCard.card = card;
         this.shareCard.chartCanvas = chartCanvas;
+        this.shareCard.chartTitle = card?.querySelector('.share-card__chart-title') || null;
+        this.shareCard.rangeLabel = document.getElementById('share-card-range');
         this.shareCard.metrics = {
             totalPL: document.getElementById('share-card-total-pl'),
             winRate: document.getElementById('share-card-win-rate'),
@@ -5700,6 +5767,8 @@ class GammaLedger {
             totalROI: document.getElementById('share-card-total-roi')
         };
         this.shareCard.timestamp = document.getElementById('share-card-date');
+
+        this.updateShareCardRangeLabel();
 
         button.dataset.initialized = 'true';
         button.addEventListener('click', async (event) => {
@@ -5713,7 +5782,99 @@ class GammaLedger {
         }
     }
 
-    computeCumulativePLSeries() {
+    normalizeCumulativePLRange(range) {
+        const value = (range || '').toString().trim().toUpperCase();
+        return CUMULATIVE_PL_RANGES.includes(value) ? value : 'ALL';
+    }
+
+    getCumulativePLRangeLabel(range = this.cumulativePLRange) {
+        const normalized = this.normalizeCumulativePLRange(range);
+        switch (normalized) {
+            case '7D':
+                return 'Last 7 Days';
+            case 'MTD':
+                return 'Month to Date';
+            case '1M':
+                return 'Last 30 Days';
+            case 'YTD':
+                return 'Year to Date';
+            case '1Y':
+                return 'Last 12 Months';
+            case 'ALL':
+            default:
+                return 'All Time';
+        }
+    }
+
+    getCumulativePLRangeWindow(range) {
+        const normalized = this.normalizeCumulativePLRange(range);
+        if (normalized === 'ALL') {
+            return { start: null, end: null };
+        }
+
+        const end = new Date(this.currentDate);
+        end.setHours(23, 59, 59, 999);
+
+        let start = new Date(this.currentDate);
+        start.setHours(0, 0, 0, 0);
+
+        switch (normalized) {
+            case '7D':
+                start = new Date(end);
+                start.setDate(start.getDate() - 6);
+                start.setHours(0, 0, 0, 0);
+                break;
+            case 'MTD':
+                start = new Date(end.getFullYear(), end.getMonth(), 1);
+                break;
+            case '1M':
+                start = new Date(end);
+                start.setDate(start.getDate() - 30);
+                start.setHours(0, 0, 0, 0);
+                break;
+            case 'YTD':
+                start = new Date(end.getFullYear(), 0, 1);
+                break;
+            case '1Y':
+                start = new Date(end);
+                start.setFullYear(start.getFullYear() - 1);
+                start.setHours(0, 0, 0, 0);
+                break;
+            default:
+                start = null;
+                break;
+        }
+
+        if (start && start > end) {
+            return { start: null, end };
+        }
+
+        return { start, end };
+    }
+
+    updateShareCardRangeLabel(range = this.cumulativePLRange) {
+        if (!this.shareCard) {
+            return;
+        }
+
+        const label = this.getCumulativePLRangeLabel(range);
+        if (this.shareCard.rangeLabel) {
+            this.shareCard.rangeLabel.textContent = `Range: ${label}`;
+        }
+        if (this.shareCard.chartTitle) {
+            this.shareCard.chartTitle.textContent = label
+                ? `Cumulative P&L (${label})`
+                : 'Cumulative P&L';
+        }
+        if (this.shareCard.chartCanvas) {
+            const ariaLabel = label
+                ? `Cumulative profit and loss chart for ${label.toLowerCase()}`
+                : 'Cumulative profit and loss chart';
+            this.shareCard.chartCanvas.setAttribute('aria-label', ariaLabel);
+        }
+    }
+
+    computeCumulativePLSeries(range = this.cumulativePLRange) {
         const closedTrades = this.trades
             .filter(trade => this.isClosedStatus(trade.status) && trade.exitDate);
 
@@ -5721,6 +5882,7 @@ class GammaLedger {
             return null;
         }
 
+        const normalizedRange = this.normalizeCumulativePLRange(range);
         const weeklyPL = new Map();
         let earliestWeek = null;
         let latestWeek = null;
@@ -5751,20 +5913,66 @@ class GammaLedger {
 
         const labels = [];
         const dataPoints = [];
+        const dates = [];
         let cumulativePL = 0;
         const cursor = new Date(earliestWeek);
 
         while (cursor.getTime() <= latestWeek.getTime()) {
-            const key = this.getWeekKey(cursor);
+            const current = new Date(cursor);
+            const key = this.getWeekKey(current);
             cumulativePL += weeklyPL.get(key) || 0;
-            labels.push(this.formatWeekLabel(cursor));
+            labels.push(this.formatWeekLabel(current));
             dataPoints.push(cumulativePL);
+            dates.push(current);
             cursor.setDate(cursor.getDate() + 7);
         }
 
+        if (normalizedRange === 'ALL') {
+            return {
+                labels,
+                dataPoints,
+                dates
+            };
+        }
+
+        const { start, end } = this.getCumulativePLRangeWindow(normalizedRange);
+        if (!start && !end) {
+            return {
+                labels,
+                dataPoints,
+                dates
+            };
+        }
+
+        const includedIndices = [];
+        dates.forEach((date, index) => {
+            if ((start === null || date >= start) && (end === null || date <= end)) {
+                includedIndices.push(index);
+            }
+        });
+
+        if (!includedIndices.length) {
+            return null;
+        }
+
+        const firstIndex = includedIndices[0];
+        const baseline = firstIndex > 0 ? dataPoints[firstIndex - 1] : 0;
+
+        const filteredLabels = [];
+        const filteredDataPoints = [];
+        const filteredDates = [];
+
+        includedIndices.forEach((index) => {
+            filteredLabels.push(labels[index]);
+            const adjusted = dataPoints[index] - baseline;
+            filteredDataPoints.push(Math.abs(adjusted) < 1e-9 ? 0 : adjusted);
+            filteredDates.push(dates[index]);
+        });
+
         return {
-            labels,
-            dataPoints
+            labels: filteredLabels,
+            dataPoints: filteredDataPoints,
+            dates: filteredDates
         };
     }
 
@@ -5810,12 +6018,16 @@ class GammaLedger {
                 minute: '2-digit'
             });
         }
+
+        this.updateShareCardRangeLabel();
     }
 
     refreshShareCardChart() {
         if (!this.shareCard?.chartCanvas) {
             return;
         }
+
+        this.updateShareCardRangeLabel();
 
         const ctx = this.shareCard.chartCanvas.getContext('2d');
         if (!ctx) {
@@ -5844,7 +6056,7 @@ class GammaLedger {
             this.shareCard.chart = null;
         }
 
-        const series = this.computeCumulativePLSeries();
+    const series = this.computeCumulativePLSeries(this.cumulativePLRange);
         const hasData = Boolean(series?.labels?.length && series?.dataPoints?.length);
         const labels = hasData ? series.labels : ['No Data'];
         const dataPoints = hasData ? series.dataPoints : [0];
@@ -6915,7 +7127,7 @@ class GammaLedger {
 
         const formatCurrencyValue = (value, decimals = 2) => this.formatCurrency(value, { decimals });
 
-        const series = this.computeCumulativePLSeries();
+    const series = this.computeCumulativePLSeries(this.cumulativePLRange);
 
         if (!series || !series.labels.length || !series.dataPoints.length) {
             this.charts.cumulativePL = new Chart(ctx, {
