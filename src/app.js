@@ -4658,6 +4658,13 @@ class GammaLedger {
             return `${prefix}${formattedNumber}%`;
         };
 
+        const zeroLinePlugin = {
+            id: 'monteCarloBaseline',
+            afterDatasetsDraw: (chartInstance) => {
+                this.ensureMonteCarloBaseline(chartInstance);
+            }
+        };
+
         this.charts.monteCarlo = new Chart(ctx, {
             type: 'line',
             data: {
@@ -4726,8 +4733,37 @@ class GammaLedger {
                         }
                     }
                 }
-            }
+            },
+            plugins: [zeroLinePlugin]
         });
+    }
+
+    ensureMonteCarloBaseline(chart) {
+        if (!chart) {
+            return;
+        }
+
+        const ctx = chart.ctx;
+        const yScale = chart.scales?.y;
+        const area = chart.chartArea;
+        if (!ctx || !yScale || !area) {
+            return;
+        }
+
+        const zeroPixel = yScale.getPixelForValue(1);
+        if (!Number.isFinite(zeroPixel)) {
+            return;
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(area.left, zeroPixel);
+        ctx.lineTo(area.right, zeroPixel);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(146, 149, 152, 0.85)';
+        ctx.setLineDash([]);
+        ctx.stroke();
+        ctx.restore();
     }
 
     generateMonteCarloProjection(dailyReturns = [], { periods = 60, simulations = 400 } = {}) {
