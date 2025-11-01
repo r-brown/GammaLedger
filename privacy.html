@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GammaLedger Privacy Policy</title>
+    <meta name="description" content="Learn how GammaLedger handles data, browser storage, analytics, and user privacy across the platform.">
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/img/gammaledger-logo-32x32.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0b1a;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1f2937;
+            --bg-surface: rgba(15, 23, 42, 0.85);
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #3b82f6;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #8ea0bf;
+            --border-subtle: rgba(148, 163, 184, 0.18);
+            --radius-lg: 1rem;
+            --shadow-elevated: 0 20px 45px rgba(15, 23, 42, 0.45);
+            --gradient-hero: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 55%, var(--bg-tertiary) 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--gradient-hero);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        a {
+            color: var(--accent-primary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--accent-secondary);
+        }
+
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 11, 26, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .header-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+        }
+
+        .brand img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+        }
+
+        .nav-links {
+            display: inline-flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 0.35rem 0.65rem;
+            border-radius: 999px;
+        }
+
+        .nav-link:hover {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            background: rgba(139, 92, 246, 0.18);
+            color: var(--text-primary);
+        }
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 4.5rem 1.75rem 5rem;
+        }
+
+        .page-intro {
+            background: var(--bg-surface);
+            padding: 2.5rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-elevated);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .page-intro h1 {
+            margin: 0 0 1rem;
+            font-size: 2.35rem;
+            letter-spacing: -0.02em;
+        }
+
+        .page-intro p {
+            margin: 0.5rem 0 0;
+            color: var(--text-secondary);
+        }
+
+        section {
+            margin-top: 3.5rem;
+            background: rgba(15, 23, 42, 0.72);
+            padding: 2.25rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-elevated);
+        }
+
+        section h2 {
+            margin-top: 0;
+            margin-bottom: 1.25rem;
+            font-size: 1.6rem;
+        }
+
+        section p {
+            margin: 0 0 1rem;
+            color: var(--text-secondary);
+        }
+
+        section ul {
+            margin: 0 0 1rem 1.1rem;
+            padding-left: 1rem;
+            color: var(--text-secondary);
+        }
+
+        section li {
+            margin-bottom: 0.6rem;
+        }
+
+        .callout {
+            background: rgba(139, 92, 246, 0.18);
+            border-left: 4px solid var(--accent-primary);
+            padding: 1rem 1.25rem;
+            border-radius: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 2.5rem 1.75rem 2.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        @media (max-width: 640px) {
+            .header-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            main {
+                padding: 4rem 1.25rem 4.5rem;
+            }
+
+            section {
+                padding: 1.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-container">
+            <a class="brand" href="index.html">
+                <img src="./assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo">
+                <span>GammaLedger</span>
+            </a>
+            <nav class="nav-links" aria-label="Legal navigation">
+                <a class="nav-link" href="terms.html">Terms of Service</a>
+                <a class="nav-link active" href="privacy.html">Privacy Policy</a>
+                <a class="nav-link" href="disclaimer.html">Disclaimer</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="page-intro">
+            <h1>Privacy Policy</h1>
+            <p>Last updated: October 31, 2025</p>
+            <p>This Privacy Policy describes how GammaLedger ("we", "us", or "our") handles information when you visit gammaledger.com, access documentation, or run the GammaLedger application. Because GammaLedger is primarily a client-side, self-hosted tool, most trading data stays under your control. This Policy explains what we collect, how we use it, and the choices you have.</p>
+        </div>
+
+        <section id="summary">
+            <h2>1. Summary</h2>
+            <p>We strive to minimize data collection. The public website gathers limited technical logs for security and performance. The GammaLedger application stores portfolio data locally in your browser or in locations you configure. We do not sell user data.</p>
+        </section>
+
+        <section id="data-we-collect">
+            <h2>2. Information We Collect</h2>
+            <p>Depending on how you interact with GammaLedger, we may collect the following categories of information:</p>
+            <ul>
+                <li><strong>Website analytics:</strong> High-level metrics collected by our hosting provider (for example, aggregate page views, referrers, or error rates). These logs do not contain detailed trade information.</li>
+                <li><strong>Repository telemetry:</strong> GitHub provides anonymized statistics about downloads, stars, forks, and issues. We use that information to understand community interest.</li>
+                <li><strong>Support communications:</strong> If you open an issue or pull request, the content you share on GitHub becomes visible to other contributors under GitHub's terms.</li>
+                <li><strong>Local application data:</strong> When you run the GammaLedger web app, trade data, API keys, and settings are stored locally in your browser (IndexedDB/local storage) or in files that you export. This data never leaves your device unless you choose to sync or share it.</li>
+            </ul>
+        </section>
+
+        <section id="how-we-use">
+            <h2>3. How We Use Information</h2>
+            <p>We use collected information to:</p>
+            <ul>
+                <li>Maintain site stability, detect abuse, and debug technical issues.</li>
+                <li>Understand feature adoption and prioritize roadmap items.</li>
+                <li>Respond to support requests and collaborate on improvements.</li>
+                <li>Publish aggregated community metrics (for example, total downloads) without identifying individual users.</li>
+            </ul>
+        </section>
+
+        <section id="local-storage">
+            <h2>4. Local Storage & Self-Hosted Deployments</h2>
+            <p>GammaLedger is designed so that sensitive portfolio data stays under your control. Key principles include:</p>
+            <ul>
+                <li><strong>Client-side persistence:</strong> Trade history, notes, and analytics remain inside your browser unless you export them.</li>
+                <li><strong>Encrypted API keys:</strong> Optional brokerage or data-provider keys are encrypted locally before storage. You may delete them at any time.</li>
+                <li><strong>Offline capability:</strong> Once loaded, the app can run offline, further reducing reliance on external services.</li>
+            </ul>
+            <p>You are responsible for backing up your data and for any compliance obligations that apply to the information you store.</p>
+        </section>
+
+        <section id="cookies">
+            <h2>5. Cookies & Similar Technologies</h2>
+            <p>The public GammaLedger website currently uses only essential cookies (if any) provided by the hosting platform for security and performance. We do not use advertising cookies or behavioral tracking pixels. Self-hosted instances of the GammaLedger application do not set third-party cookies.</p>
+        </section>
+
+        <section id="sharing">
+            <h2>6. Information Sharing</h2>
+            <p>We do not sell or rent personal data. We may share limited information with:</p>
+            <ul>
+                <li><strong>Service providers:</strong> Companies that host our website, manage DNS, or provide content delivery may process technical logs on our behalf under contractual obligations.</li>
+                <li><strong>Open-source contributors:</strong> Issue or pull-request content you publish on GitHub is shared publicly, consistent with GitHub's terms.</li>
+                <li><strong>Legal compliance:</strong> We may disclose information if required by law or to enforce our rights.</li>
+            </ul>
+        </section>
+
+        <section id="data-rights">
+            <h2>7. Your Choices & Rights</h2>
+            <p>Because the application stores your trading data locally, you can erase it at any time by clearing your browser storage or deleting exported files. For website or repository data you can:</p>
+            <ul>
+                <li>Adjust browser privacy settings or use privacy-focused extensions to limit analytics.</li>
+                <li>Delete or edit GitHub issues or pull requests you previously submitted.</li>
+                <li>Contact us to request removal of content that references you in documentation or marketing materials.</li>
+            </ul>
+        </section>
+
+        <section id="security">
+            <h2>8. Security</h2>
+            <p>We follow industry best practices to secure our website, repositories, and documentation. However, no system is completely secure. You are responsible for implementing security safeguards in self-hosted deployments, including access controls, network protections, and encryption for exported backups.</p>
+        </section>
+
+        <section id="children">
+            <h2>9. Children</h2>
+            <p>GammaLedger is not directed to individuals under 18. We do not knowingly collect personal data from children. If we learn that we have inadvertently collected such information we will delete it promptly.</p>
+        </section>
+
+        <section id="international">
+            <h2>10. International Users</h2>
+            <p>GammaLedger is developed and maintained by a distributed community. By using the Services you consent to the transfer of technical data to the jurisdictions where our infrastructure or contributors operate. You are responsible for complying with local data-protection regulations that apply to your use case.</p>
+        </section>
+
+        <section id="updates">
+            <h2>11. Changes to This Policy</h2>
+            <p>We may update this Privacy Policy periodically. Material changes will be announced on the GammaLedger website or repository. The "Last updated" date reflects when revisions were published. Your continued use of the Services after an update signifies acceptance of the revised Policy.</p>
+        </section>
+
+        <section id="contact">
+            <h2>12. Contact</h2>
+            <p>For privacy questions or requests, open an issue at the <a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener">GammaLedger GitHub repository</a>. For sensitive matters you may contact the maintainers directly using the communication channels listed in the repository.</p>
+        </section>
+
+        <section id="additional">
+            <h2>13. Additional Notices</h2>
+            <div class="callout">
+                <p>If you deploy GammaLedger alongside third-party integrations, review the privacy policies of those services. Your use of third-party data feeds, brokers, or analytics platforms is subject to their terms and may introduce additional compliance obligations.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 GammaLedger. All rights reserved. | <a href="terms.html">Terms of Service</a> | <a href="disclaimer.html">Disclaimer</a></p>
+    </footer>
+</body>
+</html>

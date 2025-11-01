@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GammaLedger Terms of Service</title>
+    <meta name="description" content="Review the GammaLedger Terms of Service to understand the conditions that govern use of the platform and related resources.">
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/img/gammaledger-logo-32x32.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0b1a;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1f2937;
+            --bg-surface: rgba(15, 23, 42, 0.85);
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #3b82f6;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #8ea0bf;
+            --border-subtle: rgba(148, 163, 184, 0.18);
+            --radius-lg: 1rem;
+            --shadow-elevated: 0 20px 45px rgba(15, 23, 42, 0.45);
+            --gradient-hero: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 55%, var(--bg-tertiary) 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--gradient-hero);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        a {
+            color: var(--accent-primary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--accent-secondary);
+        }
+
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 11, 26, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .header-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+        }
+
+        .brand img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+        }
+
+        .nav-links {
+            display: inline-flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 0.35rem 0.65rem;
+            border-radius: 999px;
+        }
+
+        .nav-link:hover {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            background: rgba(139, 92, 246, 0.18);
+            color: var(--text-primary);
+        }
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 4.5rem 1.75rem 5rem;
+        }
+
+        .page-intro {
+            background: var(--bg-surface);
+            padding: 2.5rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-elevated);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .page-intro h1 {
+            margin: 0 0 1rem;
+            font-size: 2.4rem;
+            letter-spacing: -0.02em;
+        }
+
+        .page-intro p {
+            margin: 0.5rem 0 0;
+            color: var(--text-secondary);
+        }
+
+        section {
+            margin-top: 3.5rem;
+            background: rgba(15, 23, 42, 0.72);
+            padding: 2.25rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-elevated);
+        }
+
+        section h2 {
+            margin-top: 0;
+            margin-bottom: 1.25rem;
+            font-size: 1.6rem;
+        }
+
+        section p {
+            margin: 0 0 1rem;
+            color: var(--text-secondary);
+        }
+
+        section ul {
+            margin: 0 0 1rem 1.1rem;
+            color: var(--text-secondary);
+            padding-left: 1rem;
+        }
+
+        section li {
+            margin-bottom: 0.6rem;
+        }
+
+        .callout {
+            background: rgba(59, 130, 246, 0.12);
+            border-left: 4px solid var(--accent-secondary);
+            padding: 1rem 1.25rem;
+            border-radius: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 2.5rem 1.75rem 2.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        @media (max-width: 640px) {
+            .header-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            main {
+                padding: 4rem 1.25rem 4.5rem;
+            }
+
+            section {
+                padding: 1.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-container">
+            <a class="brand" href="index.html">
+                <img src="./assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo">
+                <span>GammaLedger</span>
+            </a>
+            <nav class="nav-links" aria-label="Legal navigation">
+                <a class="nav-link active" href="terms.html">Terms of Service</a>
+                <a class="nav-link" href="privacy.html">Privacy Policy</a>
+                <a class="nav-link" href="disclaimer.html">Disclaimer</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="page-intro">
+            <h1>Terms of Service</h1>
+            <p>Last updated: October 31, 2025</p>
+            <p>These Terms of Service ("Terms") govern your access to and use of GammaLedger, including our public website, downloadable resources, and self-hosted web application (collectively, the "Services"). By accessing or using the Services you agree to be bound by these Terms. If you do not agree, you must not use the Services.</p>
+        </div>
+
+        <section id="eligibility">
+            <h2>1. Eligibility & Accounts</h2>
+            <p>The Services are intended for adults who can form legally binding contracts. By using the Services you represent that you are at least 18 years old and have the authority to agree to these Terms.</p>
+            <p>GammaLedger is currently distributed as an open-source and self-hosted application. We do not operate hosted customer accounts. If you deploy GammaLedger in your environment you are responsible for safeguarding any credentials, configuration secrets, or data stores you create.</p>
+        </section>
+
+        <section id="license">
+            <h2>2. Open Source License & Ownership</h2>
+            <p>The core GammaLedger codebase is released under the GNU Affero General Public License v3 (AGPLv3). Your rights to copy, modify, distribute, or run the code are defined by that license. These Terms supplement, but do not replace, the AGPLv3. In the event of a conflict between these Terms and the AGPLv3, the AGPLv3 controls for covered source code.</p>
+            <p>All GammaLedger trademarks, logos, brand names, and non-code content (including documentation, marketing copy, and design assets) remain the property of their respective owners and may not be used without prior written permission.</p>
+        </section>
+
+        <section id="acceptable-use">
+            <h2>3. Acceptable Use</h2>
+            <p>You agree not to misuse the Services or assist anyone else in doing so. In particular you must not:</p>
+            <ul>
+                <li>Use the Services in violation of any applicable law, regulation, or exchange rule.</li>
+                <li>Introduce malicious code, attempt to breach security controls, or interfere with the operation of the Services.</li>
+                <li>Misrepresent affiliation with GammaLedger or imply the Services provide broker-dealer, advisory, or regulatory approvals.</li>
+                <li>Harvest, resell, or redistribute data from third-party market data providers in violation of their terms.</li>
+                <li>Attempt to gain unauthorized access to the Service or related systems.</li>
+                <li>Interfere with or disrupt the Service or servers.</li>
+                <li>Use automated systems (bots, scrapers) to access the Service without permission.</li>
+                <li>Reverse engineer, decompile, or disassemble any part of the Service.</li>
+                <li>Use the Service to transmit any viruses, malware, or harmful code.</li>
+                <li>Impersonate any person or entity or misrepresent your affiliation.</li>
+                <li>Violate any applicable securities laws or regulations</li>
+            </ul>
+            <p>You are solely responsible for the legality of the data you import, the strategies you model, and the compliance obligations that apply to your business or jurisdiction.</p>
+        </section>
+
+        <section id="market-risk">
+            <h2>4. Market Risk & No Financial Advice</h2>
+            <p>GammaLedger is an analytics and record-keeping tool. We do not provide personalized investment advice, portfolio management, brokerage services, or recommendations. Any output generated by the Services—such as performance analytics, scenario modeling, or risk metrics—depends on the assumptions and data you supply.</p>
+            <div class="callout">
+                <p>Trading options and other derivatives carries substantial risk and may result in the loss of the entire investment. Past performance is not indicative of future results. You remain solely responsible for trading decisions.</p>
+            </div>
+        </section>
+
+        <section id="local-data-storage">
+            <h2>5. Local Data Storage</h2>
+            <p>All data you enter into GammaLedger is stored locally on your device. We do not store your trading data, positions, or personal financial information on our servers.</p>
+            <p>You are solely responsible for backing up your data. We are not responsible for any loss of data.</p>
+        </section>
+
+        <section id="data">
+            <h2>6. Data Handling & Third-Party Integrations</h2>
+            <p>GammaLedger runs primarily in your browser. Trade data, API keys, and generated reports are stored locally unless you intentionally export or sync them with another service. When you choose to integrate a third-party API (for example, to retrieve quotes), you are responsible for complying with the provider's terms and for securing any credentials used.</p>
+            <p>We may publish aggregated, anonymized usage metrics derived from public repository analytics, server logs for the gammaledger.com website, or voluntary feedback. These metrics will not include personal trading records.</p>
+        </section>
+
+        <section id="third-party-services">
+            <h2>7. Third-Party Services</h2>
+            <p>The Service may integrate with third-party services, APIs, or data providers (including but not limited to Interactive Brokers, CBOE). Your use of such third-party services is subject to their respective terms and conditions and privacy policies. We are not responsible for the availability, accuracy, or content of third-party services.</p>
+        </section>
+
+        <section id="updates">
+            <h2>8. Updates & Availability</h2>
+            <p>We may modify or discontinue any portion of the Services without prior notice. We are not liable if the Services become unavailable, if features change, or if an update impacts compatibility with your environment. Continuing to use the Services after a change constitutes acceptance of the updated Terms.</p>
+        </section>
+
+        <section id="termination">
+            <h2>9. Termination</h2>
+            <p>We reserve the right to suspend or terminate your access to the Service at any time, with or without cause, with or without notice.</p>
+            <p>You may discontinue use of the Service at any time. Since data is stored locally, you may delete your data at any time.</p>
+            <p>Upon termination, all provisions of these Terms which by their nature should survive shall survive, including but not limited to disclaimers, limitations of liability, and dispute resolution.</p>
+        </section>
+
+        <section id="disclaimers">
+            <h2>10. Disclaimers & Limitation of Liability</h2>
+            <p>The Services are provided "as is" and "as available" without warranties of any kind, whether express, implied, or statutory. We disclaim all implied warranties including merchantability, fitness for a particular purpose, title, and non-infringement.</p>
+            <p>To the maximum extent permitted by law, GammaLedger and its contributors will not be liable for indirect, incidental, special, consequential, or punitive damages, nor for loss of profits, revenue, data, or goodwill arising out of or related to your use of the Services.</p>
+        </section>
+
+        <section id="governing-law">
+            <h2>11. Governing Law & Dispute Resolution</h2>
+            <p>These Terms are governed by the laws of the jurisdiction in which the primary GammaLedger maintainer resides, without regard to conflict of law provisions. Any dispute arising under these Terms must first be addressed informally by contacting us. If the dispute cannot be resolved within 30 days, it may be submitted to the competent courts in that jurisdiction, unless an open-source license provides you with alternative forums.</p>
+        </section>
+
+        <section id="changes">
+            <h2>12. Changes to These Terms</h2>
+            <p>We may revise these Terms from time to time. The "Last updated" date indicates when the latest changes were posted. Material changes will be announced via the GammaLedger website or repository. Continued use of the Services after changes take effect constitutes acceptance of the revised Terms.</p>
+        </section>
+
+        <section id="severability">
+            <h2>13. Severability</h2>
+            <p>If any provision of these Terms is found to be unenforceable or invalid, that provision shall be limited or eliminated to the minimum extent necessary, and the remaining provisions shall remain in full force and effect.</p>
+        </section>
+
+        <section id="contact">
+            <h2>14. Contact</h2>
+            <p>Questions about these Terms can be submitted through the <a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener">GammaLedger issue tracker</a> or by contacting the maintainers listed in the repository.</p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 GammaLedger. All rights reserved. | <a href="privacy.html">Privacy Policy</a> | <a href="disclaimer.html">Disclaimer</a></p>
+    </footer>
+</body>
+</html>

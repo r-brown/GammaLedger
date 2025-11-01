@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GammaLedger Disclaimer</title>
+    <meta name="description" content="Important risk, accuracy, and responsibility disclosures for users of the GammaLedger analytics platform.">
+    <link rel="icon" type="image/png" sizes="32x32" href="./assets/img/gammaledger-logo-32x32.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0b1a;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1f2937;
+            --bg-surface: rgba(15, 23, 42, 0.85);
+            --accent-primary: #8b5cf6;
+            --accent-secondary: #f59e0b;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #8ea0bf;
+            --border-subtle: rgba(148, 163, 184, 0.18);
+            --radius-lg: 1rem;
+            --shadow-elevated: 0 20px 45px rgba(15, 23, 42, 0.45);
+            --gradient-hero: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 55%, var(--bg-tertiary) 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--gradient-hero);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        a {
+            color: var(--accent-primary);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        a:hover {
+            color: var(--accent-secondary);
+        }
+
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 11, 26, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .header-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 1.25rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+        }
+
+        .brand img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+        }
+
+        .nav-links {
+            display: inline-flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            font-weight: 500;
+            padding: 0.35rem 0.65rem;
+            border-radius: 999px;
+        }
+
+        .nav-link:hover {
+            background: rgba(245, 158, 11, 0.18);
+            color: var(--text-primary);
+        }
+
+        .nav-link.active {
+            background: rgba(245, 158, 11, 0.22);
+            color: var(--text-primary);
+        }
+
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 4.5rem 1.75rem 5rem;
+        }
+
+        .page-intro {
+            background: var(--bg-surface);
+            padding: 2.5rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-elevated);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .page-intro h1 {
+            margin: 0 0 1rem;
+            font-size: 2.3rem;
+            letter-spacing: -0.02em;
+        }
+
+        .page-intro p {
+            margin: 0.5rem 0 0;
+            color: var(--text-secondary);
+        }
+
+        section {
+            margin-top: 3.5rem;
+            background: rgba(15, 23, 42, 0.72);
+            padding: 2.25rem;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-elevated);
+        }
+
+        section h2 {
+            margin-top: 0;
+            margin-bottom: 1.25rem;
+            font-size: 1.6rem;
+        }
+
+        section p {
+            margin: 0 0 1rem;
+            color: var(--text-secondary);
+        }
+
+        section ul {
+            margin: 0 0 1rem 1.1rem;
+            padding-left: 1rem;
+            color: var(--text-secondary);
+        }
+
+        section li {
+            margin-bottom: 0.6rem;
+        }
+
+        .callout {
+            background: rgba(245, 158, 11, 0.15);
+            border-left: 4px solid var(--accent-secondary);
+            padding: 1rem 1.25rem;
+            border-radius: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 2.5rem 1.75rem 2.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        @media (max-width: 640px) {
+            .header-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            main {
+                padding: 4rem 1.25rem 4.5rem;
+            }
+
+            section {
+                padding: 1.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-container">
+            <a class="brand" href="index.html">
+                <img src="./assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo">
+                <span>GammaLedger</span>
+            </a>
+            <nav class="nav-links" aria-label="Legal navigation">
+                <a class="nav-link" href="terms.html">Terms of Service</a>
+                <a class="nav-link" href="privacy.html">Privacy Policy</a>
+                <a class="nav-link active" href="disclaimer.html">Disclaimer</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="page-intro">
+            <h1>Disclaimer</h1>
+            <p>Last updated: October 31, 2025</p>
+            <p>This Disclaimer applies to all GammaLedger materials, including the public website, documentation, repositories, and the GammaLedger analytics application. By using any GammaLedger resource you accept the statements below.</p>
+        </div>
+
+        <section id="no-advice">
+            <h2>1. No Investment Advice</h2>
+            <p>GammaLedger provides portfolio analytics and record-keeping tools. We do not offer personalized financial, investment, legal, tax, or accounting advice. Any insights, metrics, or statements produced by the application are for informational and educational purposes only. Decisions based on the information provided are made at your own risk.</p>
+        </section>
+
+        <section id="market-risk">
+            <h2>2. Investment Risk Warning</h2>
+            <div class="callout">
+                <p>OPTIONS TRADING IS HIGHLY SPECULATIVE AND INVOLVES SUBSTANTIAL RISK OF LOSS</p>
+            </div>
+            <p>Trading in options and other derivatives carries a HIGH DEGREE OF RISK and is not suitable for all investors. You should carefully consider whether options trading is appropriate for your financial situation, investment objectives, and risk tolerance.</p>
+            <p>3.2. Specific Risks Include:</p>
+            <ul>
+                <li>LOSS OF ENTIRE INVESTMENT: You may lose your entire investment in a relatively short period of time</li>
+                <li>LEVERAGE RISK: Options are leveraged instruments; small market movements can result in substantial losses</li>
+                <li>TIME DECAY: Options lose value as they approach expiration</li>
+                <li>VOLATILITY RISK: Changes in market volatility can significantly impact option values</li>
+                <li>COMPLEXITY: Options strategies can be complex and difficult to understand</li>
+                <li>LIQUIDITY RISK: Some options may have limited liquidity, making it difficult to exit positions</li>
+                <li>MARGIN CALLS: Certain strategies may require margin and subject you to margin calls</li>
+                <li>UNLIMITED LOSS POTENTIAL: Some options strategies (e.g., selling naked calls) have theoretically unlimited loss potential</li>
+            </ul>
+            <p>You may lose MORE than your initial investment. In some cases, losses can exceed the amount of capital invested, particularly with margin accounts or certain options strategies.</p>
+        </section>
+
+        <section id="data-accuracy">
+            <h2>3. Data Accuracy & Completeness</h2>
+            <p>Analytics generated by GammaLedger depend on the data, pricing, and assumptions provided by you or third-party services. We do not independently verify the accuracy, timeliness, or completeness of imported data. Use caution when relying on outputs, and validate calculations before making decisions.</p>
+            <p>While we strive to provide accurate calculations and data display, we make NO WARRANTY regarding the accuracy, completeness, or reliability of any information provided through the Service.</p>
+            <p>Calculations, analytics, profit/loss data, and performance metrics are estimates and may contain errors. You should verify all information independently before making any trading decisions.</p>
+            <p>We are NOT responsible for any errors, omissions, or inaccuracies in the data you input or in the calculations performed by the Service.</p>
+        </section>
+
+        <section id="no-guarantee">
+            <h2>4. No Guarantee of Results</h2>
+            <p>Past performance is NOT indicative of future results. Any historical profit/loss data shown in your portfolio does not guarantee future investment performance.</p>
+            <p>No representation is being made that any account will or is likely to achieve profits or losses similar to those displayed in the Service.</p>
+        </section>
+
+        <section id="third-party">
+            <h2>5. Third-Party Content & Integrations</h2>
+            <p>The Services may link to or interoperate with third-party APIs, brokers, or data providers. GammaLedger does not endorse, control, or guarantee the accuracy of any third-party services. Your use of third-party resources is governed by their separate terms and policies.</p>
+        </section>
+
+        <section id="regulation">
+            <h2>6. Regulatory Status</h2>
+            <p>GammaLedger is an open-source software project and is not registered as a broker-dealer, investment adviser, or commodity trading adviser with any regulatory authority. Nothing in our materials should be interpreted as an offer or solicitation to buy or sell securities or other financial instruments.</p>
+        </section>
+
+        <section id="technical-limitations">
+            <h2>7. Technical Limitations and Errors</h2>
+            <p>Software Bugs: The Service may contain bugs, errors, or technical issues that could affect functionality or data accuracy.</p>
+            <p>No Warranty of Uninterrupted Service: We do not warrant that the Service will be error-free, uninterrupted, secure, or available at all times.</p>
+            <p>Data Loss: Since all data is stored locally on your device, we are NOT responsible for any loss of data due to device failure, browser issues, or user error. You are responsible for backing up your data.</p>
+        </section>
+
+        <section id="limitation">
+            <h2>8. Limitation of Liability</h2>
+            <p>TO THE MAXIMUM EXTENT PERMITTED BY LAW:</p>
+            <p>We shall NOT be liable for any direct, indirect, incidental, special, consequential, or punitive damages arising out of or relating to your use of the Service, including but not limited to:</p>
+            <ul>
+                <li>Trading losses or investment losses</li>
+                <li>Loss of profits or revenue</li>
+                <li>Loss of data</li>
+                <li>Business interruption</li>
+                <li>Any other financial loss</li>
+            </ul>
+            <p>This limitation applies regardless of the legal theory of liability (contract, tort, negligence, strict liability, or otherwise), even if we have been advised of the possibility of such damages.</p>
+            <p>Some jurisdictions do not allow the limitation or exclusion of certain damages, so the above limitations may not apply to you.</p>
+        </section>
+
+        <section id="market-data-disclaimer">
+            <h2>9. Market Data Disclaimer</h2>
+            <p>Market data, quotes, and prices displayed through the Service (if any) may be delayed, inaccurate, or incomplete.</p>
+            <p>We do NOT provide real-time market data unless explicitly stated. Do NOT rely on data from the Service for time-sensitive trading decisions.</p>
+        </section>
+
+        <section id="no-broker-dealer-relationship">
+            <h2>10. No Broker-Dealer Relationship</h2>
+            <p>GammaLedger is NOT a broker-dealer, investment advisor, or financial institution. We do NOT execute trades, hold funds, or provide custody services.</p>
+            <p>The Service does not facilitate the buying or selling of securities. All trades must be executed through your own brokerage account.</p>
+        </section>
+
+        <section id="educational-purposes">
+            <h2>11. Educational Purposes</h2>
+            <p>The Service is designed for educational and informational purposes to help users organize and track their options trading activities. It is not intended to replace professional financial advice or services.</p>
+        </section>
+
+        <section id="user-responsibility">
+            <h2>12. User Responsibility</h2>
+            <p>You are solely responsible for:</p>
+            <ul>
+                <li>Maintaining the confidentiality and security of any credentials, API keys, or exported data associated with your deployment.</li>
+                <li>Ensuring compliance with applicable laws, exchange rules, and reporting requirements.</li>
+                <li>Backing up your trading records and validating calculations before acting on them.</li>
+            </ul>
+        </section>
+
+        <section id="assumption-of-risk">
+            <h2>13. Assumption of Risk</h2>
+            <p>BY USING THIS SERVICE, YOU ACKNOWLEDGE AND AGREE THAT:</p>
+            <ul>
+                <li>You understand the risks of options trading</li>
+                <li>You have sufficient knowledge and experience to evaluate the risks</li>
+                <li>You are financially able to bear the risks of losses</li>
+                <li>You will not hold GammaLedger liable for any trading losses</li>
+                <li>You use the Service entirely at your own risk</li>
+            </ul>
+        </section>
+
+        <section id="open-source-software-disclaimer">
+            <h2>14. Open-source Software Disclaimer</h2>
+            <p>The GammaLedger application is provided as open-source software under the AGPL-3.0 license.</p>
+            <p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.</p>
+            <p>IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.</p>
+        </section>
+
+        <section id="updates">
+            <h2>15. Updates to This Disclaimer</h2>
+            <p>We may revise this Disclaimer from time to time to reflect changes in the Services or regulatory expectations. The "Last updated" date indicates when modifications were posted. Continued use of GammaLedger resources after an update constitutes acceptance of the revised Disclaimer.</p>
+        </section>
+
+        <section id="contact">
+            <h2>16. Contact</h2>
+            <p>If you have questions about this Disclaimer, contact the maintainers through the <a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener">GammaLedger issue tracker</a>.</p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 GammaLedger. All rights reserved. | <a href="terms.html">Terms of Service</a> | <a href="privacy.html">Privacy Policy</a></p>
+    </footer>
+</body>
+</html>
