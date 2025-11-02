@@ -74,7 +74,7 @@ const SHARE_CARD_EXPORT_SIZE = 1080;
 const SHARE_CARD_CHART_WIDTH_RATIO = 0.78;
 const SHARE_CARD_CHART_HEIGHT_RATIO = 0.42;
 const SHARE_CARD_CHART_MIN_HEIGHT = 320;
-const CUMULATIVE_PL_RANGES = ['7D', 'MTD', '1M', 'YTD', '1Y', 'ALL'];
+const CUMULATIVE_PL_RANGES = ['7D', 'MTD', '1M', '3M', 'YTD', '1Y', 'ALL'];
 
 const BUILTIN_SAMPLE_DATA = (() => {
     const reference = new Date();
@@ -7045,6 +7045,8 @@ class GammaLedger {
                 return 'Month to Date';
             case '1M':
                 return 'Last 30 Days';
+            case '3M':
+                return 'Last 3 Months';
             case 'YTD':
                 return 'Year to Date';
             case '1Y':
@@ -7079,6 +7081,11 @@ class GammaLedger {
             case '1M':
                 start = new Date(end);
                 start.setDate(start.getDate() - 30);
+                start.setHours(0, 0, 0, 0);
+                break;
+            case '3M':
+                start = new Date(end);
+                start.setMonth(start.getMonth() - 3);
                 start.setHours(0, 0, 0, 0);
                 break;
             case 'YTD':
@@ -7377,6 +7384,23 @@ class GammaLedger {
         });
     }
 
+    async waitForShareCardChartRender() {
+        const raf = typeof requestAnimationFrame === 'function'
+            ? requestAnimationFrame
+            : null;
+
+        if (!raf) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            return;
+        }
+
+        await new Promise(resolve => {
+            raf(() => {
+                raf(() => resolve());
+            });
+        });
+    }
+
     async downloadShareCard() {
         const button = this.shareCard?.button;
         const root = this.shareCard?.root;
@@ -7419,9 +7443,11 @@ class GammaLedger {
         await new Promise((resolve) => {
             requestAnimationFrame(() => {
                 this.refreshShareCardChart();
-                setTimeout(resolve, 180);
+                setTimeout(resolve, 220);
             });
         });
+
+        await this.waitForShareCardChartRender();
 
         let canvas = null;
         try {
