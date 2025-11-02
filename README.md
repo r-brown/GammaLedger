@@ -26,7 +26,7 @@
 
 [![Gemini](https://img.shields.io/badge/Ask-Gemini-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://www.google.com/search?udm=50&q=Summarize+gammaledger.com)
 
-[![Grok](https://img.shields.io/badge/Ask-Grok-191919?style=for-the-badge&logo=grok&logoColor=d4a574)](https://grok.com?q=Summarize%20gammaledger.com)
+[![Grok](https://img.shields.io/badge/Ask-Grok-000000?style=for-the-badge&logo=X&logoColor=white)](https://grok.com?q=Summarize%20gammaledger.com)
 
 [![Perplexity](https://img.shields.io/badge/Ask-Perplexity-20808d?style=for-the-badge&logo=perplexity&logoColor=white)](https://www.perplexity.ai/?q=Summarize%20gammaledger.com)
 
