@@ -190,9 +190,24 @@
                 <div class="portfolio-overview">
                     <div class="overview-cards">
                         <div class="overview-card">
-                            <h3>Total P&L</h3>
-                            <p class="card-value" id="total-pl">$0.00</p>
-                            <small class="card-subtitle" id="pl-percentage">0% Portfolio</small>
+                            <h3>Realized P&L</h3>
+                            <p class="card-value" id="realized-pl">$0.00</p>
+                            <small class="card-subtitle">Closed Trades</small>
+                        </div>
+                        <div class="overview-card">
+                            <h3>Unrealized P&L</h3>
+                            <p class="card-value" id="unrealized-pl">$0.00</p>
+                            <small class="card-subtitle">Open Positions</small>
+                        </div>
+                        <div class="overview-card">
+                            <h3>Collateral at Risk</h3>
+                            <p class="card-value" id="collateral-at-risk">$0.00</p>
+                            <small class="card-subtitle">Capital Committed</small>
+                        </div>
+                        <div class="overview-card">
+                            <h3>Active Positions</h3>
+                            <p class="card-value" id="active-positions">0</p>
+                            <small class="card-subtitle">Positions</small>
                         </div>
                         <div class="overview-card">
                             <h3>Win Rate</h3>
@@ -205,19 +220,9 @@
                             <small class="card-subtitle">Risk/Reward</small>
                         </div>
                         <div class="overview-card">
-                            <h3>Active Positions</h3>
-                            <p class="card-value" id="active-positions">0</p>
-                            <small class="card-subtitle">Positions</small>
-                        </div>
-                        <div class="overview-card">
                             <h3>Total ROI</h3>
                             <p class="card-value" id="total-roi">0%</p>
                             <small class="card-subtitle">Annualized</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Max Drawdown</h3>
-                            <p class="card-value" id="max-drawdown">0%</p>
-                            <small class="card-subtitle">Peak to Trough</small>
                         </div>
                     </div>
                 </div>
@@ -716,7 +721,7 @@
             </header>
             <div class="share-card__metrics">
                 <div class="share-card__metric">
-                    <span class="share-card__metric-label">Total P&amp;L</span>
+                    <span class="share-card__metric-label">Realized P&amp;L</span>
                     <span class="share-card__metric-value" id="share-card-total-pl">$0.00</span>
                 </div>
                 <div class="share-card__metric">

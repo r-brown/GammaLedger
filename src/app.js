@@ -4555,13 +4555,6 @@ class GammaLedger {
         }
 
         // Update overview cards
-        document.getElementById('total-pl').textContent = this.formatCurrency(stats.totalPL);
-
-        const totalROIFormatted = this.formatNumber(stats.totalROI, { style: 'percent' });
-        document.getElementById('pl-percentage').textContent = totalROIFormatted
-            ? `${totalROIFormatted} Return`
-            : '—';
-
         const winRateFormatted = this.formatNumber(stats.winRate, { style: 'percent', decimals: 1 });
         document.getElementById('win-rate').textContent = winRateFormatted ?? '—';
         document.getElementById('win-loss-count').textContent = `${stats.wins}W / ${stats.losses}L`;
@@ -4570,8 +4563,21 @@ class GammaLedger {
             ? this.formatNumber(profitFactorValue, { decimals: 2, useGrouping: false }).toString()
             : 'Infinite';
         document.getElementById('active-positions').textContent = stats.activePositions;
+        
+        // Update new metrics
+        document.getElementById('collateral-at-risk').textContent = this.formatCurrency(stats.collateralAtRisk);
+        document.getElementById('realized-pl').textContent = this.formatCurrency(stats.realizedPL);
+        
+        const unrealizedPLElement = document.getElementById('unrealized-pl');
+        unrealizedPLElement.textContent = this.formatCurrency(stats.unrealizedPL);
+        unrealizedPLElement.className = 'card-value';
+        if (stats.unrealizedPL > 0) {
+            unrealizedPLElement.classList.add('pl-positive');
+        } else if (stats.unrealizedPL < 0) {
+            unrealizedPLElement.classList.add('pl-negative');
+        }
+        
         document.getElementById('total-roi').textContent = this.formatNumber(stats.totalROI, { style: 'percent' }) ?? '—';
-        document.getElementById('max-drawdown').textContent = this.formatNumber(stats.maxDrawdown, { style: 'percent', decimals: 1 }) ?? '—';
 
         // Update tables
         this.updateActivePositionsTable(openTradesList);
@@ -4701,6 +4707,22 @@ class GammaLedger {
 
         const tickerPerformance = this.calculateTickerPerformance(closedTrades);
 
+        // Calculate new metrics for dashboard widgets
+        // Collateral at Risk: Total capital tied up in open positions
+        const collateralAtRisk = openTrades.reduce((sum, trade) => {
+            const capital = this.getCapitalAtRisk(trade);
+            return Number.isFinite(capital) && capital > 0 ? sum + capital : sum;
+        }, 0);
+
+        // Realized P&L: Actual profits/losses from closed trades (same as totalPL)
+        const realizedPL = totalPL;
+
+        // Unrealized P&L: Estimated current P&L on open positions
+        const unrealizedPL = openTrades.reduce((sum, trade) => {
+            const pl = Number(trade.pl);
+            return Number.isFinite(pl) ? sum + pl : sum;
+        }, 0);
+
         return {
             totalTrades: this.trades.length,
             totalPL,
@@ -4727,7 +4749,10 @@ class GammaLedger {
             sortinoRatio,
             avgWinnerDays,
             avgLoserDays,
-            tickerPerformance
+            tickerPerformance,
+            collateralAtRisk,
+            realizedPL,
+            unrealizedPL
         };
     }
 
@@ -4843,7 +4868,8 @@ class GammaLedger {
                 quoteEntries.set(quoteKey, { trade, row, cell: priceCell, key: quoteKey });
 
                 const dteValue = this.parseInteger(trade.dte, null, { allowNegative: false });
-                row.insertCell(4).textContent = dteValue !== null ? dteValue : '—';
+                const dteCell = row.insertCell(4);
+                dteCell.textContent = dteValue !== null ? dteValue : '—';
                 if (Number.isFinite(dteValue)) {
                     row.dataset.dte = String(dteValue);
                 } else {
@@ -4868,7 +4894,7 @@ class GammaLedger {
                     notesCell.title = noteText;
                 }
 
-                this.updateExpirationHighlight(row, trade);
+                this.updateExpirationHighlight(dteCell, trade);
 
                 this.applyResponsiveLabels(row, columnLabels);
             });
@@ -6705,7 +6731,7 @@ class GammaLedger {
         };
 
         if (metrics.totalPL) {
-            metrics.totalPL.textContent = this.formatCurrency(safeStats.totalPL || 0);
+            metrics.totalPL.textContent = this.formatCurrency(safeStats.realizedPL || 0);
         }
         if (metrics.winRate) {
             metrics.winRate.textContent = formatPercent(safeStats.winRate, 1);
@@ -7627,19 +7653,23 @@ class GammaLedger {
         if (!row) {
             return;
         }
-        this.updateExpirationHighlight(row, trade);
+        // Find the DTE cell (5th cell, index 4) to apply expiration highlighting
+        const dteCell = row.cells?.[4];
+        if (dteCell) {
+            this.updateExpirationHighlight(dteCell, trade);
+        }
         this.updateItmHighlight(row, trade, currentPrice);
     }
 
-    updateExpirationHighlight(row, trade) {
-        if (!row) {
+    updateExpirationHighlight(cell, trade) {
+        if (!cell) {
             return;
         }
 
-        row.classList.remove('position-expiring-critical', 'position-expiring-warning');
+        cell.classList.remove('position-expiring-critical', 'position-expiring-warning');
 
         const warningThreshold = this.positionHighlightConfig?.expirationWarningDays ?? 20;
-        const criticalThreshold = this.positionHighlightConfig?.expirationCriticalDays ?? 7;
+        const criticalThreshold = this.positionHighlightConfig?.expirationCriticalDays ?? 10;
         const rawDte = trade?.dte;
         const dteValue = this.parseInteger(rawDte, null, { allowNegative: true });
 
@@ -7648,9 +7678,9 @@ class GammaLedger {
         }
 
         if (dteValue < criticalThreshold) {
-            row.classList.add('position-expiring-critical');
+            cell.classList.add('position-expiring-critical');
         } else if (dteValue < warningThreshold) {
-            row.classList.add('position-expiring-warning');
+            cell.classList.add('position-expiring-warning');
         }
     }
 

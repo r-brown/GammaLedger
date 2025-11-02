@@ -3494,22 +3494,27 @@ tr:hover {
   font-style: italic;
 }
 
+/* ITM position highlighting - entire row */
 tr.position-itm td {
-  background-color: rgba(var(--color-magenta-400-rgb), 0.18);
+  background-color: #5900c611;
 }
 
-tr.position-expiring-warning td {
-  background-color: #fff6cc;
+/* DTE number highlighting for expiration warnings - text only, no background */
+td.position-expiring-warning {
+  font-weight: 700;
+  color: #FF8800;
 }
 
-tr.position-expiring-critical td {
-  background-color: #ffe1e1;
+td.position-expiring-critical {
+  font-weight: 700;
+  color: #FF0000;
 }
 
+/* Combined ITM + expiring states (if needed for other tables) */
 tr.position-itm.position-expiring-warning td {
   background: linear-gradient(
     90deg,
-    rgba(var(--color-magenta-400-rgb), 0.22) 0%,
+    #E7D4FF 0%,
     #fff2a8 100%
   );
 }
@@ -3517,7 +3522,7 @@ tr.position-itm.position-expiring-warning td {
 tr.position-itm.position-expiring-critical td {
   background: linear-gradient(
     90deg,
-    rgba(var(--color-magenta-400-rgb), 0.2) 0%,
+    #E7D4FF 0%,
     #ffd0d0 100%
   );
 }
