@@ -207,7 +207,12 @@
                         <div class="overview-card">
                             <h3>Active Positions</h3>
                             <p class="card-value" id="active-positions">0</p>
-                            <small class="card-subtitle">Positions</small>
+                            <small class="card-subtitle">Open Trades</small>
+                        </div>
+                        <div class="overview-card">
+                            <h3>Assigned Positions</h3>
+                            <p class="card-value" id="assigned-positions">0</p>
+                            <small class="card-subtitle">Wheel / PMCC</small>
                         </div>
                         <div class="overview-card">
                             <h3>Win Rate</h3>
@@ -359,6 +364,30 @@
                                         <th>Days Held</th>
                                         <th>P&L</th>
                                         <th>ROI</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Assigned Positions / Wheel Strategy Tracking -->
+                    <div class="assigned-positions">
+                        <h3>Wheel / PMCC Tracker</h3>
+                        <p class="section-help-text">Positions from assigned cash-secured puts or PMCC strategies. Premium collected includes only covered calls sold after assignment.</p>
+                        <div class="table-container stackable-table-container">
+                            <table id="assigned-positions-table" class="stackable-table">
+                                <thead>
+                                    <tr>
+                                        <th>Ticker</th>
+                                        <th>Strategy</th>
+                                        <th>Assignment Date</th>
+                                        <th>Shares</th>
+                                        <th>Strike Price</th>
+                                        <th>Assignment Cost Basis</th>
+                                        <th>Premium Collected</th>
+                                        <th>Eff. Cost Basis</th>
+                                        <th class="notes-col">Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>

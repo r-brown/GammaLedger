@@ -2696,7 +2696,12 @@ class GammaLedger {
 
     isClosedStatus(status) {
         const normalized = this.normalizeStatus(status);
-        return normalized === 'closed' || normalized === 'assigned' || normalized === 'expired';
+        return normalized === 'closed' || normalized === 'expired';
+    }
+
+    isAssignedStatus(status) {
+        const normalized = this.normalizeStatus(status);
+        return normalized === 'assigned';
     }
 
     isActiveStatus(status) {
@@ -4563,6 +4568,7 @@ class GammaLedger {
             ? this.formatNumber(profitFactorValue, { decimals: 2, useGrouping: false }).toString()
             : 'Infinite';
         document.getElementById('active-positions').textContent = stats.activePositions;
+        document.getElementById('assigned-positions').textContent = stats.assignedPositions;
         
         // Update new metrics
         document.getElementById('collateral-at-risk').textContent = this.formatCurrency(stats.collateralAtRisk);
@@ -4582,6 +4588,7 @@ class GammaLedger {
         // Update tables
         this.updateActivePositionsTable(openTradesList);
         this.updateRecentTradesTable(closedTradesList, stats.activePositions);
+        this.updateAssignedPositionsTable();
         this.updateShareCard(stats);
         this.refreshShareCardChart();
         this.syncCumulativePLControls();
@@ -4594,7 +4601,10 @@ class GammaLedger {
 
     calculateAdvancedStats() {
         const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
+        const assignedTrades = this.trades.filter(trade => this.isAssignedStatus(trade.status));
         const openTrades = this.trades.filter(trade => this.isActiveStatus(trade.status));
+        
+        // Exclude assigned trades from P&L calculations as they're transitions to stock positions
         const winningTrades = closedTrades.filter(trade => trade.pl > 0);
         const losingTrades = closedTrades.filter(trade => trade.pl < 0);
 
@@ -4723,6 +4733,9 @@ class GammaLedger {
             return Number.isFinite(pl) ? sum + pl : sum;
         }, 0);
 
+        // Calculate assignment statistics
+        const assignmentStats = this.calculateAssignmentStats(assignedTrades);
+
         return {
             totalTrades: this.trades.length,
             totalPL,
@@ -4731,6 +4744,7 @@ class GammaLedger {
             losses: losingTrades.length,
             profitFactor,
             activePositions: openTrades.length,
+            assignedPositions: assignedTrades.length,
             totalROI,
             annualizedROI,
             maxDrawdown,
@@ -4739,6 +4753,7 @@ class GammaLedger {
             totalMaxRisk,
             closedTradesList: closedTrades,
             openTradesList: openTrades,
+            assignedTradesList: assignedTrades,
             totalFees,
             feeShareOfGross,
             dailyReturns,
@@ -4752,7 +4767,203 @@ class GammaLedger {
             tickerPerformance,
             collateralAtRisk,
             realizedPL,
-            unrealizedPL
+            unrealizedPL,
+            assignmentStats
+        };
+    }
+
+    calculateAssignmentStats(assignedTrades) {
+        const totalAssignments = assignedTrades.length;
+
+        const assignments = assignedTrades.map(trade => {
+            const legs = Array.isArray(trade.legs) ? trade.legs : [];
+
+            const normalizedLegs = legs.map(leg => {
+                const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+                const action = this.getLegAction(leg);
+                const side = this.getLegSide(leg);
+                const executionDate = this.parseDateValue(leg.executionDate);
+                const quantity = Math.abs(Number(leg.quantity) || 0);
+                const multiplier = this.getLegMultiplier(leg) || 1;
+                const premium = Number(leg.premium) || 0;
+
+                return {
+                    leg,
+                    type,
+                    action,
+                    side,
+                    executionDate,
+                    quantity,
+                    multiplier,
+                    premium
+                };
+            });
+
+            const stockLegInfo = normalizedLegs.find(item => item.type === 'STOCK' && item.action === 'BUY' && item.side === 'OPEN');
+            const stockDate = stockLegInfo?.executionDate || null;
+
+            let shares = 100;
+            if (stockLegInfo) {
+                const computedShares = (stockLegInfo.quantity || 0) * (stockLegInfo.multiplier || 1);
+                if (computedShares > 0) {
+                    shares = computedShares;
+                }
+            } else {
+                const referenceLeg = normalizedLegs.find(item => ['CALL', 'PUT'].includes(item.type) && item.quantity > 0 && item.multiplier > 0);
+                if (referenceLeg) {
+                    const computedShares = referenceLeg.quantity * referenceLeg.multiplier;
+                    if (computedShares > 0) {
+                        shares = computedShares;
+                    }
+                }
+            }
+
+            let assignmentStrike = Number(trade.strikePrice) || 0;
+            if (stockLegInfo) {
+                const premiumPerShare = Number(stockLegInfo.leg.premium);
+                const strikeFromLeg = Number(stockLegInfo.leg.strike);
+                if (Number.isFinite(premiumPerShare) && premiumPerShare > 0) {
+                    assignmentStrike = premiumPerShare;
+                } else if (Number.isFinite(strikeFromLeg) && strikeFromLeg > 0) {
+                    assignmentStrike = strikeFromLeg;
+                }
+            }
+
+            let initialPutPremiumTotal = 0;
+            let callPremiumNet = 0;
+            let coveredCallSellCount = 0;
+
+            const premiumHistory = [];
+
+            const addPremiumEvent = (item, amount, category) => {
+                const rawDate = item.leg.executionDate || (item.executionDate ? item.executionDate.toISOString().slice(0, 10) : '');
+                const formattedDate = this.formatDate(rawDate);
+                const actionParts = [];
+                if (item.action === 'SELL') {
+                    actionParts.push('Sell');
+                } else if (item.action === 'BUY') {
+                    actionParts.push('Buy');
+                }
+
+                if (item.type === 'CALL') {
+                    actionParts.push('Call');
+                } else if (item.type === 'PUT') {
+                    actionParts.push('Put');
+                }
+
+                if (item.side === 'OPEN') {
+                    actionParts.push('to Open');
+                } else if (item.side === 'CLOSE') {
+                    actionParts.push('to Close');
+                } else if (item.side === 'ROLL') {
+                    actionParts.push('Roll');
+                }
+
+                const label = actionParts.length > 0 ? `${formattedDate} · ${actionParts.join(' ')}` : formattedDate;
+
+                premiumHistory.push({
+                    date: rawDate,
+                    amount,
+                    label,
+                    category
+                });
+            };
+
+            const chronologicalLegs = [...normalizedLegs].sort((a, b) => {
+                const aDate = a.executionDate instanceof Date ? a.executionDate.getTime() : Number.NEGATIVE_INFINITY;
+                const bDate = b.executionDate instanceof Date ? b.executionDate.getTime() : Number.NEGATIVE_INFINITY;
+                if (aDate === bDate) {
+                    return 0;
+                }
+                return aDate - bDate;
+            });
+
+            chronologicalLegs.forEach(item => {
+                if (!['PUT', 'CALL'].includes(item.type)) {
+                    return;
+                }
+
+                const occursBeforeOrOnAssignment = stockDate
+                    ? (!item.executionDate || item.executionDate <= stockDate)
+                    : true;
+
+                const occursAfterAssignment = stockDate
+                    ? (!item.executionDate || item.executionDate >= stockDate)
+                    : true;
+
+                const cashFlow = this.calculateLegCashFlow(item.leg);
+                if (!Number.isFinite(cashFlow) || cashFlow === 0) {
+                    return;
+                }
+
+                if (item.type === 'PUT' && occursBeforeOrOnAssignment) {
+                    initialPutPremiumTotal += cashFlow;
+                    addPremiumEvent(item, cashFlow, 'PUT');
+
+                    if (!assignmentStrike) {
+                        const strikeFromPut = Number(item.leg.strike);
+                        if (Number.isFinite(strikeFromPut) && strikeFromPut > 0) {
+                            assignmentStrike = strikeFromPut;
+                        }
+                    }
+                    return;
+                }
+
+                if (item.type === 'CALL' && occursAfterAssignment) {
+                    callPremiumNet += cashFlow;
+                    addPremiumEvent(item, cashFlow, 'CALL');
+
+                    if (item.action === 'SELL' && (item.side === 'OPEN' || item.side === 'ROLL')) {
+                        coveredCallSellCount += Math.max(item.quantity || 1, 1);
+                    }
+                }
+            });
+
+            premiumHistory.sort((a, b) => {
+                const aDate = this.parseDateValue(a.date);
+                const bDate = this.parseDateValue(b.date);
+                const aTime = aDate ? aDate.getTime() : 0;
+                const bTime = bDate ? bDate.getTime() : 0;
+                return aTime - bTime;
+            });
+
+            const totalPremiumCollected = initialPutPremiumTotal + callPremiumNet;
+
+            const perSharePutCredit = shares > 0 ? initialPutPremiumTotal / shares : 0;
+            const perShareCallCredit = shares > 0 ? callPremiumNet / shares : 0;
+
+            let costBasisPerShare = 0;
+            let effectiveCostBasis = 0;
+
+            if (Number.isFinite(assignmentStrike) && assignmentStrike !== 0) {
+                costBasisPerShare = assignmentStrike - perSharePutCredit - perShareCallCredit;
+                effectiveCostBasis = shares > 0 ? costBasisPerShare * shares : 0;
+            }
+
+            return {
+                trade,
+                strike: assignmentStrike,
+                initialPutPremium: initialPutPremiumTotal,
+                callPremium: callPremiumNet,
+                premiumCollected: totalPremiumCollected,
+                premiumHistory,
+                coveredCallCount: coveredCallSellCount,
+                costBasisPerShare,
+                effectiveCostBasis,
+                shares
+            };
+        });
+
+        const totalPremiumCollectedNet = assignments.reduce((sum, assignment) => sum + assignment.premiumCollected, 0);
+        const avgPremiumPerAssignment = totalAssignments > 0 ? totalPremiumCollectedNet / totalAssignments : 0;
+        const totalCoveredCalls = assignments.reduce((sum, assignment) => sum + assignment.coveredCallCount, 0);
+
+        return {
+            totalAssignments,
+            totalPremiumCollected: totalPremiumCollectedNet,
+            avgPremiumPerAssignment,
+            totalCoveredCalls,
+            assignments
         };
     }
 
@@ -4954,6 +5165,154 @@ class GammaLedger {
                 } else {
                     roiCell.className = roiValue >= 0 ? 'pl-positive' : 'pl-negative';
                 }
+
+                this.applyResponsiveLabels(row, columnLabels);
+            });
+        }
+    }
+
+    updateAssignedPositionsTable() {
+        const stats = this.latestStats;
+        const assignmentStats = stats?.assignmentStats;
+        const assignments = assignmentStats?.assignments || [];
+
+        const tbody = document.querySelector('#assigned-positions-table tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+
+            const columnLabels = ['Ticker', 'Strategy', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Notes'];
+
+            assignments.forEach(({ trade, strike, premiumCollected, premiumHistory, effectiveCostBasis, shares, initialPutPremium, callPremium }) => {
+                const row = tbody.insertRow();
+                
+                // Ticker
+                const tickerCell = row.insertCell(0);
+                const tickerValue = (trade.ticker ?? '').toString().trim().toUpperCase();
+                const tickerLink = this.createTickerElement(trade.ticker, 'ticker-pill', {
+                    behavior: 'filter',
+                    onClick: (value) => this.openTradesFilteredByTicker(value),
+                    title: tickerValue ? `View all trades for ${tickerValue}` : ''
+                });
+                tickerCell.appendChild(tickerLink);
+
+                // Strategy
+                const strategyCell = row.insertCell(1);
+                strategyCell.textContent = trade.strategy || '—';
+
+                // Assignment date (use exitDate as assignment date)
+                row.insertCell(2).textContent = this.formatDate(trade.exitDate);
+
+                // Shares (standard contract size)
+                const sharesCell = row.insertCell(3);
+                sharesCell.textContent = this.formatNumber(shares, { decimals: 0, useGrouping: true }) ?? shares.toString();
+
+                // Strike Price (actual assignment strike)
+                row.insertCell(4).textContent = this.formatCurrency(strike);
+
+                // Assignment Cost Basis (total cost at original strike price before premium adjustments)
+                const assignmentCostBasisCell = row.insertCell(5);
+                const assignmentCostBasis = strike * shares;
+                assignmentCostBasisCell.textContent = this.formatCurrency(assignmentCostBasis);
+
+                // Premium Collected (covered calls only) with formula tooltip
+                const premiumCell = row.insertCell(6);
+                const premiumWrapper = document.createElement('span');
+                premiumWrapper.className = 'formula-value-wrapper';
+
+                const premiumText = document.createElement('span');
+                premiumText.textContent = this.formatCurrency(premiumCollected);
+                premiumWrapper.appendChild(premiumText);
+
+                const icon = document.createElement('span');
+                icon.className = 'formula-info-icon';
+                icon.textContent = 'i';
+                icon.setAttribute('aria-label', 'View premium breakdown');
+
+                const tooltip = document.createElement('div');
+                tooltip.className = 'formula-tooltip';
+                tooltip.setAttribute('role', 'tooltip');
+
+                let tooltipHTML = '';
+                tooltipHTML += '<div class="formula-tooltip__title">Premium Breakdown</div>';
+                tooltipHTML += '<div class="formula-tooltip__section">';
+                tooltipHTML += '<div class="formula-tooltip__label">Net Premium Collected</div>';
+                tooltipHTML += `<div class="formula-tooltip__formula">${this.escapeHtml(this.formatCurrency(premiumCollected))}</div>`;
+                tooltipHTML += '</div>';
+
+                const componentRows = [
+                    {
+                        name: 'Initial CSP Net',
+                        value: this.formatCurrency(initialPutPremium)
+                    },
+                    {
+                        name: 'Covered Calls Net',
+                        value: this.formatCurrency(callPremium)
+                    }
+                ];
+
+                tooltipHTML += '<div class="formula-tooltip__section">';
+                tooltipHTML += '<div class="formula-tooltip__label">Components</div>';
+                tooltipHTML += '<div class="formula-tooltip__variables">';
+                componentRows.forEach(row => {
+                    tooltipHTML += '<div class="formula-tooltip__variable">';
+                    tooltipHTML += `<span class="formula-tooltip__variable-name">${this.escapeHtml(row.name)}</span>`;
+                    tooltipHTML += `<span class="formula-tooltip__variable-value">${this.escapeHtml(row.value)}</span>`;
+                    tooltipHTML += '</div>';
+                });
+                tooltipHTML += '</div>';
+                tooltipHTML += '</div>';
+
+                tooltipHTML += '<div class="formula-tooltip__section">';
+                tooltipHTML += '<div class="formula-tooltip__label">Activity Log</div>';
+
+                if (premiumHistory && premiumHistory.length > 0) {
+                    tooltipHTML += '<div class="formula-tooltip__variables">';
+                    premiumHistory.forEach(item => {
+                        tooltipHTML += '<div class="formula-tooltip__variable">';
+                        tooltipHTML += `<span class="formula-tooltip__variable-name">${this.escapeHtml(item.label)}</span>`;
+                        tooltipHTML += `<span class="formula-tooltip__variable-value">${this.escapeHtml(this.formatCurrency(item.amount))}</span>`;
+                        tooltipHTML += '</div>';
+                    });
+                    tooltipHTML += '</div>';
+                } else {
+                    tooltipHTML += '<div class="formula-tooltip__explanation">No option premium activity recorded yet.</div>';
+                }
+
+                tooltipHTML += '</div>';
+
+                tooltipHTML += '<div class="formula-tooltip__section">';
+                tooltipHTML += '<div class="formula-tooltip__explanation">Includes initial cash-secured put credit and all covered call legs net of buybacks and fees.</div>';
+                tooltipHTML += '</div>';
+
+                tooltip.innerHTML = tooltipHTML;
+
+                premiumWrapper.appendChild(icon);
+                premiumWrapper.appendChild(tooltip);
+
+                premiumWrapper.addEventListener('mouseenter', () => {
+                    this.positionFormulaTooltip(premiumWrapper, tooltip);
+                });
+
+                const handleScroll = () => {
+                    if (premiumWrapper.matches(':hover')) {
+                        this.positionFormulaTooltip(premiumWrapper, tooltip);
+                    }
+                };
+
+                window.addEventListener('scroll', handleScroll, { passive: true });
+                premiumWrapper.addEventListener('mouseleave', () => {
+                    window.removeEventListener('scroll', handleScroll);
+                }, { once: true });
+
+                premiumCell.appendChild(premiumWrapper);
+
+                // Eff. Cost Basis
+                row.insertCell(7).textContent = this.formatCurrency(effectiveCostBasis);
+
+                // Notes
+                const notesCell = row.insertCell(8);
+                notesCell.textContent = trade.notes || '—';
+                notesCell.className = 'notes-col';
 
                 this.applyResponsiveLabels(row, columnLabels);
             });

@@ -2703,7 +2703,8 @@ select.form-control {
 }
 
 .active-positions,
-.recent-trades {
+.recent-trades,
+.assigned-positions {
   background-color: var(--color-surface);
   border: 1px solid var(--color-card-border);
   border-radius: var(--radius-lg);
@@ -2711,10 +2712,23 @@ select.form-control {
 }
 
 .active-positions h3,
-.recent-trades h3 {
+.recent-trades h3,
+.assigned-positions h3 {
   margin-bottom: var(--space-16);
   font-size: var(--font-size-lg);
   color: var(--color-text);
+}
+
+.assigned-positions {
+  grid-column: 1 / -1; /* Span full width below the two-column layout */
+  margin-top: var(--space-24);
+}
+
+.section-help-text {
+  margin: calc(-1 * var(--space-8)) 0 var(--space-16) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
 
 /* Form Styles */
@@ -4105,6 +4119,216 @@ tr.position-itm.position-expiring-critical td {
   }
   
   .formula-tooltip {
+    background: var(--color-charcoal-800);
+    border-color: rgba(var(--color-teal-300-rgb), 0.2);
+  }
+}
+
+/* Info icon styles for table headers */
+.info-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-teal-500);
+  background: rgba(var(--color-teal-500-rgb), 0.1);
+  border: 1px solid rgba(var(--color-teal-500-rgb), 0.3);
+  border-radius: 50%;
+  cursor: help;
+  margin-left: var(--space-4);
+  transition: all var(--duration-fast) var(--ease-standard);
+  vertical-align: middle;
+  position: relative;
+}
+
+.info-icon:hover {
+  background: rgba(var(--color-teal-500-rgb), 0.2);
+  border-color: rgba(var(--color-teal-500-rgb), 0.5);
+  transform: scale(1.15);
+}
+
+/* Info tooltip popup */
+.info-tooltip-popup {
+  position: fixed;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-16);
+  min-width: 320px;
+  max-width: 400px;
+  box-shadow: 
+    0 12px 32px rgba(var(--color-slate-900-rgb), 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-fast) var(--ease-standard),
+              visibility var(--duration-fast) var(--ease-standard);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+}
+
+.info-icon:hover .info-tooltip-popup {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Tooltip styles for table cells with simple text tooltips */
+.has-tooltip {
+  position: relative;
+  cursor: help;
+}
+
+.has-tooltip::after {
+  content: attr(data-tooltip-content);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-8) var(--space-12);
+  min-width: 120px;
+  max-width: 250px;
+  box-shadow: 
+    0 8px 24px rgba(var(--color-slate-900-rgb), 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.12);
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-fast) var(--ease-standard),
+              visibility var(--duration-fast) var(--ease-standard);
+  pointer-events: none;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+.has-tooltip:hover::after {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Tooltip content wrapper for complex tooltips */
+.tooltip-content {
+  text-align: left;
+}
+
+.tooltip-content h4 {
+  margin: 0 0 var(--space-12) 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-6);
+}
+
+.tooltip-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.tooltip-stats-table tr {
+  border-bottom: 1px solid rgba(var(--color-gray-400-rgb), 0.1);
+}
+
+.tooltip-stats-table tr:last-child {
+  border-bottom: none;
+}
+
+.tooltip-stats-table td {
+  padding: var(--space-6) var(--space-4);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.tooltip-stats-table td:first-child {
+  color: var(--color-text-secondary);
+  padding-left: 0;
+  width: 60%;
+}
+
+.tooltip-stats-table td:last-child {
+  text-align: right;
+  padding-right: 0;
+  white-space: nowrap;
+}
+
+.tooltip-note {
+  margin: var(--space-12) 0 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  line-height: 1.5;
+  padding-top: var(--space-10);
+  border-top: 1px solid rgba(var(--color-gray-400-rgb), 0.1);
+}
+
+/* Premium history tooltip specific styles */
+.premium-history-icon {
+  display: inline-flex;
+  position: relative;
+}
+
+.premium-history-tooltip {
+  min-width: 280px;
+}
+
+.premium-history-list {
+  margin: var(--space-8) 0 0 0;
+}
+
+.premium-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-6) 0;
+  border-bottom: 1px solid rgba(var(--color-gray-400-rgb), 0.1);
+}
+
+.premium-history-item:last-child {
+  border-bottom: none;
+}
+
+.premium-date {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.premium-amount {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.premium-history-empty {
+  padding: var(--space-8) 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: left;
+}
+
+@media (prefers-color-scheme: dark) {
+  .info-icon {
+    color: var(--color-teal-300);
+    background: rgba(var(--color-teal-300-rgb), 0.15);
+    border-color: rgba(var(--color-teal-300-rgb), 0.3);
+  }
+  
+  .info-icon:hover {
+    background: rgba(var(--color-teal-300-rgb), 0.25);
+    border-color: rgba(var(--color-teal-300-rgb), 0.5);
+  }
+  
+  .info-tooltip-popup,
+  .has-tooltip::after {
     background: var(--color-charcoal-800);
     border-color: rgba(var(--color-teal-300-rgb), 0.2);
   }
