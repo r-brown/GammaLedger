@@ -1,6 +1,6 @@
 <p align="center"><img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/img/gammaledger-banner-01.png"></p>
 
-# 🎯 GammaLedger
+# <img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/img/gammaledger-logo.png" style="width: 28px;"> GammaLedger
 
 [![Website](https://img.shields.io/badge/%F0%9F%8C%90%20GammaLedger-Website-8b5cf6.svg)](https://gammaledger.com)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](https://github.com/r-brown/GammaLedger/blob/main/LICENSE)
@@ -10,6 +10,52 @@
 
 **GammaLedger** is a desktop application for active options traders and investors who want to analyze, track, and optimize options trading strategies. Designed for sophisticated users, the app delivers flexible dashboards, local file persistence, and advanced analytics to support performance monitoring and decision-making.
 
+---
+
+<table align="center">
+<tr>
+<td width="50%" valign="top">
+
+<div align="center">
+
+### TL;DR? Get an AI Summary
+
+**Click to auto-load the summary:**
+
+[![ChatGPT](https://img.shields.io/badge/Ask-ChatGPT-74aa9c?style=for-the-badge&logo=openai&logoColor=white)](https://chatgpt.com/?q=Summarize%20gammaledger.com)
+
+[![Gemini](https://img.shields.io/badge/Ask-Gemini-8E75B2?style=for-the-badge&logo=google&logoColor=white)](https://www.google.com/search?udm=50&q=Summarize+gammaledger.com)
+
+[![Grok](https://img.shields.io/badge/Ask-Grok-191919?style=for-the-badge&logo=grok&logoColor=d4a574)](https://grok.com?q=Summarize%20gammaledger.com)
+
+[![Perplexity](https://img.shields.io/badge/Ask-Perplexity-20808d?style=for-the-badge&logo=perplexity&logoColor=white)](https://www.perplexity.ai/?q=Summarize%20gammaledger.com)
+
+[![Claude](https://img.shields.io/badge/Ask-Claude-191919?style=for-the-badge&logo=anthropic&logoColor=d4a574)](https://claude.ai/new?q=Summarize%20gammaledger.com)
+
+<sub>Links open with the prompt pre-loaded</sub>
+
+</div>
+
+</td>
+<td width="50%" valign="top">
+
+<div align="center">
+
+### Community & Resources
+
+[![Website](https://img.shields.io/badge/Website-gammaledger.com-8b5cf6?style=for-the-badge&logo=google-chrome&&logoColor=white)](https://gammaledger.com)
+
+[![Reddit](https://img.shields.io/badge/ReddIt-FF0000?style=for-the-badge&logo=reddit&logoColor=white)](https://www.reddit.com/r/GammaLedger/)
+[![Twitter](https://img.shields.io/badge/X.com-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/GammaLedger)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/GammaLedger)
+
+</div>
+
+</td>
+</tr>
+</table>
+
+---
 
 ## 🤖 Developer Note: AI-Generated Code Ahead!
 
