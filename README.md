@@ -1,6 +1,6 @@
 <p align="center"><img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/img/gammaledger-banner-01.png"></p>
 
-# 🎯 GammaLedger
+# <img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/img/gammaledger-logo.png" style="width: 28px;"> GammaLedger
 
 [![Website](https://img.shields.io/badge/%F0%9F%8C%90%20GammaLedger-Website-8b5cf6.svg)](https://gammaledger.com)
 [![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](https://github.com/r-brown/GammaLedger/blob/main/LICENSE)
