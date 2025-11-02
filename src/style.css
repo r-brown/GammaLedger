@@ -3935,3 +3935,172 @@ tr.position-itm.position-expiring-critical td {
   outline: var(--focus-outline);
   outline-offset: 2px;
 }
+
+/* Formula Tooltip Styles */
+.formula-value-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  vertical-align: middle;
+  margin-left: 8px;
+}
+
+.formula-info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(var(--color-teal-500-rgb), 0.12);
+  color: var(--color-teal-500);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  cursor: help;
+  transition: all var(--duration-fast) var(--ease-standard);
+  border: 1px solid rgba(var(--color-teal-500-rgb), 0.2);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.formula-info-icon:hover {
+  background: rgba(var(--color-teal-500-rgb), 0.2);
+  border-color: rgba(var(--color-teal-500-rgb), 0.4);
+  transform: scale(1.1);
+}
+
+.formula-tooltip {
+  position: fixed;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-16);
+  min-width: 400px;
+  max-width: 525px;
+  box-shadow: 
+    0 12px 32px rgba(var(--color-slate-900-rgb), 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-fast) var(--ease-standard),
+              visibility var(--duration-fast) var(--ease-standard);
+  pointer-events: none;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.formula-value-wrapper:hover .formula-tooltip {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.formula-tooltip__title {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin-bottom: var(--space-8);
+  font-size: var(--font-size-base);
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.formula-tooltip__strategy {
+  color: var(--color-teal-500);
+  font-weight: var(--font-weight-semibold);
+}
+
+.formula-tooltip__section {
+  margin-bottom: var(--space-12);
+}
+
+.formula-tooltip__section:last-child {
+  margin-bottom: 0;
+}
+
+.formula-tooltip__label {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-4);
+}
+
+.formula-tooltip__formula {
+  background: rgba(var(--color-teal-500-rgb), 0.06);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-base);
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  border-left: 3px solid rgba(var(--color-teal-500-rgb), 0.4);
+  margin-bottom: var(--space-8);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.formula-tooltip__calculation {
+  background: rgba(var(--color-slate-500-rgb), 0.04);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-base);
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-8);
+  white-space: pre-line;
+}
+
+.formula-tooltip__explanation {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.formula-tooltip__variables {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  padding-top: var(--space-8);
+  border-top: 1px solid var(--color-border);
+}
+
+.formula-tooltip__variable {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-8);
+}
+
+.formula-tooltip__variable-name {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-teal-500);
+}
+
+.formula-tooltip__variable-value {
+  color: var(--color-text);
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .formula-info-icon {
+    background: rgba(var(--color-teal-300-rgb), 0.15);
+    color: var(--color-teal-300);
+    border-color: rgba(var(--color-teal-300-rgb), 0.3);
+  }
+  
+  .formula-info-icon:hover {
+    background: rgba(var(--color-teal-300-rgb), 0.25);
+    border-color: rgba(var(--color-teal-300-rgb), 0.5);
+  }
+  
+  .formula-tooltip {
+    background: var(--color-charcoal-800);
+    border-color: rgba(var(--color-teal-300-rgb), 0.2);
+  }
+}

@@ -1512,6 +1512,673 @@ class GammaLedger {
         return result;
     }
 
+    // --- Formula Tooltip Data and Helpers -----------------------------------
+
+    getFormulaData() {
+        if (!this.formulaDataCache) {
+            this.formulaDataCache = {
+                "variableExplanations": {
+                    "S_0": "Underlying price at entry",
+                    "S_T": "Underlying price at expiry",
+                    "K": "Strike price",
+                    "K1": "Lower strike price",
+                    "K2": "Mid strike price",
+                    "K3": "Upper strike price",
+                    "K4": "Highest strike price",
+                    "K_put": "Put strike",
+                    "K_call": "Call strike",
+                    "D_spread": "Strike width (K2 - K1)",
+                    "netDebit": "Net debit paid",
+                    "netCredit": "Net credit received",
+                    "M": "Contract multiplier (×100)",
+                    "∞": "Unlimited (profit/loss)",
+                    "maxRisk": "Max loss",
+                    "maxGain": "Max gain"
+                },
+                "strategies": {
+                    "Bear Call Ladder": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "(K2 - K1 + netCredit) * M",
+                        "explanation": "Unlimited upside risk; max gain at K2. (Assumes Call Ratio Spread: Buy K2, Sell 2 K1)."
+                    },
+                    "Bear Call Spread": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Limited risk and limited profit; bearish strategy. (Sell K1, Buy K2)"
+                    },
+                    "Bear Put Ladder": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "(K2 - K1 + netCredit) * M",
+                        "explanation": "Unlimited downside risk; max gain at K1. (Assumes Put Ratio Spread: Buy K2, Sell 2 K1)."
+                    },
+                    "Bear Put Spread": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Defined-risk bearish spread. (Buy K2, Sell K1)"
+                    },
+                    "Box Spread": {
+                        "maxRiskFormula": "(netDebit - (K2 - K1)) * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Arbitrage strategy. Profit/loss is locked in at purchase."
+                    },
+                    "Bull Call Ladder": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Unlimited upside gain; risk limited at K2. (Assumes Call Ratio Backspread: Sell K1, Buy 2 K2)."
+                    },
+                    "Bull Call Spread": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Limited risk, limited reward bullish spread. (Buy K1, Sell K2)"
+                    },
+                    "Bull Put Ladder": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "(K2 - K1 + netCredit) * M",
+                        "explanation": "Unlimited downside risk; max gain at K1. (Assumes Put Ratio Spread: Buy K1, Sell 2 K2)."
+                    },
+                    "Bull Put Spread": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Defined-risk bullish spread. (Sell K2, Buy K1)"
+                    },
+                    "Calendar Call Spread": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "Variable, typically near short strike at expiry",
+                        "explanation": "Limited loss; profit depends on volatility and timing."
+                    },
+                    "Calendar Put Spread": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "Variable, near short strike at expiry",
+                        "explanation": "Neutral to bearish position with limited loss."
+                    },
+                    "Calendar Straddle": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "Variable, peaks when stock stays near middle strike",
+                        "explanation": "Limited loss; profit from time decay and volatility."
+                    },
+                    "Calendar Strangle": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "Variable; profit from time decay",
+                        "explanation": "Limited loss; profit depends on implied volatility."
+                    },
+                    "Call Broken Wing": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Variant of butterfly; formulas shown for standard Long Call Butterfly."
+                    },
+                    "Call Ratio Backspread": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Unlimited upside profit; limited downside loss. (Assumes net credit)."
+                    },
+                    "Call Ratio Spread": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "(K2 - K1 + netCredit) * M",
+                        "explanation": "Neutral to slightly bearish; unlimited risk, limited gain. (Assumes net credit)."
+                    },
+                    "Cash-Secured Put": {
+                        "maxRiskFormula": "(K - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Limited profit (premium); risk if assigned and stock drops."
+                    },
+                    "Collar": {
+                        "maxRiskFormula": "(S_0 - K_put + netDebit) * M",
+                        "maxGainFormula": "(K_call - S_0 - netDebit) * M",
+                        "explanation": "Stock-protection strategy with capped loss and gain. (Assumes net debit)."
+                    },
+                    "Covered Call": {
+                        "maxRiskFormula": "(S_0 - netCredit) * M",
+                        "maxGainFormula": "(K_call - S_0 + netCredit) * M",
+                        "explanation": "Income from premium; capped upside. (Own stock at S_0)."
+                    },
+                    "Covered Put": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "(S_0 - K_put + netCredit) * M",
+                        "explanation": "Unlimited risk if stock rises. (Short stock at S_0)."
+                    },
+                    "Covered Short Straddle": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "(S_0 - K + netCredit) * M",
+                        "explanation": "Unlimited risk if stock rises. (Assumes Short Stock @ S_0 + Short Straddle @ K)."
+                    },
+                    "Covered Short Strangle": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "(S_0 - K1 + netCredit) * M",
+                        "explanation": "Unlimited risk if stock rises. (Assumes Short Stock @ S_0 + Short Strangle @ K1/K2)."
+                    },
+                    "Diagonal Call Spread": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "Variable near short strike",
+                        "explanation": "Limited loss; profit from time and direction."
+                    },
+                    "Diagonal Put Spread": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "Variable near short strike",
+                        "explanation": "Limited risk and profit potential."
+                    },
+                    "Double Diagonal": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "Variable near short strikes",
+                        "explanation": "Limited loss, volatility-driven profit."
+                    },
+                    "Guts": {
+                        "maxRiskFormula": "(netDebit - (K2 - K1)) * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Buy ITM call (K1) and ITM put (K2). Max loss between strikes."
+                    },
+                    "Inverse Call Broken Wing": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Same as Short Call Butterfly. Limited loss and gain."
+                    },
+                    "Inverse Iron Butterfly": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Same as Long Iron Butterfly. Profit peaks at middle strike."
+                    },
+                    "Inverse Iron Condor": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Same as Long Iron Condor. Profit between middle strikes."
+                    },
+                    "Inverse Put Broken Wing": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Same as Short Put Butterfly. Limited loss and gain."
+                    },
+                    "Iron Albatross": {
+                        "maxRiskFormula": "(D_spread - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Wide iron condor variant; low reward and risk."
+                    },
+                    "Iron Butterfly": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Limited loss and gain; centered around middle strike."
+                    },
+                    "Iron Condor": {
+                        "maxRiskFormula": "(D_spread - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Limited risk, limited profit neutral strategy."
+                    },
+                    "Jade Lizard": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Credit strategy with unlimited downside risk from the naked put."
+                    },
+                    "Long Call": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Simple bullish bet; risk limited to premium."
+                    },
+                    "Long Call Butterfly": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Profit near middle strike; limited loss."
+                    },
+                    "Long Call Condor": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Profit between middle strikes (K2, K3); limited risk."
+                    },
+                    "Long Put": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K - netDebit) * M",
+                        "explanation": "Bearish position with limited loss, large potential gain."
+                    },
+                    "Long Put Butterfly": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Limited loss, profit near center strike."
+                    },
+                    "Long Put Condor": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Limited loss; profit between middle strikes."
+                    },
+                    "Long Straddle": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Volatility play; loss limited to premium."
+                    },
+                    "Long Strangle": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Profit if price moves far in either direction."
+                    },
+                    "Poor Man's Covered Call": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Synthetic covered call with defined risk. (Buy long-term K1, Sell short-term K2)."
+                    },
+                    "Protective Put": {
+                        "maxRiskFormula": "(S_0 - K_put + netDebit) * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Downside protection for owned stock (at S_0) with unlimited upside."
+                    },
+                    "Put Broken Wing": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "(K2 - K1 - netDebit) * M",
+                        "explanation": "Variant of butterfly; formulas shown for standard Long Put Butterfly."
+                    },
+                    "Put Ratio Backspread": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Unlimited profit if price falls sharply. (Assumes net credit)."
+                    },
+                    "Put Ratio Spread": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "(K2 - K1 + netCredit) * M",
+                        "explanation": "Unlimited downside risk; limited profit. (Assumes net credit)."
+                    },
+                    "Reverse Jade Lizard": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Debit strategy with unlimited profit potential (long put + bull call spread)."
+                    },
+                    "Short Call": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Unlimited risk on upside; income from premium."
+                    },
+                    "Short Call Butterfly": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Reverse butterfly with limited loss and gain."
+                    },
+                    "Short Call Condor": {
+                        "maxRiskFormula": "(D_spread - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Limited loss and gain. (e.g., Sell K1, Buy K2, Buy K3, Sell K4)."
+                    },
+                    "Short Guts": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "(netCredit - (K2 - K1)) * M",
+                        "explanation": "Unlimited risk, limited reward between strikes. (Sell ITM K1 Call, Sell ITM K2 Put)."
+                    },
+                    "Short Put": {
+                        "maxRiskFormula": "(K - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Income from selling put; risk if stock drops."
+                    },
+                    "Short Put Butterfly": {
+                        "maxRiskFormula": "(K2 - K1 - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Limited loss and gain."
+                    },
+                    "Short Put Condor": {
+                        "maxRiskFormula": "(D_spread - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Limited loss and profit; neutral strategy."
+                    },
+                    "Short Straddle": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Unlimited risk on both sides."
+                    },
+                    "Short Strangle": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Unlimited loss; limited gain from credit."
+                    },
+                    "Strap": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Bullish volatility play (Buy 2 Calls, Buy 1 Put); loss limited to premium."
+                    },
+                    "Strip": {
+                        "maxRiskFormula": "netDebit * M",
+                        "maxGainFormula": "∞",
+                        "explanation": "Bearish volatility play (Buy 1 Call, Buy 2 Puts); limited loss."
+                    },
+                    "Synthetic Long Stock": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "∞",
+                        "explanation": "Replicates long stock (Buy Call, Sell Put); unlimited gain and loss."
+                    },
+                    "Synthetic Short Stock": {
+                        "maxRiskFormula": "∞",
+                        "maxGainFormula": "∞",
+                        "explanation": "Replicates short stock (Sell Call, Buy Put); unlimited risk both ways."
+                    },
+                    "Synthetic Put": {
+                        "maxRiskFormula": "(K_call - S_0 + netDebit) * M",
+                        "maxGainFormula": "(S_0 - netDebit) * M",
+                        "explanation": "Replicates a long put (Short Stock at S_0, Buy Call at K_call)."
+                    },
+                    "Wheel": {
+                        "maxRiskFormula": "(K_put - netCredit) * M",
+                        "maxGainFormula": "netCredit * M",
+                        "explanation": "Multi-step strategy. Formulas shown are for Step 1 (selling the put)."
+                    }
+                }
+            };
+        }
+        return this.formulaDataCache;
+    }
+
+    buildFormulaTooltipContent(trade, metricType) {
+        if (!trade || !metricType) {
+            return null;
+        }
+
+        const strategyName = this.getStrategyDisplayName(trade.strategy || '');
+        const formulaData = this.getFormulaData();
+        const strategyInfo = formulaData.strategies[strategyName];
+
+        if (!strategyInfo) {
+            return null;
+        }
+
+        const details = this.summarizeLegs(trade.legs || []);
+        const context = this.buildRiskFormulaContext(trade, details);
+
+        if (metricType === 'maxRisk') {
+            return this.buildMaxRiskTooltip(strategyName, strategyInfo, context, trade);
+        } else if (metricType === 'pl') {
+            return this.buildPLTooltip(trade, details, context);
+        }
+
+        return null;
+    }
+
+    buildMaxRiskTooltip(strategyName, strategyInfo, context, trade) {
+        const html = [];
+        const formulaData = this.getFormulaData();
+        
+        html.push(`<div class="formula-tooltip__title">`);
+        html.push(`<span class="formula-tooltip__strategy">${this.escapeHtml(strategyName)}</span>`);
+        html.push(`Max Risk`);
+        html.push(`</div>`);
+
+        if (strategyInfo.explanation) {
+            html.push(`<div class="formula-tooltip__section">`);
+            html.push(`<div class="formula-tooltip__explanation">${this.escapeHtml(strategyInfo.explanation)}</div>`);
+            html.push(`</div>`);
+        }
+
+        html.push(`<div class="formula-tooltip__section">`);
+        html.push(`<div class="formula-tooltip__label">Formula</div>`);
+        html.push(`<div class="formula-tooltip__formula">${this.escapeHtml(strategyInfo.maxRiskFormula)}</div>`);
+        html.push(`</div>`);
+
+        // Merged Calculation section with human-readable names and variable letters
+        const variables = this.buildVariablesWithExplanations(context, formulaData, trade);
+        if (variables.length > 0) {
+            html.push(`<div class="formula-tooltip__section">`);
+            html.push(`<div class="formula-tooltip__label">Calculation</div>`);
+            html.push(`<div class="formula-tooltip__variables">`);
+            variables.forEach(v => {
+                html.push(`<div class="formula-tooltip__variable">`);
+                html.push(`<span class="formula-tooltip__variable-name">${this.escapeHtml(v.displayName)}</span>`);
+                html.push(`<span class="formula-tooltip__variable-value">${this.escapeHtml(v.value)}</span>`);
+                html.push(`</div>`);
+            });
+            html.push(`</div>`);
+            html.push(`</div>`);
+        }
+
+        return html.join('');
+    }
+
+    buildPLTooltip(trade, details, context) {
+        const html = [];
+        const formulaData = this.getFormulaData();
+        
+        html.push(`<div class="formula-tooltip__title">`);
+        html.push(`P&L Calculation`);
+        html.push(`</div>`);
+
+        const plValue = Number(trade.pl);
+        const isOpen = !this.isClosedStatus(trade.status);
+
+        if (isOpen) {
+            html.push(`<div class="formula-tooltip__section">`);
+            html.push(`<div class="formula-tooltip__explanation">This position is currently open. P&L shown is unrealized.</div>`);
+            html.push(`</div>`);
+        }
+
+        html.push(`<div class="formula-tooltip__section">`);
+        html.push(`<div class="formula-tooltip__label">Formula</div>`);
+        html.push(`<div class="formula-tooltip__formula">P&L = Total Credits - Total Debits - Fees</div>`);
+        html.push(`</div>`);
+
+        // Merged Calculation section with actual values
+        const plVariables = this.buildPLVariables(trade, details);
+        if (plVariables.length > 0) {
+            html.push(`<div class="formula-tooltip__section">`);
+            html.push(`<div class="formula-tooltip__label">Calculation</div>`);
+            html.push(`<div class="formula-tooltip__variables">`);
+            plVariables.forEach(v => {
+                html.push(`<div class="formula-tooltip__variable">`);
+                html.push(`<span class="formula-tooltip__variable-name">${this.escapeHtml(v.displayName)}</span>`);
+                html.push(`<span class="formula-tooltip__variable-value">${this.escapeHtml(v.value)}</span>`);
+                html.push(`</div>`);
+            });
+            html.push(`</div>`);
+            html.push(`</div>`);
+        }
+
+        return html.join('');
+    }
+
+    buildVariablesWithExplanations(context, formulaData, trade) {
+        const variables = [];
+        const explanations = formulaData.variableExplanations;
+        const maxRiskValue = Number(trade.maxRisk);
+        
+        // Stock price at entry (S_0 or S)
+        if (context.S) {
+            const explanation = explanations.S_0 || 'Underlying stock price at entry';
+            variables.push({ 
+                displayName: `${explanation} (S_0)`, 
+                value: `$${context.S.toFixed(2)}` 
+            });
+        }
+        
+        // Strike prices - map context properties to formula variables
+        const strikeMapping = [
+            { contextKey: 'K', formulaKey: 'K', shouldShow: () => context.K && !context.K1 },
+            { contextKey: 'K1', formulaKey: 'K1' },
+            { contextKey: 'K2', formulaKey: 'K2' },
+            { contextKey: 'K3', formulaKey: 'K3' },
+            { contextKey: 'K4', formulaKey: 'K4' },
+            { contextKey: 'shortPutStrike', formulaKey: 'K_put', shouldShow: () => context.shortPutStrike && !context.K1 },
+            { contextKey: 'longPutStrike', formulaKey: 'K_put', shouldShow: () => context.longPutStrike && !context.K1 && !context.shortPutStrike },
+            { contextKey: 'shortCallStrike', formulaKey: 'K_call', shouldShow: () => context.shortCallStrike && !context.K1 },
+            { contextKey: 'longCallStrike', formulaKey: 'K_call', shouldShow: () => context.longCallStrike && !context.K1 && !context.shortCallStrike }
+        ];
+        
+        strikeMapping.forEach(mapping => {
+            const value = context[mapping.contextKey];
+            if (value && Number.isFinite(value)) {
+                const shouldShow = mapping.shouldShow ? mapping.shouldShow() : true;
+                if (shouldShow) {
+                    const explanation = explanations[mapping.formulaKey] || 'Strike price';
+                    // Avoid duplicates
+                    if (!variables.some(v => v.displayName.includes(mapping.formulaKey))) {
+                        variables.push({ 
+                            displayName: `${explanation} (${mapping.formulaKey})`, 
+                            value: `$${value.toFixed(2)}` 
+                        });
+                    }
+                }
+            }
+        });
+        
+        // Strike spread (D_spread)
+        if (context.K1 && context.K2) {
+            const width = Math.abs(context.K2 - context.K1);
+            const explanation = explanations.D_spread || 'Distance between strikes';
+            variables.push({ 
+                displayName: `${explanation} (D_spread)`, 
+                value: `$${width.toFixed(2)}` 
+            });
+        } else if (context.defaultWidth && Number.isFinite(context.defaultWidth)) {
+            const explanation = explanations.D_spread || 'Distance between strikes';
+            variables.push({ 
+                displayName: `${explanation} (D_spread)`, 
+                value: `$${context.defaultWidth.toFixed(2)}` 
+            });
+        }
+        
+        // Net credit/debit
+        if (context.netCredit && context.netCredit > 0) {
+            const explanation = explanations.netCredit || 'Net credit received';
+            variables.push({ 
+                displayName: `${explanation} (netCredit)`, 
+                value: `$${context.netCredit.toFixed(2)}` 
+            });
+        }
+        if (context.netDebit && context.netDebit > 0) {
+            const explanation = explanations.netDebit || 'Net debit paid';
+            variables.push({ 
+                displayName: `${explanation} (netDebit)`, 
+                value: `$${context.netDebit.toFixed(2)}` 
+            });
+        }
+        
+        // Multiplier (M) - show actual value used
+        if (context.contractValue) {
+            const explanation = explanations.M || 'Contract multiplier';
+            const multiplierValue = context.multiplier || 100; // Default multiplier per contract
+            const totalContracts = context.contracts || 1;
+            variables.push({ 
+                displayName: `${explanation} (M)`, 
+                value: `${multiplierValue} × ${totalContracts} = ${context.contractValue}` 
+            });
+        }
+        
+        // Result - Max Risk
+        if (!trade.riskIsUnlimited && Number.isFinite(maxRiskValue) && maxRiskValue > 0) {
+            variables.push({ 
+                displayName: 'Max Risk (Result)', 
+                value: `$${maxRiskValue.toFixed(2)}` 
+            });
+        } else if (trade.riskIsUnlimited || maxRiskValue === Number.POSITIVE_INFINITY) {
+            variables.push({ 
+                displayName: 'Max Risk (Result)', 
+                value: '∞ (Unlimited)' 
+            });
+        }
+        
+        return variables;
+    }
+
+    buildPLVariables(trade, details) {
+        const variables = [];
+        
+        if (details && Number.isFinite(details.totalCredit)) {
+            variables.push({ 
+                displayName: 'Total Credits', 
+                value: `$${details.totalCredit.toFixed(2)}` 
+            });
+        }
+        
+        if (details && Number.isFinite(details.totalDebit)) {
+            variables.push({ 
+                displayName: 'Total Debits', 
+                value: `$${details.totalDebit.toFixed(2)}` 
+            });
+        }
+        
+        if (details && Number.isFinite(details.totalFees)) {
+            variables.push({ 
+                displayName: 'Fees', 
+                value: `$${details.totalFees.toFixed(2)}` 
+            });
+        }
+        
+        const plValue = Number(trade.pl);
+        if (Number.isFinite(plValue)) {
+            variables.push({ 
+                displayName: 'P&L (Result)', 
+                value: `$${plValue.toFixed(2)}` 
+            });
+        }
+        
+        return variables;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    createFormulaIcon(trade, metricType) {
+        const wrapper = document.createElement('span');
+        wrapper.className = 'formula-value-wrapper';
+
+        const icon = document.createElement('span');
+        icon.className = 'formula-info-icon';
+        icon.textContent = 'i';
+        icon.setAttribute('aria-label', `View ${metricType === 'maxRisk' ? 'max risk' : 'P&L'} calculation`);
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'formula-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+
+        const content = this.buildFormulaTooltipContent(trade, metricType);
+        if (content) {
+            tooltip.innerHTML = content;
+            wrapper.appendChild(icon);
+            wrapper.appendChild(tooltip);
+
+            // Position tooltip above table when hovering
+            wrapper.addEventListener('mouseenter', (e) => {
+                this.positionFormulaTooltip(wrapper, tooltip);
+            });
+
+            // Update position on scroll
+            const handleScroll = () => {
+                if (wrapper.matches(':hover')) {
+                    this.positionFormulaTooltip(wrapper, tooltip);
+                }
+            };
+            
+            window.addEventListener('scroll', handleScroll, { passive: true });
+            wrapper.addEventListener('mouseleave', () => {
+                window.removeEventListener('scroll', handleScroll);
+            }, { once: true });
+
+            return wrapper;
+        }
+
+        return null;
+    }
+
+    positionFormulaTooltip(wrapper, tooltip) {
+        if (!wrapper || !tooltip) {
+            return;
+        }
+
+        const iconRect = wrapper.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        // Calculate position above the icon
+        let top = iconRect.top - tooltipRect.height - 12;
+        let left = iconRect.left + (iconRect.width / 2) - (tooltipRect.width / 2);
+
+        // Ensure tooltip doesn't go above viewport
+        if (top < 10) {
+            // If not enough space above, position below instead
+            top = iconRect.bottom + 12;
+        }
+
+        // Ensure tooltip doesn't overflow left/right
+        if (left < 10) {
+            left = 10;
+        } else if (left + tooltipRect.width > viewportWidth - 10) {
+            left = viewportWidth - tooltipRect.width - 10;
+        }
+
+        tooltip.style.top = `${top}px`;
+        tooltip.style.left = `${left}px`;
+    }
+
     // --- Leg form UI helpers ---------------------------------------------
 
     getLegsContainer() {
@@ -7836,27 +8503,59 @@ class GammaLedger {
 
             const maxRiskCell = row.insertCell();
             const maxRiskValue = safeNumber(trade.maxRisk);
+            
+            // Create text node for the value
+            const maxRiskText = document.createTextNode(
+                trade.maxRiskLabel || 
+                (maxRiskValue !== null ? this.formatCurrency(maxRiskValue) : '—')
+            );
+            
+            // Add the value
+            maxRiskCell.appendChild(maxRiskText);
+            
+            // Add formula icon if we have a valid strategy
+            if (trade.strategy && (trade.maxRiskLabel || maxRiskValue !== null)) {
+                const formulaIcon = this.createFormulaIcon(trade, 'maxRisk');
+                if (formulaIcon) {
+                    maxRiskCell.appendChild(formulaIcon);
+                }
+            }
+            
+            // Set cell class
             if (trade.maxRiskLabel) {
-                maxRiskCell.textContent = trade.maxRiskLabel;
                 maxRiskCell.className = trade.riskIsUnlimited ? 'pl-negative' : 'pl-neutral';
                 if (!trade.riskIsUnlimited && maxRiskValue !== null) {
                     maxRiskCell.className = 'pl-negative';
                 }
             } else if (maxRiskValue !== null) {
-                maxRiskCell.textContent = this.formatCurrency(maxRiskValue);
                 maxRiskCell.className = 'pl-negative';
             } else {
-                maxRiskCell.textContent = '—';
                 maxRiskCell.className = 'pl-neutral';
             }
 
             const plCell = row.insertCell();
             const plValue = safeNumber(trade.pl);
+            
+            // Create text node for P&L value
+            const plText = document.createTextNode(
+                plValue !== null ? this.formatCurrency(plValue) : '—'
+            );
+            
+            // Add the value
+            plCell.appendChild(plText);
+            
+            // Add formula icon if we have a valid P&L value and strategy
+            if (trade.strategy && plValue !== null) {
+                const formulaIcon = this.createFormulaIcon(trade, 'pl');
+                if (formulaIcon) {
+                    plCell.appendChild(formulaIcon);
+                }
+            }
+            
+            // Set cell class
             if (plValue !== null) {
-                plCell.textContent = this.formatCurrency(plValue);
                 plCell.className = plValue > 0 ? 'pl-positive' : plValue < 0 ? 'pl-negative' : 'pl-neutral';
             } else {
-                plCell.textContent = '—';
                 plCell.className = 'pl-neutral';
             }
 
