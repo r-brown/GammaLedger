@@ -246,6 +246,128 @@ const BUILTIN_SAMPLE_DATA = (() => {
                     fees: 0.15
                 }
             ]
+        },
+        {
+            id: 'TRD-2003',
+            ticker: 'AAPL',
+            strategy: 'Put Credit Spread',
+            status: 'Closed',
+            openedDate: offset(-9),
+            closedDate: offset(-2),
+            expirationDate: offset(6),
+            exitReason: 'Closed at 65% profit target.',
+            notes: 'Short-term PCS to illustrate recent closed trades.',
+            legs: [
+                {
+                    id: 'TRD-2003-L1',
+                    orderType: 'STO',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-9),
+                    expirationDate: offset(6),
+                    strike: 175,
+                    premium: 1.2,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2003-L2',
+                    orderType: 'BTO',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-9),
+                    expirationDate: offset(6),
+                    strike: 170,
+                    premium: 0.45,
+                    fees: 0.25
+                },
+                {
+                    id: 'TRD-2003-L3',
+                    orderType: 'BTC',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-2),
+                    expirationDate: offset(6),
+                    strike: 175,
+                    premium: 0.28,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2003-L4',
+                    orderType: 'STC',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-2),
+                    expirationDate: offset(6),
+                    strike: 170,
+                    premium: 0.1,
+                    fees: 0.2
+                }
+            ]
+        },
+        {
+            id: 'TRD-2004',
+            ticker: 'MSFT',
+            strategy: 'Call Credit Spread',
+            status: 'Closed',
+            openedDate: offset(-6),
+            closedDate: offset(-1),
+            expirationDate: offset(8),
+            exitReason: 'Closed before earnings volatility.',
+            notes: 'Recent trade to populate short-range filters.',
+            legs: [
+                {
+                    id: 'TRD-2004-L1',
+                    orderType: 'STO',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-6),
+                    expirationDate: offset(8),
+                    strike: 430,
+                    premium: 1.15,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2004-L2',
+                    orderType: 'BTO',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-6),
+                    expirationDate: offset(8),
+                    strike: 435,
+                    premium: 0.4,
+                    fees: 0.25
+                },
+                {
+                    id: 'TRD-2004-L3',
+                    orderType: 'BTC',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-1),
+                    expirationDate: offset(8),
+                    strike: 430,
+                    premium: 0.52,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-2004-L4',
+                    orderType: 'STC',
+                    type: 'CALL',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-1),
+                    expirationDate: offset(8),
+                    strike: 435,
+                    premium: 0.18,
+                    fees: 0.2
+                }
+            ]
         }
     ];
 
@@ -7138,98 +7260,140 @@ class GammaLedger {
             return null;
         }
 
-        const normalizedRange = this.normalizeCumulativePLRange(range);
-        const weeklyPL = new Map();
-        let earliestWeek = null;
-        let latestWeek = null;
+        const dayMs = 24 * 60 * 60 * 1000;
+        const toStartOfDay = (date) => {
+            if (!(date instanceof Date)) {
+                return null;
+            }
+            const normalized = new Date(date);
+            normalized.setHours(0, 0, 0, 0);
+            return normalized;
+        };
+        const toISODate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const dailyPL = new Map();
+        let earliestDate = null;
+        let latestDate = null;
 
         closedTrades.forEach(trade => {
-            const weekEnding = this.getWeekEndingFriday(trade.exitDate);
+            const exitDateRaw = this.parseDateValue(trade.exitDate);
+            if (!exitDateRaw) {
+                return;
+            }
+
+            const exitDate = toStartOfDay(exitDateRaw);
+            if (!exitDate) {
+                return;
+            }
+
+            const plValue = this.parseDecimal(trade.pl, 0);
+            const normalizedPL = Number.isFinite(plValue) ? plValue : 0;
+            const key = toISODate(exitDate);
+            dailyPL.set(key, (dailyPL.get(key) || 0) + normalizedPL);
+
+            if (!earliestDate || exitDate < earliestDate) {
+                earliestDate = new Date(exitDate);
+            }
+            if (!latestDate || exitDate > latestDate) {
+                latestDate = new Date(exitDate);
+            }
+        });
+
+        if (!earliestDate || !latestDate) {
+            return null;
+        }
+
+        const cumulativeByDate = new Map();
+        const fullDailySeries = [];
+        let cumulativePL = 0;
+        const cursor = new Date(earliestDate);
+
+        while (cursor.getTime() <= latestDate.getTime()) {
+            const current = new Date(cursor);
+            const key = toISODate(current);
+            const dayPL = dailyPL.get(key) || 0;
+            cumulativePL += dayPL;
+            cumulativeByDate.set(key, cumulativePL);
+            fullDailySeries.push({ date: current, value: cumulativePL });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        const normalizedRange = this.normalizeCumulativePLRange(range);
+        let { start, end } = this.getCumulativePLRangeWindow(normalizedRange);
+
+        start = start ? toStartOfDay(start) : null;
+        end = end ? toStartOfDay(end) : null;
+
+        if (!start || start < earliestDate) {
+            start = new Date(earliestDate);
+        }
+        if (!end || end > latestDate) {
+            end = new Date(latestDate);
+        }
+
+        if (start > end) {
+            return null;
+        }
+
+        const includedDaily = fullDailySeries.filter(entry => entry.date >= start && entry.date <= end);
+        if (!includedDaily.length) {
+            return null;
+        }
+
+        const daySpan = Math.floor((end.getTime() - start.getTime()) / dayMs) + 1;
+        const useDailyStep = daySpan < 7;
+
+        const firstIncludedDate = includedDaily[0].date;
+        const baselineProbe = new Date(firstIncludedDate);
+        baselineProbe.setDate(baselineProbe.getDate() - 1);
+        const baselineKey = toISODate(baselineProbe);
+        const baseline = cumulativeByDate.get(baselineKey) ?? 0;
+
+        if (useDailyStep) {
+            const labels = includedDaily.map(entry => this.formatDayLabel(entry.date));
+            const dataPoints = includedDaily.map(entry => {
+                const adjusted = entry.value - baseline;
+                return Math.abs(adjusted) < 1e-9 ? 0 : adjusted;
+            });
+            const dates = includedDaily.map(entry => new Date(entry.date));
+
+            return { labels, dataPoints, dates };
+        }
+
+        const weeklyMap = new Map();
+        includedDaily.forEach(entry => {
+            const weekEnding = this.getWeekEndingFriday(entry.date);
             if (!weekEnding) {
                 return;
             }
 
             const key = this.getWeekKey(weekEnding);
-            weeklyPL.set(key, (weeklyPL.get(key) || 0) + trade.pl);
-
-            if (!earliestWeek || weekEnding < earliestWeek) {
-                earliestWeek = new Date(weekEnding);
-            }
-            if (!latestWeek || weekEnding > latestWeek) {
-                latestWeek = new Date(weekEnding);
+            const existing = weeklyMap.get(key);
+            if (!existing || entry.date > existing.entry.date) {
+                weeklyMap.set(key, { weekEnding: new Date(weekEnding), entry });
             }
         });
 
-        if (!earliestWeek || !latestWeek) {
+        const weeklyEntries = Array.from(weeklyMap.values())
+            .sort((a, b) => a.entry.date.getTime() - b.entry.date.getTime());
+
+        if (!weeklyEntries.length) {
             return null;
         }
 
-        earliestWeek.setHours(0, 0, 0, 0);
-        latestWeek.setHours(0, 0, 0, 0);
-
-        const labels = [];
-        const dataPoints = [];
-        const dates = [];
-        let cumulativePL = 0;
-        const cursor = new Date(earliestWeek);
-
-        while (cursor.getTime() <= latestWeek.getTime()) {
-            const current = new Date(cursor);
-            const key = this.getWeekKey(current);
-            cumulativePL += weeklyPL.get(key) || 0;
-            labels.push(this.formatWeekLabel(current));
-            dataPoints.push(cumulativePL);
-            dates.push(current);
-            cursor.setDate(cursor.getDate() + 7);
-        }
-
-        if (normalizedRange === 'ALL') {
-            return {
-                labels,
-                dataPoints,
-                dates
-            };
-        }
-
-        const { start, end } = this.getCumulativePLRangeWindow(normalizedRange);
-        if (!start && !end) {
-            return {
-                labels,
-                dataPoints,
-                dates
-            };
-        }
-
-        const includedIndices = [];
-        dates.forEach((date, index) => {
-            if ((start === null || date >= start) && (end === null || date <= end)) {
-                includedIndices.push(index);
-            }
+        const labels = weeklyEntries.map(item => this.formatWeekLabel(item.weekEnding));
+        const dataPoints = weeklyEntries.map(item => {
+            const adjusted = item.entry.value - baseline;
+            return Math.abs(adjusted) < 1e-9 ? 0 : adjusted;
         });
+        const dates = weeklyEntries.map(item => new Date(item.weekEnding));
 
-        if (!includedIndices.length) {
-            return null;
-        }
-
-        const firstIndex = includedIndices[0];
-        const baseline = firstIndex > 0 ? dataPoints[firstIndex - 1] : 0;
-
-        const filteredLabels = [];
-        const filteredDataPoints = [];
-        const filteredDates = [];
-
-        includedIndices.forEach((index) => {
-            filteredLabels.push(labels[index]);
-            const adjusted = dataPoints[index] - baseline;
-            filteredDataPoints.push(Math.abs(adjusted) < 1e-9 ? 0 : adjusted);
-            filteredDates.push(dates[index]);
-        });
-
-        return {
-            labels: filteredLabels,
-            dataPoints: filteredDataPoints,
-            dates: filteredDates
-        };
+        return { labels, dataPoints, dates };
     }
 
     updateShareCard(stats) {
@@ -8542,6 +8706,19 @@ class GammaLedger {
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
+    }
+
+    formatDayLabel(dateInput) {
+        const date = new Date(dateInput);
+        if (Number.isNaN(date.getTime())) {
+            return '';
+        }
+
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+        });
     }
 
     formatWeekLabel(dateInput) {
