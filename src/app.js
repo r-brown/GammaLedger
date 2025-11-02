@@ -3365,6 +3365,15 @@ class GammaLedger {
         return strategy.includes('cash-secured put');
     }
 
+    isWheelTrade(trade = {}) {
+        const strategy = (trade.strategy || '').toString().trim().toLowerCase();
+        return strategy.includes('wheel');
+    }
+
+    isWheelOrPmccTrade(trade = {}) {
+        return this.isWheelTrade(trade) || this.isPmccTrade(trade);
+    }
+
     isCoveredCall(trade = {}) {
         const strategy = (trade.strategy || '').toLowerCase();
         return strategy.includes('covered call');
@@ -4603,6 +4612,12 @@ class GammaLedger {
         const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
         const assignedTrades = this.trades.filter(trade => this.isAssignedStatus(trade.status));
         const openTrades = this.trades.filter(trade => this.isActiveStatus(trade.status));
+        const wheelPmccTrades = this.trades.filter(trade => {
+            if (this.isWheelOrPmccTrade(trade)) {
+                return true;
+            }
+            return this.isAssignedStatus(trade.status);
+        });
         
         // Exclude assigned trades from P&L calculations as they're transitions to stock positions
         const winningTrades = closedTrades.filter(trade => trade.pl > 0);
@@ -4734,7 +4749,7 @@ class GammaLedger {
         }, 0);
 
         // Calculate assignment statistics
-        const assignmentStats = this.calculateAssignmentStats(assignedTrades);
+        const assignmentStats = this.calculateAssignmentStats(wheelPmccTrades);
 
         return {
             totalTrades: this.trades.length,
@@ -4744,7 +4759,7 @@ class GammaLedger {
             losses: losingTrades.length,
             profitFactor,
             activePositions: openTrades.length,
-            assignedPositions: assignedTrades.length,
+            assignedPositions: assignmentStats.totalAssignments,
             totalROI,
             annualizedROI,
             maxDrawdown,
@@ -4753,7 +4768,7 @@ class GammaLedger {
             totalMaxRisk,
             closedTradesList: closedTrades,
             openTradesList: openTrades,
-            assignedTradesList: assignedTrades,
+            assignedTradesList: assignmentStats.assignments,
             totalFees,
             feeShareOfGross,
             dailyReturns,
@@ -4773,10 +4788,16 @@ class GammaLedger {
     }
 
     calculateAssignmentStats(assignedTrades) {
-        const totalAssignments = assignedTrades.length;
-
-        const assignments = assignedTrades.map(trade => {
+        const assignments = assignedTrades
+            .map(trade => {
             const legs = Array.isArray(trade.legs) ? trade.legs : [];
+            let positionType = 'other';
+            const isPmcc = this.isPmccTrade(trade);
+            if (isPmcc) {
+                positionType = 'pmcc';
+            } else if (this.isWheelOrPmccTrade(trade)) {
+                positionType = 'wheel';
+            }
 
             const normalizedLegs = legs.map(leg => {
                 const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
@@ -4800,7 +4821,11 @@ class GammaLedger {
             });
 
             const stockLegInfo = normalizedLegs.find(item => item.type === 'STOCK' && item.action === 'BUY' && item.side === 'OPEN');
+            if (positionType === 'other' && stockLegInfo) {
+                positionType = 'wheel';
+            }
             const stockDate = stockLegInfo?.executionDate || null;
+
 
             let shares = 100;
             if (stockLegInfo) {
@@ -4829,12 +4854,7 @@ class GammaLedger {
                 }
             }
 
-            let initialPutPremiumTotal = 0;
-            let callPremiumNet = 0;
-            let coveredCallSellCount = 0;
-
             const premiumHistory = [];
-
             const addPremiumEvent = (item, amount, category) => {
                 const rawDate = item.leg.executionDate || (item.executionDate ? item.executionDate.toISOString().slice(0, 10) : '');
                 const formattedDate = this.formatDate(rawDate);
@@ -4878,8 +4898,82 @@ class GammaLedger {
                 return aDate - bDate;
             });
 
+            let initialPutPremiumTotal = 0;
+            let callPremiumNet = 0;
+            let coveredCallSellCount = 0;
+            let longCallCost = 0;
+            let shortCallNet = 0;
+            let pmccShortStrike = 0;
+            let pmccSellCount = 0;
+
+            const pmccLongCallLegs = positionType === 'pmcc'
+                ? chronologicalLegs.filter(item => item.type === 'CALL' && item.action === 'BUY' && item.side === 'OPEN')
+                : [];
+            const longCallLegIds = new Set(pmccLongCallLegs.map(item => item.leg.id));
+            const primaryLongCall = pmccLongCallLegs.length > 0
+                ? pmccLongCallLegs.reduce((latest, current) => {
+                    const latestExp = this.parseDateValue(latest?.leg?.expirationDate) || this.parseDateValue(latest?.leg?.expiration) || null;
+                    const currentExp = this.parseDateValue(current?.leg?.expirationDate) || this.parseDateValue(current?.leg?.expiration) || null;
+                    if (!latestExp && currentExp) {
+                        return current;
+                    }
+                    if (!currentExp) {
+                        return latest;
+                    }
+                    return currentExp.getTime() > latestExp.getTime() ? current : latest;
+                })
+                : null;
+
+            let assignmentDateValue = trade.exitDate || trade.closedDate || null;
+            if (positionType === 'pmcc') {
+                const longCallExecution = primaryLongCall?.executionDate;
+                if (longCallExecution instanceof Date) {
+                    assignmentDateValue = longCallExecution.toISOString().slice(0, 10);
+                } else if (primaryLongCall?.leg?.executionDate) {
+                    assignmentDateValue = primaryLongCall.leg.executionDate;
+                }
+            } else if (stockDate instanceof Date) {
+                assignmentDateValue = stockDate.toISOString().slice(0, 10);
+            } else if (stockLegInfo?.leg?.executionDate) {
+                assignmentDateValue = stockLegInfo.leg.executionDate;
+            }
+
             chronologicalLegs.forEach(item => {
                 if (!['PUT', 'CALL'].includes(item.type)) {
+                    return;
+                }
+
+                const cashFlow = this.calculateLegCashFlow(item.leg);
+                if (!Number.isFinite(cashFlow) || cashFlow === 0) {
+                    return;
+                }
+
+                if (positionType === 'pmcc') {
+                    if (item.type === 'CALL') {
+                        const isLongCallOpenLeg = longCallLegIds.has(item.leg.id);
+                        if (isLongCallOpenLeg) {
+                            longCallCost += Math.abs(cashFlow);
+                            addPremiumEvent(item, cashFlow, 'LONG_CALL');
+                            if (!assignmentStrike) {
+                                const lcStrike = Number(item.leg.strike);
+                                if (Number.isFinite(lcStrike) && lcStrike > 0) {
+                                    assignmentStrike = lcStrike;
+                                }
+                            }
+                            return;
+                        }
+
+                        shortCallNet += cashFlow;
+                        addPremiumEvent(item, cashFlow, 'CALL');
+
+                        if (item.action === 'SELL' && (item.side === 'OPEN' || item.side === 'ROLL')) {
+                            pmccSellCount += Math.max(item.quantity || 1, 1);
+                            const strikeValue = Number(item.leg.strike);
+                            if (Number.isFinite(strikeValue) && strikeValue > 0) {
+                                pmccShortStrike = strikeValue;
+                            }
+                        }
+                    }
                     return;
                 }
 
@@ -4890,11 +4984,6 @@ class GammaLedger {
                 const occursAfterAssignment = stockDate
                     ? (!item.executionDate || item.executionDate >= stockDate)
                     : true;
-
-                const cashFlow = this.calculateLegCashFlow(item.leg);
-                if (!Number.isFinite(cashFlow) || cashFlow === 0) {
-                    return;
-                }
 
                 if (item.type === 'PUT' && occursBeforeOrOnAssignment) {
                     initialPutPremiumTotal += cashFlow;
@@ -4915,6 +5004,12 @@ class GammaLedger {
 
                     if (item.action === 'SELL' && (item.side === 'OPEN' || item.side === 'ROLL')) {
                         coveredCallSellCount += Math.max(item.quantity || 1, 1);
+                        if (!assignmentStrike) {
+                            const strikeValue = Number(item.leg.strike);
+                            if (Number.isFinite(strikeValue) && strikeValue > 0) {
+                                assignmentStrike = strikeValue;
+                            }
+                        }
                     }
                 }
             });
@@ -4927,32 +5022,75 @@ class GammaLedger {
                 return aTime - bTime;
             });
 
-            const totalPremiumCollected = initialPutPremiumTotal + callPremiumNet;
+            if (positionType === 'pmcc') {
+                if (pmccShortStrike && !stockLegInfo) {
+                    assignmentStrike = pmccShortStrike;
+                }
+                if (!assignmentStrike && primaryLongCall) {
+                    const longStrike = Number(primaryLongCall.leg.strike);
+                    if (Number.isFinite(longStrike) && longStrike > 0) {
+                        assignmentStrike = longStrike;
+                    }
+                }
+            }
 
-            const perSharePutCredit = shares > 0 ? initialPutPremiumTotal / shares : 0;
-            const perShareCallCredit = shares > 0 ? callPremiumNet / shares : 0;
-
+            let totalPremiumCollected;
+            let perSharePutCredit = 0;
+            let perShareCallCredit = 0;
             let costBasisPerShare = 0;
             let effectiveCostBasis = 0;
+            let assignmentCostBasis = 0;
 
-            if (Number.isFinite(assignmentStrike) && assignmentStrike !== 0) {
-                costBasisPerShare = assignmentStrike - perSharePutCredit - perShareCallCredit;
-                effectiveCostBasis = shares > 0 ? costBasisPerShare * shares : 0;
+            if (positionType === 'pmcc') {
+                totalPremiumCollected = shortCallNet;
+                const longCallTotalCost = longCallCost;
+                assignmentCostBasis = longCallTotalCost;
+                const effectiveTotal = longCallTotalCost - shortCallNet;
+                effectiveCostBasis = effectiveTotal;
+                costBasisPerShare = shares > 0 ? effectiveTotal / shares : 0;
+            } else {
+                totalPremiumCollected = initialPutPremiumTotal + callPremiumNet;
+                perSharePutCredit = shares > 0 ? initialPutPremiumTotal / shares : 0;
+                perShareCallCredit = shares > 0 ? callPremiumNet / shares : 0;
+
+                if (Number.isFinite(assignmentStrike) && assignmentStrike !== 0) {
+                    costBasisPerShare = assignmentStrike - perSharePutCredit - perShareCallCredit;
+                    effectiveCostBasis = shares > 0 ? costBasisPerShare * shares : 0;
+                    assignmentCostBasis = assignmentStrike * shares;
+                }
+            }
+            if (positionType === 'pmcc' && !Number.isFinite(assignmentCostBasis)) {
+                assignmentCostBasis = 0;
+            }
+            if (positionType === 'pmcc' && !Number.isFinite(effectiveCostBasis)) {
+                effectiveCostBasis = 0;
+                costBasisPerShare = 0;
+            }
+
+            if (positionType === 'other') {
+                return null;
             }
 
             return {
                 trade,
+                positionType,
                 strike: assignmentStrike,
                 initialPutPremium: initialPutPremiumTotal,
-                callPremium: callPremiumNet,
+                callPremium: positionType === 'pmcc' ? shortCallNet : callPremiumNet,
+                longCallCost: positionType === 'pmcc' ? longCallCost : 0,
                 premiumCollected: totalPremiumCollected,
                 premiumHistory,
-                coveredCallCount: coveredCallSellCount,
+                coveredCallCount: positionType === 'pmcc' ? pmccSellCount : coveredCallSellCount,
                 costBasisPerShare,
                 effectiveCostBasis,
-                shares
+                shares,
+                assignmentCostBasis,
+                assignmentDate: assignmentDateValue
             };
-        });
+        })
+            .filter(Boolean);
+
+        const totalAssignments = assignments.length;
 
         const totalPremiumCollectedNet = assignments.reduce((sum, assignment) => sum + assignment.premiumCollected, 0);
         const avgPremiumPerAssignment = totalAssignments > 0 ? totalPremiumCollectedNet / totalAssignments : 0;
@@ -5182,7 +5320,7 @@ class GammaLedger {
 
             const columnLabels = ['Ticker', 'Strategy', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Notes'];
 
-            assignments.forEach(({ trade, strike, premiumCollected, premiumHistory, effectiveCostBasis, shares, initialPutPremium, callPremium }) => {
+            assignments.forEach(({ trade, strike, premiumCollected, premiumHistory, effectiveCostBasis, shares, initialPutPremium, callPremium, longCallCost, positionType, assignmentCostBasis, assignmentDate }) => {
                 const row = tbody.insertRow();
                 
                 // Ticker
@@ -5199,8 +5337,8 @@ class GammaLedger {
                 const strategyCell = row.insertCell(1);
                 strategyCell.textContent = trade.strategy || '—';
 
-                // Assignment date (use exitDate as assignment date)
-                row.insertCell(2).textContent = this.formatDate(trade.exitDate);
+                // Assignment date (use LEAP open date for PMCC or fallback value)
+                row.insertCell(2).textContent = this.formatDate(assignmentDate);
 
                 // Shares (standard contract size)
                 const sharesCell = row.insertCell(3);
@@ -5211,7 +5349,6 @@ class GammaLedger {
 
                 // Assignment Cost Basis (total cost at original strike price before premium adjustments)
                 const assignmentCostBasisCell = row.insertCell(5);
-                const assignmentCostBasis = strike * shares;
                 assignmentCostBasisCell.textContent = this.formatCurrency(assignmentCostBasis);
 
                 // Premium Collected (covered calls only) with formula tooltip
@@ -5239,16 +5376,28 @@ class GammaLedger {
                 tooltipHTML += `<div class="formula-tooltip__formula">${this.escapeHtml(this.formatCurrency(premiumCollected))}</div>`;
                 tooltipHTML += '</div>';
 
-                const componentRows = [
-                    {
-                        name: 'Initial CSP Net',
-                        value: this.formatCurrency(initialPutPremium)
-                    },
-                    {
-                        name: 'Covered Calls Net',
-                        value: this.formatCurrency(callPremium)
-                    }
-                ];
+                const isPmccPosition = positionType === 'pmcc';
+                const componentRows = isPmccPosition
+                    ? [
+                        {
+                            name: 'LEAP Cost',
+                            value: this.formatCurrency(-Math.abs(longCallCost))
+                        },
+                        {
+                            name: 'Short Calls Net',
+                            value: this.formatCurrency(callPremium)
+                        }
+                    ]
+                    : [
+                        {
+                            name: 'Initial CSP Net',
+                            value: this.formatCurrency(initialPutPremium)
+                        },
+                        {
+                            name: 'Covered Calls Net',
+                            value: this.formatCurrency(callPremium)
+                        }
+                    ];
 
                 tooltipHTML += '<div class="formula-tooltip__section">';
                 tooltipHTML += '<div class="formula-tooltip__label">Components</div>';
@@ -5281,7 +5430,11 @@ class GammaLedger {
                 tooltipHTML += '</div>';
 
                 tooltipHTML += '<div class="formula-tooltip__section">';
-                tooltipHTML += '<div class="formula-tooltip__explanation">Includes initial cash-secured put credit and all covered call legs net of buybacks and fees.</div>';
+                if (isPmccPosition) {
+                    tooltipHTML += '<div class="formula-tooltip__explanation">Net premium reflects short-call activity. Effective basis subtracts these credits from the LEAP cost.</div>';
+                } else {
+                    tooltipHTML += '<div class="formula-tooltip__explanation">Includes initial cash-secured put credit and all covered call legs net of buybacks and fees.</div>';
+                }
                 tooltipHTML += '</div>';
 
                 tooltip.innerHTML = tooltipHTML;

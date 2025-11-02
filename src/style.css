@@ -2724,6 +2724,21 @@ select.form-control {
   margin-top: var(--space-24);
 }
 
+/* Wheel / PMCC tracker column sizing */
+#assigned-positions-table th:nth-child(2),
+#assigned-positions-table td:nth-child(2) {
+  width: 12%;
+}
+
+#assigned-positions-table th:nth-child(9),
+#assigned-positions-table td:nth-child(9) {
+  width: 30%;
+}
+
+#assigned-positions-table td:nth-child(9) {
+  word-break: break-word;
+}
+
 .section-help-text {
   margin: calc(-1 * var(--space-8)) 0 var(--space-16) 0;
   font-size: var(--font-size-sm);
