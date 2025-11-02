@@ -1,24 +1,52 @@
-const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_ALLOWED_MODELS = [
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-flash',
-    'gemini-2.5-pro'
-];
-const DEFAULT_GEMINI_TEMPERATURE = 0.25;
-const DEFAULT_GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
-const GEMINI_STORAGE_KEY = 'GammaLedgerGeminiConfig';
-const GEMINI_SECRET_STORAGE_KEY = 'GammaLedgerGeminiSecret';
-const DISCLAIMER_STORAGE_KEY = 'GammaLedgerDisclaimerAcceptedAt';
-const AI_COACH_CONSENT_STORAGE_KEY = 'GammaLedgerAICoachConsentAt';
-const SIDEBAR_COLLAPSED_STORAGE_KEY = 'GammaLedgerSidebarCollapsed';
-const LOCAL_STORAGE_KEY = 'GammaLedgerLocalDatabase';
-const LEGACY_STORAGE_KEY = 'GammaLedgerTrades';
-const LEGACY_STORAGE_KEYS = [
-    LEGACY_STORAGE_KEY,
-    'GammaLedgerDatabase',
-    'GammaLedgerLocalState',
-    'GammaLedgerState'
-];
+// Application constants - frozen for immutability
+const APP_CONFIG = Object.freeze({
+    GEMINI: {
+        DEFAULT_MODEL: 'gemini-2.5-flash',
+        ALLOWED_MODELS: Object.freeze(['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro']),
+        DEFAULT_TEMPERATURE: 0.25,
+        DEFAULT_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models'
+    },
+    STORAGE: {
+        GEMINI_CONFIG: 'GammaLedgerGeminiConfig',
+        GEMINI_SECRET: 'GammaLedgerGeminiSecret',
+        DISCLAIMER: 'GammaLedgerDisclaimerAcceptedAt',
+        AI_COACH_CONSENT: 'GammaLedgerAICoachConsentAt',
+        SIDEBAR_COLLAPSED: 'GammaLedgerSidebarCollapsed',
+        LOCAL_DATABASE: 'GammaLedgerLocalDatabase',
+        LEGACY_KEYS: Object.freeze([
+            'GammaLedgerTrades',
+            'GammaLedgerDatabase',
+            'GammaLedgerLocalState',
+            'GammaLedgerState'
+        ])
+    },
+    SHARE_CARD: {
+        EXPORT_SIZE: 1080,
+        CHART_WIDTH_RATIO: 0.78,
+        CHART_HEIGHT_RATIO: 0.42,
+        CHART_MIN_HEIGHT: 320
+    },
+    PL_RANGES: Object.freeze(['7D', 'MTD', '1M', '3M', 'YTD', '1Y', 'ALL'])
+});
+
+// Legacy constants for backward compatibility
+const DEFAULT_GEMINI_MODEL = APP_CONFIG.GEMINI.DEFAULT_MODEL;
+const GEMINI_ALLOWED_MODELS = APP_CONFIG.GEMINI.ALLOWED_MODELS;
+const DEFAULT_GEMINI_TEMPERATURE = APP_CONFIG.GEMINI.DEFAULT_TEMPERATURE;
+const DEFAULT_GEMINI_ENDPOINT = APP_CONFIG.GEMINI.DEFAULT_ENDPOINT;
+const GEMINI_STORAGE_KEY = APP_CONFIG.STORAGE.GEMINI_CONFIG;
+const GEMINI_SECRET_STORAGE_KEY = APP_CONFIG.STORAGE.GEMINI_SECRET;
+const DISCLAIMER_STORAGE_KEY = APP_CONFIG.STORAGE.DISCLAIMER;
+const AI_COACH_CONSENT_STORAGE_KEY = APP_CONFIG.STORAGE.AI_COACH_CONSENT;
+const SIDEBAR_COLLAPSED_STORAGE_KEY = APP_CONFIG.STORAGE.SIDEBAR_COLLAPSED;
+const LOCAL_STORAGE_KEY = APP_CONFIG.STORAGE.LOCAL_DATABASE;
+const LEGACY_STORAGE_KEY = APP_CONFIG.STORAGE.LEGACY_KEYS[0];
+const LEGACY_STORAGE_KEYS = APP_CONFIG.STORAGE.LEGACY_KEYS;
+const SHARE_CARD_EXPORT_SIZE = APP_CONFIG.SHARE_CARD.EXPORT_SIZE;
+const SHARE_CARD_CHART_WIDTH_RATIO = APP_CONFIG.SHARE_CARD.CHART_WIDTH_RATIO;
+const SHARE_CARD_CHART_HEIGHT_RATIO = APP_CONFIG.SHARE_CARD.CHART_HEIGHT_RATIO;
+const SHARE_CARD_CHART_MIN_HEIGHT = APP_CONFIG.SHARE_CARD.CHART_MIN_HEIGHT;
+const CUMULATIVE_PL_RANGES = APP_CONFIG.PL_RANGES;
 
 const RUNTIME_TRADE_FIELDS = new Set([
     'legsCount',
@@ -69,12 +97,6 @@ const RUNTIME_LEG_FIELDS = new Set([
     'importBatchId',
     'tickerSymbol'
 ]);
-
-const SHARE_CARD_EXPORT_SIZE = 1080;
-const SHARE_CARD_CHART_WIDTH_RATIO = 0.78;
-const SHARE_CARD_CHART_HEIGHT_RATIO = 0.42;
-const SHARE_CARD_CHART_MIN_HEIGHT = 320;
-const CUMULATIVE_PL_RANGES = ['7D', 'MTD', '1M', '3M', 'YTD', '1Y', 'ALL'];
 
 const BUILTIN_SAMPLE_DATA = (() => {
     const reference = new Date();
@@ -1377,32 +1399,168 @@ class GammaLedger {
         this.init();
     }
 
-    async init() {
-        await this.loadFromStorage();
-        await this.loadFinnhubConfigFromStorage();
-        await this.loadGeminiConfigFromStorage();
-        if (!this.trades || this.trades.length === 0) {
-            await this.loadDefaultDatabase();
-        } else {
-            this.updateFileNameDisplay();
-            this.updateDashboard();
+    // Safe localStorage operations with error handling
+    safeLocalStorage = {
+        getItem: (key) => {
+            try {
+                return localStorage.getItem(key);
+            } catch (error) {
+                console.warn(`Failed to read from localStorage (key: ${key}):`, error);
+                return null;
+            }
+        },
+        setItem: (key, value) => {
+            try {
+                localStorage.setItem(key, value);
+                return true;
+            } catch (error) {
+                console.warn(`Failed to write to localStorage (key: ${key}):`, error);
+                // Handle quota exceeded or privacy mode
+                if (error.name === 'QuotaExceededError') {
+                    alert('Storage quota exceeded. Please clear some data or use a different browser.');
+                } else if (error.name === 'SecurityError') {
+                    console.warn('localStorage is disabled in this browser (private mode?)');
+                }
+                return false;
+            }
+        },
+        removeItem: (key) => {
+            try {
+                localStorage.removeItem(key);
+                return true;
+            } catch (error) {
+                console.warn(`Failed to remove from localStorage (key: ${key}):`, error);
+                return false;
+            }
         }
-        this.bindEvents();
-        this.initializeGeminiControls();
-        this.initializeAIChat();
-        this.initializeFinnhubControls();
-        this.initializeDisclaimerBanner();
-        this.initializeAICoachConsent();
-        this.initializeSidebarToggle();
-        this.initializeShareCard();
-        this.updateFileNameDisplay();
-        this.checkBrowserCompatibility();
+    };
 
-        // Wait for DOM to be ready before updating dashboard
-        setTimeout(() => {
-            this.updateDashboard();
-            this.showView('dashboard');
-        }, 100);
+    // Input validation utilities
+    validateNumber(value, options = {}) {
+        const { min = -Infinity, max = Infinity, allowZero = true, defaultValue = 0 } = options;
+        const num = Number(value);
+        
+        if (!Number.isFinite(num)) {
+            return defaultValue;
+        }
+        
+        if (!allowZero && num === 0) {
+            return defaultValue;
+        }
+        
+        if (num < min || num > max) {
+            return defaultValue;
+        }
+        
+        return num;
+    }
+
+    validateDate(dateString) {
+        if (!dateString || typeof dateString !== 'string') {
+            return null;
+        }
+        
+        const date = new Date(dateString);
+        return isNaN(date.getTime()) ? null : dateString;
+    }
+
+    sanitizeString(value, maxLength = 1000) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+        
+        const str = String(value).trim();
+        return str.length > maxLength ? str.substring(0, maxLength) : str;
+    }
+
+    // Safe chart cleanup helper
+    destroyChart(chart) {
+        if (chart && typeof chart.destroy === 'function') {
+            try {
+                chart.destroy();
+            } catch (error) {
+                console.warn('Failed to destroy chart:', error);
+            }
+        }
+    }
+
+    // Cleanup all resources
+    cleanup() {
+        // Clear all timeouts
+        if (this.disclaimerBanner?.hideTimeoutId) {
+            clearTimeout(this.disclaimerBanner.hideTimeoutId);
+        }
+        if (this.gemini?.statusTimeoutId) {
+            clearTimeout(this.gemini.statusTimeoutId);
+        }
+        if (this.finnhub?.statusTimeoutId) {
+            clearTimeout(this.finnhub.statusTimeoutId);
+        }
+        
+        // Clear intervals
+        if (this.quoteRefreshIntervalId) {
+            clearInterval(this.quoteRefreshIntervalId);
+            this.quoteRefreshIntervalId = null;
+        }
+        
+        // Destroy all charts
+        Object.keys(this.charts).forEach(key => {
+            this.destroyChart(this.charts[key]);
+        });
+        this.charts = {};
+        
+        // Clear trade detail charts
+        if (this.tradeDetailCharts) {
+            this.tradeDetailCharts.forEach(chart => this.destroyChart(chart));
+            this.tradeDetailCharts.clear();
+        }
+        
+        // Destroy share card chart
+        if (this.shareCard?.chart) {
+            this.destroyChart(this.shareCard.chart);
+            this.shareCard.chart = null;
+        }
+    }
+
+    async init() {
+        try {
+            await this.loadFromStorage();
+            await this.loadFinnhubConfigFromStorage();
+            await this.loadGeminiConfigFromStorage();
+            if (!this.trades || this.trades.length === 0) {
+                await this.loadDefaultDatabase();
+            } else {
+                this.updateFileNameDisplay();
+                this.updateDashboard();
+            }
+            this.bindEvents();
+            this.initializeGeminiControls();
+            this.initializeAIChat();
+            this.initializeFinnhubControls();
+            this.initializeDisclaimerBanner();
+            this.initializeAICoachConsent();
+            this.initializeSidebarToggle();
+            this.initializeShareCard();
+            this.updateFileNameDisplay();
+            this.checkBrowserCompatibility();
+
+            // Wait for DOM to be ready before updating dashboard
+            setTimeout(() => {
+                this.updateDashboard();
+                this.showView('dashboard');
+            }, 100);
+        } catch (error) {
+            console.error('Failed to initialize application:', error);
+            // Show user-friendly error message
+            const notice = document.getElementById('compatibility-notice');
+            if (notice) {
+                const content = notice.querySelector('.notice-content');
+                if (content) {
+                    content.innerHTML = '<h4>⚠️ Initialization Error</h4><p>Failed to load the application. Please refresh the page or contact support if the issue persists.</p>';
+                }
+                notice.classList.remove('hidden');
+            }
+        }
     }
 
         computeAutoRefreshInterval() {
@@ -3103,9 +3261,8 @@ class GammaLedger {
     }
 
     escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        // Deprecated: Use escapeHTML() for consistency
+        return this.escapeHTML(text);
     }
 
     createFormulaIcon(trade, metricType) {
@@ -7076,14 +7233,23 @@ class GammaLedger {
                 });
             }
 
-            modelSelect.value = GEMINI_ALLOWED_MODELS.includes(this.gemini.model)
+            // Set initial value from current state
+            const currentModel = GEMINI_ALLOWED_MODELS.includes(this.gemini.model)
                 ? this.gemini.model
                 : DEFAULT_GEMINI_MODEL;
+            
+            modelSelect.value = currentModel;
+            
+            // Ensure state matches dropdown
+            if (this.gemini.model !== currentModel) {
+                this.setGeminiModel(currentModel);
+            }
 
-            this.setGeminiModel(modelSelect.value);
-
-            modelSelect.addEventListener('change', () => {
-                this.setGeminiModel(modelSelect.value);
+            // Add change event listener
+            modelSelect.addEventListener('change', (event) => {
+                const selectedModel = event.target.value;
+                console.log('Gemini model dropdown changed to:', selectedModel);
+                this.setGeminiModel(selectedModel);
                 this.saveGeminiConfigToStorage();
             });
         }
@@ -7169,6 +7335,12 @@ class GammaLedger {
 
         if (keyInput && keyInput.value !== nextValue) {
             keyInput.value = nextValue;
+        }
+
+        // Sync model select dropdown with current state
+        const modelSelect = this.gemini?.elements?.modelSelect;
+        if (modelSelect && this.gemini?.model && modelSelect.value !== this.gemini.model) {
+            modelSelect.value = this.gemini.model;
         }
 
         const hasKey = Boolean(nextValue);
@@ -7432,7 +7604,8 @@ class GammaLedger {
                 payload.apiKey = this.gemini.apiKey;
             }
 
-            localStorage.setItem(GEMINI_STORAGE_KEY, JSON.stringify(payload));
+            // Use safe localStorage wrapper
+            this.safeLocalStorage.setItem(GEMINI_STORAGE_KEY, JSON.stringify(payload));
         } catch (error) {
             console.warn('Failed to save Gemini configuration:', error);
         }
@@ -14603,4 +14776,24 @@ class GeminiInsightsAgent {
 // Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', function () {
     window.tracker = new GammaLedger();
+});
+
+// Global error handlers for improved stability
+window.addEventListener('error', (event) => {
+    console.error('Global error caught:', event.error);
+    // Prevent the error from breaking the app completely
+    event.preventDefault();
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    // Prevent unhandled promise rejections from crashing the app
+    event.preventDefault();
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    if (window.tracker && typeof window.tracker.cleanup === 'function') {
+        window.tracker.cleanup();
+    }
 });
