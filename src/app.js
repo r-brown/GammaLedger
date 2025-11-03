@@ -1556,7 +1556,14 @@ class GammaLedger {
             if (notice) {
                 const content = notice.querySelector('.notice-content');
                 if (content) {
-                    content.innerHTML = '<h4>⚠️ Initialization Error</h4><p>Failed to load the application. Please refresh the page or contact support if the issue persists.</p>';
+                    // Use DOM methods instead of innerHTML
+                    content.textContent = '';
+                    const heading = document.createElement('h4');
+                    heading.textContent = '⚠️ Initialization Error';
+                    const paragraph = document.createElement('p');
+                    paragraph.textContent = 'Failed to load the application. Please refresh the page or contact support if the issue persists.';
+                    content.appendChild(heading);
+                    content.appendChild(paragraph);
                 }
                 notice.classList.remove('hidden');
             }
@@ -7216,8 +7223,6 @@ class GammaLedger {
             status
         };
 
-        this.syncGeminiControlsFromState({ preserveStatus: Boolean(this.gemini.pendingStatus) });
-
         if (!GEMINI_ALLOWED_MODELS.includes(this.gemini.model)) {
             this.gemini.model = DEFAULT_GEMINI_MODEL;
         }
@@ -7253,6 +7258,9 @@ class GammaLedger {
                 this.saveGeminiConfigToStorage();
             });
         }
+
+        // Sync controls after dropdown is fully set up
+        this.syncGeminiControlsFromState({ preserveStatus: Boolean(this.gemini.pendingStatus) });
 
         const commit = async () => {
             const value = (keyInput?.value || '').trim();
@@ -7416,7 +7424,17 @@ class GammaLedger {
         const hasConsent = this.hasAICoachConsent();
 
         if (!hasKey) {
-            subtitleEl.innerHTML = 'Connect your Gemini API key in <a href="#settings" class="ai-chat__settings-link">Settings</a> to get tailored analysis.';
+            // Use DOM methods instead of innerHTML for better security
+            subtitleEl.textContent = '';
+            const text1 = document.createTextNode('Connect your Gemini API key in ');
+            const link = document.createElement('a');
+            link.href = '#settings';
+            link.className = 'ai-chat__settings-link';
+            link.textContent = 'Settings';
+            const text2 = document.createTextNode(' to get tailored analysis.');
+            subtitleEl.appendChild(text1);
+            subtitleEl.appendChild(link);
+            subtitleEl.appendChild(text2);
         } else if (!hasConsent) {
             subtitleEl.textContent = 'Review and accept the AI Coach data-sharing notice to start asking questions.';
         } else {
@@ -7498,7 +7516,7 @@ class GammaLedger {
         let pendingStatus = null;
 
         try {
-            const raw = localStorage.getItem(GEMINI_STORAGE_KEY);
+            const raw = this.safeLocalStorage.getItem(GEMINI_STORAGE_KEY);
             if (!raw) {
                 this.setGeminiApiKey('', { persist: false, updateUI: false });
                 this.gemini.pendingStatus = null;
@@ -10426,14 +10444,28 @@ class GammaLedger {
 
             const detailCell = detailRow.insertCell(0);
             detailCell.colSpan = columnLabels.length;
-            detailCell.innerHTML = `
-                <div class="trade-diagram" data-chart-container="${safeChartId}">
-                    <div class="trade-diagram__canvas">
-                        <canvas id="${safeChartId}" aria-hidden="true"></canvas>
-                    </div>
-                    <p class="trade-diagram__footnote" id="${footnoteId}">Tap or click the trade row to generate the payoff diagram.</p>
-                </div>
-            `;
+            
+            // Create elements using DOM methods to avoid XSS risk
+            const diagramContainer = document.createElement('div');
+            diagramContainer.className = 'trade-diagram';
+            diagramContainer.setAttribute('data-chart-container', safeChartId);
+            
+            const canvasWrapper = document.createElement('div');
+            canvasWrapper.className = 'trade-diagram__canvas';
+            
+            const canvas = document.createElement('canvas');
+            canvas.id = safeChartId;
+            canvas.setAttribute('aria-hidden', 'true');
+            
+            const footnote = document.createElement('p');
+            footnote.className = 'trade-diagram__footnote';
+            footnote.id = footnoteId;
+            footnote.textContent = 'Tap or click the trade row to generate the payoff diagram.';
+            
+            canvasWrapper.appendChild(canvas);
+            diagramContainer.appendChild(canvasWrapper);
+            diagramContainer.appendChild(footnote);
+            detailCell.appendChild(diagramContainer);
 
             const toggleDetail = () => {
                 this.toggleTradePayoffDetail(row, detailRow, trade, safeChartId, footnoteId);
