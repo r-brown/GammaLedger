@@ -2725,17 +2725,33 @@ select.form-control {
 }
 
 /* Wheel / PMCC tracker column sizing */
+#assigned-positions-table th:nth-child(1),
+#assigned-positions-table td:nth-child(1),
 #assigned-positions-table th:nth-child(2),
-#assigned-positions-table td:nth-child(2) {
-  width: 12%;
-}
-
+#assigned-positions-table td:nth-child(2),
+#assigned-positions-table th:nth-child(3),
+#assigned-positions-table td:nth-child(3),
+#assigned-positions-table th:nth-child(4),
+#assigned-positions-table td:nth-child(4),
+#assigned-positions-table th:nth-child(5),
+#assigned-positions-table td:nth-child(5),
+#assigned-positions-table th:nth-child(6),
+#assigned-positions-table td:nth-child(6),
+#assigned-positions-table th:nth-child(7),
+#assigned-positions-table td:nth-child(7),
+#assigned-positions-table th:nth-child(8),
+#assigned-positions-table td:nth-child(8),
 #assigned-positions-table th:nth-child(9),
 #assigned-positions-table td:nth-child(9) {
+  width: 7.78%;
+}
+
+#assigned-positions-table th:nth-child(10),
+#assigned-positions-table td:nth-child(10) {
   width: 30%;
 }
 
-#assigned-positions-table td:nth-child(9) {
+#assigned-positions-table td:nth-child(10) {
   word-break: break-word;
 }
 
@@ -2925,7 +2941,7 @@ td {
 }
 
 #active-positions-table .notes-col {
-  width: 25%;
+  width: 30%;
 }
 
 #active-positions-table .notes-cell {

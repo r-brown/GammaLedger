@@ -1370,6 +1370,8 @@ class GammaLedger {
             expirationCriticalDays: 10
         };
 
+        this.assignedPositionsStatusFilter = 'open';
+
         this.sidebarState = {
             container: null,
             sidebar: null,
@@ -4764,6 +4766,7 @@ class GammaLedger {
         // Responsive enhancements for trades filters
         this.setupResponsiveFilters();
         this.initializeCumulativePLControls();
+        this.initializeAssignedPositionsStatusFilter();
     }
 
     setupResponsiveFilters() {
@@ -4864,6 +4867,63 @@ class GammaLedger {
         controls.querySelectorAll('button[data-range]').forEach((button) => {
             const buttonRange = this.normalizeCumulativePLRange(button.dataset.range);
             const isActive = buttonRange === currentRange;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+        });
+    }
+
+    initializeAssignedPositionsStatusFilter() {
+        const controls = document.getElementById('assigned-positions-status-filter');
+        if (!controls) {
+            return;
+        }
+
+        if (controls.dataset.initialized === 'true') {
+            this.syncAssignedPositionsStatusFilter();
+            return;
+        }
+
+        controls.addEventListener('click', (event) => {
+            const target = event.target instanceof HTMLElement
+                ? event.target.closest('button[data-status]')
+                : null;
+            if (!target) {
+                return;
+            }
+
+            const { status } = target.dataset;
+            if (!status) {
+                return;
+            }
+
+            this.setAssignedPositionsStatusFilter(status);
+        });
+
+        controls.dataset.initialized = 'true';
+        this.syncAssignedPositionsStatusFilter();
+    }
+
+    setAssignedPositionsStatusFilter(status) {
+        const normalized = status === 'closed' ? 'closed' : 'open';
+        if (normalized === this.assignedPositionsStatusFilter) {
+            return;
+        }
+
+        this.assignedPositionsStatusFilter = normalized;
+        this.syncAssignedPositionsStatusFilter();
+        this.updateAssignedPositionsTable();
+    }
+
+    syncAssignedPositionsStatusFilter() {
+        const controls = document.getElementById('assigned-positions-status-filter');
+        if (!controls) {
+            return;
+        }
+
+        const currentStatus = this.assignedPositionsStatusFilter;
+        controls.querySelectorAll('button[data-status]').forEach((button) => {
+            const buttonStatus = button.dataset.status;
+            const isActive = buttonStatus === currentStatus;
             button.classList.toggle('is-active', isActive);
             button.setAttribute('aria-pressed', String(isActive));
         });
@@ -6256,7 +6316,7 @@ class GammaLedger {
         })
             .filter(Boolean);
 
-        const totalAssignments = assignments.length;
+        const totalAssignments = assignments.filter(assignment => !this.isClosedStatus(assignment.trade.status)).length;
 
         const totalPremiumCollectedNet = assignments.reduce((sum, assignment) => sum + assignment.premiumCollected, 0);
         const avgPremiumPerAssignment = totalAssignments > 0 ? totalPremiumCollectedNet / totalAssignments : 0;
@@ -6484,9 +6544,20 @@ class GammaLedger {
         if (tbody) {
             tbody.innerHTML = '';
 
-            const columnLabels = ['Ticker', 'Strategy', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Notes'];
+            const columnLabels = ['Ticker', 'Strategy', 'Status', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Notes'];
 
-            assignments.forEach(({ trade, strike, premiumCollected, premiumHistory, effectiveCostBasis, shares, initialPutPremium, callPremium, longCallCost, positionType, assignmentCostBasis, assignmentDate }) => {
+            // Filter assignments based on the status filter
+            const currentFilter = this.assignedPositionsStatusFilter;
+            const filteredAssignments = assignments.filter(({ trade }) => {
+                if (currentFilter === 'open') {
+                    return !this.isClosedStatus(trade.status);
+                } else if (currentFilter === 'closed') {
+                    return this.isClosedStatus(trade.status);
+                }
+                return true;
+            });
+
+            filteredAssignments.forEach(({ trade, strike, premiumCollected, premiumHistory, effectiveCostBasis, shares, initialPutPremium, callPremium, longCallCost, positionType, assignmentCostBasis, assignmentDate }) => {
                 const row = tbody.insertRow();
                 
                 // Ticker
@@ -6503,22 +6574,32 @@ class GammaLedger {
                 const strategyCell = row.insertCell(1);
                 strategyCell.textContent = trade.strategy || '—';
 
+                // Status
+                const statusCell = row.insertCell(2);
+                const statusBadge = document.createElement('span');
+                statusBadge.className = 'status-badge';
+                const tradeStatus = (trade.status || '').toLowerCase();
+                const isOpen = !this.isClosedStatus(trade.status);
+                statusBadge.classList.add(isOpen ? 'open' : 'closed');
+                statusBadge.textContent = isOpen ? 'Open' : 'Closed';
+                statusCell.appendChild(statusBadge);
+
                 // Assignment date (use LEAP open date for PMCC or fallback value)
-                row.insertCell(2).textContent = this.formatDate(assignmentDate);
+                row.insertCell(3).textContent = this.formatDate(assignmentDate);
 
                 // Shares (standard contract size)
-                const sharesCell = row.insertCell(3);
+                const sharesCell = row.insertCell(4);
                 sharesCell.textContent = this.formatNumber(shares, { decimals: 0, useGrouping: true }) ?? shares.toString();
 
                 // Strike Price (actual assignment strike)
-                row.insertCell(4).textContent = this.formatCurrency(strike);
+                row.insertCell(5).textContent = this.formatCurrency(strike);
 
                 // Assignment Cost Basis (total cost at original strike price before premium adjustments)
-                const assignmentCostBasisCell = row.insertCell(5);
+                const assignmentCostBasisCell = row.insertCell(6);
                 assignmentCostBasisCell.textContent = this.formatCurrency(assignmentCostBasis);
 
                 // Premium Collected (covered calls only) with formula tooltip
-                const premiumCell = row.insertCell(6);
+                const premiumCell = row.insertCell(7);
                 const premiumWrapper = document.createElement('span');
                 premiumWrapper.className = 'formula-value-wrapper';
 
@@ -6626,10 +6707,10 @@ class GammaLedger {
                 premiumCell.appendChild(premiumWrapper);
 
                 // Eff. Cost Basis
-                row.insertCell(7).textContent = this.formatCurrency(effectiveCostBasis);
+                row.insertCell(8).textContent = this.formatCurrency(effectiveCostBasis);
 
                 // Notes
-                const notesCell = row.insertCell(8);
+                const notesCell = row.insertCell(9);
                 notesCell.textContent = trade.notes || '—';
                 notesCell.className = 'notes-col';
 
@@ -7608,6 +7689,7 @@ class GammaLedger {
                 model: this.gemini.model
             };
 
+            // Preserve existing encrypted payload or API key if not explicitly provided
             if (encryptedPayload) {
                 payload.enc = true;
                 payload.payload = encryptedPayload;
@@ -7620,6 +7702,25 @@ class GammaLedger {
                 }
             } else if (includeApiKey && this.gemini.apiKey) {
                 payload.apiKey = this.gemini.apiKey;
+            } else {
+                // Preserve existing API key/encrypted data when saving other settings
+                try {
+                    const existingRaw = this.safeLocalStorage.getItem(GEMINI_STORAGE_KEY);
+                    if (existingRaw) {
+                        const existing = JSON.parse(existingRaw);
+                        if (existing?.enc && existing?.payload) {
+                            payload.enc = true;
+                            payload.payload = existing.payload;
+                            if (existing.fallback) {
+                                payload.fallback = existing.fallback;
+                            }
+                        } else if (existing?.apiKey) {
+                            payload.apiKey = existing.apiKey;
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to preserve existing Gemini API key during save:', error);
+                }
             }
 
             // Use safe localStorage wrapper
@@ -7631,7 +7732,7 @@ class GammaLedger {
 
     removeGeminiEncryptionKey() {
         try {
-            localStorage.removeItem(GEMINI_SECRET_STORAGE_KEY);
+            this.safeLocalStorage.removeItem(GEMINI_SECRET_STORAGE_KEY);
             this.gemini.encryptionKey = null;
         } catch (error) {
             console.warn('Failed to remove Gemini encryption key:', error);
@@ -7647,11 +7748,11 @@ class GammaLedger {
             return this.gemini.encryptionKey;
         }
 
-        let rawKeyB64 = localStorage.getItem(GEMINI_SECRET_STORAGE_KEY);
+        let rawKeyB64 = this.safeLocalStorage.getItem(GEMINI_SECRET_STORAGE_KEY);
         if (!rawKeyB64) {
             const raw = cryptoApi.getRandomValues(new Uint8Array(32));
             rawKeyB64 = this.arrayBufferToBase64(raw.buffer);
-            localStorage.setItem(GEMINI_SECRET_STORAGE_KEY, rawKeyB64);
+            this.safeLocalStorage.setItem(GEMINI_SECRET_STORAGE_KEY, rawKeyB64);
         }
 
         const rawKey = new Uint8Array(this.base64ToArrayBuffer(rawKeyB64));

@@ -383,12 +383,17 @@
                     <div class="assigned-positions">
                         <h3>Wheel / PMCC Tracker</h3>
                         <p class="section-help-text">Positions from assigned Cash-Secured Puts / Wheel or PMCC strategies. Premium collected includes only covered calls sold after assignment.</p>
+                        <div class="chart-range" id="assigned-positions-status-filter" role="group" aria-label="Position status filter">
+                            <button type="button" class="chart-range__button is-active" data-status="open">Open</button>
+                            <button type="button" class="chart-range__button" data-status="closed">Closed</button>
+                        </div>
                         <div class="table-container stackable-table-container">
                             <table id="assigned-positions-table" class="stackable-table">
                                 <thead>
                                     <tr>
                                         <th>Ticker</th>
                                         <th>Strategy</th>
+                                        <th>Status</th>
                                         <th>Assignment Date</th>
                                         <th>Shares</th>
                                         <th>Strike Price</th>
