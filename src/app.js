@@ -10512,6 +10512,20 @@ class GammaLedger {
             const chartKeyBase = trade.id ?? trade.tradeId ?? trade.uniqueId ?? `${trade.ticker || 'trade'}-${index}`;
             const safeChartId = `trade-pl-${chartKeyBase}`.toString().replace(/[^a-zA-Z0-9_-]/g, '-');
             const footnoteId = `${safeChartId}-footnote`;
+            
+            const plButton = document.createElement('button');
+            plButton.type = 'button';
+            plButton.className = 'action-btn action-btn--pl';
+            plButton.textContent = 'P&L';
+            plButton.title = 'View payoff diagram';
+            plButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                const detailRow = tbody.querySelector(`.trade-detail-row[data-chart-id="${safeChartId}"]`);
+                if (detailRow) {
+                    this.toggleTradePayoffDetail(row, detailRow, trade, safeChartId, footnoteId);
+                }
+            });
+
             const editButton = document.createElement('button');
             editButton.type = 'button';
             editButton.className = 'action-btn action-btn--edit';
@@ -10530,7 +10544,7 @@ class GammaLedger {
                 this.deleteTrade(trade.id);
             });
 
-            actionsCell.append(editButton, deleteButton);
+            actionsCell.append(plButton, editButton, deleteButton);
 
             row.setAttribute('tabindex', '0');
             row.setAttribute('aria-expanded', 'false');
@@ -10675,13 +10689,47 @@ class GammaLedger {
 
         const profitColor = 'rgba(34, 197, 94, 1)'; // green
         const lossColor = 'rgba(248, 113, 113, 1)'; // red
+        const profitFill = 'rgba(34, 197, 94, 0.15)';
+        const lossFill = 'rgba(248, 113, 113, 0.15)';
 
         const yValues = payoff.points.map(point => point.y);
         let minY = Math.min(...yValues, 0);
         let maxY = Math.max(...yValues, 0);
 
         if (!Number.isFinite(minY) || !Number.isFinite(maxY)) {
+            if (footnote) {
+                footnote.textContent = 'Unable to calculate payoff range.';
             }
+            return;
+        }
+
+        // Use trade's Max Risk if available to set accurate max loss
+        const tradeMaxRisk = Number(trade.maxRiskOverride || trade.maxRisk);
+        if (Number.isFinite(tradeMaxRisk) && tradeMaxRisk > 0) {
+            minY = Math.min(minY, -tradeMaxRisk);
+        }
+
+        // Prepare positive and negative fill areas extending to entire diagram
+        const xMin = Math.min(...payoff.points.map(p => p.x));
+        const xMax = Math.max(...payoff.points.map(p => p.x));
+        
+        const positiveArea = [
+            { x: xMin, y: 0 },
+            ...payoff.points.map(point => ({
+                x: point.x,
+                y: point.y > 0 ? point.y : 0
+            })),
+            { x: xMax, y: 0 }
+        ];
+        const negativeArea = [
+            { x: xMin, y: 0 },
+            ...payoff.points.map(point => ({
+                x: point.x,
+                y: point.y < 0 ? point.y : 0
+            })),
+            { x: xMax, y: 0 }
+        ];
+
         const currentPrice = await this.getUnderlyingPriceForPayoff(trade);
 
         const detailRowElement = document.querySelector(`.trade-detail-row[data-chart-id="${chartId}"]`);
@@ -10849,13 +10897,19 @@ class GammaLedger {
             }
         }
 
-        if (Number.isFinite(payoff.breakeven)) {
+        // Handle breakeven - can be single value or array
+        const breakevenValue = Array.isArray(payoff.breakeven) 
+            ? payoff.breakeven[0] 
+            : payoff.breakeven;
+        
+        if (Number.isFinite(breakevenValue)) {
             const breakevenIndex = datasets.findIndex(dataset => dataset.id === 'breakevenLine');
             if (breakevenIndex !== -1) {
                 datasets[breakevenIndex].data = [
-                    { x: payoff.breakeven, y: minY },
-                    { x: payoff.breakeven, y: maxY }
+                    { x: breakevenValue, y: minY },
+                    { x: breakevenValue, y: maxY }
                 ];
+                datasets[breakevenIndex].hidden = false;
             }
         }
 
@@ -10875,24 +10929,50 @@ class GammaLedger {
                     mode: 'index',
                     intersect: false
                 },
+                layout: {
+                    padding: {
+                        top: 10,
+                        right: 10,
+                        bottom: 5,
+                        left: 5
+                    }
+                },
                 plugins: {
                     legend: {
                         display: false
                     },
                     tooltip: {
+                        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                        titleColor: 'rgba(255, 255, 255, 0.95)',
+                        bodyColor: 'rgba(255, 255, 255, 0.9)',
+                        borderColor: 'rgba(148, 163, 184, 0.3)',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false,
+                        titleFont: {
+                            size: 13,
+                            weight: 'bold'
+                        },
+                        bodyFont: {
+                            size: 12
+                        },
                         callbacks: {
+                            title: (context) => {
+                                const price = Number(context[0]?.parsed?.x);
+                                if (!Number.isFinite(price)) return '';
+                                return `At ${currencyFormatter.format(price)}`;
+                            },
                             label: (context) => {
                                 if (!context.dataset || context.dataset.id !== 'payoffLine') {
                                     return null;
                                 }
-                                const price = Number(context.parsed?.x);
                                 const value = Number(context.parsed?.y);
-                                if (!Number.isFinite(price) || !Number.isFinite(value)) {
+                                if (!Number.isFinite(value)) {
                                     return null;
                                 }
                                 const formattedValue = currencyFormatter.format(value);
-                                const formattedPrice = currencyFormatter.format(price);
-                                return `${context.dataset.label || 'P&L'}: ${formattedValue} @ ${formattedPrice}`;
+                                const label = value >= 0 ? 'Profit' : 'Loss';
+                                return `${label}: ${formattedValue}`;
                             }
                         }
                     }
@@ -10902,19 +10982,51 @@ class GammaLedger {
                         type: 'linear',
                         title: {
                             display: true,
-                            text: 'Underlying Price ($)'
+                            text: 'Underlying Price',
+                            font: {
+                                size: 11,
+                                weight: '600'
+                            },
+                            color: 'rgba(100, 116, 139, 0.9)'
                         },
                         ticks: {
-                            callback: (value) => currencyFormatter.format(Number(value))
+                            font: {
+                                size: 10
+                            },
+                            maxRotation: 0,
+                            autoSkipPadding: 20,
+                            callback: (value) => {
+                                const formatted = currencyFormatter.format(Number(value));
+                                return formatted.replace('.00', '');
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)',
+                            drawBorder: false
                         }
                     },
                     y: {
                         title: {
                             display: true,
-                            text: 'P&L ($)'
+                            text: 'P&L',
+                            font: {
+                                size: 11,
+                                weight: '600'
+                            },
+                            color: 'rgba(100, 116, 139, 0.9)'
                         },
                         ticks: {
-                            callback: (value) => currencyFormatter.format(Number(value))
+                            font: {
+                                size: 10
+                            },
+                            callback: (value) => {
+                                const formatted = currencyFormatter.format(Number(value));
+                                return formatted.replace('.00', '');
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)',
+                            drawBorder: false
                         },
                         suggestedMin: minY,
                         suggestedMax: maxY
@@ -11020,6 +11132,8 @@ class GammaLedger {
                 return this.calculateSingleLegSeries(trade, model);
             case 'vertical':
                 return this.calculateVerticalSpreadSeries(trade, model);
+            case 'multi-leg':
+                return this.calculateMultiLegSeries(trade, model);
             case 'covered-call':
                 return this.calculateCoveredCallSeries(trade, model);
             case 'pmcc':
@@ -11039,6 +11153,14 @@ class GammaLedger {
         if (!strategy) {
             return { type: 'unsupported', reason: 'Add a strategy name to unlock payoff diagrams.' };
         }
+
+        // Analyze actual legs for multi-leg strategies
+        const legs = Array.isArray(trade.legs) ? trade.legs : [];
+        const activeLegs = legs.filter(leg => {
+            const side = this.getLegSide(leg);
+            // Only consider OPEN and ROLL legs (exclude CLOSE)
+            return side === 'OPEN' || side === 'ROLL';
+        });
 
         const isPmccStrategy = strategy.includes("poor man's covered call")
             || strategy.includes('poor man')
@@ -11068,6 +11190,14 @@ class GammaLedger {
             };
         }
 
+        // Multi-leg support: analyze actual legs
+        if (activeLegs.length >= 2) {
+            const multiLegModel = this.analyzeMultiLegStrategy(trade, activeLegs, strategy);
+            if (multiLegModel) {
+                return multiLegModel;
+            }
+        }
+
         const complexRegex = /(iron|straddle|strangle|butterfly|ratio|lizard|combo|synthetic|double|calendar|diagonal)/;
         const isComplex = complexRegex.test(strategy);
 
@@ -11076,6 +11206,13 @@ class GammaLedger {
         const isCalendarLike = /calendar|diagonal/.test(strategy);
 
         if (strategy.includes('spread') && !isCalendarLike && !(definedWidth > 0)) {
+            // Try to infer from legs if available
+            if (activeLegs.length >= 2) {
+                const multiLegModel = this.analyzeMultiLegStrategy(trade, activeLegs, strategy);
+                if (multiLegModel) {
+                    return multiLegModel;
+                }
+            }
             return {
                 type: 'unsupported',
                 reason: 'Add the defined risk width to visualize this spread.'
@@ -11091,11 +11228,19 @@ class GammaLedger {
                 optionType,
                 orientation,
                 width: Number(definedWidth),
-                strategy
+                strategy,
+                legs: activeLegs
             };
         }
 
         if (isComplex) {
+            // Try multi-leg analysis for complex strategies
+            if (activeLegs.length >= 2) {
+                const multiLegModel = this.analyzeMultiLegStrategy(trade, activeLegs, strategy);
+                if (multiLegModel) {
+                    return multiLegModel;
+                }
+            }
             return {
                 type: 'unsupported',
                 reason: 'Visualization for multi-leg strategies such as condors, straddles, or ratios is coming soon.'
@@ -11115,6 +11260,70 @@ class GammaLedger {
             type: 'single',
             optionType,
             direction,
+            strategy
+        };
+    }
+
+    analyzeMultiLegStrategy(trade, activeLegs, strategy) {
+        // Parse legs to extract strikes and types
+        const parsedLegs = activeLegs.map(leg => {
+            const action = this.getLegAction(leg);
+            const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+            const strike = Number(leg.strike);
+            const premium = Number(leg.premium) || 0;
+            const quantity = Math.abs(Number(leg.quantity) || 1);
+            
+            return {
+                type,
+                action,
+                strike,
+                premium,
+                quantity,
+                raw: leg
+            };
+        }).filter(leg => 
+            (leg.type === 'CALL' || leg.type === 'PUT') && 
+            Number.isFinite(leg.strike) && 
+            leg.strike > 0
+        );
+
+        if (parsedLegs.length < 2) {
+            return null;
+        }
+
+        // Group by option type
+        const calls = parsedLegs.filter(leg => leg.type === 'CALL');
+        const puts = parsedLegs.filter(leg => leg.type === 'PUT');
+
+        // Vertical spread detection (2 legs, same type, different strikes)
+        if (parsedLegs.length === 2 && (calls.length === 2 || puts.length === 2)) {
+            const legs = calls.length === 2 ? calls : puts;
+            const optionType = calls.length === 2 ? 'call' : 'put';
+            const [leg1, leg2] = legs;
+            
+            if (leg1.action !== leg2.action) { // One buy, one sell
+                const longLeg = leg1.action === 'BUY' ? leg1 : leg2;
+                const shortLeg = leg1.action === 'SELL' ? leg1 : leg2;
+                
+                const width = Math.abs(longLeg.strike - shortLeg.strike);
+                const isDebit = longLeg.strike < shortLeg.strike;
+                
+                return {
+                    type: 'multi-leg',
+                    subtype: 'vertical',
+                    optionType,
+                    orientation: isDebit ? 'long' : 'short',
+                    legs: parsedLegs,
+                    strategy
+                };
+            }
+        }
+
+        // Generic multi-leg payoff (2+ legs)
+        return {
+            type: 'multi-leg',
+            subtype: 'generic',
+            legs: parsedLegs,
             strategy
         };
     }
@@ -11175,6 +11384,12 @@ class GammaLedger {
             }
         }
 
+        // Use trade's Max Risk if available (only for defined risk strategies)
+        const tradeMaxRisk = Number(trade.maxRiskOverride || trade.maxRisk);
+        if (Number.isFinite(tradeMaxRisk) && tradeMaxRisk > 0 && maxLoss !== Infinity) {
+            maxLoss = tradeMaxRisk;
+        }
+
         const summary = this.buildPayoffSummary({
             profileLabel: `${model.direction === 'short' ? 'Short' : 'Long'} ${model.optionType.toUpperCase()}`,
             breakeven,
@@ -11191,6 +11406,116 @@ class GammaLedger {
             breakeven,
             maxProfit,
             maxLoss
+        };
+    }
+
+    calculateMultiLegSeries(trade, model) {
+        const legs = model.legs || [];
+        if (legs.length < 2) {
+            return {
+                message: 'Multi-leg payoff requires at least 2 active option legs.'
+            };
+        }
+
+        // Get all strikes to determine price range
+        const strikes = legs.map(leg => leg.strike).filter(s => Number.isFinite(s) && s > 0);
+        const spot = Number(trade.stockPriceAtEntry);
+        
+        if (strikes.length < 2) {
+            return {
+                message: 'Unable to determine strike prices from legs.'
+            };
+        }
+
+        const priceRange = this.buildPriceRange({ strikeValues: strikes, spot });
+        const steps = 40;
+        const points = [];
+        
+        // Calculate total premium (net debit/credit)
+        let totalPremium = 0;
+        let totalFees = Number(trade.fees) || 0;
+        
+        legs.forEach(leg => {
+            const premium = Number(leg.premium) || 0;
+            const quantity = Math.abs(Number(leg.quantity) || 1);
+            const multiplier = 100 * quantity;
+            
+            if (leg.action === 'BUY') {
+                totalPremium -= Math.abs(premium) * multiplier;
+            } else if (leg.action === 'SELL') {
+                totalPremium += Math.abs(premium) * multiplier;
+            }
+        });
+
+        // Calculate payoff at each price point
+        for (let i = 0; i <= steps; i++) {
+            const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
+            let payoff = totalPremium - totalFees;
+            
+            legs.forEach(leg => {
+                const quantity = Math.abs(Number(leg.quantity) || 1);
+                const multiplier = 100 * quantity;
+                const intrinsic = this.optionIntrinsic(leg.type.toLowerCase(), price, leg.strike);
+                
+                if (leg.action === 'BUY') {
+                    // Long position: profit from intrinsic value
+                    payoff += intrinsic * multiplier;
+                } else if (leg.action === 'SELL') {
+                    // Short position: loss from intrinsic value
+                    payoff -= intrinsic * multiplier;
+                }
+            });
+            
+            points.push({
+                x: parseFloat(price.toFixed(2)),
+                y: parseFloat(payoff.toFixed(2))
+            });
+        }
+
+        // Find breakeven points (where payoff crosses zero)
+        const breakevens = [];
+        for (let i = 1; i < points.length; i++) {
+            const prev = points[i - 1];
+            const curr = points[i];
+            if ((prev.y <= 0 && curr.y >= 0) || (prev.y >= 0 && curr.y <= 0)) {
+                // Linear interpolation to find exact breakeven
+                const slope = (curr.y - prev.y) / (curr.x - prev.x);
+                const breakeven = prev.x - (prev.y / slope);
+                breakevens.push(breakeven);
+            }
+        }
+
+        const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+        
+        // Calculate max profit and max loss
+        const payoffValues = points.map(p => p.y);
+        const maxProfit = Math.max(...payoffValues);
+        
+        // Use trade's Max Risk if available, otherwise calculate from payoff curve
+        const tradeMaxRisk = Number(trade.maxRiskOverride || trade.maxRisk);
+        const maxLoss = (Number.isFinite(tradeMaxRisk) && tradeMaxRisk > 0)
+            ? tradeMaxRisk
+            : Math.abs(Math.min(...payoffValues, 0));
+        
+        const contracts = Math.min(...legs.map(leg => Math.abs(Number(leg.quantity) || 1)));
+        const isCredit = totalPremium > 0;
+        
+        const summary = this.buildPayoffSummary({
+            profileLabel: `${model.subtype === 'vertical' ? 'Vertical Spread' : 'Multi-Leg'} (${legs.length} legs)`,
+            breakeven: breakevens.length > 0 ? breakevens : null,
+            maxProfit: maxProfit > 0 ? maxProfit : null,
+            maxLoss: maxLoss > 0 ? maxLoss : null,
+            contracts,
+            isCredit
+        });
+
+        return {
+            points,
+            zeroLinePoints,
+            summary,
+            breakeven: breakevens.length > 0 ? breakevens : null,
+            maxProfit: maxProfit > 0 ? maxProfit : null,
+            maxLoss: maxLoss > 0 ? maxLoss : null
         };
     }
 
@@ -11281,6 +11606,12 @@ class GammaLedger {
             maxLoss = entryValue + fees;
         }
 
+        // Use trade's Max Risk if available
+        const tradeMaxRisk = Number(trade.maxRiskOverride || trade.maxRisk);
+        if (Number.isFinite(tradeMaxRisk) && tradeMaxRisk > 0) {
+            maxLoss = tradeMaxRisk;
+        }
+
         const summary = this.buildPayoffSummary({
             profileLabel: `${model.orientation === 'short' ? 'Short' : 'Long'} ${model.optionType === 'call' ? 'Call' : 'Put'} Spread`,
             breakeven,
@@ -11333,7 +11664,13 @@ class GammaLedger {
 
         const breakeven = stockEntry - premium;
         const maxProfit = Math.max(((strike - stockEntry) + premium) * multiplier - fees, 0);
-        const maxLoss = Math.max((stockEntry - premium) * multiplier + fees, 0);
+        let maxLoss = Math.max((stockEntry - premium) * multiplier + fees, 0);
+
+        // Use trade's Max Risk if available
+        const tradeMaxRisk = Number(trade.maxRiskOverride || trade.maxRisk);
+        if (Number.isFinite(tradeMaxRisk) && tradeMaxRisk > 0) {
+            maxLoss = tradeMaxRisk;
+        }
 
         const summary = this.buildPayoffSummary({
             profileLabel: 'Covered Call (Stock + Short Call)',
@@ -11448,7 +11785,13 @@ class GammaLedger {
             }
         }
 
-        const maxLoss = netOutlay > 0 ? netOutlay : 0;
+        let maxLoss = netOutlay > 0 ? netOutlay : 0;
+
+        // Use trade's Max Risk if available
+        const tradeMaxRisk = Number(trade.maxRiskOverride || trade.maxRisk);
+        if (Number.isFinite(tradeMaxRisk) && tradeMaxRisk > 0) {
+            maxLoss = tradeMaxRisk;
+        }
 
         const summary = this.buildPayoffSummary({
             profileLabel: "Poor Man's Covered Call",
