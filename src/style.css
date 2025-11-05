@@ -551,30 +551,31 @@ textarea.form-control {
 
 select.form-control {
   padding: var(--space-8) var(--space-12);
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
-  background-image: var(--select-caret-light);
-  background-repeat: no-repeat;
-  background-position: right var(--space-12) center;
-  background-size: 16px;
-  padding-right: var(--space-32);
+  -webkit-appearance: menulist;
+  -moz-appearance: menulist;
+  appearance: auto;
+  background-image: none;
+  background-color: var(--color-surface);
+  padding-right: var(--space-12);
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
 }
 
-/* Add a dark mode specific caret */
+/* Dark mode handling for selects */
 @media (prefers-color-scheme: dark) {
   select.form-control {
-    background-image: var(--select-caret-dark);
+    color-scheme: dark;
   }
 }
 
 /* Also handle data-color-scheme */
 [data-color-scheme="dark"] select.form-control {
-  background-image: var(--select-caret-dark);
+  color-scheme: dark;
 }
 
 [data-color-scheme="light"] select.form-control {
-  background-image: var(--select-caret-light);
+  color-scheme: light;
 }
 
 .form-control:focus {
