@@ -1928,7 +1928,14 @@ class GammaLedger {
                         if (!summary.nearestShortCallExpiration || exp < summary.nearestShortCallExpiration) {
                             summary.nearestShortCallExpiration = exp;
                         }
-                        if (exp >= now) {
+                        // Options expire at 4 PM ET (21:00 UTC), not midnight
+                        const expWithMarketClose = new Date(Date.UTC(
+                            exp.getUTCFullYear(),
+                            exp.getUTCMonth(),
+                            exp.getUTCDate(),
+                            21, 0, 0
+                        ));
+                        if (expWithMarketClose >= now) {
                             if (!summary.nextShortCallExpiration || exp < summary.nextShortCallExpiration) {
                                 summary.nextShortCallExpiration = exp;
                             }
@@ -4205,7 +4212,20 @@ class GammaLedger {
 
         const expirationDate = this.parseDateValue(trade.expirationDate || summary.latestExpiration);
         const now = this.currentDate instanceof Date ? this.currentDate : new Date();
-        const expirationPassed = expirationDate ? now.getTime() > expirationDate.getTime() : false;
+        // Options expire at 4 PM ET (market close), not midnight. 
+        // Create expiration timestamp at 4 PM ET (16:00) plus 5 hours for UTC offset (21:00 UTC).
+        // This ensures positions show as active on expiration day until after market close.
+        const expirationWithMarketClose = expirationDate 
+            ? new Date(Date.UTC(
+                expirationDate.getUTCFullYear(),
+                expirationDate.getUTCMonth(),
+                expirationDate.getUTCDate(),
+                21, // 21:00 UTC = 16:00 ET (4 PM Eastern)
+                0,
+                0
+              ))
+            : null;
+        const expirationPassed = expirationWithMarketClose ? now.getTime() > expirationWithMarketClose.getTime() : false;
 
         const lastActivityDate = summary.closedDate instanceof Date
             ? summary.closedDate
