@@ -1629,7 +1629,7 @@ select.form-control {
 }
 
 .share-card__metric-value {
-  font-size: clamp(22px, 2.6vw, 36px);
+  font-size: clamp(18px, 2.2vw, 30px);
   font-weight: var(--font-weight-semibold);
   color: #ffffff;
   word-break: break-word;

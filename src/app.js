@@ -1338,6 +1338,8 @@ class GammaLedger {
             rateLimitQueue: Promise.resolve(),
             maxRequestsPerMinute: 60,
             timestamps: [],
+            minIdleMs: 1000, // Minimum 1 second between requests
+            lastRequestTime: 0,
             statusTimeoutId: null,
             lastStatus: null,
             elements: {}
@@ -1625,11 +1627,13 @@ class GammaLedger {
         }
     }
 
-        computeAutoRefreshInterval() {
-            const limit = Number(this.finnhub?.maxRequestsPerMinute) || 60;
-            const safeLimit = Math.min(Math.max(limit - 2, 1), 60);
-            return Math.max(800, Math.ceil(120_000 / safeLimit));
-        }
+    computeAutoRefreshInterval() {
+        // Unified refresh interval for both Active Positions and Credit Playbook
+        // Formula: 240 seconds / (rate limit - 2) to process all quotes safely
+        const limit = Number(this.finnhub?.maxRequestsPerMinute) || 60;
+        const safeLimit = Math.min(Math.max(limit - 2, 1), 60);
+        return Math.max(1600, Math.ceil(240_000 / safeLimit));
+    }
 
     checkBrowserCompatibility() {
         if (!this.supportsFileSystemAccess) {
@@ -7002,6 +7006,16 @@ class GammaLedger {
         const normalized = allowed.has(horizon) ? horizon : 'all';
         
         const hasChanged = normalized !== this.creditPlaybookHorizon;
+        
+        if (!hasChanged) {
+            // Still update dropdown if needed
+            const select = document.getElementById('credit-playbook-horizon-filter');
+            if (select && select.value !== normalized) {
+                select.value = normalized;
+            }
+            return;
+        }
+        
         this.creditPlaybookHorizon = normalized;
         
         const select = document.getElementById('credit-playbook-horizon-filter');
@@ -7009,9 +7023,7 @@ class GammaLedger {
             select.value = normalized;
         }
         
-        if (hasChanged) {
-            this.updateCreditPlaybookView();
-        }
+        this.updateCreditPlaybookView();
     }
 
     setCreditPlaybookSymbol(symbol) {
@@ -7346,9 +7358,17 @@ class GammaLedger {
                     aVal = Number(a.pricePerContract) || 0;
                     bVal = Number(b.pricePerContract) || 0;
                     break;
+                case 'fees':
+                    aVal = Number(a.fees) || 0;
+                    bVal = Number(b.fees) || 0;
+                    break;
                 case 'premium':
                     aVal = Number(a.premium) || 0;
                     bVal = Number(b.premium) || 0;
+                    break;
+                case 'currentPrice':
+                    aVal = Number(a.currentPrice) || 0;
+                    bVal = Number(b.currentPrice) || 0;
                     break;
                 case 'entryDate':
                     aVal = a.entryDate instanceof Date ? a.entryDate.getTime() : 0;
@@ -7369,14 +7389,6 @@ class GammaLedger {
                 case 'daysHeld':
                     aVal = Number(a.daysHeld) ?? 0;
                     bVal = Number(b.daysHeld) ?? 0;
-                    break;
-                case 'pl':
-                    aVal = Number(a.pl) ?? 0;
-                    bVal = Number(b.pl) ?? 0;
-                    break;
-                case 'roi':
-                    aVal = Number(a.roi) ?? 0;
-                    bVal = Number(b.roi) ?? 0;
                     break;
                 default:
                     aVal = a[sortKey];
@@ -7421,13 +7433,9 @@ class GammaLedger {
         const totalCapital = legPairs.reduce((sum, pair) => sum + (Number(pair.capital) || 0), 0);
         const premiumValues = legPairs.map((pair) => Number(pair.premium)).filter(Number.isFinite);
         const capitalValues = legPairs.map((pair) => Number(pair.capital)).filter((value) => Number.isFinite(value) && value > 0);
-        const roiValues = legPairs.map((pair) => Number(pair.roi)).filter(Number.isFinite);
-        const totalPL = legPairs.reduce((sum, pair) => sum + (Number(pair.pl) || 0), 0);
 
         const avgPremium = premiumValues.length ? totalPremium / premiumValues.length : null;
         const avgCapital = capitalValues.length ? totalCapital / capitalValues.length : null;
-        const avgRoi = roiValues.length ? roiValues.reduce((sum, value) => sum + value, 0) / roiValues.length : null;
-        const aggregateRoi = totalCapital > 0 ? ((totalPL) / totalCapital) * 100 : null;
 
         const metrics = [
             {
@@ -7441,6 +7449,11 @@ class GammaLedger {
                 sublabel: 'Net credit across filtered positions'
             },
             {
+                label: 'Avg Premium',
+                value: Number.isFinite(avgPremium) ? this.formatCurrency(avgPremium) : '—',
+                sublabel: premiumValues.length ? `${premiumValues.length} trades with premium` : 'No premium data'
+            },
+            {
                 label: 'Capital at Risk',
                 value: this.formatCurrency(totalCapital),
                 sublabel: capitalValues.length ? `${capitalValues.length} trades with defined risk` : 'No risk data available'
@@ -7449,18 +7462,6 @@ class GammaLedger {
                 label: 'Avg Capital',
                 value: Number.isFinite(avgCapital) ? this.formatCurrency(avgCapital) : '—',
                 sublabel: 'Per trade with capital defined'
-            },
-            {
-                label: 'Avg Premium',
-                value: Number.isFinite(avgPremium) ? this.formatCurrency(avgPremium) : '—',
-                sublabel: premiumValues.length ? `${premiumValues.length} trades with premium` : 'No premium data'
-            },
-            {
-                label: 'ROI',
-                value: Number.isFinite(aggregateRoi)
-                    ? this.formatPercent(aggregateRoi, '—', { decimals: 1 })
-                    : (Number.isFinite(avgRoi) ? this.formatPercent(avgRoi, '—', { decimals: 1 }) : '—'),
-                sublabel: Number.isFinite(avgRoi) ? 'Average trade ROI' : 'Awaiting realized outcomes'
             }
         ];
 
@@ -7598,12 +7599,64 @@ class GammaLedger {
                 ? this.formatCurrency(pair.pricePerContract)
                 : '—';
 
+            // Fees
+            const feesCell = row.insertCell(columnIndex++);
+            feesCell.textContent = Number.isFinite(pair.fees)
+                ? this.formatCurrency(Math.abs(pair.fees))
+                : '—';
+            feesCell.className = 'pl-negative';
+
             // Premium
             const premiumCell = row.insertCell(columnIndex++);
             premiumCell.textContent = Number.isFinite(pair.premium)
                 ? this.formatCurrency(pair.premium)
                 : '—';
             premiumCell.className = pair.premium >= 0 ? 'pl-positive' : 'pl-negative';
+
+            // Current Price (only for open positions)
+            const currentPriceCell = row.insertCell(columnIndex++);
+            currentPriceCell.className = 'quote-cell';
+            if (!pair.isOpen || statusClass === 'closed' || statusClass === 'expired') {
+                currentPriceCell.textContent = '—';
+            } else {
+                // Set up for live price fetching
+                const baseQuoteKey = `${pair.ticker}|${pair.tradeId}`;
+                const quoteKey = `${baseQuoteKey}|creditPlaybook:${legPairs.indexOf(pair)}`;
+                row.dataset.quoteKey = quoteKey;
+                row.dataset.ticker = pair.ticker;
+                
+                // Store strike for ITM detection
+                if (typeof pair.strike === 'string' && pair.strike.includes('/')) {
+                    // For spreads, use first strike for highlighting
+                    const strikes = pair.strike.split('/').map(s => parseFloat(s.trim()));
+                    row.dataset.strikePrice = String(strikes[0]);
+                } else if (Number.isFinite(pair.strike)) {
+                    row.dataset.strikePrice = String(pair.strike);
+                }
+                
+                // Create mock trade object for quote fetching
+                const mockTrade = {
+                    ticker: pair.ticker,
+                    optionType: pair.type?.toLowerCase(),
+                    strategy: pair.strategy,
+                    dte: pair.dte
+                };
+                
+                // Populate quote cell with deferred fetch
+                this.populateQuoteCell(currentPriceCell, mockTrade, row, { deferNetworkFetch: true });
+                
+                // Track for quote updates
+                if (!this.creditPlaybookQuoteEntries) {
+                    this.creditPlaybookQuoteEntries = new Map();
+                }
+                this.creditPlaybookQuoteEntries.set(quoteKey, {
+                    trade: mockTrade,
+                    row,
+                    cell: currentPriceCell,
+                    key: quoteKey,
+                    pair
+                });
+            }
 
             // Entry Date
             const entryDateCell = row.insertCell(columnIndex++);
@@ -7616,6 +7669,12 @@ class GammaLedger {
             // DTE
             const dteCell = row.insertCell(columnIndex++);
             dteCell.textContent = Number.isFinite(pair.dte) ? pair.dte : '—';
+            
+            // Apply DTE highlighting for open positions
+            if (pair.isOpen && statusClass !== 'closed') {
+                const mockTrade = { dte: pair.dte };
+                this.updateExpirationHighlight(dteCell, mockTrade);
+            }
 
             // Exit Date
             const exitDateCell = row.insertCell(columnIndex++);
@@ -7625,26 +7684,6 @@ class GammaLedger {
             const daysHeldCell = row.insertCell(columnIndex++);
             daysHeldCell.textContent = Number.isFinite(pair.daysHeld) ? pair.daysHeld : '—';
 
-            // P&L
-            const plCell = row.insertCell(columnIndex++);
-            if (Number.isFinite(pair.pl)) {
-                plCell.textContent = this.formatCurrency(pair.pl);
-                plCell.className = pair.pl >= 0 ? 'pl-positive' : 'pl-negative';
-            } else {
-                plCell.textContent = '—';
-                plCell.className = 'pl-neutral';
-            }
-
-            // ROI
-            const roiCell = row.insertCell(columnIndex++);
-            if (Number.isFinite(pair.roi)) {
-                roiCell.textContent = this.formatPercent(pair.roi, '—', { decimals: 1 });
-                roiCell.className = pair.roi >= 0 ? 'pl-positive' : 'pl-negative';
-            } else {
-                roiCell.textContent = '—';
-                roiCell.className = 'pl-neutral';
-            }
-
             this.applyResponsiveLabels(row, [
                 'Ticker',
                 'Strategy',
@@ -7653,16 +7692,22 @@ class GammaLedger {
                 'Status',
                 'Contracts',
                 'Price/Contract',
+                'Fees',
                 'Premium',
+                'Current Price',
                 'Entry Date',
                 'Expiration Date',
                 'DTE',
                 'Exit Date',
-                'Days Held',
-                'P&L',
-                'ROI'
+                'Days Held'
             ]);
         });
+        
+        // Trigger quote fetching and auto-refresh for Credit Playbook if we have entries
+        if (this.creditPlaybookQuoteEntries && this.creditPlaybookQuoteEntries.size > 0) {
+            this.startQuoteAutoRefreshIfNeeded();
+            this.refreshCreditPlaybookQuotes({ force: true, immediate: true });
+        }
     }
 
     extractCreditPlaybookLegPairs(entries = []) {
@@ -7698,7 +7743,7 @@ class GammaLedger {
             return;
         }
 
-        // Group by expiration to handle different expirations
+        // Group by expiration to detect rolls
         const expirationGroups = new Map();
         optionLegs.forEach(leg => {
             const expiration = leg.expirationDate || '';
@@ -7708,93 +7753,240 @@ class GammaLedger {
             expirationGroups.get(expiration).push(leg);
         });
 
-        expirationGroups.forEach((groupLegs, expiration) => {
-            // Separate opening and closing legs
-            const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
-            const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
+        // Check if this is a rolled spread (multiple expirations with close+open pattern)
+        const hasMultipleExpirations = expirationGroups.size > 1;
+        const tradeStatus = (trade.status || '').toLowerCase();
+        const isRolling = tradeStatus === 'rolling' || tradeStatus === 'rolled';
+        
+        if (hasMultipleExpirations || isRolling) {
+            // Handle as a single rolled spread position
+            this.extractRolledSpread(trade, optionLegs, now, pairs);
+        } else {
+            // Single spread, not rolled
+            const expiration = Array.from(expirationGroups.keys())[0];
+            const groupLegs = expirationGroups.get(expiration);
+            this.extractSingleSpread(trade, groupLegs, expiration, now, pairs);
+        }
+    }
 
-            // Get option type (all should be same for a vertical spread)
-            const type = openingLegs[0]?.type || 'CALL';
+    extractRolledSpread(trade, allLegs, now, pairs) {
+        // Sort legs by execution date to track the roll timeline
+        const sortedLegs = allLegs.slice().sort((a, b) => {
+            const dateA = this.parseDateValue(a.executionDate);
+            const dateB = this.parseDateValue(b.executionDate);
+            if (!dateA || !dateB) return 0;
+            return dateA.getTime() - dateB.getTime();
+        });
 
-            // Calculate strikes for spread
-            const strikes = openingLegs.map(leg => Number(leg.strike)).filter(s => Number.isFinite(s));
-            const spreadStrike = strikes.length > 0 
-                ? `${Math.min(...strikes)}/${Math.max(...strikes)}`
-                : '—';
+        // Get option type (all should be same for a vertical spread)
+        const type = sortedLegs[0]?.type || 'CALL';
 
-            // Calculate net position
-            let totalPremium = 0;
-            let totalFees = 0;
-            let entryDate = null;
-            let exitDate = null;
-            let quantity = 0;
+        // Calculate total premium (gross, before fees) and fees across all legs
+        let totalGrossPremium = 0;
+        let totalFees = 0;
+        let quantity = 0;
+        let entryDate = null;
+        let exitDate = null;
+        let currentExpiration = null;
+        let currentStrikes = [];
 
-            openingLegs.forEach(leg => {
-                const cashFlow = this.calculateLegCashFlow(leg);
-                totalPremium += cashFlow;
-                totalFees += Number(leg.fees) || 0;
+        // Separate opening and closing legs
+        const openingLegs = sortedLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
+        const closingLegs = sortedLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
+
+        sortedLegs.forEach(leg => {
+            const legSide = this.getLegSide(leg);
+            const legAction = this.getLegAction(leg);
+            const legQuantity = Math.abs(Number(leg.quantity) || 0);
+            const legPremium = Number(leg.premium) || 0;
+            const multiplier = this.getLegMultiplier(leg);
+            const direction = legAction === 'SELL' ? 1 : -1;
+            
+            // Track gross premium (before fees)
+            totalGrossPremium += direction * legPremium * multiplier * legQuantity;
+            totalFees += Number(leg.fees) || 0;
+            
+            if (legSide === 'OPEN') {
                 quantity = Math.max(quantity, Math.abs(Number(leg.quantity) || 0));
-                
-                const legDate = this.parseDateValue(leg.executionDate);
-                if (legDate && (!entryDate || legDate < entryDate)) {
+                currentExpiration = leg.expirationDate;
+                const strike = Number(leg.strike);
+                if (Number.isFinite(strike)) {
+                    currentStrikes.push(strike);
+                }
+            }
+            
+            const legDate = this.parseDateValue(leg.executionDate);
+            if (legDate) {
+                if (!entryDate || legDate < entryDate) {
                     entryDate = legDate;
                 }
-            });
-
-            closingLegs.forEach(leg => {
-                const cashFlow = this.calculateLegCashFlow(leg);
-                totalPremium += cashFlow;
-                totalFees += Number(leg.fees) || 0;
-                
-                const legDate = this.parseDateValue(leg.executionDate);
-                if (legDate && (!exitDate || legDate > exitDate)) {
+                if (legSide === 'CLOSE' && (!exitDate || legDate > exitDate)) {
                     exitDate = legDate;
                 }
-            });
+            }
+        });
 
-            // Determine status
-            const expirationDate = this.parseDateValue(expiration);
-            const hasExpired = expirationDate && expirationDate < now;
-            const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired;
+        // Get unique strikes from open legs for spread display
+        const uniqueStrikes = [...new Set(currentStrikes)].sort((a, b) => a - b);
+        const spreadStrike = uniqueStrikes.length >= 2
+            ? `${uniqueStrikes[0]}/${uniqueStrikes[uniqueStrikes.length - 1]}`
+            : (uniqueStrikes.length === 1 ? String(uniqueStrikes[0]) : '—');
 
-            // Calculate metrics
-            const dte = isOpen && expirationDate 
-                ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) 
-                : null;
+        // Determine status
+        const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
+        const hasExpired = expirationDate && expirationDate < now;
+        const hasOpenLegs = openingLegs.length > 0;
+        const hasCloseLegs = closingLegs.length > 0;
+        
+        // Spread is rolling if it has both open and close legs
+        const isRolling = hasOpenLegs && hasCloseLegs;
+        const isOpen = hasOpenLegs && !hasExpired;
+
+        // Calculate metrics
+        const dte = isOpen && expirationDate && !isRolling
+            ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) 
+            : null;
+        
+        const daysHeld = entryDate && (exitDate || hasExpired)
+            ? Math.ceil(((exitDate || expirationDate || now).getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000))
+            : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
+
+        const multiplier = 100;
+        // For rolled spreads, price per contract is total gross premium / (quantity * multiplier)
+        const pricePerContract = quantity > 0 ? totalGrossPremium / (quantity * multiplier) : 0;
+        
+        // For spreads, capital is width of strikes * quantity * multiplier
+        const width = uniqueStrikes.length >= 2 
+            ? uniqueStrikes[uniqueStrikes.length - 1] - uniqueStrikes[0] 
+            : 0;
+        const capital = width > 0 ? Math.abs(width * quantity * multiplier) : 0;
+        const netPremium = totalGrossPremium - totalFees;
+        const pl = netPremium;
+        const roi = capital > 0 ? (pl / capital) * 100 : null;
+
+        pairs.push({
+            tradeId: trade.id,
+            ticker: trade.ticker,
+            strategy: trade.strategy,
+            strike: spreadStrike,
+            type,
+            quantity,
+            pricePerContract,
+            fees: totalFees,
+            premium: netPremium,
+            entryDate,
+            expirationDate: currentExpiration,
+            dte,
+            exitDate: exitDate || (hasExpired ? expirationDate : null),
+            daysHeld,
+            pl,
+            roi,
+            isOpen,
+            isExpired: hasExpired,
+            isRolling,
+            capital
+        });
+    }
+
+    extractSingleSpread(trade, groupLegs, expiration, now, pairs) {
+        // Separate opening and closing legs
+        const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
+        const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
+
+        // Get option type (all should be same for a vertical spread)
+        const type = openingLegs[0]?.type || closingLegs[0]?.type || 'CALL';
+
+        // Calculate strikes for spread
+        const strikes = openingLegs.map(leg => Number(leg.strike)).filter(s => Number.isFinite(s));
+        const spreadStrike = strikes.length >= 2
+            ? `${Math.min(...strikes)}/${Math.max(...strikes)}`
+            : (strikes.length === 1 ? String(strikes[0]) : '—');
+
+        // Calculate net position (gross premium, before fees)
+        let totalGrossPremium = 0;
+        let totalFees = 0;
+        let entryDate = null;
+        let exitDate = null;
+        let quantity = 0;
+
+        openingLegs.forEach(leg => {
+            const legAction = this.getLegAction(leg);
+            const legQuantity = Math.abs(Number(leg.quantity) || 0);
+            const legPremium = Number(leg.premium) || 0;
+            const multiplier = this.getLegMultiplier(leg);
+            const direction = legAction === 'SELL' ? 1 : -1;
             
-            const daysHeld = entryDate && (exitDate || hasExpired)
-                ? Math.ceil(((exitDate || expirationDate || now).getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000))
-                : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
-
-            const multiplier = 100;
-            const pricePerContract = quantity > 0 ? totalPremium / (quantity * multiplier) : 0;
+            totalGrossPremium += direction * legPremium * multiplier * legQuantity;
+            totalFees += Number(leg.fees) || 0;
+            quantity = Math.max(quantity, Math.abs(Number(leg.quantity) || 0));
             
-            // For spreads, capital is width of strikes * quantity * multiplier
-            const width = strikes.length >= 2 ? Math.max(...strikes) - Math.min(...strikes) : 0;
-            const capital = width > 0 ? Math.abs(width * quantity * multiplier) : 0;
-            const pl = totalPremium - totalFees;
-            const roi = capital > 0 ? (pl / capital) * 100 : null;
+            const legDate = this.parseDateValue(leg.executionDate);
+            if (legDate && (!entryDate || legDate < entryDate)) {
+                entryDate = legDate;
+            }
+        });
 
-            pairs.push({
-                tradeId: trade.id,
-                ticker: trade.ticker,
-                strategy: trade.strategy,
-                strike: spreadStrike,
-                type,
-                quantity,
-                pricePerContract,
-                premium: totalPremium,
-                entryDate,
-                expirationDate: expiration,
-                dte,
-                exitDate: exitDate || (hasExpired ? expirationDate : null),
-                daysHeld,
-                pl,
-                roi,
-                isOpen,
-                isExpired: hasExpired,
-                capital
-            });
+        closingLegs.forEach(leg => {
+            const legAction = this.getLegAction(leg);
+            const legQuantity = Math.abs(Number(leg.quantity) || 0);
+            const legPremium = Number(leg.premium) || 0;
+            const multiplier = this.getLegMultiplier(leg);
+            const direction = legAction === 'SELL' ? 1 : -1;
+            
+            totalGrossPremium += direction * legPremium * multiplier * legQuantity;
+            totalFees += Number(leg.fees) || 0;
+            
+            const legDate = this.parseDateValue(leg.executionDate);
+            if (legDate && (!exitDate || legDate > exitDate)) {
+                exitDate = legDate;
+            }
+        });
+
+        // Determine status
+        const expirationDate = this.parseDateValue(expiration);
+        const hasExpired = expirationDate && expirationDate < now;
+        const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired;
+
+        // Calculate metrics
+        const dte = isOpen && expirationDate 
+            ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) 
+            : null;
+        
+        const daysHeld = entryDate && (exitDate || hasExpired)
+            ? Math.ceil(((exitDate || expirationDate || now).getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000))
+            : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
+
+        const multiplier = 100;
+        const pricePerContract = quantity > 0 ? totalGrossPremium / (quantity * multiplier) : 0;
+        
+        // For spreads, capital is width of strikes * quantity * multiplier
+        const width = strikes.length >= 2 ? Math.max(...strikes) - Math.min(...strikes) : 0;
+        const capital = width > 0 ? Math.abs(width * quantity * multiplier) : 0;
+        const netPremium = totalGrossPremium - totalFees;
+        const pl = netPremium;
+        const roi = capital > 0 ? (pl / capital) * 100 : null;
+
+        pairs.push({
+            tradeId: trade.id,
+            ticker: trade.ticker,
+            strategy: trade.strategy,
+            strike: spreadStrike,
+            type,
+            quantity,
+            pricePerContract,
+            fees: totalFees,
+            premium: netPremium,
+            entryDate,
+            expirationDate: expiration,
+            dte,
+            exitDate: exitDate || (hasExpired ? expirationDate : null),
+            daysHeld,
+            pl,
+            roi,
+            isOpen,
+            isExpired: hasExpired,
+            isRolling: false,
+            capital
         });
     }
 
@@ -7861,8 +8053,8 @@ class GammaLedger {
             return dateA.getTime() - dateB.getTime();
         });
 
-        // Calculate total premium and fees across all legs
-        let totalPremium = 0;
+        // Calculate total premium (gross, before fees) and fees across all legs
+        let totalGrossPremium = 0;
         let totalFees = 0;
         let netQuantity = 0;
         let entryDate = null;
@@ -7873,9 +8065,11 @@ class GammaLedger {
             const legSide = this.getLegSide(leg);
             const action = this.getLegAction(leg);
             const quantity = Math.abs(Number(leg.quantity) || 0);
-            const cashFlow = this.calculateLegCashFlow(leg);
+            const legPremium = Number(leg.premium) || 0;
+            const multiplier = this.getLegMultiplier(leg);
+            const direction = action === 'SELL' ? 1 : -1;
             
-            totalPremium += cashFlow;
+            totalGrossPremium += direction * legPremium * multiplier * quantity;
             totalFees += Number(leg.fees) || 0;
             
             if (legSide === 'OPEN') {
@@ -7927,11 +8121,12 @@ class GammaLedger {
             : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
 
         const multiplier = 100;
-        // For rolled positions, price per contract is total premium / (quantity * multiplier)
+        // For rolled positions, price per contract is total gross premium / (quantity * multiplier)
         // This gives the net credit/debit across all rolls
-        const pricePerContract = netQuantity > 0 ? totalPremium / (netQuantity * multiplier) : 0;
+        const pricePerContract = netQuantity > 0 ? totalGrossPremium / (netQuantity * multiplier) : 0;
         const capital = Math.abs(strike * netQuantity * multiplier);
-        const pl = totalPremium - totalFees;
+        const netPremium = totalGrossPremium - totalFees;
+        const pl = netPremium;
         const roi = capital > 0 ? (pl / capital) * 100 : null;
 
         pairs.push({
@@ -7942,7 +8137,8 @@ class GammaLedger {
             type,
             quantity: netQuantity,
             pricePerContract,
-            premium: totalPremium,
+            fees: totalFees,
+            premium: netPremium,
             entryDate,
             expirationDate: currentExpiration,
             dte,
@@ -7962,9 +8158,9 @@ class GammaLedger {
         const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
         const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
 
-        // Calculate net position
+        // Calculate net position (gross premium, before fees)
         let netQuantity = 0;
-        let totalPremium = 0;
+        let totalGrossPremium = 0;
         let totalFees = 0;
         let entryDate = null;
         let exitDate = null;
@@ -7972,14 +8168,16 @@ class GammaLedger {
         openingLegs.forEach(leg => {
             const action = this.getLegAction(leg);
             const quantity = Math.abs(Number(leg.quantity) || 0);
-            const cashFlow = this.calculateLegCashFlow(leg);
+            const legPremium = Number(leg.premium) || 0;
+            const multiplier = this.getLegMultiplier(leg);
+            const direction = action === 'SELL' ? 1 : -1;
             
             if (action === 'SELL') {
                 netQuantity += quantity;
-                totalPremium += cashFlow;
+                totalGrossPremium += direction * legPremium * multiplier * quantity;
             } else {
                 netQuantity -= quantity;
-                totalPremium += cashFlow;
+                totalGrossPremium += direction * legPremium * multiplier * quantity;
             }
             
             totalFees += Number(leg.fees) || 0;
@@ -7991,8 +8189,13 @@ class GammaLedger {
         });
 
         closingLegs.forEach(leg => {
-            const cashFlow = this.calculateLegCashFlow(leg);
-            totalPremium += cashFlow;
+            const action = this.getLegAction(leg);
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            const legPremium = Number(leg.premium) || 0;
+            const multiplier = this.getLegMultiplier(leg);
+            const direction = action === 'SELL' ? 1 : -1;
+            
+            totalGrossPremium += direction * legPremium * multiplier * quantity;
             totalFees += Number(leg.fees) || 0;
             
             const legDate = this.parseDateValue(leg.executionDate);
@@ -8023,9 +8226,10 @@ class GammaLedger {
             : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
 
         const multiplier = 100; // Standard option multiplier
-        const pricePerContract = netQuantity > 0 ? totalPremium / (netQuantity * multiplier) : 0;
+        const pricePerContract = netQuantity > 0 ? totalGrossPremium / (netQuantity * multiplier) : 0;
         const capital = Math.abs(strike * netQuantity * multiplier);
-        const pl = totalPremium - totalFees;
+        const netPremium = totalGrossPremium - totalFees;
+        const pl = netPremium;
         const roi = capital > 0 ? (pl / capital) * 100 : null;
 
         pairs.push({
@@ -8036,7 +8240,8 @@ class GammaLedger {
             type,
             quantity: netQuantity,
             pricePerContract,
-            premium: totalPremium,
+            fees: totalFees,
+            premium: netPremium,
             entryDate,
             expirationDate: expiration,
             dte,
@@ -10563,16 +10768,40 @@ class GammaLedger {
             this.activeQuoteEntries = new Map();
         }
 
-        this.quoteRefreshKeys = Array.from(this.activeQuoteEntries.keys());
+        // Prioritize entries by state: error/loading/idle first, then ready
+        const priorityGroups = {
+            highPriority: [],  // error, loading, idle (no price yet)
+            lowPriority: []    // ready (has price)
+        };
+
+        this.activeQuoteEntries.forEach((entry, key) => {
+            const state = entry.cell?.dataset?.priceState;
+            if (state === 'error' || state === 'loading' || state === 'idle' || !state) {
+                priorityGroups.highPriority.push(key);
+            } else {
+                priorityGroups.lowPriority.push(key);
+            }
+        });
+
+        // Build schedule with high priority first
+        this.quoteRefreshKeys = [...priorityGroups.highPriority, ...priorityGroups.lowPriority];
         this.quoteRefreshCursor = 0;
     }
 
     startQuoteAutoRefreshIfNeeded() {
+        // Unified auto-refresh for both Active Positions and Credit Playbook
+        // Uses same computeAutoRefreshInterval() for consistent timing
         if (!(this.activeQuoteEntries instanceof Map)) {
             this.activeQuoteEntries = new Map();
         }
+        
+        if (!(this.creditPlaybookQuoteEntries instanceof Map)) {
+            this.creditPlaybookQuoteEntries = new Map();
+        }
 
-        if (this.activeQuoteEntries.size === 0) {
+        const totalEntries = this.activeQuoteEntries.size + this.creditPlaybookQuoteEntries.size;
+        
+        if (totalEntries === 0) {
             this.stopQuoteAutoRefresh();
             return;
         }
@@ -10587,8 +10816,32 @@ class GammaLedger {
             return;
         }
 
+        // Alternate between Active Positions and Credit Playbook to distribute load
+        // Each refresh function processes ONE entry per call to respect rate limits
+        let alternateSource = false;
+
         this.quoteRefreshIntervalId = setInterval(() => {
-            this.refreshActivePositionsQuotes({ force: true });
+            const hasActiveEntries = this.activeQuoteEntries.size > 0;
+            const hasCreditEntries = this.creditPlaybookQuoteEntries.size > 0;
+
+            if (!hasActiveEntries && !hasCreditEntries) {
+                this.stopQuoteAutoRefresh();
+                return;
+            }
+
+            // Alternate between sources if both have entries
+            if (hasActiveEntries && hasCreditEntries) {
+                if (alternateSource) {
+                    this.refreshCreditPlaybookQuotes({ force: true });
+                } else {
+                    this.refreshActivePositionsQuotes({ force: true });
+                }
+                alternateSource = !alternateSource;
+            } else if (hasActiveEntries) {
+                this.refreshActivePositionsQuotes({ force: true });
+            } else {
+                this.refreshCreditPlaybookQuotes({ force: true });
+            }
         }, this.autoRefreshIntervalMs);
     }
 
@@ -10605,6 +10858,8 @@ class GammaLedger {
     }
 
     refreshActivePositionsQuotes({ force = false, immediate = false } = {}) {
+        // Process ONE Active Positions quote per call to respect rate limits
+        // Called by unified auto-refresh timer that alternates between tables
         if (!(this.activeQuoteEntries instanceof Map) || this.activeQuoteEntries.size === 0) {
             this.stopQuoteAutoRefresh();
             return;
@@ -10649,6 +10904,61 @@ class GammaLedger {
         }
 
         if (this.activeQuoteEntries.size === 0) {
+            this.stopQuoteAutoRefresh();
+        }
+    }
+
+    refreshCreditPlaybookQuotes({ force = false, immediate = false } = {}) {
+        // Process ONE Credit Playbook quote per call to respect rate limits
+        // Called by unified auto-refresh timer that alternates between tables
+        if (!(this.creditPlaybookQuoteEntries instanceof Map) || this.creditPlaybookQuoteEntries.size === 0) {
+            return;
+        }
+
+        // Find one entry to refresh, prioritizing by state
+        let entryToRefresh = null;
+        let keyToRefresh = null;
+
+        // First pass: look for high-priority entries (error/loading/idle/no state)
+        for (const [key, entry] of this.creditPlaybookQuoteEntries.entries()) {
+            if (!entry || !entry.cell?.isConnected || !entry.row?.isConnected) {
+                this.creditPlaybookQuoteEntries.delete(key);
+                continue;
+            }
+
+            const state = entry.cell?.dataset?.priceState;
+            if (state === 'error' || state === 'loading' || state === 'idle' || !state) {
+                entryToRefresh = entry;
+                keyToRefresh = key;
+                break;
+            }
+        }
+
+        // Second pass: if no high-priority entry found, take any ready entry
+        if (!entryToRefresh) {
+            for (const [key, entry] of this.creditPlaybookQuoteEntries.entries()) {
+                if (!entry || !entry.cell?.isConnected || !entry.row?.isConnected) {
+                    this.creditPlaybookQuoteEntries.delete(key);
+                    continue;
+                }
+
+                entryToRefresh = entry;
+                keyToRefresh = key;
+                break;
+            }
+        }
+
+        // Process one entry per refresh cycle
+        if (entryToRefresh) {
+            this.populateQuoteCell(entryToRefresh.cell, entryToRefresh.trade, entryToRefresh.row, {
+                forceRefresh: force,
+                silentIfCached: !force,
+                suppressLoadingText: !immediate
+            });
+        }
+
+        // Stop auto-refresh if no more entries
+        if (this.creditPlaybookQuoteEntries.size === 0) {
             this.stopQuoteAutoRefresh();
         }
     }
@@ -10988,16 +11298,28 @@ class GammaLedger {
         const timestamps = this.finnhub.timestamps;
         const now = Date.now();
 
+        // Enforce minimum idle time between requests
+        const timeSinceLastRequest = now - this.finnhub.lastRequestTime;
+        if (timeSinceLastRequest < this.finnhub.minIdleMs) {
+            const idleWait = this.finnhub.minIdleMs - timeSinceLastRequest;
+            await new Promise(resolve => setTimeout(resolve, idleWait));
+        }
+
+        // Clean up old timestamps outside the rate limit window
         while (timestamps.length > 0 && now - timestamps[0] >= windowMs) {
             timestamps.shift();
         }
 
+        // Enforce rate limit (requests per minute)
         if (timestamps.length >= this.finnhub.maxRequestsPerMinute) {
             const waitTime = windowMs - (now - timestamps[0]) + 50;
             await new Promise(resolve => setTimeout(resolve, waitTime));
         }
 
-        timestamps.push(Date.now());
+        // Record this request timestamp
+        const requestTime = Date.now();
+        timestamps.push(requestTime);
+        this.finnhub.lastRequestTime = requestTime;
     }
 
     applyPositionHighlight(row, trade, currentPrice = null) {
