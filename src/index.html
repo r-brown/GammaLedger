@@ -126,6 +126,10 @@
                     <span class="nav-icon">📋</span>
                     <span class="nav-label">All Trades</span>
                 </button>
+                <button class="nav-item" data-view="credit-playbook">
+                    <span class="nav-icon">💳</span>
+                    <span class="nav-label">Credit Playbook</span>
+                </button>
                 <button class="nav-item" data-view="add-trade">
                     <span class="nav-icon">➕</span>
                     <span class="nav-label">Add Trade</span>
@@ -625,6 +629,104 @@
                                 <th class="sortable" data-sort="annualizedROI">Annual ROI</th>
                                 <th class="sortable" data-sort="status">Status</th>
                                 <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Credit Playbook View -->
+            <div class="view credit-playbook-view">
+                <header class="credit-playbook-header">
+                    <div class="credit-playbook-metrics" id="credit-playbook-metrics" aria-live="polite"></div>
+                </header>
+
+                <section class="credit-playbook-controls" aria-label="Credit playbook filters">
+                    <div class="credit-playbook-filter">
+                        <span class="filter-label">Time Horizon</span>
+                        <select id="credit-playbook-horizon-filter" class="form-control">
+                            <option value="all" selected>All time</option>
+                            <option value="7d">Last 7 days</option>
+                            <option value="14d">Last 14 days</option>
+                            <option value="30d">Last 30 days</option>
+                            <option value="90d">Last 90 days</option>
+                            <option value="180d">Last 180 days</option>
+                            <option value="365d">Last 365 days</option>
+                            <option value="mtd">Month to date</option>
+                            <option value="ytd">Year to date</option>
+                        </select>
+                    </div>
+                    <div class="credit-playbook-filter">
+                        <span class="filter-label">Strategy</span>
+                        <select id="credit-playbook-strategy-filter" class="form-control">
+                            <option value="all" selected>All credit strategies</option>
+                            <option value="Bear Call Ladder">Bear Call Ladder</option>
+                            <option value="Bear Call Spread">Bear Call Spread</option>
+                            <option value="Bear Put Ladder">Bear Put Ladder</option>
+                            <option value="Bear Put Spread">Bear Put Spread</option>
+                            <option value="Bull Call Ladder">Bull Call Ladder</option>
+                            <option value="Bull Call Spread">Bull Call Spread</option>
+                            <option value="Bull Put Ladder">Bull Put Ladder</option>
+                            <option value="Bull Put Spread">Bull Put Spread</option>
+                            <option value="Cash-Secured Put">Cash-Secured Put</option>
+                            <option value="Covered Call">Covered Call</option>
+                            <option value="Covered Put">Covered Put</option>
+                            <option value="Covered Short Straddle">Covered Short Straddle</option>
+                            <option value="Covered Short Strangle">Covered Short Strangle</option>
+                            <option value="Diagonal Call Spread">Diagonal Call Spread</option>
+                            <option value="Diagonal Put Spread">Diagonal Put Spread</option>
+                            <option value="Double Diagonal">Double Diagonal</option>
+                            <option value="Inverse Call Broken Wing">Inverse Call Broken Wing</option>
+                            <option value="Inverse Iron Butterfly">Inverse Iron Butterfly</option>
+                            <option value="Inverse Iron Condor">Inverse Iron Condor</option>
+                            <option value="Inverse Put Broken Wing">Inverse Put Broken Wing</option>
+                            <option value="Iron Albatross">Iron Albatross</option>
+                            <option value="Iron Butterfly">Iron Butterfly</option>
+                            <option value="Iron Condor">Iron Condor</option>
+                            <option value="Jade Lizard">Jade Lizard</option>
+                            <option value="Poor Man's Covered Call">Poor Man's Covered Call</option>
+                            <option value="Put Broken Wing">Put Broken Wing</option>
+                            <option value="Put Ratio Backspread">Put Ratio Backspread</option>
+                            <option value="Put Ratio Spread">Put Ratio Spread</option>
+                            <option value="Reverse Jade Lizard">Reverse Jade Lizard</option>
+                            <option value="Short Call">Short Call</option>
+                            <option value="Short Call Butterfly">Short Call Butterfly</option>
+                            <option value="Short Call Condor">Short Call Condor</option>
+                            <option value="Short Guts">Short Guts</option>
+                            <option value="Short Put">Short Put</option>
+                            <option value="Short Put Butterfly">Short Put Butterfly</option>
+                            <option value="Short Put Condor">Short Put Condor</option>
+                            <option value="Short Straddle">Short Straddle</option>
+                            <option value="Short Strangle">Short Strangle</option>
+                            <option value="Wheel">Wheel</option>
+                        </select>
+                    </div>
+                    <div class="credit-playbook-filter">
+                        <label class="filter-label" for="credit-playbook-symbol-filter">Symbol</label>
+                        <input type="search" id="credit-playbook-symbol-filter" class="form-control" placeholder="Filter ticker...">
+                    </div>
+                </section>
+
+                <div class="table-container credit-playbook-table-container">
+                    <table id="credit-playbook-table" class="stackable-table">
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-sort="ticker" data-sort-context="credit-playbook">Ticker</th>
+                                <th class="sortable" data-sort="strategy" data-sort-context="credit-playbook">Strategy</th>
+                                <th class="sortable" data-sort="type" data-sort-context="credit-playbook">Type</th>
+                                <th class="sortable" data-sort="strike" data-sort-context="credit-playbook">Strike Price</th>
+                                <th class="sortable" data-sort="status" data-sort-context="credit-playbook">Status</th>
+                                <th class="sortable" data-sort="quantity" data-sort-context="credit-playbook">Contracts</th>
+                                <th class="sortable" data-sort="pricePerContract" data-sort-context="credit-playbook">Price/Contract</th>
+                                <th class="sortable" data-sort="premium" data-sort-context="credit-playbook">Premium</th>
+                                <th class="sortable" data-sort="entryDate" data-sort-context="credit-playbook">Entry Date</th>
+                                <th class="sortable" data-sort="expirationDate" data-sort-context="credit-playbook">Expiration Date</th>
+                                <th class="sortable" data-sort="dte" data-sort-context="credit-playbook">DTE</th>
+                                <th class="sortable" data-sort="exitDate" data-sort-context="credit-playbook">Exit Date</th>
+                                <th class="sortable" data-sort="daysHeld" data-sort-context="credit-playbook">Days Held</th>
+                                <th class="sortable" data-sort="pl" data-sort-context="credit-playbook">P&L</th>
+                                <th class="sortable" data-sort="roi" data-sort-context="credit-playbook">ROI</th>
                             </tr>
                         </thead>
                         <tbody></tbody>

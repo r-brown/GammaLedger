@@ -1370,6 +1370,59 @@ class GammaLedger {
             expirationCriticalDays: 10
         };
 
+        this.creditPlaybookStatus = 'active';
+        this.creditPlaybookStrategy = 'all';
+        this.creditPlaybookHorizon = 'all';
+        this.creditPlaybookSymbol = '';
+        this.creditPlaybookSort = {
+            key: 'entryDate',
+            direction: 'desc'
+        };
+        this.creditPlaybookEntries = [];
+        this.creditPlaybookNeedsRefresh = true;
+        this.creditPlaybookInitialized = false;
+        this.creditPlaybookStrategyOptions = [
+            'Bear Call Ladder',
+            'Bear Call Spread',
+            'Bear Put Ladder',
+            'Bear Put Spread',
+            'Bull Call Ladder',
+            'Bull Call Spread',
+            'Bull Put Ladder',
+            'Bull Put Spread',
+            'Cash-Secured Put',
+            'Covered Call',
+            'Covered Put',
+            'Covered Short Straddle',
+            'Covered Short Strangle',
+            'Diagonal Call Spread',
+            'Diagonal Put Spread',
+            'Double Diagonal',
+            'Inverse Call Broken Wing',
+            'Inverse Iron Butterfly',
+            'Inverse Iron Condor',
+            'Inverse Put Broken Wing',
+            'Iron Albatross',
+            'Iron Butterfly',
+            'Iron Condor',
+            'Jade Lizard',
+            "Poor Man's Covered Call",
+            'Put Broken Wing',
+            'Put Ratio Backspread',
+            'Put Ratio Spread',
+            'Reverse Jade Lizard',
+            'Short Call',
+            'Short Call Butterfly',
+            'Short Call Condor',
+            'Short Guts',
+            'Short Put',
+            'Short Put Butterfly',
+            'Short Put Condor',
+            'Short Straddle',
+            'Short Strangle',
+            'Wheel'
+        ];
+
         this.assignedPositionsStatusFilter = 'open';
 
         this.sidebarState = {
@@ -2069,7 +2122,28 @@ class GammaLedger {
                 multiplier = Math.abs(Number(this.getLegMultiplier(legWithMultiplier)));
             }
         }
-        if (!(multiplier > 0)) {
+        
+        // Check for stock legs and use stock-based calculations
+        const openLegsForRisk = Array.isArray(summary?.legs)
+            ? summary.legs.filter((leg) => leg && this.getLegSide(leg) === 'OPEN')
+            : [];
+        const stockLegsForRisk = openLegsForRisk.filter((leg) => leg.type === 'STOCK');
+        
+        if (stockLegsForRisk.length > 0) {
+            // For stock assignments, use stock shares as contracts and stock multiplier
+            const totalStockShares = stockLegsForRisk.reduce((sum, leg) => {
+                const quantity = leg.quantity * this.getLegMultiplier(leg);
+                return sum + (this.getLegAction(leg) === 'BUY' ? quantity : -quantity);
+            }, 0);
+            const absStockShares = Math.abs(Math.round(totalStockShares));
+            // Only use stock-based calculation if there are actually shares held
+            if (absStockShares > 0) {
+                contracts = absStockShares;
+                multiplier = 1; // Stock multiplier is always 1
+            } else if (!(multiplier > 0)) {
+                multiplier = 100;
+            }
+        } else if (!(multiplier > 0)) {
             multiplier = 100;
         }
 
@@ -4355,8 +4429,31 @@ class GammaLedger {
         enriched.tradeType = this.deriveTradeTypeFromLeg(primaryLeg);
         enriched.tradeDirection = this.deriveTradeDirectionFromLeg(primaryLeg);
 
-        const normalizedQuantity = primaryLeg ? Math.abs(Number(primaryLeg.quantity) || 0) : 0;
-        enriched.quantity = enriched.tradeDirection === 'short' ? -normalizedQuantity : normalizedQuantity;
+        // For trades with stock assignments, use total stock shares as quantity
+        const openLegsForStock = legSummary.legs.filter(leg => this.getLegSide(leg) === 'OPEN');
+        const stockLegs = openLegsForStock.filter(leg => leg.type === 'STOCK');
+        
+        if (stockLegs.length > 0) {
+            // Sum only OPEN stock shares (currently held)
+            const totalShares = stockLegs.reduce((sum, leg) => {
+                const quantity = leg.quantity * this.getLegMultiplier(leg);
+                return sum + (this.getLegAction(leg) === 'BUY' ? quantity : -quantity);
+            }, 0);
+            const absShares = Math.abs(Math.round(totalShares));
+            // Only use stock quantity if there are actually shares held
+            if (absShares > 0) {
+                enriched.quantity = absShares;
+            } else {
+                // Fall back to primary leg for closed stock trades
+                const normalizedQuantity = primaryLeg ? Math.abs(Number(primaryLeg.quantity) || 0) : 0;
+                enriched.quantity = enriched.tradeDirection === 'short' ? -normalizedQuantity : normalizedQuantity;
+            }
+        } else {
+            // Use primary leg quantity for option-only trades
+            const normalizedQuantity = primaryLeg ? Math.abs(Number(primaryLeg.quantity) || 0) : 0;
+            enriched.quantity = enriched.tradeDirection === 'short' ? -normalizedQuantity : normalizedQuantity;
+        }
+        
         enriched.strikePrice = this.derivePrimaryStrike(legSummary);
         enriched.multiplier = this.getLegMultiplier(primaryLeg);
         enriched.displayStrike = this.buildStrikeDisplay(enriched, legSummary);
@@ -4722,7 +4819,14 @@ class GammaLedger {
         document.querySelectorAll('.sortable').forEach(header => {
             header.addEventListener('click', () => {
                 const sortBy = header.getAttribute('data-sort');
-                if (sortBy) {
+                if (!sortBy) {
+                    return;
+                }
+
+                const context = header.getAttribute('data-sort-context') || 'trades';
+                if (context === 'credit-playbook') {
+                    this.sortCreditPlaybook(sortBy);
+                } else {
                     this.sortTrades(sortBy);
                 }
             });
@@ -4787,6 +4891,7 @@ class GammaLedger {
         this.setupResponsiveFilters();
         this.initializeCumulativePLControls();
         this.initializeAssignedPositionsStatusFilter();
+    this.initializeCreditPlaybookControls();
     }
 
     setupResponsiveFilters() {
@@ -5559,7 +5664,8 @@ class GammaLedger {
             'add-trade': this.currentEditingId ? 'Edit Trade' : 'Add New Trade',
             'trades-list': 'All Trades',
             import: 'Import Trades',
-            settings: 'Settings'
+            settings: 'Settings',
+            'credit-playbook': 'Credit Playbook (beta)'
         };
         const titleText = titles[viewName] || 'GammaLedger';
         document.getElementById('page-title').textContent = titleText;
@@ -5582,6 +5688,10 @@ class GammaLedger {
             case 'import':
                 this.setupImportControls();
                 this.renderImportLog();
+                break;
+            case 'credit-playbook':
+                this.initializeCreditPlaybookControls();
+                this.updateCreditPlaybookView();
                 break;
             case 'settings': {
                 const lastStatus = this.finnhub?.lastStatus;
@@ -5848,6 +5958,11 @@ class GammaLedger {
         this.refreshShareCardChart();
         this.syncCumulativePLControls();
 
+        this.creditPlaybookNeedsRefresh = true;
+        if (this.currentView === 'credit-playbook') {
+            this.updateCreditPlaybookView();
+        }
+
         // Update charts with delay
         setTimeout(() => {
             this.updateAllCharts();
@@ -6066,18 +6181,25 @@ class GammaLedger {
                 };
             });
 
-            const stockLegInfo = normalizedLegs.find(item => item.type === 'STOCK' && item.action === 'BUY' && item.side === 'OPEN');
-            if (positionType === 'other' && stockLegInfo) {
+            // Find ALL stock legs (not just the first one)
+            const stockLegs = normalizedLegs.filter(item => item.type === 'STOCK' && item.action === 'BUY' && item.side === 'OPEN');
+            const stockLegInfo = stockLegs[0]; // Keep first for compatibility with strike/date logic
+            
+            if (positionType === 'other' && stockLegs.length > 0) {
                 positionType = 'wheel';
             }
             const stockDate = stockLegInfo?.executionDate || null;
 
 
             let shares = 100;
-            if (stockLegInfo) {
-                const computedShares = (stockLegInfo.quantity || 0) * (stockLegInfo.multiplier || 1);
-                if (computedShares > 0) {
-                    shares = computedShares;
+            if (stockLegs.length > 0) {
+                // Sum shares from ALL stock assignments
+                const totalShares = stockLegs.reduce((sum, item) => {
+                    const legShares = (item.quantity || 0) * (item.multiplier || 1);
+                    return sum + legShares;
+                }, 0);
+                if (totalShares > 0) {
+                    shares = totalShares;
                 }
             } else {
                 const referenceLeg = normalizedLegs.find(item => ['CALL', 'PUT'].includes(item.type) && item.quantity > 0 && item.multiplier > 0);
@@ -6090,13 +6212,31 @@ class GammaLedger {
             }
 
             let assignmentStrike = Number(trade.strikePrice) || 0;
-            if (stockLegInfo) {
-                const premiumPerShare = Number(stockLegInfo.leg.premium);
-                const strikeFromLeg = Number(stockLegInfo.leg.strike);
-                if (Number.isFinite(premiumPerShare) && premiumPerShare > 0) {
-                    assignmentStrike = premiumPerShare;
-                } else if (Number.isFinite(strikeFromLeg) && strikeFromLeg > 0) {
-                    assignmentStrike = strikeFromLeg;
+            if (stockLegs.length > 0) {
+                // Calculate weighted average assignment strike from all stock legs
+                let totalCost = 0;
+                let totalShares = 0;
+                
+                stockLegs.forEach(item => {
+                    const legShares = (item.quantity || 0) * (item.multiplier || 1);
+                    const premiumPerShare = Number(item.leg.premium);
+                    const strikeFromLeg = Number(item.leg.strike);
+                    
+                    let pricePerShare = 0;
+                    if (Number.isFinite(premiumPerShare) && premiumPerShare > 0) {
+                        pricePerShare = premiumPerShare;
+                    } else if (Number.isFinite(strikeFromLeg) && strikeFromLeg > 0) {
+                        pricePerShare = strikeFromLeg;
+                    }
+                    
+                    if (pricePerShare > 0 && legShares > 0) {
+                        totalCost += pricePerShare * legShares;
+                        totalShares += legShares;
+                    }
+                });
+                
+                if (totalShares > 0) {
+                    assignmentStrike = totalCost / totalShares; // Weighted average
                 }
             }
 
@@ -6737,6 +6877,1323 @@ class GammaLedger {
                 this.applyResponsiveLabels(row, columnLabels);
             });
         }
+    }
+
+    initializeCreditPlaybookControls() {
+        const statusControls = document.getElementById('credit-playbook-status-filter');
+        if (statusControls && statusControls.dataset.initialized !== 'true') {
+            statusControls.addEventListener('click', (event) => {
+                const button = event.target instanceof HTMLElement
+                    ? event.target.closest('button[data-status]')
+                    : null;
+                if (!button) {
+                    return;
+                }
+                this.setCreditPlaybookStatus(button.dataset.status);
+            });
+            statusControls.dataset.initialized = 'true';
+        }
+
+        this.syncCreditPlaybookStatusControls();
+
+        const strategySelect = document.getElementById('credit-playbook-strategy-filter');
+        if (strategySelect && strategySelect.dataset.initialized !== 'true') {
+            strategySelect.addEventListener('change', () => {
+                this.setCreditPlaybookStrategy(strategySelect.value);
+            });
+            strategySelect.dataset.initialized = 'true';
+        }
+        if (strategySelect && strategySelect.value !== this.creditPlaybookStrategy) {
+            strategySelect.value = this.creditPlaybookStrategy;
+        }
+
+        const horizonSelect = document.getElementById('credit-playbook-horizon-filter');
+        if (horizonSelect && horizonSelect.dataset.initialized !== 'true') {
+            horizonSelect.addEventListener('change', () => {
+                this.setCreditPlaybookHorizon(horizonSelect.value);
+            });
+            horizonSelect.dataset.initialized = 'true';
+        }
+        if (horizonSelect && horizonSelect.value !== this.creditPlaybookHorizon) {
+            horizonSelect.value = this.creditPlaybookHorizon;
+        }
+
+        const symbolInput = document.getElementById('credit-playbook-symbol-filter');
+        if (symbolInput && symbolInput.dataset.initialized !== 'true') {
+            symbolInput.addEventListener('input', () => {
+                this.setCreditPlaybookSymbol(symbolInput.value);
+            });
+            symbolInput.dataset.initialized = 'true';
+        }
+        if (symbolInput && symbolInput.value !== this.creditPlaybookSymbol) {
+            symbolInput.value = this.creditPlaybookSymbol;
+        }
+
+        document
+            .querySelectorAll('#credit-playbook-table .sortable')
+            .forEach((header) => header.setAttribute('data-sort-context', 'credit-playbook'));
+
+        this.creditPlaybookInitialized = true;
+    }
+
+    syncCreditPlaybookStatusControls() {
+        const statusControls = document.getElementById('credit-playbook-status-filter');
+        if (!statusControls) {
+            return;
+        }
+
+        const current = this.creditPlaybookStatus;
+        statusControls.querySelectorAll('button[data-status]').forEach((button) => {
+            const buttonStatus = button.dataset.status || 'all';
+            const isActive = buttonStatus === current;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', String(isActive));
+        });
+    }
+
+    setCreditPlaybookStatus(status) {
+        const normalized = ['active', 'closed', 'all'].includes(status) ? status : 'all';
+        if (normalized === this.creditPlaybookStatus) {
+            return;
+        }
+
+        this.creditPlaybookStatus = normalized;
+        this.syncCreditPlaybookStatusControls();
+        this.updateCreditPlaybookView();
+    }
+
+    normalizeCreditPlaybookStrategyValue(strategy) {
+        if (!strategy) {
+            return null;
+        }
+        const trimmed = strategy.toString().trim();
+        if (!trimmed) {
+            return null;
+        }
+        const sanitize = (value) => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
+        const target = sanitize(trimmed);
+        if (!target) {
+            return null;
+        }
+        const match = this.creditPlaybookStrategyOptions.find((option) => sanitize(option) === target);
+        return match || null;
+    }
+
+    setCreditPlaybookStrategy(strategy) {
+        const normalized = typeof strategy === 'string' && strategy.toLowerCase() === 'all'
+            ? 'all'
+            : this.normalizeCreditPlaybookStrategyValue(strategy) || 'all';
+
+        if (normalized === this.creditPlaybookStrategy) {
+            return;
+        }
+
+        this.creditPlaybookStrategy = normalized;
+        const select = document.getElementById('credit-playbook-strategy-filter');
+        if (select && select.value !== normalized) {
+            select.value = normalized;
+        }
+
+        this.updateCreditPlaybookView();
+    }
+
+    setCreditPlaybookHorizon(horizon) {
+        const allowed = new Set(['all', '7d', '14d', '30d', '90d', '180d', '365d', 'mtd', 'ytd']);
+        const normalized = allowed.has(horizon) ? horizon : 'all';
+        
+        const hasChanged = normalized !== this.creditPlaybookHorizon;
+        this.creditPlaybookHorizon = normalized;
+        
+        const select = document.getElementById('credit-playbook-horizon-filter');
+        if (select && select.value !== normalized) {
+            select.value = normalized;
+        }
+        
+        if (hasChanged) {
+            this.updateCreditPlaybookView();
+        }
+    }
+
+    setCreditPlaybookSymbol(symbol) {
+        const normalized = (symbol || '').toString().trim().toUpperCase();
+        if (normalized === this.creditPlaybookSymbol) {
+            return;
+        }
+
+        this.creditPlaybookSymbol = normalized;
+        const input = document.getElementById('credit-playbook-symbol-filter');
+        if (input && input.value.toUpperCase() !== normalized) {
+            input.value = normalized;
+        }
+        this.updateCreditPlaybookView();
+    }
+
+    updateCreditPlaybookView() {
+        if (this.currentView !== 'credit-playbook') {
+            this.creditPlaybookNeedsRefresh = true;
+            return;
+        }
+
+        const table = document.getElementById('credit-playbook-table');
+        const metricsContainer = document.getElementById('credit-playbook-metrics');
+        if (!table || !metricsContainer) {
+            this.creditPlaybookNeedsRefresh = true;
+            return;
+        }
+
+        const entries = this.getCreditPlaybookEntries();
+        this.creditPlaybookEntries = entries;
+
+        // Extract leg pairs first, then filter and sort them
+        const legPairs = this.extractCreditPlaybookLegPairs(entries);
+        const filtered = this.filterCreditPlaybookLegPairs(legPairs);
+        const sorted = this.applyCreditPlaybookSortToLegPairs(filtered);
+
+        this.renderCreditPlaybookMetrics(filtered);
+        this.renderCreditPlaybookTableFromLegPairs(sorted);
+        this.applyCreditPlaybookSortIndicators();
+
+        this.creditPlaybookNeedsRefresh = false;
+    }
+
+    getCreditPlaybookEntries() {
+        return this.trades
+            .filter((trade) => this.isCreditStrategyTrade(trade))
+            .map((trade) => this.mapCreditTradeToEntry(trade))
+            .filter(Boolean);
+    }
+
+    isCreditStrategyTrade(trade = {}) {
+        const normalized = this.normalizeCreditPlaybookStrategyValue(trade.strategy);
+        return Boolean(normalized);
+    }
+
+    mapCreditTradeToEntry(trade = {}) {
+        const ticker = (trade.ticker || '').toString().trim().toUpperCase();
+        if (!ticker) {
+            return null;
+        }
+
+        const strategy = this.normalizeCreditPlaybookStrategyValue(trade.strategy) || (trade.strategy || '').toString().trim();
+        const normalizedStatus = this.normalizeStatus(trade.status);
+        const isOpen = !this.isClosedStatus(trade.status);
+
+        const summary = this.summarizeLegs(trade.legs || []);
+        const openedAt = this.resolveCreditPlaybookOpenedAt(trade, summary);
+        const openedDate = openedAt ? openedAt.toISOString().slice(0, 10) : '';
+
+        let dte = this.parseInteger(trade.dte, null, { allowNegative: true });
+        if (!Number.isFinite(dte) && summary.latestExpiration instanceof Date) {
+            const diffMs = summary.latestExpiration.getTime() - this.currentDate.getTime();
+            if (Number.isFinite(diffMs)) {
+                dte = Math.round(diffMs / (24 * 60 * 60 * 1000));
+            }
+        }
+
+        const expiration = summary.nextShortCallExpiration
+            || summary.nearestShortCallExpiration
+            || summary.latestExpiration
+            || summary.earliestExpiration;
+        const expirationLabel = expiration instanceof Date
+            ? expiration.toISOString().slice(0, 10)
+            : '';
+
+        const contracts = Number(summary.openBaseContracts || summary.openContracts || 0);
+        const netPremium = Number(summary.openCashFlow) || 0;
+        const capitalAtRisk = this.getCapitalAtRisk(trade);
+        const capitalValue = Number.isFinite(capitalAtRisk) && capitalAtRisk >= 0 ? capitalAtRisk : null;
+        const plValue = Number(trade.pl);
+        const roiValue = Number(trade.roi);
+
+        let derivedRoi = Number.isFinite(roiValue) ? roiValue : null;
+        if (derivedRoi === null && Number.isFinite(plValue) && Number.isFinite(capitalValue) && capitalValue > 0) {
+            derivedRoi = (plValue / capitalValue) * 100;
+        }
+
+        const currentPrice = this.deriveCreditPlaybookPrice(trade);
+
+        const premiumPerContract = contracts > 0 ? netPremium / contracts : null;
+        const capitalPerContract = Number.isFinite(capitalValue) && contracts > 0 ? capitalValue / contracts : null;
+
+        return {
+            trade,
+            ticker,
+            strategy: strategy || '—',
+            normalizedStatus,
+            status: this.getDisplayStatus(trade),
+            isOpen,
+            openedDate,
+            openedDateValue: openedAt,
+            expiration,
+            expirationLabel,
+            dte: Number.isFinite(dte) ? dte : null,
+            premium: Number.isFinite(netPremium) ? netPremium : 0,
+            capital: capitalValue,
+            capitalAtRisk: capitalValue,
+            premiumPerContract: Number.isFinite(premiumPerContract) ? premiumPerContract : null,
+            capitalPerContract: Number.isFinite(capitalPerContract) ? capitalPerContract : null,
+            contracts,
+            currentPrice: Number.isFinite(currentPrice) ? currentPrice : null,
+            pl: Number.isFinite(plValue) ? plValue : null,
+            roi: Number.isFinite(derivedRoi) ? derivedRoi : null,
+            position: strategy || ticker,
+            summary
+        };
+    }
+
+    resolveCreditPlaybookOpenedAt(trade = {}, summary = {}) {
+        const candidates = [
+            this.parseDateValue(trade.openedDate),
+            this.parseDateValue(trade.entryDate),
+            this.parseDateValue(trade.tradeDate),
+            this.parseDateValue(trade.openDate),
+            summary?.openedDate instanceof Date ? summary.openedDate : null
+        ];
+
+        for (const candidate of candidates) {
+            if (candidate instanceof Date && !Number.isNaN(candidate.getTime())) {
+                return candidate;
+            }
+        }
+
+        if (Array.isArray(trade.legs)) {
+            const dates = trade.legs
+                .map((leg) => this.parseDateValue(leg?.executionDate))
+                .filter((date) => date instanceof Date && !Number.isNaN(date.getTime()))
+                .sort((a, b) => a.getTime() - b.getTime());
+            if (dates.length > 0) {
+                return dates[0];
+            }
+        }
+
+        return null;
+    }
+
+    deriveCreditPlaybookPrice(trade = {}) {
+        const candidates = [
+            trade.currentPrice,
+            trade.marketPrice,
+            trade.lastPrice,
+            trade.stockPrice,
+            trade.underlyingPrice,
+            trade.stockPriceAtEntry
+        ];
+
+        for (const candidate of candidates) {
+            const parsed = this.parseDecimal(candidate, null, { allowNegative: false });
+            if (Number.isFinite(parsed)) {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    filterCreditPlaybookEntries(entries = []) {
+        const statusFilter = this.creditPlaybookStatus;
+        const strategyFilter = this.creditPlaybookStrategy;
+        const horizonFilter = this.creditPlaybookHorizon;
+        const symbolFilter = this.creditPlaybookSymbol;
+        const now = this.currentDate instanceof Date ? this.currentDate : new Date();
+        const dayMs = 24 * 60 * 60 * 1000;
+
+        return entries.filter((entry) => {
+            if (statusFilter === 'active' && !entry.isOpen) {
+                return false;
+            }
+            if (statusFilter === 'closed' && entry.isOpen) {
+                return false;
+            }
+
+            if (strategyFilter !== 'all' && entry.strategy !== strategyFilter) {
+                return false;
+            }
+
+            if (symbolFilter && (!entry.ticker || !entry.ticker.includes(symbolFilter))) {
+                return false;
+            }
+
+            if (horizonFilter !== 'all') {
+                const openedAt = entry.openedDateValue instanceof Date ? entry.openedDateValue : null;
+                if (!openedAt) {
+                    return false;
+                }
+
+                if (horizonFilter === 'ytd') {
+                    if (openedAt.getFullYear() !== now.getFullYear()) {
+                        return false;
+                    }
+                } else if (horizonFilter === 'mtd') {
+                    if (openedAt.getFullYear() !== now.getFullYear() || openedAt.getMonth() !== now.getMonth()) {
+                        return false;
+                    }
+                } else {
+                    const days = Number.parseInt(horizonFilter, 10);
+                    if (Number.isFinite(days)) {
+                        const cutoff = new Date(now.getTime() - (days * dayMs));
+                        if (openedAt < cutoff) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return true;
+        });
+    }
+
+    filterCreditPlaybookLegPairs(legPairs = []) {
+        const strategyFilter = this.creditPlaybookStrategy;
+        const horizonFilter = this.creditPlaybookHorizon;
+        const symbolFilter = this.creditPlaybookSymbol;
+        const now = this.currentDate instanceof Date ? this.currentDate : new Date();
+        const dayMs = 24 * 60 * 60 * 1000;
+
+        return legPairs.filter((pair) => {
+            if (strategyFilter !== 'all' && pair.strategy !== strategyFilter) {
+                return false;
+            }
+
+            if (symbolFilter && (!pair.ticker || !pair.ticker.includes(symbolFilter))) {
+                return false;
+            }
+
+            if (horizonFilter !== 'all') {
+                const entryDate = pair.entryDate instanceof Date ? pair.entryDate : null;
+                if (!entryDate) {
+                    return false;
+                }
+
+                if (horizonFilter === 'ytd') {
+                    if (entryDate.getFullYear() !== now.getFullYear()) {
+                        return false;
+                    }
+                } else if (horizonFilter === 'mtd') {
+                    if (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth()) {
+                        return false;
+                    }
+                } else {
+                    const days = Number.parseInt(horizonFilter, 10);
+                    if (Number.isFinite(days)) {
+                        const cutoff = new Date(now.getTime() - (days * dayMs));
+                        if (entryDate < cutoff) {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return true;
+        });
+    }
+
+    applyCreditPlaybookSort(entries = []) {
+        const sortKey = this.creditPlaybookSort?.key || 'openedDate';
+        const direction = this.creditPlaybookSort?.direction === 'asc' ? 'asc' : 'desc';
+
+        return entries.slice().sort((a, b) => {
+            const aVal = this.getSortableValue(a, sortKey);
+            const bVal = this.getSortableValue(b, sortKey);
+            const comparison = this.compareSortableValues(aVal, bVal);
+            return direction === 'asc' ? comparison : -comparison;
+        });
+    }
+
+    applyCreditPlaybookSortToLegPairs(legPairs = []) {
+        const sortKey = this.creditPlaybookSort?.key || 'entryDate';
+        const direction = this.creditPlaybookSort?.direction === 'asc' ? 'asc' : 'desc';
+
+        return legPairs.slice().sort((a, b) => {
+            let aVal, bVal;
+
+            // Map sort keys to leg pair properties
+            switch (sortKey) {
+                case 'ticker':
+                    aVal = a.ticker || '';
+                    bVal = b.ticker || '';
+                    break;
+                case 'strategy':
+                    aVal = a.strategy || '';
+                    bVal = b.strategy || '';
+                    break;
+                case 'type':
+                    aVal = a.type || '';
+                    bVal = b.type || '';
+                    break;
+                case 'strike':
+                    // Handle both numeric strikes and spread strikes (e.g., "100/105")
+                    if (typeof a.strike === 'string' && a.strike.includes('/')) {
+                        aVal = parseFloat(a.strike.split('/')[0]) || 0;
+                    } else {
+                        aVal = Number(a.strike) || 0;
+                    }
+                    if (typeof b.strike === 'string' && b.strike.includes('/')) {
+                        bVal = parseFloat(b.strike.split('/')[0]) || 0;
+                    } else {
+                        bVal = Number(b.strike) || 0;
+                    }
+                    break;
+                case 'status':
+                    // Rolling > Open > Expired > Closed
+                    aVal = a.isRolling ? 0 : (a.isExpired && a.isOpen ? 2 : (a.isOpen ? 1 : 3));
+                    bVal = b.isRolling ? 0 : (b.isExpired && b.isOpen ? 2 : (b.isOpen ? 1 : 3));
+                    break;
+                case 'quantity':
+                    aVal = Number(a.quantity) || 0;
+                    bVal = Number(b.quantity) || 0;
+                    break;
+                case 'pricePerContract':
+                    aVal = Number(a.pricePerContract) || 0;
+                    bVal = Number(b.pricePerContract) || 0;
+                    break;
+                case 'premium':
+                    aVal = Number(a.premium) || 0;
+                    bVal = Number(b.premium) || 0;
+                    break;
+                case 'entryDate':
+                    aVal = a.entryDate instanceof Date ? a.entryDate.getTime() : 0;
+                    bVal = b.entryDate instanceof Date ? b.entryDate.getTime() : 0;
+                    break;
+                case 'expirationDate':
+                    aVal = a.expirationDate ? new Date(a.expirationDate).getTime() : 0;
+                    bVal = b.expirationDate ? new Date(b.expirationDate).getTime() : 0;
+                    break;
+                case 'dte':
+                    aVal = Number(a.dte) ?? Infinity;
+                    bVal = Number(b.dte) ?? Infinity;
+                    break;
+                case 'exitDate':
+                    aVal = a.exitDate instanceof Date ? a.exitDate.getTime() : 0;
+                    bVal = b.exitDate instanceof Date ? b.exitDate.getTime() : 0;
+                    break;
+                case 'daysHeld':
+                    aVal = Number(a.daysHeld) ?? 0;
+                    bVal = Number(b.daysHeld) ?? 0;
+                    break;
+                case 'pl':
+                    aVal = Number(a.pl) ?? 0;
+                    bVal = Number(b.pl) ?? 0;
+                    break;
+                case 'roi':
+                    aVal = Number(a.roi) ?? 0;
+                    bVal = Number(b.roi) ?? 0;
+                    break;
+                default:
+                    aVal = a[sortKey];
+                    bVal = b[sortKey];
+            }
+
+            const comparison = this.compareSortableValues(aVal, bVal);
+            return direction === 'asc' ? comparison : -comparison;
+        });
+    }
+
+    applyCreditPlaybookSortIndicators() {
+        const table = document.getElementById('credit-playbook-table');
+        if (!table) {
+            return;
+        }
+
+        const headers = table.querySelectorAll('.sortable');
+        headers.forEach((header) => {
+            const sortKey = header.getAttribute('data-sort');
+            const isActive = sortKey === this.creditPlaybookSort.key;
+            header.classList.toggle('asc', isActive && this.creditPlaybookSort.direction === 'asc');
+            header.classList.toggle('desc', isActive && this.creditPlaybookSort.direction === 'desc');
+            header.setAttribute('aria-sort', isActive
+                ? (this.creditPlaybookSort.direction === 'asc' ? 'ascending' : 'descending')
+                : 'none');
+        });
+    }
+
+    renderCreditPlaybookMetrics(legPairs = []) {
+        const container = document.getElementById('credit-playbook-metrics');
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = '';
+
+        const totalCount = legPairs.length;
+        const openCount = legPairs.filter((pair) => pair.isOpen).length;
+        const closedCount = totalCount - openCount;
+        const totalPremium = legPairs.reduce((sum, pair) => sum + (Number(pair.premium) || 0), 0);
+        const totalCapital = legPairs.reduce((sum, pair) => sum + (Number(pair.capital) || 0), 0);
+        const premiumValues = legPairs.map((pair) => Number(pair.premium)).filter(Number.isFinite);
+        const capitalValues = legPairs.map((pair) => Number(pair.capital)).filter((value) => Number.isFinite(value) && value > 0);
+        const roiValues = legPairs.map((pair) => Number(pair.roi)).filter(Number.isFinite);
+        const totalPL = legPairs.reduce((sum, pair) => sum + (Number(pair.pl) || 0), 0);
+
+        const avgPremium = premiumValues.length ? totalPremium / premiumValues.length : null;
+        const avgCapital = capitalValues.length ? totalCapital / capitalValues.length : null;
+        const avgRoi = roiValues.length ? roiValues.reduce((sum, value) => sum + value, 0) / roiValues.length : null;
+        const aggregateRoi = totalCapital > 0 ? ((totalPL) / totalCapital) * 100 : null;
+
+        const metrics = [
+            {
+                label: 'Positions',
+                value: this.formatNumber(totalCount, { decimals: 0, useGrouping: true }) ?? String(totalCount),
+                sublabel: `${openCount} open • ${closedCount} closed`
+            },
+            {
+                label: 'Total Premiums',
+                value: this.formatCurrency(totalPremium),
+                sublabel: 'Net credit across filtered positions'
+            },
+            {
+                label: 'Capital at Risk',
+                value: this.formatCurrency(totalCapital),
+                sublabel: capitalValues.length ? `${capitalValues.length} trades with defined risk` : 'No risk data available'
+            },
+            {
+                label: 'Avg Capital',
+                value: Number.isFinite(avgCapital) ? this.formatCurrency(avgCapital) : '—',
+                sublabel: 'Per trade with capital defined'
+            },
+            {
+                label: 'Avg Premium',
+                value: Number.isFinite(avgPremium) ? this.formatCurrency(avgPremium) : '—',
+                sublabel: premiumValues.length ? `${premiumValues.length} trades with premium` : 'No premium data'
+            },
+            {
+                label: 'ROI',
+                value: Number.isFinite(aggregateRoi)
+                    ? this.formatPercent(aggregateRoi, '—', { decimals: 1 })
+                    : (Number.isFinite(avgRoi) ? this.formatPercent(avgRoi, '—', { decimals: 1 }) : '—'),
+                sublabel: Number.isFinite(avgRoi) ? 'Average trade ROI' : 'Awaiting realized outcomes'
+            }
+        ];
+
+        metrics.forEach((metric) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+
+            const body = document.createElement('div');
+            body.className = 'card__body';
+
+            const valueEl = document.createElement('div');
+            valueEl.className = 'card-value';
+            valueEl.textContent = metric.value;
+
+            const labelEl = document.createElement('small');
+            labelEl.className = 'card-subtitle';
+            labelEl.textContent = metric.label;
+
+            body.appendChild(valueEl);
+            body.appendChild(labelEl);
+
+            if (metric.sublabel) {
+                const sublabelEl = document.createElement('span');
+                sublabelEl.className = 'credit-playbook-detail-meta';
+                sublabelEl.textContent = metric.sublabel;
+                body.appendChild(sublabelEl);
+            }
+
+            card.appendChild(body);
+            container.appendChild(card);
+        });
+    }
+
+    renderCreditPlaybookTableFromLegPairs(legPairs = []) {
+        const table = document.getElementById('credit-playbook-table');
+        if (!table) {
+            return;
+        }
+
+        const tbody = table.querySelector('tbody');
+        if (!tbody) {
+            return;
+        }
+
+        tbody.innerHTML = '';
+
+        if (!legPairs.length) {
+            const row = tbody.insertRow();
+            const cell = row.insertCell();
+            const columnCount = table.tHead?.rows?.[0]?.cells?.length || 15;
+            cell.colSpan = columnCount;
+            cell.className = 'empty-table-message';
+            cell.textContent = 'No positions match the current filters.';
+            return;
+        }
+
+        legPairs.forEach((pair) => {
+            const row = tbody.insertRow();
+            row.dataset.tradeId = pair.tradeId || '';
+            if (pair.ticker) {
+                row.dataset.ticker = pair.ticker;
+            }
+
+            let columnIndex = 0;
+
+            // Ticker
+            const tickerCell = row.insertCell(columnIndex++);
+            tickerCell.appendChild(this.createTickerElement(pair.ticker, 'ticker-pill', {
+                behavior: 'filter',
+                onClick: (value) => this.openTradesFilteredByTicker(value),
+                title: pair.ticker ? `View trades for ${pair.ticker}` : ''
+            }));
+
+            // Strategy
+            const strategyCell = row.insertCell(columnIndex++);
+            strategyCell.textContent = pair.strategy || '—';
+
+            // Type (CALL/PUT)
+            const typeCell = row.insertCell(columnIndex++);
+            const typeSpan = document.createElement('span');
+            typeSpan.className = 'option-type-badge';
+            if (pair.type === 'CALL') {
+                typeSpan.classList.add('type-call');
+                typeSpan.textContent = 'CALL';
+            } else if (pair.type === 'PUT') {
+                typeSpan.classList.add('type-put');
+                typeSpan.textContent = 'PUT';
+            } else {
+                typeSpan.textContent = pair.type || '—';
+            }
+            typeCell.appendChild(typeSpan);
+
+            // Strike Price
+            const strikeCell = row.insertCell(columnIndex++);
+            if (typeof pair.strike === 'string') {
+                // Spread with multiple strikes
+                strikeCell.textContent = pair.strike;
+            } else if (Number.isFinite(pair.strike)) {
+                strikeCell.textContent = this.formatNumber(pair.strike, { decimals: 2, useGrouping: false });
+            } else {
+                strikeCell.textContent = '—';
+            }
+
+            // Status
+            const statusCell = row.insertCell(columnIndex++);
+            const statusBadge = document.createElement('span');
+            statusBadge.className = 'status-badge';
+            
+            let statusClass, statusText;
+            if (pair.isRolling) {
+                statusClass = 'rolling';
+                statusText = 'Rolling';
+            } else if (pair.isExpired && pair.isOpen) {
+                statusClass = 'expired';
+                statusText = 'Expired';
+            } else if (pair.isOpen) {
+                statusClass = 'open';
+                statusText = 'Open';
+            } else {
+                statusClass = 'closed';
+                statusText = 'Closed';
+            }
+            
+            statusBadge.classList.add(statusClass);
+            statusBadge.textContent = statusText;
+            statusCell.appendChild(statusBadge);
+
+            // Contracts / Quantity
+            const quantityCell = row.insertCell(columnIndex++);
+            quantityCell.textContent = Number.isFinite(pair.quantity) ? pair.quantity : '—';
+
+            // Price per Contract
+            const pricePerContractCell = row.insertCell(columnIndex++);
+            pricePerContractCell.textContent = Number.isFinite(pair.pricePerContract)
+                ? this.formatCurrency(pair.pricePerContract)
+                : '—';
+
+            // Premium
+            const premiumCell = row.insertCell(columnIndex++);
+            premiumCell.textContent = Number.isFinite(pair.premium)
+                ? this.formatCurrency(pair.premium)
+                : '—';
+            premiumCell.className = pair.premium >= 0 ? 'pl-positive' : 'pl-negative';
+
+            // Entry Date
+            const entryDateCell = row.insertCell(columnIndex++);
+            entryDateCell.textContent = this.formatDate(pair.entryDate);
+
+            // Expiration Date
+            const expirationCell = row.insertCell(columnIndex++);
+            expirationCell.textContent = this.formatDate(pair.expirationDate);
+
+            // DTE
+            const dteCell = row.insertCell(columnIndex++);
+            dteCell.textContent = Number.isFinite(pair.dte) ? pair.dte : '—';
+
+            // Exit Date
+            const exitDateCell = row.insertCell(columnIndex++);
+            exitDateCell.textContent = pair.exitDate ? this.formatDate(pair.exitDate) : '—';
+
+            // Days Held
+            const daysHeldCell = row.insertCell(columnIndex++);
+            daysHeldCell.textContent = Number.isFinite(pair.daysHeld) ? pair.daysHeld : '—';
+
+            // P&L
+            const plCell = row.insertCell(columnIndex++);
+            if (Number.isFinite(pair.pl)) {
+                plCell.textContent = this.formatCurrency(pair.pl);
+                plCell.className = pair.pl >= 0 ? 'pl-positive' : 'pl-negative';
+            } else {
+                plCell.textContent = '—';
+                plCell.className = 'pl-neutral';
+            }
+
+            // ROI
+            const roiCell = row.insertCell(columnIndex++);
+            if (Number.isFinite(pair.roi)) {
+                roiCell.textContent = this.formatPercent(pair.roi, '—', { decimals: 1 });
+                roiCell.className = pair.roi >= 0 ? 'pl-positive' : 'pl-negative';
+            } else {
+                roiCell.textContent = '—';
+                roiCell.className = 'pl-neutral';
+            }
+
+            this.applyResponsiveLabels(row, [
+                'Ticker',
+                'Strategy',
+                'Type',
+                'Strike Price',
+                'Status',
+                'Contracts',
+                'Price/Contract',
+                'Premium',
+                'Entry Date',
+                'Expiration Date',
+                'DTE',
+                'Exit Date',
+                'Days Held',
+                'P&L',
+                'ROI'
+            ]);
+        });
+    }
+
+    extractCreditPlaybookLegPairs(entries = []) {
+        const pairs = [];
+        const now = this.currentDate instanceof Date ? this.currentDate : new Date();
+
+        entries.forEach((entry) => {
+            const trade = entry.trade;
+            const legs = trade?.legs || [];
+            if (!legs.length) {
+                return;
+            }
+
+            const strategy = trade.strategy || '';
+            const isSpread = strategy.toLowerCase().includes('spread');
+
+            if (isSpread) {
+                // Handle spreads as a single combined position
+                this.extractSpreadPair(trade, legs, now, pairs);
+            } else {
+                // Handle naked options individually by strike
+                this.extractIndividualLegPairs(trade, legs, now, pairs);
+            }
+        });
+
+        return pairs;
+    }
+
+    extractSpreadPair(trade, legs, now, pairs) {
+        // Filter only option legs
+        const optionLegs = legs.filter(leg => leg.type === 'CALL' || leg.type === 'PUT');
+        if (optionLegs.length === 0) {
+            return;
+        }
+
+        // Group by expiration to handle different expirations
+        const expirationGroups = new Map();
+        optionLegs.forEach(leg => {
+            const expiration = leg.expirationDate || '';
+            if (!expirationGroups.has(expiration)) {
+                expirationGroups.set(expiration, []);
+            }
+            expirationGroups.get(expiration).push(leg);
+        });
+
+        expirationGroups.forEach((groupLegs, expiration) => {
+            // Separate opening and closing legs
+            const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
+            const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
+
+            // Get option type (all should be same for a vertical spread)
+            const type = openingLegs[0]?.type || 'CALL';
+
+            // Calculate strikes for spread
+            const strikes = openingLegs.map(leg => Number(leg.strike)).filter(s => Number.isFinite(s));
+            const spreadStrike = strikes.length > 0 
+                ? `${Math.min(...strikes)}/${Math.max(...strikes)}`
+                : '—';
+
+            // Calculate net position
+            let totalPremium = 0;
+            let totalFees = 0;
+            let entryDate = null;
+            let exitDate = null;
+            let quantity = 0;
+
+            openingLegs.forEach(leg => {
+                const cashFlow = this.calculateLegCashFlow(leg);
+                totalPremium += cashFlow;
+                totalFees += Number(leg.fees) || 0;
+                quantity = Math.max(quantity, Math.abs(Number(leg.quantity) || 0));
+                
+                const legDate = this.parseDateValue(leg.executionDate);
+                if (legDate && (!entryDate || legDate < entryDate)) {
+                    entryDate = legDate;
+                }
+            });
+
+            closingLegs.forEach(leg => {
+                const cashFlow = this.calculateLegCashFlow(leg);
+                totalPremium += cashFlow;
+                totalFees += Number(leg.fees) || 0;
+                
+                const legDate = this.parseDateValue(leg.executionDate);
+                if (legDate && (!exitDate || legDate > exitDate)) {
+                    exitDate = legDate;
+                }
+            });
+
+            // Determine status
+            const expirationDate = this.parseDateValue(expiration);
+            const hasExpired = expirationDate && expirationDate < now;
+            const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired;
+
+            // Calculate metrics
+            const dte = isOpen && expirationDate 
+                ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) 
+                : null;
+            
+            const daysHeld = entryDate && (exitDate || hasExpired)
+                ? Math.ceil(((exitDate || expirationDate || now).getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000))
+                : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
+
+            const multiplier = 100;
+            const pricePerContract = quantity > 0 ? totalPremium / (quantity * multiplier) : 0;
+            
+            // For spreads, capital is width of strikes * quantity * multiplier
+            const width = strikes.length >= 2 ? Math.max(...strikes) - Math.min(...strikes) : 0;
+            const capital = width > 0 ? Math.abs(width * quantity * multiplier) : 0;
+            const pl = totalPremium - totalFees;
+            const roi = capital > 0 ? (pl / capital) * 100 : null;
+
+            pairs.push({
+                tradeId: trade.id,
+                ticker: trade.ticker,
+                strategy: trade.strategy,
+                strike: spreadStrike,
+                type,
+                quantity,
+                pricePerContract,
+                premium: totalPremium,
+                entryDate,
+                expirationDate: expiration,
+                dte,
+                exitDate: exitDate || (hasExpired ? expirationDate : null),
+                daysHeld,
+                pl,
+                roi,
+                isOpen,
+                isExpired: hasExpired,
+                capital
+            });
+        });
+    }
+
+    extractIndividualLegPairs(trade, legs, now, pairs) {
+        // For naked options, we need to track all legs with same strike/type across different expirations
+        // to properly handle rolls
+        
+        // Group all legs by strike and type (not expiration) to detect rolls
+        const strikeTypeGroups = new Map();
+        
+        legs.forEach((leg) => {
+            if (leg.type !== 'CALL' && leg.type !== 'PUT') {
+                return; // Skip non-option legs
+            }
+
+            const strike = Number(leg.strike);
+            const type = leg.type;
+            const key = `${type}|${strike}`;
+
+            if (!strikeTypeGroups.has(key)) {
+                strikeTypeGroups.set(key, []);
+            }
+            strikeTypeGroups.get(key).push(leg);
+        });
+
+        // Process each strike/type group
+        strikeTypeGroups.forEach((groupLegs, key) => {
+            const [type, strikeStr] = key.split('|');
+            const strike = Number(strikeStr);
+
+            // Group by expiration within this strike/type
+            const expirationGroups = new Map();
+            groupLegs.forEach(leg => {
+                const expiration = leg.expirationDate || '';
+                if (!expirationGroups.has(expiration)) {
+                    expirationGroups.set(expiration, []);
+                }
+                expirationGroups.get(expiration).push(leg);
+            });
+
+            // Check if this is a rolled position (multiple expirations with close+open pattern)
+            const isRolled = expirationGroups.size > 1;
+            const tradeStatus = (trade.status || '').toLowerCase();
+            const isRolling = tradeStatus === 'rolling' || tradeStatus === 'rolled';
+
+            if (isRolled || isRolling) {
+                // Handle as a single rolled position
+                this.extractRolledPosition(trade, groupLegs, strike, type, now, pairs);
+            } else {
+                // Handle each expiration separately
+                expirationGroups.forEach((expLegs, expiration) => {
+                    this.extractSingleLegPair(trade, expLegs, strike, type, expiration, now, pairs);
+                });
+            }
+        });
+    }
+
+    extractRolledPosition(trade, allLegs, strike, type, now, pairs) {
+        // Sort legs by execution date to track the roll timeline
+        const sortedLegs = allLegs.slice().sort((a, b) => {
+            const dateA = this.parseDateValue(a.executionDate);
+            const dateB = this.parseDateValue(b.executionDate);
+            if (!dateA || !dateB) return 0;
+            return dateA.getTime() - dateB.getTime();
+        });
+
+        // Calculate total premium and fees across all legs
+        let totalPremium = 0;
+        let totalFees = 0;
+        let netQuantity = 0;
+        let entryDate = null;
+        let exitDate = null;
+        let currentExpiration = null;
+
+        sortedLegs.forEach(leg => {
+            const legSide = this.getLegSide(leg);
+            const action = this.getLegAction(leg);
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            const cashFlow = this.calculateLegCashFlow(leg);
+            
+            totalPremium += cashFlow;
+            totalFees += Number(leg.fees) || 0;
+            
+            if (legSide === 'OPEN') {
+                if (action === 'SELL') {
+                    netQuantity += quantity;
+                } else {
+                    netQuantity -= quantity;
+                }
+                currentExpiration = leg.expirationDate;
+            }
+            
+            const legDate = this.parseDateValue(leg.executionDate);
+            if (legDate) {
+                if (!entryDate || legDate < entryDate) {
+                    entryDate = legDate;
+                }
+                if (legSide === 'CLOSE') {
+                    if (!exitDate || legDate > exitDate) {
+                        exitDate = legDate;
+                    }
+                }
+            }
+        });
+
+        // Determine status
+        const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
+        const hasExpired = expirationDate && expirationDate < now;
+        const hasOpenLegs = sortedLegs.some(leg => this.getLegSide(leg) === 'OPEN');
+        const hasCloseLegs = sortedLegs.some(leg => this.getLegSide(leg) === 'CLOSE');
+        
+        // Position is rolling if it has both open and close legs but isn't fully closed
+        const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0;
+        const isOpen = netQuantity !== 0 && !hasExpired;
+
+        if (netQuantity === 0 && !isOpen) {
+            // Position fully closed
+            netQuantity = Math.abs(sortedLegs
+                .filter(leg => this.getLegSide(leg) === 'OPEN')
+                .reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0));
+        }
+
+        // Calculate metrics
+        const dte = isOpen && expirationDate && !isRolling
+            ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) 
+            : null;
+        
+        const daysHeld = entryDate && (exitDate || hasExpired)
+            ? Math.ceil(((exitDate || expirationDate || now).getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000))
+            : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
+
+        const multiplier = 100;
+        // For rolled positions, price per contract is total premium / (quantity * multiplier)
+        // This gives the net credit/debit across all rolls
+        const pricePerContract = netQuantity > 0 ? totalPremium / (netQuantity * multiplier) : 0;
+        const capital = Math.abs(strike * netQuantity * multiplier);
+        const pl = totalPremium - totalFees;
+        const roi = capital > 0 ? (pl / capital) * 100 : null;
+
+        pairs.push({
+            tradeId: trade.id,
+            ticker: trade.ticker,
+            strategy: trade.strategy,
+            strike,
+            type,
+            quantity: netQuantity,
+            pricePerContract,
+            premium: totalPremium,
+            entryDate,
+            expirationDate: currentExpiration,
+            dte,
+            exitDate: exitDate || (hasExpired ? expirationDate : null),
+            daysHeld,
+            pl,
+            roi,
+            isOpen,
+            isExpired: hasExpired,
+            isRolling,
+            capital
+        });
+    }
+
+    extractSingleLegPair(trade, groupLegs, strike, type, expiration, now, pairs) {
+        // Separate opening and closing legs
+        const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
+        const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
+
+        // Calculate net position
+        let netQuantity = 0;
+        let totalPremium = 0;
+        let totalFees = 0;
+        let entryDate = null;
+        let exitDate = null;
+
+        openingLegs.forEach(leg => {
+            const action = this.getLegAction(leg);
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            const cashFlow = this.calculateLegCashFlow(leg);
+            
+            if (action === 'SELL') {
+                netQuantity += quantity;
+                totalPremium += cashFlow;
+            } else {
+                netQuantity -= quantity;
+                totalPremium += cashFlow;
+            }
+            
+            totalFees += Number(leg.fees) || 0;
+            
+            const legDate = this.parseDateValue(leg.executionDate);
+            if (legDate && (!entryDate || legDate < entryDate)) {
+                entryDate = legDate;
+            }
+        });
+
+        closingLegs.forEach(leg => {
+            const cashFlow = this.calculateLegCashFlow(leg);
+            totalPremium += cashFlow;
+            totalFees += Number(leg.fees) || 0;
+            
+            const legDate = this.parseDateValue(leg.executionDate);
+            if (legDate && (!exitDate || legDate > exitDate)) {
+                exitDate = legDate;
+            }
+        });
+
+        // Determine status
+        const expirationDate = this.parseDateValue(expiration);
+        const hasExpired = expirationDate && expirationDate < now;
+        const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired;
+
+        if (netQuantity === 0 && !isOpen) {
+            // Position fully closed
+            netQuantity = Math.abs(openingLegs.reduce((sum, leg) => {
+                return sum + (Math.abs(Number(leg.quantity) || 0));
+            }, 0));
+        }
+
+        // Calculate metrics
+        const dte = isOpen && expirationDate 
+            ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) 
+            : null;
+        
+        const daysHeld = entryDate && (exitDate || hasExpired)
+            ? Math.ceil(((exitDate || expirationDate || now).getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000))
+            : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
+
+        const multiplier = 100; // Standard option multiplier
+        const pricePerContract = netQuantity > 0 ? totalPremium / (netQuantity * multiplier) : 0;
+        const capital = Math.abs(strike * netQuantity * multiplier);
+        const pl = totalPremium - totalFees;
+        const roi = capital > 0 ? (pl / capital) * 100 : null;
+
+        pairs.push({
+            tradeId: trade.id,
+            ticker: trade.ticker,
+            strategy: trade.strategy,
+            strike,
+            type,
+            quantity: netQuantity,
+            pricePerContract,
+            premium: totalPremium,
+            entryDate,
+            expirationDate: expiration,
+            dte,
+            exitDate: exitDate || (hasExpired ? expirationDate : null),
+            daysHeld,
+            pl,
+            roi,
+            isOpen,
+            isExpired: hasExpired,
+            isRolling: false,
+            capital
+        });
+    }
+
+    renderCreditPlaybookDetailCell(cell, entry) {
+        cell.innerHTML = '';
+
+        const stageContainer = document.createElement('div');
+        stageContainer.className = 'credit-stage-group';
+        cell.appendChild(stageContainer);
+
+        const summary = entry.summary;
+        const primaryLeg = summary?.primaryLeg;
+        
+        // Build primary leg label with more detail
+        if (primaryLeg) {
+            const action = this.getLegAction(primaryLeg) || '';
+            const type = (primaryLeg.type || '').toUpperCase();
+            const strike = Number(primaryLeg.strike);
+            const expiration = primaryLeg.expirationDate;
+            
+            const actionLabel = action ? `${action.charAt(0)}${action.slice(1).toLowerCase()}` : '';
+            let stageLabel = actionLabel;
+            
+            if (Number.isFinite(strike) && ['CALL', 'PUT'].includes(type)) {
+                const formattedStrike = this.formatNumber(strike, { decimals: 2, useGrouping: false }) ?? strike.toFixed(2);
+                const typeSuffix = type === 'CALL' ? 'C' : 'P';
+                stageLabel = `${stageLabel ? `${stageLabel} ` : ''}${formattedStrike}${typeSuffix}`;
+                
+                // Add expiration if available
+                if (expiration) {
+                    const expText = this.formatDate(expiration);
+                    if (expText && expText !== '—') {
+                        stageLabel += ` ${expText}`;
+                    }
+                }
+            } else if (type) {
+                stageLabel = `${stageLabel ? `${stageLabel} ` : ''}${type}`;
+            }
+            
+            stageContainer.appendChild(this.createCreditStage(stageLabel || entry.strategy, 'primary'));
+        } else {
+            stageContainer.appendChild(this.createCreditStage(entry.strategy || entry.ticker, 'primary'));
+        }
+
+        // Show number of legs if multi-leg strategy
+        if (summary && summary.legsCount > 1) {
+            const legTypeBreakdown = [];
+            if (summary.openLegs > 0) legTypeBreakdown.push(`${summary.openLegs} open`);
+            if (summary.closeLegs > 0) legTypeBreakdown.push(`${summary.closeLegs} close`);
+            if (summary.rollLegs > 0) legTypeBreakdown.push(`${summary.rollLegs} roll`);
+            
+            const legLabel = legTypeBreakdown.length 
+                ? `${summary.legsCount} legs (${legTypeBreakdown.join(', ')})`
+                : `${summary.legsCount} legs`;
+            stageContainer.appendChild(this.createCreditStage(legLabel));
+        }
+
+        if (Number.isFinite(entry.premium) && entry.premium !== 0) {
+            const premiumLabel = entry.premium >= 0 
+                ? `Credit ${this.formatCurrency(entry.premium)}`
+                : `Debit ${this.formatCurrency(Math.abs(entry.premium))}`;
+            stageContainer.appendChild(this.createCreditStage(premiumLabel));
+        }
+
+        if (entry.contracts > 0) {
+            const contractsLabel = `${entry.contracts} contract${entry.contracts === 1 ? '' : 's'}`;
+            stageContainer.appendChild(this.createCreditStage(contractsLabel));
+        }
+
+        if (entry.expirationLabel) {
+            const expirationText = this.formatDate(entry.expirationLabel);
+            if (expirationText && expirationText !== '—') {
+                const dte = Number(entry.dte);
+                const variant = Number.isFinite(dte) && dte <= this.positionHighlightConfig.expirationCriticalDays
+                    ? 'warning'
+                    : 'default';
+                const dteLabel = Number.isFinite(dte) ? ` (${dte}d)` : '';
+                stageContainer.appendChild(this.createCreditStage(`Exp ${expirationText}${dteLabel}`, variant));
+            }
+        }
+
+        const metaParts = [];
+        
+        // Add entry and exit prices if available
+        if (Number.isFinite(summary?.entryPrice) && summary.entryPrice > 0) {
+            metaParts.push(`Entry ${this.formatCurrency(summary.entryPrice)}`);
+        }
+        if (Number.isFinite(summary?.exitPrice) && summary.exitPrice > 0) {
+            metaParts.push(`Exit ${this.formatCurrency(summary.exitPrice)}`);
+        }
+        
+        if (Number.isFinite(entry.capitalAtRisk) && entry.capitalAtRisk > 0) {
+            metaParts.push(`Risk ${this.formatCurrency(entry.capitalAtRisk)}`);
+        }
+        
+        if (Number.isFinite(entry.capitalPerContract) && entry.capitalPerContract > 0) {
+            metaParts.push(`Risk/contract ${this.formatCurrency(entry.capitalPerContract)}`);
+        }
+        
+        if (Number.isFinite(entry.premiumPerContract)) {
+            const perContractLabel = entry.premiumPerContract >= 0
+                ? `Credit/contract ${this.formatCurrency(entry.premiumPerContract)}`
+                : `Debit/contract ${this.formatCurrency(Math.abs(entry.premiumPerContract))}`;
+            metaParts.push(perContractLabel);
+        }
+        
+        // Add fees if significant
+        if (Number.isFinite(summary?.totalFees) && summary.totalFees > 0) {
+            metaParts.push(`Fees ${this.formatCurrency(summary.totalFees)}`);
+        }
+
+        if (metaParts.length) {
+            const meta = document.createElement('span');
+            meta.className = 'credit-playbook-detail-meta';
+            meta.textContent = metaParts.join(' • ');
+            cell.appendChild(meta);
+        }
+    }
+
+    createCreditStage(label, variant = 'default') {
+        const stage = document.createElement('span');
+        stage.className = 'credit-stage';
+        if (variant && variant !== 'default') {
+            stage.classList.add(`credit-stage--${variant}`);
+        }
+        stage.textContent = label;
+        return stage;
+    }
+
+    sortCreditPlaybook(sortKey) {
+        if (!sortKey) {
+            return;
+        }
+
+        const currentKey = this.creditPlaybookSort?.key;
+        const currentDirection = this.creditPlaybookSort?.direction || 'desc';
+        const isSameKey = currentKey === sortKey;
+        const nextDirection = isSameKey && currentDirection === 'asc' ? 'desc' : 'asc';
+
+        this.creditPlaybookSort = {
+            key: sortKey,
+            direction: isSameKey ? nextDirection : (sortKey === 'openedDate' ? 'desc' : 'asc')
+        };
+
+        this.applyCreditPlaybookSortIndicators();
+        this.updateCreditPlaybookView();
     }
 
     updateAllCharts() {
@@ -11997,15 +13454,17 @@ class GammaLedger {
             direction
         };
 
-        // Update sort indicators
-        document.querySelectorAll('.sortable').forEach(header => {
-            header.classList.remove('asc', 'desc');
-            header.removeAttribute('aria-sort');
-        });
-        const sortHeader = document.querySelector(`[data-sort="${sortBy}"]`);
-        if (sortHeader) {
-            sortHeader.classList.add(direction);
-            sortHeader.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+        const tradesTable = document.getElementById('trades-table');
+        if (tradesTable) {
+            tradesTable.querySelectorAll('.sortable').forEach((header) => {
+                header.classList.remove('asc', 'desc');
+                header.removeAttribute('aria-sort');
+            });
+            const sortHeader = tradesTable.querySelector(`[data-sort="${sortBy}"]`);
+            if (sortHeader) {
+                sortHeader.classList.add(direction);
+                sortHeader.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+            }
         }
 
         const sourceTrades = Array.isArray(this.currentFilteredTrades)

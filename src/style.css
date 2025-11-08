@@ -2781,6 +2781,132 @@ select.form-control {
   font-style: italic;
 }
 
+/* Credit Playbook View */
+.credit-playbook-header {
+  margin-bottom: var(--space-24);
+}
+
+.credit-playbook-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-12);
+  width: 100%;
+  max-width: 100%;
+}
+
+.credit-playbook-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-16);
+  padding: var(--space-20);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-24);
+}
+
+.credit-playbook-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.credit-playbook-filter .filter-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.credit-playbook-table-container {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+#credit-playbook-table {
+  font-size: var(--font-size-sm);
+}
+
+#credit-playbook-table th,
+#credit-playbook-table td {
+  white-space: nowrap;
+}
+
+#credit-playbook-table td.position-detail-cell {
+  white-space: normal;
+  max-width: 240px;
+  line-height: 1.45;
+}
+
+.credit-stage-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+.credit-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-10);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: rgba(var(--color-brown-600-rgb), 0.08);
+  color: var(--color-text);
+}
+
+.credit-stage--primary {
+  background: rgba(var(--color-teal-500-rgb), 0.12);
+  color: var(--color-teal-700);
+}
+
+.credit-stage--warning {
+  background: rgba(var(--color-warning-rgb), 0.18);
+  color: var(--color-warning);
+}
+
+.credit-playbook-detail-meta {
+  display: block;
+  margin-top: var(--space-4);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.credit-playbook-view .pl-positive {
+  color: var(--color-success);
+  font-weight: var(--font-weight-medium);
+}
+
+.credit-playbook-view .pl-negative {
+  color: var(--color-error);
+  font-weight: var(--font-weight-medium);
+}
+
+.credit-playbook-view .pl-neutral {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+@media (max-width: 980px) {
+  .credit-playbook-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .credit-playbook-metrics {
+    width: 100%;
+  }
+
+  .credit-playbook-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .credit-playbook-table-container {
+    overflow-x: auto;
+  }
+}
+
 /* Form Styles */
 .trade-form {
   max-width: 900px;
@@ -3413,6 +3539,29 @@ tr:hover {
   background-color: rgba(52, 120, 246, 0.16);
   color: #3b82f6;
   border: 1px solid rgba(52, 120, 246, 0.45);
+}
+
+/* Option type badges */
+.option-type-badge {
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  display: inline-block;
+  letter-spacing: 0.025em;
+}
+
+.option-type-badge.type-call {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.option-type-badge.type-put {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 /* Status color classes for backward compatibility */
