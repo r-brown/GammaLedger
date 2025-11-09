@@ -2071,6 +2071,47 @@ class GammaLedger {
         return summary;
     }
 
+    hasNetOpenOptionLegs(trade = {}) {
+        const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+        if (!legs.length) {
+            return false;
+        }
+
+        const summary = this.summarizeLegs(legs);
+        const normalizedLegs = Array.isArray(summary?.legs) ? summary.legs : [];
+        if (!normalizedLegs.length) {
+            return false;
+        }
+
+        const optionNet = new Map();
+
+        normalizedLegs.forEach((leg) => {
+            if (!leg || !['CALL', 'PUT'].includes((leg.type || '').toUpperCase())) {
+                return;
+            }
+
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            if (!quantity) {
+                return;
+            }
+
+            const key = `${leg.type}|${leg.strike ?? ''}|${leg.expirationDate ?? ''}`;
+            const side = this.getLegSide(leg);
+
+            if (side === 'OPEN') {
+                optionNet.set(key, (optionNet.get(key) || 0) + quantity);
+            } else if (side === 'CLOSE') {
+                optionNet.set(key, (optionNet.get(key) || 0) - quantity);
+            }
+        });
+
+        if (!optionNet.size) {
+            return false;
+        }
+
+        return Array.from(optionNet.values()).some(count => count > 0);
+    }
+
     buildRiskFormulaContext(trade = {}, details = null) {
         const summary = details || this.summarizeLegs(trade?.legs || []);
         if (!summary) {
@@ -2659,8 +2700,20 @@ class GammaLedger {
             return null;
         }
 
-    const openLegs = legsWithStrike.filter((leg) => this.getLegSide(leg) === 'OPEN');
-        const candidates = openLegs.length ? openLegs : legsWithStrike;
+        const optionLegs = legsWithStrike.filter((leg) => ['CALL', 'PUT'].includes((leg.type || '').toUpperCase()));
+        const openOptionLegs = optionLegs.filter((leg) => this.getLegSide(leg) === 'OPEN');
+        const openLegs = legsWithStrike.filter((leg) => this.getLegSide(leg) === 'OPEN');
+
+        let candidates = [];
+        if (openOptionLegs.length) {
+            candidates = openOptionLegs;
+        } else if (optionLegs.length) {
+            candidates = optionLegs;
+        } else if (openLegs.length) {
+            candidates = openLegs;
+        } else {
+            candidates = legsWithStrike;
+        }
 
         let chosenLeg = null;
         let chosenTimestamp = Number.NEGATIVE_INFINITY;
@@ -4498,6 +4551,13 @@ class GammaLedger {
             expirationDate = pmccShortExpiration;
         }
 
+        if (!this.isPmccTrade(enriched) && this.isWheelOrPmccTrade(enriched) && pmccShortExpiration) {
+            const hasActiveOptions = this.hasNetOpenOptionLegs({ ...enriched, legs: legSummary.legs });
+            if (hasActiveOptions) {
+                expirationDate = pmccShortExpiration;
+            }
+        }
+
         enriched.pmccShortExpiration = pmccShortExpiration ? pmccShortExpiration.toISOString().slice(0, 10) : '';
         enriched.longExpirationDate = legSummary.latestExpiration ? legSummary.latestExpiration.toISOString().slice(0, 10) : '';
 
@@ -5976,13 +6036,31 @@ class GammaLedger {
     calculateAdvancedStats() {
         const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
         const assignedTrades = this.trades.filter(trade => this.isAssignedStatus(trade.status));
-        const openTrades = this.trades.filter(trade => this.isActiveStatus(trade.status));
+        let openTrades = this.trades.filter(trade => this.isActiveStatus(trade.status));
         const wheelPmccTrades = this.trades.filter(trade => {
             if (this.isWheelOrPmccTrade(trade)) {
                 return true;
             }
             return this.isAssignedStatus(trade.status);
         });
+
+        const assignedWithActiveOptions = assignedTrades.filter(trade => this.isWheelOrPmccTrade(trade) && this.hasNetOpenOptionLegs(trade));
+        if (assignedWithActiveOptions.length) {
+            const openTradeMap = new Map();
+            openTrades.forEach(trade => {
+                if (trade) {
+                    const key = String(trade.id ?? `${trade.ticker || 'trade'}-${trade.openedDate || ''}`);
+                    openTradeMap.set(key, trade);
+                }
+            });
+            assignedWithActiveOptions.forEach(trade => {
+                if (trade) {
+                    const key = String(trade.id ?? `${trade.ticker || 'assigned'}-${trade.openedDate || ''}`);
+                    openTradeMap.set(key, trade);
+                }
+            });
+            openTrades = Array.from(openTradeMap.values());
+        }
         
         // Exclude assigned trades from P&L calculations as they're transitions to stock positions
         const winningTrades = closedTrades.filter(trade => trade.pl > 0);
@@ -6542,7 +6620,22 @@ class GammaLedger {
     }
 
 
-    updateActivePositionsTable(openTrades = this.trades.filter(trade => this.isActiveStatus(trade.status))) {
+    updateActivePositionsTable(openTrades = this.trades.filter(trade => {
+        // Include trades with Open or Rolling status
+        if (this.isActiveStatus(trade.status)) {
+            return true;
+        }
+        
+        // Also include Assigned Wheel/PMCC trades that have net open option legs
+        // (i.e., unclosed covered calls or puts)
+        if (this.isAssignmentTrade(trade) && this.isWheelOrPmccTrade(trade)) {
+            if (this.hasNetOpenOptionLegs(trade)) {
+                return true;
+            }
+        }
+        
+        return false;
+    })) {
         const tbody = document.querySelector('#active-positions-table tbody');
 
         if (tbody) {
