@@ -2744,6 +2744,8 @@ select.form-control {
 }
 
 /* Wheel / PMCC tracker column sizing */
+/* Columns: Ticker, Shares, Type, Assigned Date, Avg Price, Eff Cost Basis, Sold Calls, Max Risk Gain, Status, Market Value, Unrealized G/L, Notes */
+/* First 11 columns: equally distributed (75% / 11 = ~6.82% each), Notes: 25% */
 #assigned-positions-table th:nth-child(1),
 #assigned-positions-table td:nth-child(1),
 #assigned-positions-table th:nth-child(2),
@@ -2761,17 +2763,33 @@ select.form-control {
 #assigned-positions-table th:nth-child(8),
 #assigned-positions-table td:nth-child(8),
 #assigned-positions-table th:nth-child(9),
-#assigned-positions-table td:nth-child(9) {
-  width: 7.78%;
-}
-
+#assigned-positions-table td:nth-child(9),
 #assigned-positions-table th:nth-child(10),
-#assigned-positions-table td:nth-child(10) {
-  width: 30%;
+#assigned-positions-table td:nth-child(10),
+#assigned-positions-table th:nth-child(11),
+#assigned-positions-table td:nth-child(11) {
+  width: 6.82%;
 }
 
-#assigned-positions-table td:nth-child(10) {
+#assigned-positions-table th:nth-child(12),
+#assigned-positions-table td:nth-child(12) {
+  width: 25%;
+}
+
+#assigned-positions-table td:nth-child(12) {
   word-break: break-word;
+}
+
+/* Market Value and Unrealized G/L cell styling */
+#assigned-positions-table .gl-absolute {
+  display: block;
+  font-weight: var(--font-weight-semibold);
+}
+
+#assigned-positions-table .gl-percent {
+  display: block;
+  font-size: var(--font-size-xs);
+  opacity: 0.85;
 }
 
 .section-help-text {
@@ -4261,7 +4279,6 @@ tr.position-itm.position-expiring-critical td {
   background: rgba(var(--color-teal-500-rgb), 0.06);
   padding: var(--space-8) var(--space-12);
   border-radius: var(--radius-base);
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
   font-size: var(--font-size-sm);
   color: var(--color-text);
   border-left: 3px solid rgba(var(--color-teal-500-rgb), 0.4);
@@ -4275,7 +4292,6 @@ tr.position-itm.position-expiring-critical td {
   background: rgba(var(--color-slate-500-rgb), 0.04);
   padding: var(--space-8) var(--space-12);
   border-radius: var(--radius-base);
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   margin-bottom: var(--space-8);
@@ -4305,7 +4321,6 @@ tr.position-itm.position-expiring-critical td {
 }
 
 .formula-tooltip__variable-name {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
   font-weight: var(--font-weight-semibold);
   color: var(--color-teal-500);
 }

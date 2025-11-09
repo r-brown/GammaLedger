@@ -6708,7 +6708,7 @@ class GammaLedger {
         if (tbody) {
             tbody.innerHTML = '';
 
-            const columnLabels = ['Ticker', 'Strategy', 'Status', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Notes'];
+            const columnLabels = ['Ticker', 'Strategy', 'Status', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Market Value', 'Unrealized Gain/Loss', 'Notes'];
 
             // Filter assignments based on the status filter
             const currentFilter = this.assignedPositionsStatusFilter;
@@ -6720,6 +6720,9 @@ class GammaLedger {
                 }
                 return true;
             });
+
+            // Create quote entries map for live price updates
+            const quoteEntries = new Map();
 
             filteredAssignments.forEach(({ trade, strike, premiumCollected, premiumHistory, effectiveCostBasis, shares, initialPutPremium, callPremium, longCallCost, positionType, assignmentCostBasis, assignmentDate }) => {
                 const row = tbody.insertRow();
@@ -6873,13 +6876,153 @@ class GammaLedger {
                 // Eff. Cost Basis
                 row.insertCell(8).textContent = this.formatCurrency(effectiveCostBasis);
 
+                // Market Value (Current Price × Shares) - will be populated when quote loads
+                const marketValueCell = row.insertCell(9);
+                marketValueCell.className = 'market-value-cell quote-dependent';
+                marketValueCell.textContent = '—';
+                marketValueCell.dataset.shares = String(shares);
+                marketValueCell.dataset.effectiveCostBasis = String(effectiveCostBasis);
+
+                // Unrealized Gain/Loss (Market Value - Eff. Cost Basis) - will be populated when quote loads
+                const unrealizedGLCell = row.insertCell(10);
+                unrealizedGLCell.className = 'unrealized-gl-cell quote-dependent';
+                unrealizedGLCell.textContent = '—';
+
+                // Store quote entry for this row
+                const ticker = (trade.ticker || '').toString().trim().toUpperCase();
+                if (ticker && this.finnhub.apiKey) {
+                    const baseQuoteKey = this.getQuoteEntryKey(trade);
+                    const quoteKey = `assigned|${baseQuoteKey}|row:${quoteEntries.size}`;
+                    row.dataset.quoteKey = quoteKey;
+                    quoteEntries.set(quoteKey, {
+                        trade,
+                        row,
+                        marketValueCell,
+                        unrealizedGLCell,
+                        shares,
+                        effectiveCostBasis,
+                        key: quoteKey
+                    });
+                }
+
                 // Notes
-                const notesCell = row.insertCell(9);
+                const notesCell = row.insertCell(11);
                 notesCell.textContent = trade.notes || '—';
                 notesCell.className = 'notes-col';
 
                 this.applyResponsiveLabels(row, columnLabels);
             });
+
+            // Set up quote refresh for assigned positions
+            if (!this.assignedPositionsQuoteEntries) {
+                this.assignedPositionsQuoteEntries = new Map();
+            }
+            this.assignedPositionsQuoteEntries = quoteEntries;
+            
+            // Merge with existing quote entries for unified refresh
+            if (quoteEntries.size > 0) {
+                quoteEntries.forEach((entry, key) => {
+                    this.activeQuoteEntries.set(key, entry);
+                });
+                this.rebuildQuoteRefreshSchedule();
+                this.startQuoteAutoRefreshIfNeeded();
+                
+                // Trigger initial quote fetch for assigned positions
+                this.refreshAssignedPositionsQuotes({ immediate: true });
+            }
+        }
+    }
+
+    refreshAssignedPositionsQuotes({ force = false, immediate = false } = {}) {
+        if (!(this.assignedPositionsQuoteEntries instanceof Map) || this.assignedPositionsQuoteEntries.size === 0) {
+            return;
+        }
+
+        this.assignedPositionsQuoteEntries.forEach((entry) => {
+            if (!entry || !entry.row?.isConnected) {
+                return;
+            }
+
+            const ticker = (entry.trade?.ticker || '').toString().trim().toUpperCase();
+            if (!ticker) {
+                return;
+            }
+
+            this.getCurrentPrice(ticker, { forceRefresh: force })
+                .then(quote => {
+                    if (!entry.row?.isConnected) {
+                        return;
+                    }
+                    this.updateAssignedPositionMetrics(entry, quote);
+                })
+                .catch(error => {
+                    if (!entry.row?.isConnected) {
+                        return;
+                    }
+                    // Clear values on error
+                    if (entry.marketValueCell) {
+                        entry.marketValueCell.textContent = '—';
+                    }
+                    if (entry.unrealizedGLCell) {
+                        entry.unrealizedGLCell.textContent = '—';
+                        entry.unrealizedGLCell.classList.remove('pl-positive', 'pl-negative', 'pl-neutral');
+                    }
+                });
+        });
+    }
+
+    updateAssignedPositionMetrics(entry, quote) {
+        if (!entry || !quote) {
+            return;
+        }
+
+        const currentPrice = Number(quote?.price);
+        const shares = Number(entry.shares);
+        const effectiveCostBasis = Number(entry.effectiveCostBasis);
+
+        if (!Number.isFinite(currentPrice) || !Number.isFinite(shares) || !Number.isFinite(effectiveCostBasis)) {
+            return;
+        }
+
+        // Calculate Market Value (Current Price × Shares)
+        const marketValue = currentPrice * shares;
+
+        // Calculate Unrealized Gain/Loss (Market Value - Eff. Cost Basis)
+        const unrealizedGL = marketValue - effectiveCostBasis;
+        const unrealizedGLPercent = effectiveCostBasis !== 0 ? (unrealizedGL / effectiveCostBasis) * 100 : 0;
+
+        // Update Market Value cell
+        if (entry.marketValueCell) {
+            entry.marketValueCell.textContent = this.formatCurrency(marketValue);
+        }
+
+        // Update Unrealized Gain/Loss cell with both absolute and percentage
+        if (entry.unrealizedGLCell) {
+            entry.unrealizedGLCell.innerHTML = '';
+
+            const absValueEl = document.createElement('span');
+            absValueEl.className = 'gl-absolute';
+            absValueEl.textContent = this.formatCurrency(unrealizedGL);
+            entry.unrealizedGLCell.appendChild(absValueEl);
+
+            const percentEl = document.createElement('span');
+            percentEl.className = 'gl-percent';
+            const percentMagnitude = Math.abs(unrealizedGLPercent);
+            const percentNumber = this.formatNumber(percentMagnitude, { decimals: 2, useGrouping: true })
+                ?? percentMagnitude.toFixed(2);
+            const percentPrefix = unrealizedGL > 0 ? '+' : unrealizedGL < 0 ? '-' : '';
+            percentEl.textContent = `${percentPrefix}${percentNumber}%`;
+            entry.unrealizedGLCell.appendChild(percentEl);
+
+            // Apply styling based on gain/loss
+            entry.unrealizedGLCell.classList.remove('pl-positive', 'pl-negative', 'pl-neutral');
+            if (unrealizedGL > 0) {
+                entry.unrealizedGLCell.classList.add('pl-positive');
+            } else if (unrealizedGL < 0) {
+                entry.unrealizedGLCell.classList.add('pl-negative');
+            } else {
+                entry.unrealizedGLCell.classList.add('pl-neutral');
+            }
         }
     }
 
@@ -10789,7 +10932,7 @@ class GammaLedger {
     }
 
     startQuoteAutoRefreshIfNeeded() {
-        // Unified auto-refresh for both Active Positions and Credit Playbook
+        // Unified auto-refresh for Active Positions, Credit Playbook, and Assigned Positions
         // Uses same computeAutoRefreshInterval() for consistent timing
         if (!(this.activeQuoteEntries instanceof Map)) {
             this.activeQuoteEntries = new Map();
@@ -10799,7 +10942,11 @@ class GammaLedger {
             this.creditPlaybookQuoteEntries = new Map();
         }
 
-        const totalEntries = this.activeQuoteEntries.size + this.creditPlaybookQuoteEntries.size;
+        if (!(this.assignedPositionsQuoteEntries instanceof Map)) {
+            this.assignedPositionsQuoteEntries = new Map();
+        }
+
+        const totalEntries = this.activeQuoteEntries.size + this.creditPlaybookQuoteEntries.size + this.assignedPositionsQuoteEntries.size;
         
         if (totalEntries === 0) {
             this.stopQuoteAutoRefresh();
@@ -10816,31 +10963,31 @@ class GammaLedger {
             return;
         }
 
-        // Alternate between Active Positions and Credit Playbook to distribute load
+        // Cycle between Active Positions, Credit Playbook, and Assigned Positions to distribute load
         // Each refresh function processes ONE entry per call to respect rate limits
-        let alternateSource = false;
+        let cycleIndex = 0;
 
         this.quoteRefreshIntervalId = setInterval(() => {
             const hasActiveEntries = this.activeQuoteEntries.size > 0;
             const hasCreditEntries = this.creditPlaybookQuoteEntries.size > 0;
+            const hasAssignedEntries = this.assignedPositionsQuoteEntries.size > 0;
 
-            if (!hasActiveEntries && !hasCreditEntries) {
+            if (!hasActiveEntries && !hasCreditEntries && !hasAssignedEntries) {
                 this.stopQuoteAutoRefresh();
                 return;
             }
 
-            // Alternate between sources if both have entries
-            if (hasActiveEntries && hasCreditEntries) {
-                if (alternateSource) {
-                    this.refreshCreditPlaybookQuotes({ force: true });
-                } else {
-                    this.refreshActivePositionsQuotes({ force: true });
-                }
-                alternateSource = !alternateSource;
-            } else if (hasActiveEntries) {
-                this.refreshActivePositionsQuotes({ force: true });
-            } else {
-                this.refreshCreditPlaybookQuotes({ force: true });
+            // Count how many sources have entries
+            const sources = [
+                { has: hasActiveEntries, refresh: () => this.refreshActivePositionsQuotes({ force: true }) },
+                { has: hasCreditEntries, refresh: () => this.refreshCreditPlaybookQuotes({ force: true }) },
+                { has: hasAssignedEntries, refresh: () => this.refreshAssignedPositionsQuotes({ force: true }) }
+            ].filter(s => s.has);
+
+            if (sources.length > 0) {
+                // Cycle through available sources
+                sources[cycleIndex % sources.length].refresh();
+                cycleIndex++;
             }
         }, this.autoRefreshIntervalMs);
     }
