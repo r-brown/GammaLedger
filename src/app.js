@@ -2112,6 +2112,44 @@ class GammaLedger {
         return Array.from(optionNet.values()).some(count => count > 0);
     }
 
+    getNetOpenOptionContracts(legs = []) {
+        const normalizedLegs = Array.isArray(legs) ? legs : [];
+        if (!normalizedLegs.length) {
+            return 0;
+        }
+
+        const optionNet = new Map();
+
+        normalizedLegs.forEach((leg) => {
+            if (!leg || !['CALL', 'PUT'].includes((leg.type || '').toUpperCase())) {
+                return;
+            }
+
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            if (!quantity) {
+                return;
+            }
+
+            const key = `${leg.type}|${leg.strike ?? ''}|${leg.expirationDate ?? ''}`;
+            const side = this.getLegSide(leg);
+
+            if (side === 'OPEN') {
+                optionNet.set(key, (optionNet.get(key) || 0) + quantity);
+            } else if (side === 'CLOSE') {
+                optionNet.set(key, (optionNet.get(key) || 0) - quantity);
+            }
+        });
+
+        if (!optionNet.size) {
+            return 0;
+        }
+
+        return Array.from(optionNet.values()).reduce((sum, count) => {
+            const positive = Math.max(0, Number(count) || 0);
+            return sum + positive;
+        }, 0);
+    }
+
     buildRiskFormulaContext(trade = {}, details = null) {
         const summary = details || this.summarizeLegs(trade?.legs || []);
         if (!summary) {
@@ -7346,7 +7384,10 @@ class GammaLedger {
             ? expiration.toISOString().slice(0, 10)
             : '';
 
-        const contracts = Number(summary.openBaseContracts || summary.openContracts || 0);
+        const netOptionContracts = this.getNetOpenOptionContracts(summary.legs);
+        const contracts = netOptionContracts > 0
+            ? netOptionContracts
+            : Number(summary.openBaseContracts || summary.openContracts || 0);
         const netPremium = Number(summary.openCashFlow) || 0;
         const capitalAtRisk = this.getCapitalAtRisk(trade);
         const capitalValue = Number.isFinite(capitalAtRisk) && capitalAtRisk >= 0 ? capitalAtRisk : null;
@@ -8307,14 +8348,20 @@ class GammaLedger {
             
             totalGrossPremium += direction * legPremium * multiplier * quantity;
             totalFees += Number(leg.fees) || 0;
-            
+
             if (legSide === 'OPEN') {
                 if (action === 'SELL') {
                     netQuantity += quantity;
-                } else {
+                    currentExpiration = leg.expirationDate;
+                } else if (action === 'BUY') {
                     netQuantity -= quantity;
                 }
-                currentExpiration = leg.expirationDate;
+            } else if (legSide === 'CLOSE') {
+                if (action === 'BUY') {
+                    netQuantity -= quantity;
+                } else if (action === 'SELL') {
+                    netQuantity += quantity;
+                }
             }
             
             const legDate = this.parseDateValue(leg.executionDate);
@@ -8347,6 +8394,8 @@ class GammaLedger {
                 .reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0));
         }
 
+        const absoluteQuantity = Math.abs(netQuantity);
+
         // Calculate metrics
         const dte = isOpen && expirationDate && !isRolling
             ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) 
@@ -8359,8 +8408,8 @@ class GammaLedger {
         const multiplier = 100;
         // For rolled positions, price per contract is total gross premium / (quantity * multiplier)
         // This gives the net credit/debit across all rolls
-        const pricePerContract = netQuantity > 0 ? totalGrossPremium / (netQuantity * multiplier) : 0;
-        const capital = Math.abs(strike * netQuantity * multiplier);
+        const pricePerContract = absoluteQuantity > 0 ? totalGrossPremium / (absoluteQuantity * multiplier) : 0;
+        const capital = Math.abs(strike * absoluteQuantity * multiplier);
         const netPremium = totalGrossPremium - totalFees;
         const pl = netPremium;
         const roi = capital > 0 ? (pl / capital) * 100 : null;
@@ -8371,7 +8420,7 @@ class GammaLedger {
             strategy: trade.strategy,
             strike,
             type,
-            quantity: netQuantity,
+            quantity: absoluteQuantity,
             pricePerContract,
             fees: totalFees,
             premium: netPremium,
@@ -8410,12 +8459,11 @@ class GammaLedger {
             
             if (action === 'SELL') {
                 netQuantity += quantity;
-                totalGrossPremium += direction * legPremium * multiplier * quantity;
-            } else {
+            } else if (action === 'BUY') {
                 netQuantity -= quantity;
-                totalGrossPremium += direction * legPremium * multiplier * quantity;
             }
-            
+
+            totalGrossPremium += direction * legPremium * multiplier * quantity;
             totalFees += Number(leg.fees) || 0;
             
             const legDate = this.parseDateValue(leg.executionDate);
@@ -8430,6 +8478,12 @@ class GammaLedger {
             const legPremium = Number(leg.premium) || 0;
             const multiplier = this.getLegMultiplier(leg);
             const direction = action === 'SELL' ? 1 : -1;
+
+            if (action === 'BUY') {
+                netQuantity -= quantity;
+            } else if (action === 'SELL') {
+                netQuantity += quantity;
+            }
             
             totalGrossPremium += direction * legPremium * multiplier * quantity;
             totalFees += Number(leg.fees) || 0;
@@ -8446,11 +8500,13 @@ class GammaLedger {
         const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired;
 
         if (netQuantity === 0 && !isOpen) {
-            // Position fully closed
+            // Position fully closed - retain historical peak quantity for display
             netQuantity = Math.abs(openingLegs.reduce((sum, leg) => {
-                return sum + (Math.abs(Number(leg.quantity) || 0));
+                return Math.max(sum, Math.abs(Number(leg.quantity) || 0));
             }, 0));
         }
+
+        const absoluteQuantity = Math.abs(netQuantity);
 
         // Calculate metrics
         const dte = isOpen && expirationDate 
@@ -8462,8 +8518,8 @@ class GammaLedger {
             : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
 
         const multiplier = 100; // Standard option multiplier
-        const pricePerContract = netQuantity > 0 ? totalGrossPremium / (netQuantity * multiplier) : 0;
-        const capital = Math.abs(strike * netQuantity * multiplier);
+        const pricePerContract = absoluteQuantity > 0 ? totalGrossPremium / (absoluteQuantity * multiplier) : 0;
+        const capital = Math.abs(strike * absoluteQuantity * multiplier);
         const netPremium = totalGrossPremium - totalFees;
         const pl = netPremium;
         const roi = capital > 0 ? (pl / capital) * 100 : null;
@@ -8474,7 +8530,7 @@ class GammaLedger {
             strategy: trade.strategy,
             strike,
             type,
-            quantity: netQuantity,
+            quantity: absoluteQuantity,
             pricePerContract,
             fees: totalFees,
             premium: netPremium,
