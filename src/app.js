@@ -1906,6 +1906,9 @@ class GammaLedger {
         summary.legsCount = normalizedLegs.length;
         const openOptionGroups = new Map();
         const now = this.currentDate instanceof Date ? this.currentDate : new Date();
+        
+        // Track net positions for short calls to find truly open positions
+        const shortCallPositions = new Map();
 
         normalizedLegs.forEach((leg, index) => {
             const originalLeg = Array.isArray(legs) ? legs[index] : null;
@@ -1981,22 +1984,22 @@ class GammaLedger {
                     if (!summary.latestExpiration || exp > summary.latestExpiration) {
                         summary.latestExpiration = exp;
                     }
-                    if (side === 'OPEN' && action === 'SELL' && leg.type === 'CALL') {
-                        if (!summary.nearestShortCallExpiration || exp < summary.nearestShortCallExpiration) {
-                            summary.nearestShortCallExpiration = exp;
+                    
+                    // Track short call positions to determine net open positions
+                    if (action === 'SELL' && leg.type === 'CALL') {
+                        const key = `${leg.strike}|${leg.expirationDate}`;
+                        const quantity = Math.abs(Number(leg.quantity) || 0);
+                        
+                        if (side === 'OPEN') {
+                            shortCallPositions.set(key, (shortCallPositions.get(key) || 0) + quantity);
+                        } else if (side === 'CLOSE') {
+                            shortCallPositions.set(key, (shortCallPositions.get(key) || 0) - quantity);
                         }
-                        // Options expire at 4 PM ET (21:00 UTC), not midnight
-                        const expWithMarketClose = new Date(Date.UTC(
-                            exp.getUTCFullYear(),
-                            exp.getUTCMonth(),
-                            exp.getUTCDate(),
-                            21, 0, 0
-                        ));
-                        if (expWithMarketClose >= now) {
-                            if (!summary.nextShortCallExpiration || exp < summary.nextShortCallExpiration) {
-                                summary.nextShortCallExpiration = exp;
-                            }
-                        }
+                    } else if (action === 'BUY' && leg.type === 'CALL' && side === 'CLOSE') {
+                        // BTC also closes short call positions
+                        const key = `${leg.strike}|${leg.expirationDate}`;
+                        const quantity = Math.abs(Number(leg.quantity) || 0);
+                        shortCallPositions.set(key, (shortCallPositions.get(key) || 0) - quantity);
                     }
                 }
             }
@@ -2009,6 +2012,36 @@ class GammaLedger {
         if (!summary.primaryLeg) {
             summary.primaryLeg = normalizedLegs[0];
         }
+        
+        // Calculate nearest and next short call expirations based on net open positions
+        shortCallPositions.forEach((netQuantity, key) => {
+            if (netQuantity <= 0) {
+                return; // Position is closed or net long
+            }
+            
+            const [strikeStr, expirationStr] = key.split('|');
+            const exp = expirationStr ? new Date(expirationStr) : null;
+            if (!exp || Number.isNaN(exp.getTime())) {
+                return;
+            }
+            
+            if (!summary.nearestShortCallExpiration || exp < summary.nearestShortCallExpiration) {
+                summary.nearestShortCallExpiration = exp;
+            }
+            
+            // Options expire at 4 PM ET (21:00 UTC), not midnight
+            const expWithMarketClose = new Date(Date.UTC(
+                exp.getUTCFullYear(),
+                exp.getUTCMonth(),
+                exp.getUTCDate(),
+                21, 0, 0
+            ));
+            if (expWithMarketClose >= now) {
+                if (!summary.nextShortCallExpiration || exp < summary.nextShortCallExpiration) {
+                    summary.nextShortCallExpiration = exp;
+                }
+            }
+        });
 
         // Aggregate opening-leg cash flows and gross premium components
         // Attempt to detect a vertical spread for precise risk math
