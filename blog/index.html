@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog - GammaLedger</title>
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="description" content="Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides.">
+    <meta name="keywords" content="options trading blog, wheel strategy, PMCC, options analytics, trading journal, options Greeks, cash-secured puts, covered calls">
+    <meta name="author" content="GammaLedger Contributors">
+    <meta name="copyright" content="GammaLedger">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gammaledger.com/blog/">
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="GammaLedger">
+    <meta property="og:title" content="Blog - GammaLedger">
+    <meta property="og:description" content="Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides.">
+    <meta property="og:url" content="https://gammaledger.com/blog/">
+    <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
+    <meta property="og:image:alt" content="GammaLedger blog - Options trading strategies and tutorials">
+    <meta property="og:locale" content="en_US">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Blog - GammaLedger">
+    <meta name="twitter:description" content="Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides.">
+    <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
+    <meta name="twitter:image:alt" content="GammaLedger blog - Options trading strategies and tutorials">
+    <!-- Dublin Core -->
+    <meta name="DC.Title" content="Blog - GammaLedger">
+    <meta name="DC.Description" content="Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides.">
+    <meta name="DC.Subject" content="options trading blog, wheel strategy, PMCC, options analytics, trading journal">
+    <meta name="DC.Creator" content="GammaLedger Contributors">
+    <meta name="DC.Publisher" content="GammaLedger">
+    <meta name="DC.Type" content="Text">
+    <meta name="DC.Format" content="text/html">
+    <meta name="DC.Language" content="en">
+    <meta name="DC.Date" content="2025-10-23">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="../assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/gammaledger-logo-32x32.png">
+    <style>
+        /* Design System Variables */
+        :root {
+            --bg-primary: #0a0b1a;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1f2937;
+            --bg-card: rgba(15, 23, 42, 0.8);
+            
+            --purple-500: #8b5cf6;
+            --purple-600: #a855f7;
+            --blue-500: #3b82f6;
+            --blue-600: #6366f1;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            
+            --gradient-primary: linear-gradient(135deg, var(--purple-500), var(--blue-500));
+            
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Navigation */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 11, 26, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--purple-500);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 4rem 0 2rem;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        /* Filter Section */
+        .filter-section {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-tag {
+            padding: 0.5rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 2rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .filter-tag:hover,
+        .filter-tag.active {
+            background: var(--gradient-primary);
+            color: white;
+            border-color: transparent;
+        }
+
+        /* Blog Grid */
+        .blog-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 2rem;
+            padding-bottom: 4rem;
+        }
+
+        .blog-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(139, 92, 246, 0.1);
+            border-radius: 1rem;
+            padding: 0;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: var(--text-primary);
+            display: block;
+            overflow: hidden;
+        }
+
+        .blog-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--purple-500);
+            box-shadow: 0 10px 30px rgba(139, 92, 246, 0.2);
+        }
+
+        .blog-card-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .blog-card-content {
+            padding: 2rem;
+        }
+
+        .blog-card-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .blog-card-content h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .blog-card-content p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+
+        .blog-tags {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 0.25rem 0.75rem;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            color: var(--purple-500);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg-primary);
+            padding: 4rem 0 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 5rem;
+        }
+        
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .footer-section h3 {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .footer-links {
+            list-style: none;
+        }
+        
+        .footer-links li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+            color: var(--purple-500);
+        }
+        
+        .footer-bottom {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        /* Article View Styles */
+        .article-container {
+            max-width: 1200px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+        }
+
+        .article-header {
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .article-featured-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .article-title {
+            font-size: 2.75rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .article-meta {
+            display: flex;
+            gap: 1.5rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        .article-tags {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        /* Markdown Content Styles */
+        .article-content {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            line-height: 1.8;
+        }
+
+        .article-content h1 {
+            font-size: 2rem;
+            color: var(--text-primary);
+            margin: 2.5rem 0 1rem;
+            font-weight: 700;
+        }
+
+        .article-content h2 {
+            font-size: 1.75rem;
+            color: var(--text-primary);
+            margin: 2rem 0 1rem;
+            font-weight: 700;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.2);
+            padding-bottom: 0.5rem;
+        }
+
+        .article-content h3 {
+            font-size: 1.4rem;
+            color: var(--text-primary);
+            margin: 1.5rem 0 0.75rem;
+            font-weight: 600;
+        }
+
+        .article-content h4 {
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            margin: 1.25rem 0 0.5rem;
+            font-weight: 600;
+        }
+
+        .article-content p {
+            margin-bottom: 1.25rem;
+        }
+
+        .article-content a {
+            color: var(--purple-500);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+
+        .article-content a:hover {
+            border-bottom-color: var(--purple-500);
+        }
+
+        .article-content ul,
+        .article-content ol {
+            margin: 1rem 0 1.5rem 2rem;
+        }
+
+        .article-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        .article-content code {
+            background: var(--bg-secondary);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.9em;
+            font-family: 'Courier New', monospace;
+        }
+
+        .article-content pre {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+
+        .article-content pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .article-content blockquote {
+            border-left: 4px solid var(--purple-500);
+            padding-left: 1.5rem;
+            margin: 1.5rem 0;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .article-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        .article-content th,
+        .article-content td {
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        .article-content th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+        }
+
+        .article-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+            }
+
+            .blog-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                gap: 1rem;
+            }
+
+            .article-title {
+                font-size: 2rem;
+            }
+
+            .article-content {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="container">
+            <div class="nav-content">
+                <a href="../" class="logo">
+                    <img src="../assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo" width="32" height="32">
+                    GammaLedger
+                </a>
+                <ul class="nav-links">
+                    <li><a href="../#features">Features</a></li>
+                    <li><a href="../#dashboard">Dashboard</a></li>
+                    <li><a href="./">Blog</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank">GitHub</a></li>
+                </ul>
+                <a href="../app" class="btn btn-primary">Launch App</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Blog Listing View -->
+    <div id="blog-list-view">
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="container">
+                <h1>GammaLedger Blog</h1>
+                <p>Strategies, tutorials, and insights to master options trading analytics with precision and confidence</p>
+            </div>
+        </section>
+
+        <!-- Filter Section -->
+        <section class="container">
+            <div class="filter-section">
+                <div class="filter-tag active" data-tag="all">All Posts</div>
+                <div class="filter-tag" data-tag="tutorial">Tutorials</div>
+                <div class="filter-tag" data-tag="strategy">Strategies</div>
+                <div class="filter-tag" data-tag="guide">Guides</div>
+                <div class="filter-tag" data-tag="getting-started">Getting Started</div>
+            </div>
+        </section>
+
+        <!-- Blog Grid -->
+        <section class="container">
+            <div class="blog-grid" id="blog-grid">
+                <!-- Blog posts will be loaded here dynamically -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Single Post View -->
+    <div id="blog-post-view" style="display: none;">
+        <article class="article-container">
+            <div class="article-header" id="article-header">
+                <!-- Post header will be loaded here -->
+            </div>
+            <div class="article-content" id="article-content">
+                <!-- Post content will be loaded here -->
+            </div>
+        </article>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>GammaLedger</h3>
+                    <p>Intelligent options trading & analytics platform with complete privacy and professional-grade tools for sophisticated options traders.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Resources</h3>
+                    <ul class="footer-links">
+                        <li><a href="https://github.com/r-brown/GammaLedger" target="_blank">GitHub Repository</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank">Documentation</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank">Support</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank">Releases</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Legal</h3>
+                    <ul class="footer-links">
+                        <li><a href="../terms.html">Terms of Service</a></li>
+                        <li><a href="../privacy.html">Privacy Policy</a></li>
+                        <li><a href="../disclaimer.html">Risk Disclaimer</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank">AGPLv3 License</a></li>
+                        <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 GammaLedger. Released under AGPLv3 License.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
+    
+    <script>
+        let allPosts = [];
+
+        // Router: Check URL hash and show appropriate view
+        function router() {
+            const hash = window.location.hash;
+            
+            if (hash.startsWith('#/')) {
+                const postId = hash.substring(2);
+                showPostView(postId);
+            } else {
+                showListView();
+            }
+        }
+
+        // Show blog listing view
+        function showListView() {
+            document.getElementById('blog-list-view').style.display = 'block';
+            document.getElementById('blog-post-view').style.display = 'none';
+            
+            // Reset meta tags to default
+            document.title = 'Blog - GammaLedger';
+            updateMetaTag('description', 'Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides.');
+            updateMetaTag('keywords', 'options trading blog, wheel strategy, PMCC, options analytics, trading journal');
+            
+            // Reset canonical
+            let canonical = document.querySelector('link[rel="canonical"]');
+            if (canonical) {
+                canonical.setAttribute('href', 'https://gammaledger.com/blog/');
+            }
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        // Show single post view
+        async function showPostView(postId) {
+            document.getElementById('blog-list-view').style.display = 'none';
+            document.getElementById('blog-post-view').style.display = 'block';
+            
+            await loadPost(postId);
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        // Helper to update meta tags
+        function updateMetaTag(name, content, isProperty = false) {
+            const attr = isProperty ? 'property' : 'name';
+            let meta = document.querySelector(`meta[${attr}="${name}"]`);
+            if (!meta) {
+                meta = document.createElement('meta');
+                meta.setAttribute(attr, name);
+                document.head.appendChild(meta);
+            }
+            meta.setAttribute('content', content);
+        }
+
+        // Update meta tags for SEO (individual posts)
+        function updatePostMetaTags(post) {
+            document.title = `${post.title} - GammaLedger Blog`;
+            
+            updateMetaTag('description', post.description);
+            updateMetaTag('keywords', post.tags.join(', '));
+            updateMetaTag('author', post.author);
+            
+            // Open Graph - use clean permalink URL
+            updateMetaTag('og:type', 'article', true);
+            updateMetaTag('og:title', post.title, true);
+            updateMetaTag('og:description', post.description, true);
+            updateMetaTag('og:url', `https://gammaledger.com/blog/${post.id}`, true);
+            if (post.image) {
+                updateMetaTag('og:image', `https://gammaledger.com${post.image.replace('..', '')}`, true);
+            }
+            updateMetaTag('article:published_time', post.date, true);
+            updateMetaTag('article:author', post.author, true);
+            
+            // Twitter Card
+            updateMetaTag('twitter:card', 'summary_large_image');
+            updateMetaTag('twitter:title', post.title);
+            updateMetaTag('twitter:description', post.description);
+            if (post.image) {
+                updateMetaTag('twitter:image', `https://gammaledger.com${post.image.replace('..', '')}`);
+            }
+
+            // Update canonical link with clean permalink
+            let canonical = document.querySelector('link[rel="canonical"]');
+            if (!canonical) {
+                canonical = document.createElement('link');
+                canonical.setAttribute('rel', 'canonical');
+                document.head.appendChild(canonical);
+            }
+            canonical.setAttribute('href', `https://gammaledger.com/blog/${post.id}`);
+        }
+
+        // Load and render a single post
+        async function loadPost(postId) {
+            try {
+                const post = allPosts.find(p => p.id === postId);
+
+                if (!post) {
+                    throw new Error('Post not found');
+                }
+
+                // Update page title and meta tags
+                updatePostMetaTags(post);
+
+                // Configure marked.js
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+
+                // Render header
+                const headerHTML = `
+                    ${post.image ? `<img src="${post.image}" alt="${post.title}" class="article-featured-image">` : ''}
+                    <h1 class="article-title">${post.title}</h1>
+                    <div class="article-meta">
+                        <span>📅 ${formatDate(post.date)}</span>
+                        <span>✍️ ${post.author}</span>
+                    </div>
+                    <div class="article-tags">
+                        ${post.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+                `;
+                document.getElementById('article-header').innerHTML = headerHTML;
+
+                // Load markdown content
+                const contentResponse = await fetch(`./posts/${post.file}`);
+                const markdown = await contentResponse.text();
+
+                // Remove the first H1 and metadata line from markdown (already in header)
+                const contentWithoutTitle = markdown
+                    .replace(/^#\s+.+$/m, '')  // Remove first H1
+                    .replace(/^\*\*Published:.+$/m, '')  // Remove metadata line
+                    .trim();
+
+                // Convert markdown to HTML
+                const html = marked.parse(contentWithoutTitle);
+                document.getElementById('article-content').innerHTML = html;
+
+                // Process relative links in the article
+                processLinks();
+
+            } catch (error) {
+                console.error('Error loading post:', error);
+                document.getElementById('article-content').innerHTML = `
+                    <p style="color: var(--text-muted); text-align: center;">
+                        Unable to load article. <a href="./" style="color: var(--purple-500);">Return to blog</a>
+                    </p>
+                `;
+            }
+        }
+
+        function processLinks() {
+            // Convert relative blog post links to hash URLs
+            const links = document.querySelectorAll('.article-content a[href^="./"]');
+            links.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href.startsWith('./')) {
+                    // Remove ./ and .html extension if present
+                    const linkedPostId = href.replace('./', '').replace('.html', '');
+                    // Don't process if it's an external link or has a protocol
+                    if (!linkedPostId.includes('http') && !linkedPostId.startsWith('#')) {
+                        link.setAttribute('href', `#/${linkedPostId}`);
+                    }
+                }
+            });
+        }
+
+        // Load blog posts from posts.json
+        async function loadBlogPosts() {
+            try {
+                const response = await fetch('./posts.json');
+                allPosts = await response.json();
+                
+                // Sort by date (newest first)
+                allPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                renderBlogPosts(allPosts);
+                setupFilters(allPosts);
+                
+                // Initialize router
+                router();
+            } catch (error) {
+                console.error('Error loading blog posts:', error);
+                document.getElementById('blog-grid').innerHTML = 
+                    '<p style="color: var(--text-muted); text-align: center;">Unable to load blog posts.</p>';
+            }
+        }
+
+        function renderBlogPosts(posts, filterTag = 'all') {
+            const grid = document.getElementById('blog-grid');
+            
+            const filteredPosts = filterTag === 'all' 
+                ? posts 
+                : posts.filter(post => post.tags.includes(filterTag));
+            
+            if (filteredPosts.length === 0) {
+                grid.innerHTML = '<p style="color: var(--text-muted); text-align: center; grid-column: 1/-1;">No posts found with this tag.</p>';
+                return;
+            }
+            
+            grid.innerHTML = filteredPosts.map(post => `
+                <a href="#/${post.id}" class="blog-card">
+                    ${post.image ? `<img src="${post.image}" alt="${post.title}" class="blog-card-image">` : ''}
+                    <div class="blog-card-content">
+                        <div class="blog-card-meta">
+                            <span>📅 ${formatDate(post.date)}</span>
+                            <span>✍️ ${post.author}</span>
+                        </div>
+                        <h2>${post.title}</h2>
+                        <p>${post.description}</p>
+                        <div class="blog-tags">
+                            ${post.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                    </div>
+                </a>
+            `).join('');
+        }
+
+        function setupFilters(posts) {
+            const filterTags = document.querySelectorAll('.filter-tag');
+            
+            filterTags.forEach(tag => {
+                tag.addEventListener('click', () => {
+                    // Remove active class from all tags
+                    filterTags.forEach(t => t.classList.remove('active'));
+                    // Add active class to clicked tag
+                    tag.classList.add('active');
+                    // Filter posts
+                    const selectedTag = tag.dataset.tag;
+                    renderBlogPosts(posts, selectedTag);
+                });
+            });
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+
+        // Listen for hash changes
+        window.addEventListener('hashchange', router);
+
+        // Load posts on page load
+        loadBlogPosts();
+    </script>
+</body>
+</html>

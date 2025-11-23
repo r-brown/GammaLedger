@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Blog Post - GammaLedger</title>
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="description" content="GammaLedger blog post">
+    <meta name="keywords" content="options trading, options strategies, GammaLedger">
+    <meta name="author" content="GammaLedger Contributors">
+    <meta name="copyright" content="GammaLedger">
+    <meta name="robots" content="index, follow">
+    <!-- Open Graph (will be updated dynamically) -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="GammaLedger">
+    <meta property="og:title" content="Blog Post - GammaLedger">
+    <meta property="og:description" content="GammaLedger blog post">
+    <meta property="og:url" content="https://gammaledger.com/blog/">
+    <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
+    <meta property="og:image:alt" content="GammaLedger blog post">
+    <meta property="og:locale" content="en_US">
+    <!-- Twitter Card (will be updated dynamically) -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Blog Post - GammaLedger">
+    <meta name="twitter:description" content="GammaLedger blog post">
+    <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
+    <meta name="twitter:image:alt" content="GammaLedger blog post">
+    <!-- Dublin Core (will be updated dynamically) -->
+    <meta name="DC.Title" content="Blog Post - GammaLedger">
+    <meta name="DC.Description" content="GammaLedger blog post">
+    <meta name="DC.Subject" content="options trading, options strategies">
+    <meta name="DC.Creator" content="GammaLedger Contributors">
+    <meta name="DC.Publisher" content="GammaLedger">
+    <meta name="DC.Type" content="Text">
+    <meta name="DC.Format" content="text/html">
+    <meta name="DC.Language" content="en">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="../assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/img/gammaledger-logo-32x32.png">
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
+    <style>
+        /* Design System Variables */
+        :root {
+            --bg-primary: #0a0b1a;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1f2937;
+            --bg-card: rgba(15, 23, 42, 0.8);
+            
+            --purple-500: #8b5cf6;
+            --purple-600: #a855f7;
+            --blue-500: #3b82f6;
+            --blue-600: #6366f1;
+            --green-500: #10b981;
+            --red-500: #ef4444;
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            
+            --gradient-primary: linear-gradient(135deg, var(--purple-500), var(--blue-500));
+            
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Navigation */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 11, 26, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+        }
+
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--purple-500);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Article Container */
+        .article-container {
+            max-width: 1200px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--purple-500);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: var(--purple-600);
+        }
+
+        .article-header {
+            margin-bottom: 3rem;
+        }
+
+        .article-featured-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: cover;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .article-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        .article-meta {
+            display: flex;
+            gap: 1.5rem;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+        }
+
+        .article-tags {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 0.25rem 0.75rem;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            color: var(--purple-500);
+        }
+
+        /* Markdown Content Styles */
+        .article-content {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            line-height: 1.8;
+        }
+
+        .article-content h1 {
+            font-size: 2rem;
+            color: var(--text-primary);
+            margin: 2.5rem 0 1rem;
+            font-weight: 700;
+        }
+
+        .article-content h2 {
+            font-size: 1.75rem;
+            color: var(--text-primary);
+            margin: 2rem 0 1rem;
+            font-weight: 700;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.2);
+            padding-bottom: 0.5rem;
+        }
+
+        .article-content h3 {
+            font-size: 1.4rem;
+            color: var(--text-primary);
+            margin: 1.5rem 0 0.75rem;
+            font-weight: 600;
+        }
+
+        .article-content h4 {
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            margin: 1.25rem 0 0.5rem;
+            font-weight: 600;
+        }
+
+        .article-content p {
+            margin-bottom: 1.25rem;
+        }
+
+        .article-content a {
+            color: var(--purple-500);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+
+        .article-content a:hover {
+            border-bottom-color: var(--purple-500);
+        }
+
+        .article-content ul,
+        .article-content ol {
+            margin: 1rem 0 1.5rem 2rem;
+        }
+
+        .article-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        .article-content code {
+            background: var(--bg-secondary);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.95em;
+            color: var(--purple-500);
+            font-family: 'Courier New', monospace;
+        }
+
+        .article-content pre {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+
+        .article-content pre code {
+            background: none;
+            padding: 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .article-content blockquote {
+            border-left: 4px solid var(--purple-500);
+            padding-left: 1.5rem;
+            margin: 1.5rem 0;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .article-content hr {
+            border: none;
+            border-top: 1px solid rgba(139, 92, 246, 0.2);
+            margin: 2rem 0;
+        }
+
+        .article-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        .article-content table th,
+        .article-content table td {
+            padding: 0.75rem;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .article-content table th {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .article-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .article-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 4rem 0;
+            color: var(--text-muted);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg-primary);
+            padding: 4rem 0 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 5rem;
+        }
+        
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .footer-section h3 {
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .footer-links {
+            list-style: none;
+        }
+        
+        .footer-links li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .footer-links a:hover {
+            color: var(--purple-500);
+        }
+        
+        .footer-bottom {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .article-title {
+                font-size: 2rem;
+            }
+
+            .article-content {
+                font-size: 1rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="container">
+            <div class="nav-content">
+                <a href="../" class="logo">
+                    <img src="../assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo" width="32" height="32">
+                    GammaLedger
+                </a>
+                <ul class="nav-links">
+                    <li><a href="../#features">Features</a></li>
+                    <li><a href="../#dashboard">Dashboard</a></li>
+                    <li><a href="./">Blog</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank">GitHub</a></li>
+                </ul>
+                <a href="../app" class="btn btn-primary">Launch App</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Article Container -->
+    <article class="article-container">
+        <a href="./" class="back-link">← Back to Blog</a>
+        
+        <div id="article-header" class="article-header">
+            <!-- Header will be loaded dynamically -->
+        </div>
+
+        <div id="article-content" class="article-content">
+            <div class="loading">Loading article...</div>
+        </div>
+    </article>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>GammaLedger</h3>
+                    <p>Intelligent options trading & analytics platform with complete privacy and professional-grade tools for sophisticated options traders.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Resources</h3>
+                    <ul class="footer-links">
+                        <li><a href="https://github.com/r-brown/GammaLedger" target="_blank">GitHub Repository</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank">Documentation</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank">Support</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank">Releases</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Legal</h3>
+                    <ul class="footer-links">
+                        <li><a href="../terms.html">Terms of Service</a></li>
+                        <li><a href="../privacy.html">Privacy Policy</a></li>
+                        <li><a href="../disclaimer.html">Risk Disclaimer</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank">AGPLv3 License</a></li>
+                        <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 GammaLedger. Released under AGPLv3 License.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Get post ID from URL hash
+        function getPostIdFromHash() {
+            const hash = window.location.hash;
+            if (hash.startsWith('#/')) {
+                return hash.substring(2);
+            }
+            return null;
+        }
+
+        const postId = getPostIdFromHash();
+
+        if (!postId) {
+            window.location.href = './';
+        }
+
+        // Update meta tags dynamically for SEO
+        function updateMetaTags(post) {
+            document.title = `${post.title} - GammaLedger Blog`;
+            
+            // Update or create meta tags
+            const setMetaTag = (property, content, isProperty = false) => {
+                const attr = isProperty ? 'property' : 'name';
+                let meta = document.querySelector(`meta[${attr}="${property}"]`);
+                if (!meta) {
+                    meta = document.createElement('meta');
+                    meta.setAttribute(attr, property);
+                    document.head.appendChild(meta);
+                }
+                meta.setAttribute('content', content);
+            };
+
+            // Basic meta tags
+            setMetaTag('description', post.description);
+            setMetaTag('keywords', post.tags.join(', '));
+            setMetaTag('author', post.author);
+            
+            // Open Graph
+            setMetaTag('og:type', 'article', true);
+            setMetaTag('og:site_name', 'GammaLedger', true);
+            setMetaTag('og:title', post.title, true);
+            setMetaTag('og:description', post.description, true);
+            setMetaTag('og:url', `https://gammaledger.com/blog/#/${post.id}`, true);
+            if (post.image) {
+                const imageUrl = `https://gammaledger.com${post.image.replace('..', '')}`;
+                setMetaTag('og:image', imageUrl, true);
+                setMetaTag('og:image:alt', post.title, true);
+            }
+            setMetaTag('og:locale', 'en_US', true);
+            setMetaTag('article:published_time', post.date, true);
+            setMetaTag('article:author', post.author, true);
+            post.tags.forEach(tag => {
+                const existingTags = document.querySelectorAll('meta[property="article:tag"]');
+                if (existingTags.length === 0) {
+                    setMetaTag('article:tag', tag, true);
+                }
+            });
+            
+            // Twitter Card
+            setMetaTag('twitter:card', 'summary_large_image');
+            setMetaTag('twitter:title', post.title);
+            setMetaTag('twitter:description', post.description);
+            if (post.image) {
+                const imageUrl = `https://gammaledger.com${post.image.replace('..', '')}`;
+                setMetaTag('twitter:image', imageUrl);
+                setMetaTag('twitter:image:alt', post.title);
+            }
+
+            // Dublin Core
+            setMetaTag('DC.Title', post.title);
+            setMetaTag('DC.Description', post.description);
+            setMetaTag('DC.Subject', post.tags.join(', '));
+            setMetaTag('DC.Creator', post.author);
+            setMetaTag('DC.Date', post.date);
+
+            // Update canonical link
+            let canonical = document.querySelector('link[rel="canonical"]');
+            if (!canonical) {
+                canonical = document.createElement('link');
+                canonical.setAttribute('rel', 'canonical');
+                document.head.appendChild(canonical);
+            }
+            canonical.setAttribute('href', `https://gammaledger.com/blog/#/${post.id}`);
+        }
+
+        // Configure marked.js
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        // Load post metadata and content
+        async function loadPost() {
+            try {
+                // Load posts.json to get metadata
+                const metaResponse = await fetch('./posts.json');
+                const posts = await metaResponse.json();
+                const post = posts.find(p => p.id === postId);
+
+                if (!post) {
+                    throw new Error('Post not found');
+                }
+
+                // Update page title and meta tags
+                updateMetaTags(post);
+
+                // Render header
+                const headerHTML = `
+                    ${post.image ? `<img src="${post.image}" alt="${post.title}" class="article-featured-image">` : ''}
+                    <h1 class="article-title">${post.title}</h1>
+                    <div class="article-meta">
+                        <span>📅 ${formatDate(post.date)}</span>
+                        <span>✍️ ${post.author}</span>
+                    </div>
+                    <div class="article-tags">
+                        ${post.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+                `;
+                document.getElementById('article-header').innerHTML = headerHTML;
+
+                // Load markdown content
+                const contentResponse = await fetch(`./posts/${post.file}`);
+                const markdown = await contentResponse.text();
+
+                // Remove the first H1 and metadata line from markdown (already in header)
+                const contentWithoutTitle = markdown
+                    .replace(/^#\s+.+$/m, '')  // Remove first H1
+                    .replace(/^\*\*Published:.+$/m, '')  // Remove metadata line
+                    .trim();
+
+                // Convert markdown to HTML
+                const html = marked.parse(contentWithoutTitle);
+                document.getElementById('article-content').innerHTML = html;
+
+                // Process relative links in the article
+                processLinks();
+
+            } catch (error) {
+                console.error('Error loading post:', error);
+                document.getElementById('article-content').innerHTML = `
+                    <p style="color: var(--text-muted); text-align: center;">
+                        Unable to load article. <a href="./" style="color: var(--purple-500);">Return to blog</a>
+                    </p>
+                `;
+            }
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+
+        function processLinks() {
+            // No processing needed - links in markdown already have correct format
+            // Links use format: post.html#/article-id
+        }
+
+        // Load post on page load
+        loadPost();
+    </script>
+</body>
+</html>
