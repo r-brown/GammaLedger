@@ -559,5 +559,3 @@ The PMCC strategy has helped thousands of traders generate meaningful income wit
 ---
 
 *Track your Poor Man's Covered Call positions with GammaLedger's advanced analytics. Monitor LEAPS delta, calculate net cost basis after premiums, and optimize your weekly call selection.*
-
-**Disclaimer:** Options trading carries substantial risk and is not suitable for all investors. The strategies discussed are for educational purposes only. Past performance does not guarantee future results. Always consult a licensed financial advisor before implementing any trading strategy.

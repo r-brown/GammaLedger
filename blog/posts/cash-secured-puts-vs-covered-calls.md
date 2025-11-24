@@ -572,5 +572,3 @@ Both strategies have funded countless traders' consistent income. Now it's your 
 ---
 
 *Track your cash-secured puts and covered calls with GammaLedger's powerful analytics. Monitor assignment probabilities, track cost basis adjustments, and optimize your premium collection strategy.*
-
-**Disclaimer:** Options trading involves risk and is not suitable for all investors. The information provided is for educational purposes only and does not constitute investment advice. Past performance does not guarantee future results. Always consult with a licensed financial advisor before implementing any trading strategy.

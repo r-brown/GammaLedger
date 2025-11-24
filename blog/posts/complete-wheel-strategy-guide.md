@@ -576,5 +576,3 @@ Remember: In the Wheel Strategy, you're the house, not the gambler. Play your ed
 ---
 
 *Track your Wheel Strategy trades with precision using GammaLedger's comprehensive analytics platform. Monitor cost basis, premium collection, and annualized returns across all your positions.*
-
-**Disclaimer:** Options trading involves substantial risk and is not appropriate for everyone. The strategies discussed here are for educational purposes only and do not constitute investment advice. Always consult with a licensed financial advisor before implementing any trading strategy. Past performance does not guarantee future results.

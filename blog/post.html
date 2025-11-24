@@ -347,6 +347,31 @@
             font-weight: 600;
         }
 
+        /* Article Disclaimer */
+        .article-disclaimer {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(139, 92, 246, 0.2);
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .article-disclaimer strong {
+            color: var(--text-secondary);
+        }
+
+        .article-disclaimer a {
+            color: var(--purple-500);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-color 0.3s ease;
+        }
+
+        .article-disclaimer a:hover {
+            border-bottom-color: var(--purple-500);
+        }
+
         /* Loading State */
         .loading {
             text-align: center;
@@ -451,6 +476,11 @@
 
         <div id="article-content" class="article-content">
             <div class="loading">Loading article...</div>
+        </div>
+
+        <!-- Article Disclaimer -->
+        <div class="article-disclaimer">
+            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="../disclaimer.html">Risk Disclaimer</a>.
         </div>
     </article>
 

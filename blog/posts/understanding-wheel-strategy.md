@@ -231,7 +231,3 @@ Ready to start tracking your Wheel trades? [Launch GammaLedger](https://gammaled
 - [Getting Started with GammaLedger](./getting-started-with-gammaledger)
 - [PMCC Strategy Guide](#) *(coming soon)*
 - [Options Greeks Explained](#) *(coming soon)*
-
----
-
-*Disclaimer: Options trading involves significant risk. This educational content does not constitute investment advice. Always do your own research and consider consulting a financial advisor.*
