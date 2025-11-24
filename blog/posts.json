@@ -17,7 +17,7 @@
     "date": "2026-01-10",
     "tags": ["options", "greeks", "rho", "interest-rates", "guide"],
     "file": "options-greeks-rho.md",
-    "image": "../assets/img/blog/rho.jpg"
+    "image": "../assets/img/blog/rho.png"
   },
   {
     "id": "options-greeks-vega",
@@ -27,7 +27,7 @@
     "date": "2026-01-06",
     "tags": ["options", "greeks", "vega", "volatility", "guide"],
     "file": "options-greeks-vega.md",
-    "image": "../assets/img/blog/vega.jpg"
+    "image": "../assets/img/blog/vega.png"
   },
   {
     "id": "options-greeks-gamma",
@@ -37,7 +37,7 @@
     "date": "2025-12-29",
     "tags": ["options", "greeks", "gamma", "risk", "guide"],
     "file": "options-greeks-gamma.md",
-    "image": "../assets/img/blog/gamma.jpg"
+    "image": "../assets/img/blog/gamma.png"
   },
   {
     "id": "options-greeks-theta",
@@ -47,7 +47,7 @@
     "date": "2025-12-25",
     "tags": ["options", "greeks", "theta", "time-decay", "guide"],
     "file": "options-greeks-theta.md",
-    "image": "../assets/img/blog/theta.jpg"
+    "image": "../assets/img/blog/theta.png"
   },
   {
     "id": "options-greeks-delta",
@@ -57,7 +57,7 @@
     "date": "2025-12-21",
     "tags": ["options", "greeks", "delta", "guide"],
     "file": "options-greeks-delta.md",
-    "image": "../assets/img/blog/delta.jpg"
+    "image": "../assets/img/blog/delta.png"
   },
   {
     "id": "options-trading-strategies-for-small-accounts",
