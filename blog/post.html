@@ -478,10 +478,6 @@
             <div class="loading">Loading article...</div>
         </div>
 
-        <!-- Article Disclaimer -->
-        <div class="article-disclaimer">
-            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="../disclaimer.html">Risk Disclaimer</a>.
-        </div>
     </article>
 
     <!-- Footer -->
@@ -655,6 +651,9 @@
                 // Process relative links in the article
                 processLinks();
 
+                // Ensure disclaimer renders after dynamic content
+                injectDisclaimer();
+
             } catch (error) {
                 console.error('Error loading post:', error);
                 document.getElementById('article-content').innerHTML = `
@@ -677,6 +676,21 @@
         function processLinks() {
             // No processing needed - links in markdown already have correct format
             // Links use format: post.html#/article-id
+        }
+
+        function injectDisclaimer() {
+            const articleContentEl = document.getElementById('article-content');
+            const existingDisclaimer = articleContentEl?.querySelector('.article-disclaimer');
+            if (!articleContentEl || existingDisclaimer) {
+                return;
+            }
+
+            const disclaimer = document.createElement('div');
+            disclaimer.className = 'article-disclaimer';
+            disclaimer.innerHTML = `
+                <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="../disclaimer.html">Risk Disclaimer</a>.
+            `;
+            articleContentEl.appendChild(disclaimer);
         }
 
         // Load post on page load
