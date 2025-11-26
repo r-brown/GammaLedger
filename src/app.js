@@ -3751,7 +3751,7 @@ class GammaLedger {
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Fees</label>
-                    <input type="number" class="form-control" data-leg-field="fees" step="0.0000001" min="0">
+                    <input type="number" class="form-control" data-leg-field="fees" step="0.0000001">
                 </div>
                 <div class="form-group is-hidden" data-leg-group="multiplier">
                     <label class="form-label">Multiplier</label>
@@ -3953,7 +3953,7 @@ class GammaLedger {
             const premium = this.parseDecimal(premiumRaw, 0, { allowNegative: false });
 
             const feesRaw = getFieldValue('fees');
-            const fees = this.parseDecimal(feesRaw, 0, { allowNegative: false });
+            const fees = this.parseDecimal(feesRaw, 0, { allowNegative: true });
 
             const underlyingRaw = getFieldValue('underlyingPrice');
             const underlyingPrice = this.parseDecimal(underlyingRaw, null, { allowNegative: false });
