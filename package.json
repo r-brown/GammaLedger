@@ -1,0 +1,28 @@
+{
+  "name": "gammaledger",
+  "version": "0.16.1",
+  "description": "Desktop application for active options traders",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:ci": "npm run test:unit && npm run test:e2e",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "jsdom": "^25.0.0",
+    "vitest": "^2.1.0"
+  },
+  "keywords": [
+    "options",
+    "trading",
+    "finance",
+    "analytics"
+  ],
+  "author": "GammaLedger",
+  "license": "AGPL-3.0"
+}
