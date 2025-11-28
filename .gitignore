@@ -2,3 +2,6 @@ gammaledger.json
 *.ofx
 _drafts
 test
+node_modules
+playwright-report
+test-results

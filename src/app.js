@@ -6376,10 +6376,10 @@ class GammaLedger {
                     const strikeFromLeg = Number(item.leg.strike);
                     
                     let pricePerShare = 0;
-                    if (Number.isFinite(premiumPerShare) && premiumPerShare > 0) {
-                        pricePerShare = premiumPerShare;
-                    } else if (Number.isFinite(strikeFromLeg) && strikeFromLeg > 0) {
+                    if (Number.isFinite(strikeFromLeg) && strikeFromLeg > 0) {
                         pricePerShare = strikeFromLeg;
+                    } else if (Number.isFinite(premiumPerShare) && premiumPerShare > 0) {
+                        pricePerShare = premiumPerShare;
                     }
                     
                     if (pricePerShare > 0 && legShares > 0) {
