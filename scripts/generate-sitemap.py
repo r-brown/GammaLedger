@@ -76,7 +76,7 @@ def generate_sitemap():
     # Add all blog posts dynamically
     for post in posts:
         sitemap += f'''  <url>
-    <loc>https://gammaledger.com/blog/post.html#/{post['id']}</loc>
+    <loc>https://gammaledger.com/blog/#/{post['id']}</loc>
     <lastmod>{post['date']}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>

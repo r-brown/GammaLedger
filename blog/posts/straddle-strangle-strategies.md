@@ -10,7 +10,7 @@ Here's how to use options strategically based on what the market is showing you:
 
 When the market is swinging wildly, volatility tends to spike. This creates a prime opportunity to become a **net seller of options premium**.
 
-**Why?** Because high volatility inflates the price of options, giving sellers an edge. By selling options, you collect premium upfront and profit if the market stabilizes or moves within a predictable range. Learn more about how [volatility affects option pricing](post.html#/options-greeks-vega).
+**Why?** Because high volatility inflates the price of options, giving sellers an edge. By selling options, you collect premium upfront and profit if the market stabilizes or moves within a predictable range. Learn more about how [volatility affects option pricing](#/options-greeks-vega).
 
 ### Strategy: Selling Straddles or Strangles
 
@@ -73,13 +73,13 @@ Similar to a straddle, but with strikes further apart. This provides a wider pro
 
 ## 2. Market Too Quiet and Range-Bound? Use Delta-Neutral Credit Spreads
 
-When the market is calm and stuck in a tight range, directional trades feel like grinding. This is where **[delta-neutral](post.html#/delta-neutral-strategies) credit spreads** shine.
+When the market is calm and stuck in a tight range, directional trades feel like grinding. This is where **[delta-neutral](#/delta-neutral-strategies) credit spreads** shine.
 
 These strategies involve selling one option and buying another to offset risk, while collecting a net credit.
 
 ### Strategy: Iron Condors
 
-An **[iron condor](post.html#/advanced-options-spreads)** combines a bull put spread and a bear call spread simultaneously.
+An **[iron condor](#/advanced-options-spreads)** combines a bull put spread and a bear call spread simultaneously.
 
 **Structure**:
 - Sell OTM put at strike A
@@ -234,9 +234,9 @@ GammaLedger helps you analyze which strategies work best in different market env
 
 ## Related Articles
 
-- [Understanding Theta and Vega: The Time Decay and Volatility Greeks](post.html#/time-decay-volatility-pricing)
-- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads Explained](post.html#/advanced-options-spreads)
-- [Options Trading Strategies for Small Accounts](post.html#/essential-options-strategies-2025)
+- [Understanding Theta and Vega: The Time Decay and Volatility Greeks](#/time-decay-volatility-pricing)
+- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads Explained](#/advanced-options-spreads)
+- [Options Trading Strategies for Small Accounts](#/essential-options-strategies-2025)
 
 ## Strategy 2: Long Strangle
 

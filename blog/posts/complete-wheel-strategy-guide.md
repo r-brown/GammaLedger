@@ -10,9 +10,9 @@ The Wheel Strategy is a systematic options trading approach designed to generate
 
 **The core concept is beautifully simple:**
 
-1. **[Sell cash-secured puts](post.html#/cash-secured-puts-vs-covered-calls)** on stocks you want to own at a discount
+1. **[Sell cash-secured puts](#/cash-secured-puts-vs-covered-calls)** on stocks you want to own at a discount
 2. **Get assigned shares** when the stock dips below your strike price
-3. **[Sell covered calls](post.html#/cash-secured-puts-vs-covered-calls)** on those shares to reduce your cost basis
+3. **[Sell covered calls](#/cash-secured-puts-vs-covered-calls)** on those shares to reduce your cost basis
 4. **Repeat the cycle** when shares are called away or puts expire worthless
 
 This creates a "wheel" of income generation that spins continuously, collecting premium at each phase while building positions in quality companies.
@@ -34,7 +34,7 @@ Traditional stock trading is essentially a 50/50 proposition. Will the stock go 
 
 ### Time Decay is Your Ally
 
-Every option has an expiration date. As that date approaches, the option loses value through [time decay (theta)](post.html#/time-decay-volatility-pricing). When you sell options, this decay works in your favor - every day that passes, your sold option becomes worth less, increasing your profit.
+Every option has an expiration date. As that date approaches, the option loses value through [time decay (theta)](#/time-decay-volatility-pricing). When you sell options, this decay works in your favor - every day that passes, your sold option becomes worth less, increasing your profit.
 
 **Example:**
 - Sell a 45-day put for $2.50
@@ -569,9 +569,9 @@ Remember: In the Wheel Strategy, you're the house, not the gambler. Play your ed
 
 ## Related Articles
 
-- [Cash-Secured Puts vs Covered Calls: Complete Strategy Comparison](post.html#/cash-secured-puts-vs-covered-calls)
-- [Poor Man's Covered Call Guide: Income Strategies for Small Accounts](post.html#/poor-mans-covered-call-guide)
-- [Essential Options Trading Strategies for 2025: A Beginner's Guide](post.html#/essential-options-strategies-2025)
+- [Cash-Secured Puts vs Covered Calls: Complete Strategy Comparison](#/cash-secured-puts-vs-covered-calls)
+- [Poor Man's Covered Call Guide: Income Strategies for Small Accounts](#/poor-mans-covered-call-guide)
+- [Essential Options Trading Strategies for 2025: A Beginner's Guide](#/essential-options-strategies-2025)
 
 ---
 

@@ -10,7 +10,7 @@ Positive gamma means that as a stock price rises, the option's price becomes mor
 
 Gamma is a significant risk factor for many options strategies. It tends to increase as an option approaches its expiration date. In the final week of an option's life, small changes in the stock price can cause large and accelerating swings in the option's price.
 
-This is problematic because many popular strategies, such as the [iron condor](post.html#/advanced-options-spreads) or calendar spread, rely on [time decay](post.html#/options-greeks-theta) to generate profits. Traders must balance the potential profits from time decay against the increasing risk of stock movements wiping out those profits.
+This is problematic because many popular strategies, such as the [iron condor](#/advanced-options-spreads) or calendar spread, rely on [time decay](#/options-greeks-theta) to generate profits. Traders must balance the potential profits from time decay against the increasing risk of stock movements wiping out those profits.
 
 For this reason, experienced options traders rarely hold a position until expiration. We take a risk-averse approach, typically exiting time decay-exploiting trades at least two weeks before expiration to avoid gamma risk. For example, in our trade rules for a calendar spread, the last 'Trade Management – Exit' rule specifies exiting the trade within two weeks of expiration to mitigate gamma risk.
 

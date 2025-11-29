@@ -41,7 +41,7 @@ Position Size = (Account Value × Risk %) / Max Loss Per Contract
 **Moderate**: 2% risk per trade (50 potential losses)
 **Aggressive**: 3-5% risk per trade (20-33 potential losses)
 
-Never exceed 5% risk on a single trade—that's gambling, not trading. For more on position sizing with limited capital, see [Options Trading Strategies for Small Accounts](post.html#/options-trading-strategies-for-small-accounts).
+Never exceed 5% risk on a single trade—that's gambling, not trading. For more on position sizing with limited capital, see [Options Trading Strategies for Small Accounts](#/options-trading-strategies-for-small-accounts).
 
 ## Rule 2: Portfolio Diversification
 
@@ -79,8 +79,8 @@ Avoid sector concentration:
 Don't rely on a single strategy:
 
 **Example Mix**:
-- 40% [covered calls](post.html#/complete-wheel-strategy-guide) (income, defined risk)
-- 30% [credit spreads](post.html#/advanced-options-spreads) (moderate probability)
+- 40% [covered calls](#/complete-wheel-strategy-guide) (income, defined risk)
+- 30% [credit spreads](#/advanced-options-spreads) (moderate probability)
 - 20% long calls/puts (directional, limited risk)
 - 10% calendars/diagonals (volatility plays)
 

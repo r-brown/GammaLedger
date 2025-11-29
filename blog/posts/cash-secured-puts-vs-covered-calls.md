@@ -6,7 +6,7 @@
 
 ## Introduction: The Twin Pillars of Options Income
 
-Cash-secured puts and covered calls are the yin and yang of options income trading. Both strategies involve selling options to collect premium, both offer defined risk, and both are cornerstone techniques for generating consistent returns. Yet they serve different purposes, have different capital requirements, and fit different market scenarios. These two strategies form the foundation of the [Wheel Strategy](post.html#/complete-wheel-strategy-guide), one of the most popular income-generating approaches in options trading.
+Cash-secured puts and covered calls are the yin and yang of options income trading. Both strategies involve selling options to collect premium, both offer defined risk, and both are cornerstone techniques for generating consistent returns. Yet they serve different purposes, have different capital requirements, and fit different market scenarios. These two strategies form the foundation of the [Wheel Strategy](#/complete-wheel-strategy-guide), one of the most popular income-generating approaches in options trading.
 
 This comprehensive guide breaks down both strategies in detail, compares them side by side, and shows you exactly when to deploy each for maximum effectiveness.
 
@@ -41,7 +41,7 @@ A cash-secured put (CSP) is a strategy where you:
 
 **Outcome A: Stock stays above strike (desired scenario, 70-80% probability)**
 - Put expires worthless
-- You keep the full premium (thanks to [time decay](post.html#/time-decay-volatility-pricing))
+- You keep the full premium (thanks to [time decay](#/time-decay-volatility-pricing))
 - Your cash is freed up to sell another put
 
 **Outcome B: Stock drops below strike**
@@ -565,9 +565,9 @@ Both strategies have funded countless traders' consistent income. Now it's your 
 
 ## Related Articles
 
-- [The Complete Wheel Strategy Guide: From Theory to Execution](post.html#/complete-wheel-strategy-guide)
-- [Poor Man's Covered Call Guide: Income Strategies for Small Accounts](post.html#/poor-mans-covered-call-guide)
-- [Essential Options Trading Strategies for 2025: A Beginner's Guide](post.html#/essential-options-strategies-2025)
+- [The Complete Wheel Strategy Guide: From Theory to Execution](#/complete-wheel-strategy-guide)
+- [Poor Man's Covered Call Guide: Income Strategies for Small Accounts](#/poor-mans-covered-call-guide)
+- [Essential Options Trading Strategies for 2025: A Beginner's Guide](#/essential-options-strategies-2025)
 
 ---
 

@@ -4,7 +4,7 @@ Options trading doesn't require a massive account to get started. With the right
 
 ## Why Small Accounts Need Different Strategies
 
-When working with limited capital, traditional strategies like buying 100 shares for [covered calls](post.html#/complete-wheel-strategy-guide) may not be feasible. The key is using **defined-risk strategies** that:
+When working with limited capital, traditional strategies like buying 100 shares for [covered calls](#/complete-wheel-strategy-guide) may not be feasible. The key is using **defined-risk strategies** that:
 
 - Require minimal capital
 - Have clearly defined maximum losses
@@ -79,7 +79,7 @@ Use only 1-5% of your account per trade. On a $1,000 account, risk $10-50 per op
 ## 3. Iron Condors: Range-Bound Income Generation
 
 **How It Works:**
-Combine a bull put spread and bear call spread simultaneously. Profit if the underlying stays within a defined range. For a detailed breakdown of this strategy, see [Advanced Options Spreads](post.html#/advanced-options-spreads).
+Combine a bull put spread and bear call spread simultaneously. Profit if the underlying stays within a defined range. For a detailed breakdown of this strategy, see [Advanced Options Spreads](#/advanced-options-spreads).
 
 **Risk/Reward:**
 - Max profit = net credit received
@@ -222,9 +222,9 @@ Small accounts can grow into large accounts with patience, discipline, and the r
 
 ## Related Articles
 
-- [How to Use Options Trading Analytics to Improve Your Trade Decisions](post.html#/options-analytics-trade-decisions)
-- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads Explained](post.html#/advanced-options-spreads)
-- [Risk Management Techniques Every Options Trader Should Master](post.html#/risk-management-techniques)
+- [How to Use Options Trading Analytics to Improve Your Trade Decisions](#/options-analytics-trade-decisions)
+- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads Explained](#/advanced-options-spreads)
+- [Risk Management Techniques Every Options Trader Should Master](#/risk-management-techniques)
 - Speculating on price declines
 - Portfolio protection during uncertain times
 

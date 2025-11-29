@@ -4,7 +4,7 @@ Options trading can be a powerful tool for investors, but it's important to unde
 
 ## 1. Wheeling (The Wheel Strategy)
 
-The [Wheel Strategy](post.html#/complete-wheel-strategy-guide) involves selling cash-secured puts and covered calls to generate income. Here's how it works:
+The [Wheel Strategy](#/complete-wheel-strategy-guide) involves selling cash-secured puts and covered calls to generate income. Here's how it works:
 
 - **Selling Cash-Secured Puts:**  
 You sell a put option, which means you agree to buy the underlying stock at a specified price (the strike price) if the option is exercised. You receive a premium for selling the put. If the stock price stays above the strike price, the put expires worthless, and you keep the premium. If the stock price falls below the strike price, you may be obligated to buy the stock.
@@ -30,7 +30,7 @@ The main risk is that the underlying asset moves against your expectation, which
 
 ## 3. LEAPS (Long-Term Equity Anticipation Securities)
 
-LEAPS are options with expiration dates that are longer than one year. They are essentially long-term options that allow investors to control a stock for an extended period without having to put up the full amount of capital required to buy the stock outright. For an advanced LEAPS strategy, see the [Poor Man's Covered Call Guide](post.html#/poor-mans-covered-call-guide).
+LEAPS are options with expiration dates that are longer than one year. They are essentially long-term options that allow investors to control a stock for an extended period without having to put up the full amount of capital required to buy the stock outright. For an advanced LEAPS strategy, see the [Poor Man's Covered Call Guide](#/poor-mans-covered-call-guide).
 
 - **Buying LEAPS Calls:**  
 You buy a call option with a long expiration date, betting that the underlying stock will rise significantly over the extended period. This allows you to participate in the stock's upside potential with limited downside risk (limited to the premium paid).

@@ -10,7 +10,7 @@ Advanced spreads offer several advantages over simple options:
 - **Lower Capital Requirements**: Spreads require less margin than naked options
 - **Profit from Multiple Scenarios**: Win even when wrong about direction
 - **Volatility Plays**: Profit from volatility changes, not just price moves
-- **Time Decay Optimization**: Structure trades to benefit from [theta](post.html#/time-decay-volatility-pricing)
+- **Time Decay Optimization**: Structure trades to benefit from [theta](#/time-decay-volatility-pricing)
 
 ## Part 1: Iron Condors
 

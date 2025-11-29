@@ -1,6 +1,6 @@
 # Understanding Theta and Vega: The Time Decay and Volatility Greeks
 
-Time decay and volatility are often misunderstood but critically important forces in options trading. While [delta](post.html#/options-greeks-delta) and [gamma](post.html#/options-greeks-gamma) get most of the attention, **theta (time decay)** and **vega (volatility sensitivity)** are the hidden drivers that can make or break your trades. This guide explains how these Greeks work, why they matter, and how to profit from them.
+Time decay and volatility are often misunderstood but critically important forces in options trading. While [delta](#/options-greeks-delta) and [gamma](#/options-greeks-gamma) get most of the attention, **theta (time decay)** and **vega (volatility sensitivity)** are the hidden drivers that can make or break your trades. This guide explains how these Greeks work, why they matter, and how to profit from them.
 
 ## Theta: The Time Decay Greek
 
@@ -78,7 +78,7 @@ You might wonder: "If theta accelerates near expiration, why not wait until the 
 
 **The Problem: Gamma**
 
-While theta increases near expiration, so does **[gamma](post.html#/options-greeks-gamma)**—the acceleration of delta (sensitivity to stock price changes).
+While theta increases near expiration, so does **[gamma](#/options-greeks-gamma)**—the acceleration of delta (sensitivity to stock price changes).
 
 **The Trade-Off**:
 - ✅ Higher theta = More time decay profit
@@ -299,9 +299,9 @@ Master these two Greeks, and you'll have a significant edge in understanding whe
 
 ## Related Articles
 
-- [How to Use Options Trading Analytics to Improve Your Trade Decisions](post.html#/options-analytics-trade-decisions)
-- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads Explained](post.html#/advanced-options-spreads)
-- [Navigating Market Volatility with Straddle and Strangle Options Strategies](post.html#/straddle-strangle-strategies)
+- [How to Use Options Trading Analytics to Improve Your Trade Decisions](#/options-analytics-trade-decisions)
+- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads Explained](#/advanced-options-spreads)
+- [Navigating Market Volatility with Straddle and Strangle Options Strategies](#/straddle-strangle-strategies)
 
 When you buy options:
 

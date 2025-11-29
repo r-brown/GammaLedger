@@ -6,13 +6,13 @@
 
 ## What is a Poor Man's Covered Call (PMCC)?
 
-The Poor Man's Covered Call is a capital-efficient options strategy that replicates [traditional covered calls](post.html#/cash-secured-puts-vs-covered-calls) while requiring significantly less capital. Instead of buying 100 shares of stock (which could cost $10,000-$40,000), you buy a long-term deep in-the-money call option (LEAPS) as a stock replacement, then sell short-term calls against it.
+The Poor Man's Covered Call is a capital-efficient options strategy that replicates [traditional covered calls](#/cash-secured-puts-vs-covered-calls) while requiring significantly less capital. Instead of buying 100 shares of stock (which could cost $10,000-$40,000), you buy a long-term deep in-the-money call option (LEAPS) as a stock replacement, then sell short-term calls against it.
 
 **The core concept:**
 - **Traditional Covered Call:** Own 100 shares + sell call = Requires full stock price × 100
 - **Poor Man's Covered Call:** Own LEAPS call + sell call = Requires only 20-30% of stock cost
 
-This strategy is perfect for traders with smaller accounts who want to generate income through covered calls but don't have the capital to own hundreds of shares of expensive stocks. For a more traditional approach with full stock ownership, see the [Complete Wheel Strategy Guide](post.html#/complete-wheel-strategy-guide).
+This strategy is perfect for traders with smaller accounts who want to generate income through covered calls but don't have the capital to own hundreds of shares of expensive stocks. For a more traditional approach with full stock ownership, see the [Complete Wheel Strategy Guide](#/complete-wheel-strategy-guide).
 
 ---
 
@@ -552,9 +552,9 @@ The PMCC strategy has helped thousands of traders generate meaningful income wit
 
 ## Related Articles
 
-- [The Complete Wheel Strategy Guide: From Theory to Execution](post.html#/complete-wheel-strategy-guide)
-- [Cash-Secured Puts vs Covered Calls: Complete Strategy Comparison](post.html#/cash-secured-puts-vs-covered-calls)
-- [Essential Options Trading Strategies for 2025: A Beginner's Guide](post.html#/essential-options-strategies-2025)
+- [The Complete Wheel Strategy Guide: From Theory to Execution](#/complete-wheel-strategy-guide)
+- [Cash-Secured Puts vs Covered Calls: Complete Strategy Comparison](#/cash-secured-puts-vs-covered-calls)
+- [Essential Options Trading Strategies for 2025: A Beginner's Guide](#/essential-options-strategies-2025)
 
 ---
 

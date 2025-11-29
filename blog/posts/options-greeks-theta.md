@@ -24,6 +24,6 @@ Notice how the option's time value accelerates near the end of its life, reflect
 
 ## Gamma and Theta
 
-You might wonder why not wait until the last few days to sell options, given the accelerating time decay. Unfortunately, it's not that simple. While theta increases, so does [gamma](post.html#/options-greeks-gamma), which is the acceleration of the effect of stock price changes on the option price. Increasing time decay is matched by increasing sensitivity to price changes, meaning any time decay benefits could be wiped out by adverse stock price movements.
+You might wonder why not wait until the last few days to sell options, given the accelerating time decay. Unfortunately, it's not that simple. While theta increases, so does [gamma](#/options-greeks-gamma), which is the acceleration of the effect of stock price changes on the option price. Increasing time decay is matched by increasing sensitivity to price changes, meaning any time decay benefits could be wiped out by adverse stock price movements.
 
 This interplay between theta and gamma is a good example of how the Greeks interact. Strategies that exploit theta must contend with gamma, and vice versa.

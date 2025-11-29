@@ -8,7 +8,7 @@ A delta neutral portfolio has a net delta of zero (or close to it), meaning it's
 
 ### Understanding Delta
 
-**[Delta](post.html#/options-greeks-delta)** measures how much an option's price changes for a $1 move in the underlying stock.
+**[Delta](#/options-greeks-delta)** measures how much an option's price changes for a $1 move in the underlying stock.
 
 **Call Options**: Delta ranges from 0 to 1.00 (or 0 to 100)
 - ATM call: ~0.50 delta
@@ -29,7 +29,7 @@ A delta neutral portfolio has a net delta of zero (or close to it), meaning it's
 This means:
 - If stock goes up $1, portfolio value unchanged
 - If stock goes down $1, portfolio value unchanged
-- You profit from [theta (time decay)](post.html#/time-decay-volatility-pricing) and [vega (volatility)](post.html#/options-greeks-vega) changes
+- You profit from [theta (time decay)](#/time-decay-volatility-pricing) and [vega (volatility)](#/options-greeks-vega) changes
 
 **Example**:
 - Own 100 shares of stock (+100 delta)
@@ -67,7 +67,7 @@ Delta neutral protects against small moves, not crashes.
 Frequent rebalancing creates commissions.
 
 **4. Gamma Risk**
-Delta changes ([gamma](post.html#/options-greeks-gamma)) require constant monitoring.
+Delta changes ([gamma](#/options-greeks-gamma)) require constant monitoring.
 
 ## Core Delta Neutral Strategies
 

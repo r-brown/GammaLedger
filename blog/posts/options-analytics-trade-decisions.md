@@ -1,6 +1,6 @@
 # Understanding Options Greeks: Delta and Gamma for Better Trade Decisions
 
-The Options Greeks are essential metrics that every successful options trader must understand. While there are five main Greeks ([Delta](post.html#/options-greeks-delta), [Gamma](post.html#/options-greeks-gamma), [Theta](post.html#/options-greeks-theta), [Vega](post.html#/options-greeks-vega), and [Rho](post.html#/options-greeks-rho)), **Delta** and **Gamma** are the foundation—they tell you how your options will respond to stock price movements and how that sensitivity changes over time.
+The Options Greeks are essential metrics that every successful options trader must understand. While there are five main Greeks ([Delta](#/options-greeks-delta), [Gamma](#/options-greeks-gamma), [Theta](#/options-greeks-theta), [Vega](#/options-greeks-vega), and [Rho](#/options-greeks-rho)), **Delta** and **Gamma** are the foundation—they tell you how your options will respond to stock price movements and how that sensitivity changes over time.
 
 This guide explains these two critical Greeks in depth, helping you make better trading decisions and manage risk more effectively.
 
@@ -85,7 +85,7 @@ You can sum the deltas of all your positions to understand your **net directiona
 **Interpretation**:
 - **Positive delta**: Bullish (profit from upward movement)
 - **Negative delta**: Bearish (profit from downward movement)
-- **Near zero delta**: [Market neutral](post.html#/delta-neutral-strategies)
+- **Near zero delta**: [Market neutral](#/delta-neutral-strategies)
 
 #### 4. Hedging with Delta
 
@@ -340,9 +340,9 @@ Master these two Greeks, and you'll have a significant edge in understanding ris
 
 ## Related Articles
 
-- [Understanding Theta and Vega: The Time Decay and Volatility Greeks](post.html#/time-decay-volatility-pricing)
-- [Options Trading Strategies for Small Accounts](post.html#/essential-options-strategies-2025)
-- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads](post.html#/advanced-options-spreads)
+- [Understanding Theta and Vega: The Time Decay and Volatility Greeks](#/time-decay-volatility-pricing)
+- [Options Trading Strategies for Small Accounts](#/essential-options-strategies-2025)
+- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads](#/advanced-options-spreads)
 
 #### Vega (ν)
 
@@ -690,6 +690,6 @@ Start implementing these analytics techniques today, and watch your trading perf
 
 ## Related Articles
 
-- [Understanding Theta and Vega: The Time Decay and Volatility Greeks](post.html#/time-decay-volatility-pricing)
-- [Options Trading Strategies for Small Accounts](post.html#/essential-options-strategies-2025)
-- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads](post.html#/advanced-options-spreads)
+- [Understanding Theta and Vega: The Time Decay and Volatility Greeks](#/time-decay-volatility-pricing)
+- [Options Trading Strategies for Small Accounts](#/essential-options-strategies-2025)
+- [Advanced Options Spreads: Iron Condors, Butterflies, and Calendar Spreads](#/advanced-options-spreads)

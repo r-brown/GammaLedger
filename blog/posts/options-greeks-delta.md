@@ -17,4 +17,4 @@ The information provided by delta is invaluable, especially since investors rare
 
 However, there is a complexity with delta: it changes as the underlying asset's price moves. For example, an option with a delta of 1.5 might move 1.5 cents for every 1 cent change in the underlying asset's price, but the delta could then shift to 1.6.
 
-This means any further increase in the stock price will result in an even larger increase in the option's price. This phenomenon is an example of positive [gamma](post.html#/options-greeks-gamma), which will be explained in our next lesson, and can be thought of as the price "accelerating" higher.
+This means any further increase in the stock price will result in an even larger increase in the option's price. This phenomenon is an example of positive [gamma](#/options-greeks-gamma), which will be explained in our next lesson, and can be thought of as the price "accelerating" higher.

@@ -15,7 +15,7 @@ Weekly options expire every Friday, giving traders 52 opportunities per year ins
 
 ### Advantages of Weeklies
 
-1. **Faster Theta Decay**: [Time decay](post.html#/time-decay-volatility-pricing) works in your favor faster when selling
+1. **Faster Theta Decay**: [Time decay](#/time-decay-volatility-pricing) works in your favor faster when selling
 2. **Flexibility**: Adjust positions more frequently
 3. **Lower Capital**: Smaller premium requirements
 4. **Event Trading**: Target specific catalysts (earnings, Fed meetings)
@@ -25,12 +25,12 @@ Weekly options expire every Friday, giving traders 52 opportunities per year ins
 
 1. **Transaction Costs**: More trades = more commissions
 2. **Management Intensive**: Requires frequent monitoring
-3. **Gamma Risk**: Higher [gamma](post.html#/options-greeks-gamma) near expiration = faster delta changes
+3. **Gamma Risk**: Higher [gamma](#/options-greeks-gamma) near expiration = faster delta changes
 4. **Emotional Pressure**: Weekly deadlines can lead to impulsive decisions
 
 ## Strategy 1: Weekly Cash-Secured Puts
 
-Selling weekly [cash-secured puts](post.html#/cash-secured-puts-vs-covered-calls) generates consistent income while potentially acquiring stocks at a discount.
+Selling weekly [cash-secured puts](#/cash-secured-puts-vs-covered-calls) generates consistent income while potentially acquiring stocks at a discount.
 
 ### How It Works
 
