@@ -2,3 +2,7 @@ options_tracker.json
 *.ofx
 _drafts
 test
+node_modules
+_site
+playwright-report
+test-results

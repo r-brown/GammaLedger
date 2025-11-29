@@ -1,0 +1,20 @@
+services:
+  gammaledger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gammaledger.com
+    environment:
+      - JEKYLL_ENV=development
+      - BUNDLE_PATH=/usr/local/bundle
+    volumes:
+      - .:/srv/jekyll:cached
+      - bundle_cache:/usr/local/bundle
+    ports:
+      - "4000:4000"
+      - "35729:35729"
+    command: >
+      bash -c "bundle install && bundle exec jekyll serve --host 0.0.0.0 --livereload --watch --incremental --verbose --drafts --future"
+
+volumes:
+  bundle_cache:
