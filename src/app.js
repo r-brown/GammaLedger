@@ -12540,7 +12540,9 @@ class GammaLedger {
             dteCell.textContent = dteValue !== null ? dteValue : '—';
 
             const exitDateCell = row.insertCell();
-            exitDateCell.textContent = trade.exitDate ? this.formatDate(trade.exitDate) : '—';
+            // Only show exit date for closed statuses (Closed, Expired)
+            const isClosed = this.isClosedStatus(trade.status);
+            exitDateCell.textContent = (isClosed && trade.exitDate) ? this.formatDate(trade.exitDate) : '—';
 
             const daysHeldCell = row.insertCell();
             const daysHeldValue = safeNumber(trade.daysHeld);
