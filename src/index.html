@@ -741,10 +741,11 @@
                 <section class="import-section">
                     <header class="import-header">
                         <h2>Import Trade Activity</h2>
-                        <p>Bring in broker exports without overwriting your existing database. OFX files are merged into your current trades; JSON imports create a brand new database.</p>
+                        <p>Bring in broker exports without overwriting your existing database. OFX, CSV files are merged into your current trades; JSON imports create a brand new database.</p>
                     </header>
                     <div class="import-actions">
                         <button type="button" class="btn btn--primary" id="import-ofx-btn">Import OFX…</button>
+                        <button type="button" class="btn btn--primary" id="import-robinhood-btn">Import Robinhood CSV…</button>
                         <button type="button" class="btn btn--secondary" id="import-json-btn">Import JSON…</button>
                     </div>
                     <section class="import-stats" aria-live="polite">
@@ -761,9 +762,9 @@
                         <button type="button" class="btn btn--secondary" id="import-merge-hint-btn">Review Merge Opportunities</button>
                     </section>
                     <section class="import-help">
-                        <h3>OFX Tips</h3>
+                        <h3>Import Tips</h3>
                         <ul>
-                            <li>Download activity reports from your broker in the OFX/QFX format.</li>
+                            <li>Download activity reports from your broker in the OFX/QFX, CSV format.</li>
                             <li>Multi-leg option trades that share a timestamp are grouped automatically.</li>
                             <li>Closing legs update any open positions with matching strikes and expirations.</li>
                         </ul>
@@ -825,6 +826,7 @@
     <!-- Hidden file input for fallback -->
     <input type="file" id="file-input" accept=".json" style="display: none;">
     <input type="file" id="import-ofx-input" accept=".ofx,.OFX" style="display: none;">
+    <input type="file" id="import-robinhood-input" accept=".csv,.CSV" style="display: none;">
     <input type="file" id="import-json-input" accept=".json" style="display: none;">
 
     <div class="ai-chat" id="ai-chat">

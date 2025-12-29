@@ -14592,6 +14592,21 @@ class GammaLedger {
             });
         }
 
+        const robinhoodButton = document.getElementById('import-robinhood-btn');
+        const robinhoodInput = document.getElementById('import-robinhood-input');
+
+        if (robinhoodButton && robinhoodInput) {
+            robinhoodButton.addEventListener('click', (event) => {
+                event.preventDefault();
+                robinhoodInput.value = '';
+                robinhoodInput.click();
+            });
+
+            robinhoodInput.addEventListener('change', (event) => {
+                this.handleRobinhoodCsvFileSelection(event);
+            });
+        }
+
         if (jsonButton && jsonInput) {
             jsonButton.addEventListener('click', (event) => {
                 event.preventDefault();
@@ -15626,6 +15641,787 @@ class GammaLedger {
         const parsed = this.parseOfx(raw);
         const importResult = this.buildOfxImportPayload(parsed, importContext);
         this.applyOfxImportResult(importResult, importContext);
+    }
+
+    handleRobinhoodCsvFileSelection(event) {
+        const input = event?.target;
+        if (!input || !input.files || input.files.length === 0) {
+            return;
+        }
+
+        const [file] = input.files;
+        input.value = '';
+
+        if (!file) {
+            return;
+        }
+
+        this.importRobinhoodCsvFile(file, { fileName: file.name || 'Robinhood CSV import' })
+            .catch((error) => {
+                console.error('Robinhood CSV import error:', error);
+                const message = error?.message || 'Unknown error';
+                this.showNotification(`Failed to import Robinhood CSV: ${message}`, 'error');
+                this.appendImportLog({
+                    type: 'error',
+                    message: `Failed to import ${file.name || 'Robinhood CSV file'}: ${message}`,
+                    timestamp: new Date()
+                });
+            })
+            .finally(() => {
+                this.hideLoadingIndicator();
+            });
+    }
+
+    async importRobinhoodCsvFile(file, context = {}) {
+        if (!file) {
+            throw new Error('No file selected.');
+        }
+
+        this.showLoadingIndicator('Importing Robinhood CSV...');
+        const text = await file.text();
+        await this.importRobinhoodCsvContent(text, { ...context, fileSize: file.size || 0 });
+    }
+
+    async importRobinhoodCsvContent(raw, context = {}) {
+        const batchId = context.batchId || `RH-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+        const importContext = { ...context, batchId };
+        const parsed = this.parseRobinhoodCsv(raw);
+        const importResult = this.buildRobinhoodImportPayload(parsed, importContext);
+        this.applyRobinhoodImportResult(importResult, importContext);
+    }
+
+    parseRobinhoodCsv(raw) {
+        if (typeof raw !== 'string') {
+            throw new Error('Robinhood CSV payload is invalid.');
+        }
+
+        const lines = raw.split(/\r?\n/);
+        if (lines.length < 2) {
+            throw new Error('Invalid Robinhood CSV: no data rows found.');
+        }
+
+        const headerLine = lines[0];
+        const headers = this.parseCsvRow(headerLine);
+        const headerMap = {};
+        headers.forEach((header, index) => {
+            headerMap[header.trim()] = index;
+        });
+
+        const requiredHeaders = ['Activity Date', 'Process Date', 'Description', 'Trans Code', 'Quantity', 'Price', 'Amount'];
+        const missingHeaders = requiredHeaders.filter((h) => headerMap[h] === undefined);
+        if (missingHeaders.length > 0) {
+            throw new Error(`Invalid Robinhood CSV: missing headers: ${missingHeaders.join(', ')}`);
+        }
+
+        const transactions = [];
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) {
+                continue;
+            }
+
+            const values = this.parseCsvRow(line);
+            const activityDate = values[headerMap['Activity Date']] || '';
+            const processDate = values[headerMap['Process Date']] || '';
+            const description = values[headerMap['Description']] || '';
+            const transCode = values[headerMap['Trans Code']] || '';
+            const instrument = values[headerMap['Instrument']] || '';
+            const quantityRaw = values[headerMap['Quantity']] || '';
+            const priceRaw = values[headerMap['Price']] || '';
+            const amountRaw = values[headerMap['Amount']] || '';
+
+            if (!activityDate || !transCode) {
+                continue;
+            }
+
+            const transaction = this.parseRobinhoodTransaction({
+                activityDate,
+                processDate,
+                description,
+                transCode,
+                instrument,
+                quantity: quantityRaw,
+                price: priceRaw,
+                amount: amountRaw,
+                rowIndex: i
+            });
+
+            if (transaction) {
+                transactions.push(transaction);
+            }
+        }
+
+        return { transactions };
+    }
+
+    parseCsvRow(line) {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+
+            if (inQuotes) {
+                if (char === '"' && nextChar === '"') {
+                    current += '"';
+                    i++;
+                } else if (char === '"') {
+                    inQuotes = false;
+                } else {
+                    current += char;
+                }
+            } else {
+                if (char === '"') {
+                    inQuotes = true;
+                } else if (char === ',') {
+                    values.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+        }
+        values.push(current);
+
+        return values;
+    }
+
+    parseRobinhoodTransaction(row) {
+        const { activityDate, processDate, description, transCode, instrument, quantity, price, amount, rowIndex } = row;
+
+        const normalizedTransCode = transCode.toString().trim().toUpperCase();
+
+        // Skip OASGN rows - the actual stock assignment is in the "Buy" row
+        if (normalizedTransCode === 'OASGN') {
+            return null;
+        }
+
+        // Handle stock purchase from assignment (Buy with CUSIP in description)
+        if ((normalizedTransCode === 'BUY' || normalizedTransCode === 'SELL') && description.includes('CUSIP:')) {
+            return this.parseRobinhoodAssignedStockTransaction({ ...row, processDate });
+        }
+
+        const optionMatch = description.match(/^([A-Z]+)\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(Put|Call)\s+\$?([\d,.]+)$/i);
+
+        if (optionMatch) {
+            return this.parseRobinhoodOptionTransaction({
+                activityDate,
+                processDate,
+                transCode: normalizedTransCode,
+                instrument,
+                ticker: optionMatch[1],
+                expirationRaw: optionMatch[2],
+                optionType: optionMatch[3],
+                strikeRaw: optionMatch[4],
+                quantity,
+                price,
+                amount,
+                rowIndex
+            });
+        }
+
+        if (normalizedTransCode === 'BUY' || normalizedTransCode === 'SELL') {
+            return this.parseRobinhoodStockTransaction({
+                activityDate,
+                processDate,
+                transCode: normalizedTransCode,
+                instrument,
+                description,
+                quantity,
+                price,
+                amount,
+                rowIndex
+            });
+        }
+
+        return null;
+    }
+
+    parseRobinhoodOptionTransaction(data) {
+        const {
+            activityDate,
+            processDate,
+            transCode,
+            instrument,
+            ticker,
+            expirationRaw,
+            optionType,
+            strikeRaw,
+            quantity,
+            price,
+            amount,
+            rowIndex
+        } = data;
+
+        const orderType = this.mapRobinhoodTransCode(transCode);
+        if (!orderType) {
+            return null;
+        }
+
+        // Use Process Date as entry; Description-derived expiration for options
+        const tradeDateIso = this.normalizeRobinhoodDate(processDate) || this.normalizeRobinhoodDate(activityDate) || '';
+        const expirationIso = this.normalizeRobinhoodDate(expirationRaw) || '';
+
+        const strike = this.parseRobinhoodNumber(strikeRaw);
+        const qty = Math.abs(this.parseRobinhoodNumber(quantity) || 0);
+        const premium = Math.abs(this.parseRobinhoodNumber(price) || 0);
+        const total = this.parseRobinhoodNumber(amount) || 0;
+
+        const fees = this.calculateRobinhoodFees(qty, premium, total);
+
+        const tickerSymbol = (ticker || instrument || '').toUpperCase();
+        const actionSide = this.mapOrderTypeToActionSide(orderType);
+
+        // Determine if this is a buy or sell based on orderType
+        const isBuyOrder = orderType === 'BTO' || orderType === 'BTC';
+        const tag = isBuyOrder ? 'BUYOPT' : 'SELLOPT';
+
+        const timeKey = tradeDateIso.replace(/-/g, '');
+        const groupKey = [timeKey, tickerSymbol, actionSide.side, 'OPTION', expirationIso].filter(Boolean).join('|');
+        const externalId = `RH-${tradeDateIso}-${tickerSymbol}-${optionType.toUpperCase()}-${strike}-${orderType}-${rowIndex}`;
+
+        return {
+            externalId,
+            groupKey,
+            tag,
+            orderType,
+            tradeDate: tradeDateIso,
+            tradeTimeKey: timeKey,
+            ticker: tickerSymbol,
+            underlying: tickerSymbol,
+            optionType: optionType.toUpperCase(),
+            strike,
+            expiration: expirationIso,
+            multiplier: 100,
+            quantity: qty,
+            price: premium,
+            total,
+            fees,
+            category: 'OPTION',
+            securityId: null,
+            memo: '',
+            currency: 'USD'
+        };
+    }
+
+    parseRobinhoodStockTransaction(data) {
+        const {
+            activityDate,
+            processDate,
+            transCode,
+            instrument,
+            description,
+            quantity,
+            price,
+            amount,
+            rowIndex
+        } = data;
+
+        const orderType = transCode === 'BUY' ? 'BTO' : 'STC';
+        // Use Process Date as entry date (string-safe, no timezone shift)
+        const tradeDateIso = this.normalizeRobinhoodDate(processDate) || this.normalizeRobinhoodDate(activityDate) || '';
+
+        const qty = Math.abs(this.parseRobinhoodNumber(quantity) || 0);
+        const unitPrice = Math.abs(this.parseRobinhoodNumber(price) || 0);
+        const total = this.parseRobinhoodNumber(amount) || 0;
+
+        const fees = Math.abs(Math.abs(total) - (qty * unitPrice));
+        const tickerSymbol = (instrument || '').toUpperCase();
+
+        const actionSide = this.mapOrderTypeToActionSide(orderType);
+        const timeKey = tradeDateIso.replace(/-/g, '');
+        const groupKey = [timeKey, tickerSymbol, actionSide.side, 'STOCK'].filter(Boolean).join('|');
+        const externalId = `RH-${tradeDateIso}-${tickerSymbol}-STOCK-${orderType}-${rowIndex}`;
+
+        return {
+            externalId,
+            groupKey,
+            tag: transCode === 'BUY' ? 'BUYSTOCK' : 'SELLSTOCK',
+            orderType,
+            tradeDate: tradeDateIso,
+            tradeTimeKey: timeKey,
+            ticker: tickerSymbol,
+            underlying: tickerSymbol,
+            optionType: '',
+            strike: null,
+            expiration: '',
+            multiplier: 1,
+            quantity: qty,
+            price: unitPrice,
+            total,
+            fees: fees > 0.01 ? fees : 0,
+            category: 'STOCK',
+            securityId: null,
+            memo: '',
+            currency: 'USD'
+        };
+    }
+
+    parseRobinhoodAssignedStockTransaction(row) {
+        const { activityDate, processDate, description, instrument, quantity, price, amount, rowIndex } = row;
+
+        // Extract number of contracts from description like "2 CRWV Options Assigned"
+        const contractMatch = description.match(/(\d+)\s+([A-Z]+)\s+Options?\s+Assigned/i);
+        const tickerSymbol = (instrument || (contractMatch ? contractMatch[2] : '')).toUpperCase();
+
+        // Use Process Date as entry date (string-safe, no timezone shift)
+        const tradeDateIso = this.normalizeRobinhoodDate(processDate) || this.normalizeRobinhoodDate(activityDate) || '';
+
+        const qty = Math.abs(this.parseRobinhoodNumber(quantity) || 0);
+        const unitPrice = Math.abs(this.parseRobinhoodNumber(price) || 0);
+        const total = this.parseRobinhoodNumber(amount) || 0;
+
+        // Stock from put assignment is a BTO (Buy to Open)
+        const orderType = 'BTO';
+        const timeKey = tradeDateIso.replace(/-/g, '');
+        const groupKey = [timeKey, tickerSymbol, 'OPEN', 'STOCK'].filter(Boolean).join('|');
+        const externalId = `RH-${tradeDateIso}-${tickerSymbol}-STOCK-ASSIGNED-${rowIndex}`;
+
+        return {
+            externalId,
+            groupKey,
+            tag: 'BUYSTOCK',
+            orderType,
+            tradeDate: tradeDateIso,
+            tradeTimeKey: timeKey,
+            ticker: tickerSymbol,
+            underlying: tickerSymbol,
+            optionType: '',
+            strike: null,
+            expiration: '',
+            multiplier: 1,
+            quantity: qty,
+            price: unitPrice,
+            total,
+            fees: 0,
+            category: 'STOCK',
+            securityId: null,
+            memo: 'Shares from put assignment',
+            currency: 'USD',
+            isAssignment: true
+        };
+    }
+
+    mapRobinhoodTransCode(transCode) {
+        const normalized = (transCode || '').toString().trim().toUpperCase();
+        switch (normalized) {
+            case 'BTO':
+                return 'BTO';
+            case 'BTC':
+                return 'BTC';
+            case 'STO':
+                return 'STO';
+            case 'STC':
+                return 'STC';
+            case 'BUY':
+                return 'BTO';
+            case 'SELL':
+                return 'STC';
+            default:
+                return null;
+        }
+    }
+
+    parseRobinhoodDate(value) {
+        if (!value) {
+            return null;
+        }
+
+        const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (match) {
+            const month = parseInt(match[1], 10) - 1;
+            const day = parseInt(match[2], 10);
+            const year = parseInt(match[3], 10);
+            const date = new Date(year, month, day);
+            if (!isNaN(date.getTime())) {
+                return date;
+            }
+        }
+
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    normalizeRobinhoodDate(value) {
+        // Returns YYYY-MM-DD without timezone shifts from MM/DD/YYYY or ISO-ish inputs
+        if (!value) {
+            return '';
+        }
+
+        const str = value.toString().trim();
+        const mdy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (mdy) {
+            const month = String(parseInt(mdy[1], 10)).padStart(2, '0');
+            const day = String(parseInt(mdy[2], 10)).padStart(2, '0');
+            const year = mdy[3];
+            return `${year}-${month}-${day}`;
+        }
+
+        // Try Date parsing but convert back to ISO date-only
+        const parsed = new Date(str);
+        if (!isNaN(parsed.getTime())) {
+            return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+        }
+
+        return '';
+    }
+
+    parseRobinhoodNumber(value) {
+        if (value === null || value === undefined || value === '') {
+            return 0;
+        }
+
+        const cleaned = value.toString()
+            .replace(/[$,]/g, '')
+            .replace(/\(([^)]+)\)/, '-$1')
+            .trim();
+
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? 0 : num;
+    }
+
+    calculateRobinhoodFees(quantity, premium, total) {
+        const expectedTotal = quantity * premium * 100;
+        const actualTotal = Math.abs(total);
+        const difference = Math.abs(actualTotal - expectedTotal);
+
+        if (difference > 0.01 && difference < expectedTotal * 0.1) {
+            return Math.round(difference * 100) / 100;
+        }
+        return 0;
+    }
+
+    buildRobinhoodImportPayload(parsed, context = {}) {
+        const transactions = Array.isArray(parsed?.transactions) ? parsed.transactions : [];
+        const batchId = context.batchId || null;
+        const updates = new Map();
+        const newTrades = [];
+        const reviewTradeIds = [];
+
+        const stats = {
+            totalTransactions: transactions.length,
+            totalGroups: 0,
+            openingLegs: 0,
+            closingLegs: 0,
+            matchedClosingLegs: 0,
+            unmatchedClosingLegs: 0,
+            duplicateLegs: 0,
+            legsAddedToUpdates: 0,
+            legsAddedToNewTrades: 0,
+            tradesCreated: 0,
+            reviewTradesCreated: 0,
+            totalTradesCreated: 0,
+            tradesUpdated: 0,
+            reviewLegs: 0
+        };
+
+        if (!transactions.length) {
+            return { newTrades, updates, stats, batchId, reviewTradeIds };
+        }
+
+        const groups = this.groupTransactionsForImport(transactions);
+        const positionIndex = this.buildPositionIndex(this.trades);
+        const existingExternalIds = this.buildExistingExternalIdSet();
+        const seenExternalIds = new Set();
+
+        stats.totalGroups = groups.size;
+
+        groups.forEach((group) => {
+            if (!group || !Array.isArray(group.transactions) || group.transactions.length === 0) {
+                return;
+            }
+
+            const legs = [];
+            group.transactions.forEach((tx) => {
+                const leg = this.buildLegFromRobinhoodTransaction(tx);
+                if (!leg) {
+                    return;
+                }
+                if (leg.externalId && (existingExternalIds.has(leg.externalId) || seenExternalIds.has(leg.externalId))) {
+                    stats.duplicateLegs += 1;
+                    return;
+                }
+                if (batchId) {
+                    leg.importBatchId = batchId;
+                }
+                if (leg.externalId) {
+                    seenExternalIds.add(leg.externalId);
+                }
+                legs.push(leg);
+            });
+
+            if (!legs.length) {
+                return;
+            }
+
+            const ticker = (group.ticker || legs[0]?.tickerSymbol || '').toUpperCase();
+            const openingLegs = legs.filter((leg) => this.getLegSide(leg) === 'OPEN');
+            const closingLegs = legs.filter((leg) => this.getLegSide(leg) === 'CLOSE');
+
+            stats.openingLegs += openingLegs.length;
+            stats.closingLegs += closingLegs.length;
+
+            const unmatchedClosingLegs = [];
+
+            closingLegs.forEach((closingLeg) => {
+                const key = this.buildPositionKey(ticker, closingLeg);
+                const match = this.consumePositionMatches(positionIndex, key, closingLeg);
+
+                if (match.matched.length) {
+                    match.matched.forEach((entry) => {
+                        const targetTrade = entry.trade;
+                        if (!targetTrade) {
+                            return;
+                        }
+                        if (this.tradeContainsExternalId(targetTrade, closingLeg.externalId)) {
+                            return;
+                        }
+
+                        const bucket = updates.get(targetTrade.id) || [];
+                        const legClone = { ...closingLeg, quantity: entry.quantity };
+                        if (batchId) {
+                            legClone.importBatchId = batchId;
+                        }
+                        bucket.push(this.sanitizeImportedLeg(legClone));
+                        updates.set(targetTrade.id, bucket);
+                        stats.legsAddedToUpdates += 1;
+                        stats.matchedClosingLegs += entry.quantity;
+                    });
+                }
+
+                const unmatchedQty = Math.max(0, match.unmatched);
+                if (!match.matched.length || unmatchedQty > 0) {
+                    const remainder = { ...closingLeg };
+                    if (unmatchedQty > 0 && remainder.quantity !== unmatchedQty) {
+                        remainder.quantity = unmatchedQty;
+                    }
+                    if (match.matched.length && remainder.externalId) {
+                        remainder.externalId = `${remainder.externalId}-UNMATCHED`;
+                    }
+                    if (batchId) {
+                        remainder.importBatchId = batchId;
+                    }
+                    unmatchedClosingLegs.push(remainder);
+                    stats.unmatchedClosingLegs += remainder.quantity || 0;
+                }
+
+                if (closingLeg.externalId) {
+                    seenExternalIds.add(closingLeg.externalId);
+                }
+            });
+
+            if (unmatchedClosingLegs.length > 0) {
+                const note = this.composeImportNotes(context, {
+                    legCount: unmatchedClosingLegs.length,
+                    note: 'Review required: closing legs have no matching open position.'
+                });
+
+                const sanitizedLegs = unmatchedClosingLegs.map((leg) => this.sanitizeImportedLeg(leg));
+                const resolvedTicker = (ticker || (unmatchedClosingLegs[0]?.tickerSymbol || '')).toUpperCase() || 'UNKNOWN';
+                const reviewId = `IMP-REVIEW-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+                newTrades.push({
+                    id: reviewId,
+                    ticker: resolvedTicker,
+                    strategy: 'Import Review',
+                    status: 'Closed',
+                    exitReason: '',
+                    notes: note,
+                    legs: sanitizedLegs,
+                    importBatchId: batchId,
+                    importReview: true
+                });
+
+                reviewTradeIds.push(reviewId);
+                stats.reviewTradesCreated += 1;
+                stats.legsAddedToNewTrades += sanitizedLegs.length;
+            }
+
+            if (openingLegs.length > 0) {
+                const tradeId = `TRD-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+                const strategy = this.inferStrategyFromLegs(openingLegs);
+                const sanitizedLegs = openingLegs.map((leg) => this.sanitizeImportedLeg(leg));
+                const note = this.composeImportNotes(context, { legCount: sanitizedLegs.length });
+
+                // Determine status: if we have closing legs matching opening legs, it may be closed
+                const hasAssignmentLegs = openingLegs.some((leg) => leg.isAssignment);
+                const status = hasAssignmentLegs ? 'Assigned' : 'Open';
+
+                const newTrade = {
+                    id: tradeId,
+                    ticker,
+                    strategy,
+                    status,
+                    notes: note,
+                    legs: sanitizedLegs,
+                    importReview: openingLegs.length > 4
+                };
+
+                if (newTrade.importReview) {
+                    reviewTradeIds.push(tradeId);
+                    stats.reviewTradesCreated += 1;
+                }
+
+                newTrades.push(newTrade);
+                stats.tradesCreated += 1;
+                stats.legsAddedToNewTrades += openingLegs.length;
+            }
+        });
+
+        stats.totalTradesCreated = newTrades.length;
+        stats.tradesUpdated = updates.size;
+        stats.reviewLegs = newTrades
+            .filter((trade) => trade.importReview)
+            .reduce((acc, trade) => acc + ((trade.legs || []).length), 0);
+
+        return { newTrades, updates, stats, batchId, reviewTradeIds };
+    }
+
+    buildLegFromRobinhoodTransaction(transaction) {
+        if (!transaction) {
+            return null;
+        }
+
+        const quantity = Math.abs(Number(transaction.quantity) || 0);
+        if (!quantity) {
+            return null;
+        }
+
+        const type = transaction.optionType || (transaction.category === 'STOCK' ? 'STOCK' : 'UNKNOWN');
+
+        const leg = {
+            id: transaction.externalId ? `EXT-${transaction.externalId}` : `LEG-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+            orderType: this.normalizeLegOrderType(transaction.orderType),
+            type,
+            quantity,
+            multiplier: transaction.multiplier || (type === 'STOCK' ? 1 : 100),
+            executionDate: transaction.tradeDate || '',
+            expirationDate: transaction.expiration || '',
+            strike: Number.isFinite(Number(transaction.strike)) ? Number(transaction.strike) : null,
+            premium: Number.isFinite(Number(transaction.price)) ? Number(transaction.price) : 0,
+            fees: Number.isFinite(Number(transaction.fees)) ? Number(transaction.fees) : 0,
+            underlyingPrice: null,
+            externalId: transaction.externalId || null,
+            importGroupId: transaction.groupKey || null,
+            importSource: 'Robinhood',
+            tickerSymbol: (transaction.underlying || transaction.ticker || '').toUpperCase()
+        };
+
+        // Preserve assignment flag for status determination
+        if (transaction.isAssignment) {
+            leg.isAssignment = true;
+        }
+
+        // Preserve memo if present
+        if (transaction.memo) {
+            leg.notes = transaction.memo;
+        }
+
+        return leg;
+    }
+
+    applyRobinhoodImportResult(importResult, context = {}) {
+        if (!importResult) {
+            return;
+        }
+
+        const stats = importResult.stats || {};
+        const batchId = importResult.batchId || context.batchId || null;
+        const reviewTradeIds = Array.isArray(importResult.reviewTradeIds)
+            ? importResult.reviewTradeIds.slice()
+            : [];
+
+        let created = 0;
+        let updated = 0;
+
+        if (importResult.updates instanceof Map) {
+            importResult.updates.forEach((legs, tradeId) => {
+                if (!Array.isArray(legs) || legs.length === 0) {
+                    return;
+                }
+
+                const index = this.trades.findIndex((trade) => trade.id === tradeId);
+                if (index === -1) {
+                    return;
+                }
+
+                const existing = this.trades[index];
+                const mergedLegs = [...existing.legs, ...legs.map((leg) => ({ ...leg }))];
+                const note = this.composeImportNotes(context, {
+                    legCount: legs.length,
+                    note: 'Existing trade updated from Robinhood CSV import.'
+                });
+
+                const updatedTrade = this.enrichTradeData({
+                    ...existing,
+                    legs: mergedLegs,
+                    notes: existing.notes ? `${existing.notes}\n${note}` : note
+                });
+
+                this.trades[index] = updatedTrade;
+                updated += 1;
+            });
+        }
+
+        if (Array.isArray(importResult.newTrades)) {
+            importResult.newTrades.forEach((tradeData) => {
+                if (!tradeData || !Array.isArray(tradeData.legs) || tradeData.legs.length === 0) {
+                    return;
+                }
+                if (tradeData.importReview && !reviewTradeIds.includes(tradeData.id)) {
+                    reviewTradeIds.push(tradeData.id);
+                }
+                const enriched = this.enrichTradeData(tradeData);
+                this.trades.push(enriched);
+                created += 1;
+            });
+        }
+
+        const fileName = context?.fileName || 'Robinhood CSV file';
+
+        stats.totalTradesCreated = stats.totalTradesCreated ?? created;
+        stats.tradesUpdated = updated;
+        stats.reviewTradesCreated = stats.reviewTradesCreated ?? reviewTradeIds.length;
+
+        if (created || updated) {
+            this.saveToStorage();
+            this.markUnsavedChanges();
+            this.updateDashboard();
+
+            const segments = [];
+            if (created) {
+                segments.push(`${created} new trade${created === 1 ? '' : 's'}`);
+            }
+            if (updated) {
+                segments.push(`${updated} trade${updated === 1 ? '' : 's'} updated`);
+            }
+
+            const summary = segments.join(', ');
+            this.showNotification(`Robinhood import complete: ${summary}.`, 'success');
+            this.appendImportLog({
+                type: 'success',
+                message: `Imported from ${fileName}: ${summary}.`,
+                timestamp: new Date()
+            });
+        } else {
+            this.showNotification('No new trades or updates found in the Robinhood CSV file.', 'info');
+            this.appendImportLog({
+                type: 'info',
+                message: `No new data in ${fileName}. All transactions may already exist.`,
+                timestamp: new Date()
+            });
+        }
+
+        this.renderImportSummary({
+            fileName,
+            batchId,
+            stats,
+            reviewTradeIds,
+            created,
+            updated
+        });
     }
 
     parseOfx(raw) {
