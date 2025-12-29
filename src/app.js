@@ -5115,6 +5115,10 @@ class GammaLedger {
         this.syncCumulativePLControls();
         this.updateCumulativePLChart();
         this.refreshShareCardChart();
+        this.updateStrategyPerformanceChart();
+        this.updateWinRateByStrategyChart();
+        this.updateCommissionImpactChart();
+        this.renderTickerHeatmap();
     }
 
     syncCumulativePLControls() {
@@ -8833,15 +8837,15 @@ class GammaLedger {
     updateCommissionImpactChart() {
         const canvas = document.getElementById('commissionImpactChart');
         const summaryElement = document.getElementById('commissionImpactSummary');
-        const stats = this.latestStats;
 
         if (!canvas) {
             return;
         }
 
-        if (!stats) {
+        const filteredTrades = this.getClosedTradesInRange();
+        if (!filteredTrades.length) {
             if (summaryElement) {
-                summaryElement.textContent = 'No closed trades yet.';
+                summaryElement.textContent = 'No closed trades in selected timeframe.';
             }
             if (this.charts.commissionImpact) {
                 this.charts.commissionImpact.destroy();
@@ -8850,9 +8854,15 @@ class GammaLedger {
             return;
         }
 
-        const totalFees = Number(stats.totalFees) || 0;
-        const netPL = Number(stats.totalPL) || 0;
-        const feeShare = Number(stats.feeShareOfGross) || 0;
+        let totalFees = 0;
+        let netPL = 0;
+        let grossTurnover = 0;
+        filteredTrades.forEach(trade => {
+            totalFees += Number(trade.totalFees) || 0;
+            netPL += Number(trade.pl) || 0;
+            grossTurnover += Math.abs(Number(trade.pl) || 0) + (Number(trade.totalFees) || 0);
+        });
+        const feeShare = grossTurnover > 0 ? (totalFees / grossTurnover) * 100 : 0;
 
         if (summaryElement) {
             if (totalFees === 0 && netPL === 0) {
@@ -8928,8 +8938,9 @@ class GammaLedger {
 
         container.innerHTML = '';
 
-        const stats = this.latestStats;
-        const items = stats?.tickerPerformance?.items || [];
+        const filteredTrades = this.getClosedTradesInRange();
+        const tickerPerformance = this.calculateTickerPerformance(filteredTrades);
+        const items = tickerPerformance?.items || [];
         if (!items.length) {
             const empty = document.createElement('div');
             empty.className = 'heatmap-empty';
@@ -8938,7 +8949,7 @@ class GammaLedger {
             return;
         }
 
-        const maxMagnitude = stats?.tickerPerformance?.maxMagnitude || 1;
+        const maxMagnitude = tickerPerformance?.maxMagnitude || 1;
         const subset = items.slice(0, 12);
 
         subset.forEach((item) => {
@@ -10356,6 +10367,32 @@ class GammaLedger {
             default:
                 return 'All Time';
         }
+    }
+
+    getClosedTradesInRange(range = this.cumulativePLRange) {
+        const { start, end } = this.getCumulativePLRangeWindow(range);
+        const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
+
+        if (!start && !end) {
+            return closedTrades;
+        }
+
+        return closedTrades.filter(trade => {
+            const exitDateRaw = this.parseDateValue(trade.exitDate || trade.closedDate);
+            if (!exitDateRaw) {
+                return false;
+            }
+            const exitDate = new Date(exitDateRaw);
+            exitDate.setHours(0, 0, 0, 0);
+
+            if (start && exitDate < start) {
+                return false;
+            }
+            if (end && exitDate > end) {
+                return false;
+            }
+            return true;
+        });
     }
 
     getCumulativePLRangeWindow(range) {
@@ -12044,8 +12081,9 @@ class GammaLedger {
             this.charts.strategy.destroy();
         }
 
+        const filteredTrades = this.getClosedTradesInRange();
         const strategyPL = {};
-        this.trades.filter(trade => this.isClosedStatus(trade.status)).forEach(trade => {
+        filteredTrades.forEach(trade => {
             if (!strategyPL[trade.strategy]) {
                 strategyPL[trade.strategy] = 0;
             }
@@ -12106,16 +12144,15 @@ class GammaLedger {
             this.charts.winRate.destroy();
         }
 
+        const filteredTrades = this.getClosedTradesInRange();
         const strategyStats = {};
-        this.trades.forEach(trade => {
+        filteredTrades.forEach(trade => {
             if (!strategyStats[trade.strategy]) {
                 strategyStats[trade.strategy] = { total: 0, wins: 0 };
             }
-            if (this.isClosedStatus(trade.status)) {
-                strategyStats[trade.strategy].total++;
-                if (trade.pl > 0) {
-                    strategyStats[trade.strategy].wins++;
-                }
+            strategyStats[trade.strategy].total++;
+            if (trade.pl > 0) {
+                strategyStats[trade.strategy].wins++;
             }
         });
 
