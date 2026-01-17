@@ -3591,7 +3591,9 @@ tr:hover {
 
 .settings-view .finnhub-status,
 .settings-view .gemini-status,
-.settings-view .default-fee-status {
+.settings-view .default-fee-status,
+.settings-view .finnhub-rate-status,
+.settings-view .gemini-tokens-status {
   padding: var(--space-8);
   border-radius: var(--radius-base);
   background: rgba(var(--color-info-rgb), var(--status-bg-opacity));
@@ -3601,16 +3603,27 @@ tr:hover {
 
 .settings-view .finnhub-status.is-success,
 .settings-view .gemini-status.is-success,
-.settings-view .default-fee-status.is-success {
+.settings-view .default-fee-status.is-success,
+.settings-view .finnhub-rate-status.is-success,
+.settings-view .gemini-tokens-status.is-success {
   background: rgba(var(--color-success-rgb), var(--status-bg-opacity));
   color: var(--color-primary);
 }
 
 .settings-view .finnhub-status.is-error,
 .settings-view .gemini-status.is-error,
-.settings-view .default-fee-status.is-error {
+.settings-view .default-fee-status.is-error,
+.settings-view .finnhub-rate-status.is-error,
+.settings-view .gemini-tokens-status.is-error {
   background: rgba(var(--color-error-rgb), var(--status-bg-opacity));
   color: var(--color-error);
+}
+
+/* Settings section divider */
+.settings-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-16) 0;
 }
 
 /* Status badges - NEW STYLING */

@@ -793,6 +793,17 @@
                             </div>
                             <p class="settings-help-text">The key never leaves your machine. Clearing browser storage will remove it.</p>
                             <div class="finnhub-status" id="finnhub-status" role="status">Not set</div>
+                            
+                            <div class="settings-divider"></div>
+                            
+                            <label for="finnhub-rate-limit" class="form-label">Rate Limit (requests per minute)</label>
+                            <div class="settings-input-row">
+                                <input type="number" id="finnhub-rate-limit" class="form-control" placeholder="60" min="1" max="300" step="1" autocomplete="off">
+                                <button class="btn btn--sm btn--primary" id="finnhub-rate-save">Save</button>
+                                <button class="btn btn--sm btn--secondary" id="finnhub-rate-reset">Reset</button>
+                            </div>
+                            <p class="settings-help-text">Free Finnhub accounts are limited to 60 requests/minute. Adjust if you have a paid plan.</p>
+                            <div class="finnhub-rate-status" id="finnhub-rate-status" role="status">Default: 60/min</div>
                         </div>
                     </div>
                     <div class="settings-card" id="gemini-controls">
@@ -817,6 +828,17 @@
                             </div>
                             <p class="settings-help-text">Keys stay on this device. Use Google AI Studio or any compatible service exposing the Gemini generateContent API.</p>
                             <div class="gemini-status" id="gemini-status" role="status">Not set</div>
+                            
+                            <div class="settings-divider"></div>
+                            
+                            <label for="gemini-max-tokens" class="form-label">Max Output Tokens</label>
+                            <div class="settings-input-row">
+                                <input type="number" id="gemini-max-tokens" class="form-control" placeholder="65536" min="1024" max="1000000" step="1024" autocomplete="off">
+                                <button class="btn btn--sm btn--primary" id="gemini-tokens-save">Save</button>
+                                <button class="btn btn--sm btn--secondary" id="gemini-tokens-reset">Reset</button>
+                            </div>
+                            <p class="settings-help-text">Maximum tokens for AI responses. Higher values allow longer responses but may increase cost.</p>
+                            <div class="gemini-tokens-status" id="gemini-tokens-status" role="status">Default: 65536</div>
                         </div>
                     </div>
                 </section>
@@ -838,7 +860,7 @@
                                 <button class="btn btn--sm btn--primary" id="default-fee-save">Save</button>
                                 <button class="btn btn--sm btn--secondary" id="default-fee-clear">Clear</button>
                             </div>
-                            <p class="settings-help-text">Enter the fee charged per contract (e.g., $0.65). This will be multiplied by the quantity when adding new legs.</p>
+                            <p class="settings-help-text">Enter the fee charged per contract (e.g., $0,65). This will be multiplied by the quantity when adding new legs.</p>
                             <div class="default-fee-status" id="default-fee-status" role="status">Not set</div>
                         </div>
                     </div>

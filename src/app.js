@@ -14,6 +14,8 @@ const APP_CONFIG = Object.freeze({
         SIDEBAR_COLLAPSED: 'GammaLedgerSidebarCollapsed',
         LOCAL_DATABASE: 'GammaLedgerLocalDatabase',
         DEFAULT_FEE_PER_CONTRACT: 'GammaLedgerDefaultFeePerContract',
+        FINNHUB_RATE_LIMIT: 'GammaLedgerFinnhubRateLimit',
+        GEMINI_MAX_TOKENS: 'GammaLedgerGeminiMaxTokens',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',
@@ -49,6 +51,10 @@ const SHARE_CARD_CHART_HEIGHT_RATIO = APP_CONFIG.SHARE_CARD.CHART_HEIGHT_RATIO;
 const SHARE_CARD_CHART_MIN_HEIGHT = APP_CONFIG.SHARE_CARD.CHART_MIN_HEIGHT;
 const CUMULATIVE_PL_RANGES = APP_CONFIG.PL_RANGES;
 const DEFAULT_FEE_STORAGE_KEY = APP_CONFIG.STORAGE.DEFAULT_FEE_PER_CONTRACT;
+const FINNHUB_RATE_LIMIT_STORAGE_KEY = APP_CONFIG.STORAGE.FINNHUB_RATE_LIMIT;
+const GEMINI_MAX_TOKENS_STORAGE_KEY = APP_CONFIG.STORAGE.GEMINI_MAX_TOKENS;
+const DEFAULT_FINNHUB_RATE_LIMIT = 60;
+const DEFAULT_GEMINI_MAX_TOKENS = 65536;
 
 const RUNTIME_TRADE_FIELDS = new Set([
     'legsCount',
@@ -1338,7 +1344,7 @@ class GammaLedger {
             cacheTTL: 1000 * 60, // 1 minute
             outstandingRequests: new Map(),
             rateLimitQueue: Promise.resolve(),
-            maxRequestsPerMinute: 60,
+            maxRequestsPerMinute: this.loadFinnhubRateLimitFromStorage(),
             timestamps: [],
             minIdleMs: 1000, // Minimum 1 second between requests
             lastRequestTime: 0,
@@ -1351,6 +1357,7 @@ class GammaLedger {
             apiKey: '',
             encryptionKey: null,
             model: DEFAULT_GEMINI_MODEL,
+            maxOutputTokens: this.loadGeminiMaxTokensFromStorage(),
             statusTimeoutId: null,
             lastStatus: null,
             pendingStatus: null,
@@ -3976,8 +3983,14 @@ class GammaLedger {
         }
 
         const underlyingInput = row.querySelector('[data-leg-field="underlyingPrice"]');
+        const shouldAutoFillPrice = underlyingInput && !Number.isFinite(Number(leg?.underlyingPrice));
+        
         if (underlyingInput) {
-            underlyingInput.value = Number.isFinite(Number(leg?.underlyingPrice)) ? Number(leg.underlyingPrice) : '';
+            if (Number.isFinite(Number(leg?.underlyingPrice))) {
+                // Use provided underlying price (e.g., when editing existing leg)
+                underlyingInput.value = Number(leg.underlyingPrice);
+            }
+            // Auto-fill will happen after row is appended to DOM
         }
 
         const removeButton = row.querySelector('.trade-leg__remove');
@@ -3999,7 +4012,90 @@ class GammaLedger {
         this.applyUnderlyingTypeToLegMultipliers({ row, force: !leg });
         this.syncLegMultiplierVisibility(row);
         this.updateLegRowNumbers();
+        
+        // Auto-fill underlying price AFTER row is in the DOM
+        if (shouldAutoFillPrice) {
+            this.autoFillUnderlyingPrice(underlyingInput);
+        }
+        
         return row;
+    }
+
+    /**
+     * Auto-fills the underlying price input with the current ticker price.
+     * Fetches the price asynchronously from Finnhub if API key is configured.
+     * @param {HTMLInputElement} inputElement - The underlying price input element
+     */
+    async autoFillUnderlyingPrice(inputElement) {
+        if (!inputElement) {
+            return;
+        }
+
+        // Get the current ticker from the trade form
+        const tickerInput = document.getElementById('ticker');
+        const ticker = (tickerInput?.value || '').trim().toUpperCase();
+
+        if (!ticker) {
+            return;
+        }
+
+        // Check if Finnhub API key is configured
+        if (!this.finnhub?.apiKey) {
+            return;
+        }
+
+        try {
+            const quote = await this.getCurrentPrice(ticker);
+            const price = Number(quote?.price);
+            if (Number.isFinite(price) && price > 0) {
+                // Only update if the input is still empty (user hasn't manually entered a value)
+                if (!inputElement.value) {
+                    inputElement.value = price;
+                }
+            }
+        } catch (error) {
+            // Silently fail - don't disrupt the user if price fetch fails
+            console.debug('Auto-fill underlying price failed:', error.message);
+        }
+    }
+
+    /**
+     * Auto-fills underlying price for all empty leg inputs using the current ticker price.
+     * Fetches the price once and applies to empty fields only.
+     */
+    async autoFillUnderlyingPricesForLegs() {
+        const tickerInput = document.getElementById('ticker');
+        const ticker = (tickerInput?.value || '').trim().toUpperCase();
+
+        if (!ticker || !this.finnhub?.apiKey) {
+            return;
+        }
+
+        const container = this.getLegsContainer();
+        if (!container) {
+            return;
+        }
+
+        const emptyInputs = Array.from(container.querySelectorAll('[data-leg-field="underlyingPrice"]'))
+            .filter(input => !input.value);
+
+        if (emptyInputs.length === 0) {
+            return;
+        }
+
+        try {
+            const quote = await this.getCurrentPrice(ticker);
+            const price = Number(quote?.price);
+            if (Number.isFinite(price) && price > 0) {
+                emptyInputs.forEach(input => {
+                    if (!input.value) {
+                        input.value = price;
+                    }
+                });
+            }
+        } catch (error) {
+            console.debug('Auto-fill underlying prices failed:', error.message);
+        }
     }
 
     removeLegFormRow(row) {
@@ -5130,6 +5226,14 @@ class GammaLedger {
         if (tickerInput) {
             tickerInput.addEventListener('input', (e) => {
                 this.updateTickerPreview(e.target.value);
+            });
+
+            tickerInput.addEventListener('change', () => {
+                this.autoFillUnderlyingPricesForLegs();
+            });
+
+            tickerInput.addEventListener('blur', () => {
+                this.autoFillUnderlyingPricesForLegs();
             });
         }
 
@@ -9707,8 +9811,86 @@ class GammaLedger {
             this.updateAIChatHeader();
         });
 
+        // Max tokens controls
+        this.initializeGeminiMaxTokensControls();
+
         this.updateAIChatHeader();
         this.flushPendingGeminiStatus();
+    }
+
+    initializeGeminiMaxTokensControls() {
+        const maxTokensInput = document.getElementById('gemini-max-tokens');
+        const tokensSaveButton = document.getElementById('gemini-tokens-save');
+        const tokensResetButton = document.getElementById('gemini-tokens-reset');
+        const tokensStatus = document.getElementById('gemini-tokens-status');
+
+        // Initialize input with current value
+        if (maxTokensInput) {
+            maxTokensInput.value = this.gemini.maxOutputTokens;
+        }
+
+        // Update status display
+        this.updateGeminiTokensStatus(tokensStatus);
+
+        // Save button handler
+        tokensSaveButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            const value = parseInt(maxTokensInput?.value || '', 10);
+            
+            if (Number.isFinite(value) && value >= 1024) {
+                this.gemini.maxOutputTokens = value;
+                this.saveGeminiMaxTokensToStorage();
+                this.updateGeminiTokensStatus(tokensStatus, `Max tokens set to ${value.toLocaleString()}`, 'success');
+            } else {
+                this.updateGeminiTokensStatus(tokensStatus, 'Please enter a valid token limit (min 1024)', 'error');
+            }
+        });
+
+        // Reset button handler
+        tokensResetButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.gemini.maxOutputTokens = DEFAULT_GEMINI_MAX_TOKENS;
+            this.removeGeminiMaxTokensFromStorage();
+            if (maxTokensInput) {
+                maxTokensInput.value = DEFAULT_GEMINI_MAX_TOKENS;
+            }
+            this.updateGeminiTokensStatus(tokensStatus, `Max tokens reset to ${DEFAULT_GEMINI_MAX_TOKENS.toLocaleString()}`, 'neutral');
+        });
+
+        // Enter key handler
+        maxTokensInput?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                tokensSaveButton?.click();
+            }
+        });
+    }
+
+    updateGeminiTokensStatus(element, message = null, variant = 'neutral') {
+        if (!element) {
+            return;
+        }
+
+        if (message) {
+            element.textContent = message;
+            element.className = 'gemini-tokens-status';
+            if (variant === 'success') {
+                element.classList.add('is-success');
+            } else if (variant === 'error') {
+                element.classList.add('is-error');
+            }
+            return;
+        }
+
+        // Default status based on current value
+        const isDefault = this.gemini.maxOutputTokens === DEFAULT_GEMINI_MAX_TOKENS;
+        if (isDefault) {
+            element.textContent = `Default: ${DEFAULT_GEMINI_MAX_TOKENS.toLocaleString()}`;
+            element.className = 'gemini-tokens-status';
+        } else {
+            element.textContent = `Custom: ${this.gemini.maxOutputTokens.toLocaleString()}`;
+            element.className = 'gemini-tokens-status is-success';
+        }
     }
 
     syncGeminiControlsFromState({ preserveStatus = true } = {}) {
@@ -10144,6 +10326,88 @@ class GammaLedger {
                 await commit();
             }
         });
+
+        // Rate limit controls
+        this.initializeFinnhubRateLimitControls();
+    }
+
+    initializeFinnhubRateLimitControls() {
+        const rateLimitInput = document.getElementById('finnhub-rate-limit');
+        const rateSaveButton = document.getElementById('finnhub-rate-save');
+        const rateResetButton = document.getElementById('finnhub-rate-reset');
+        const rateStatus = document.getElementById('finnhub-rate-status');
+
+        // Initialize input with current value
+        if (rateLimitInput) {
+            rateLimitInput.value = this.finnhub.maxRequestsPerMinute;
+        }
+
+        // Update status display
+        this.updateFinnhubRateStatus(rateStatus);
+
+        // Save button handler
+        rateSaveButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            const value = parseInt(rateLimitInput?.value || '', 10);
+            
+            if (Number.isFinite(value) && value > 0) {
+                this.finnhub.maxRequestsPerMinute = value;
+                this.saveFinnhubRateLimitToStorage();
+                this.updateFinnhubRateStatus(rateStatus, `Rate limit set to ${value} requests/minute`, 'success');
+                // Recalculate and restart quote refresh with new rate limit
+                this.restartQuoteRefreshWithNewRate();
+            } else {
+                this.updateFinnhubRateStatus(rateStatus, 'Please enter a valid rate limit', 'error');
+            }
+        });
+
+        // Reset button handler
+        rateResetButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.finnhub.maxRequestsPerMinute = DEFAULT_FINNHUB_RATE_LIMIT;
+            this.removeFinnhubRateLimitFromStorage();
+            if (rateLimitInput) {
+                rateLimitInput.value = DEFAULT_FINNHUB_RATE_LIMIT;
+            }
+            this.updateFinnhubRateStatus(rateStatus, `Rate limit reset to ${DEFAULT_FINNHUB_RATE_LIMIT}/minute`, 'neutral');
+            // Recalculate and restart quote refresh with default rate limit
+            this.restartQuoteRefreshWithNewRate();
+        });
+
+        // Enter key handler
+        rateLimitInput?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                rateSaveButton?.click();
+            }
+        });
+    }
+
+    updateFinnhubRateStatus(element, message = null, variant = 'neutral') {
+        if (!element) {
+            return;
+        }
+
+        if (message) {
+            element.textContent = message;
+            element.className = 'finnhub-rate-status';
+            if (variant === 'success') {
+                element.classList.add('is-success');
+            } else if (variant === 'error') {
+                element.classList.add('is-error');
+            }
+            return;
+        }
+
+        // Default status based on current value
+        const isDefault = this.finnhub.maxRequestsPerMinute === DEFAULT_FINNHUB_RATE_LIMIT;
+        if (isDefault) {
+            element.textContent = `Default: ${DEFAULT_FINNHUB_RATE_LIMIT}/min`;
+            element.className = 'finnhub-rate-status';
+        } else {
+            element.textContent = `Custom: ${this.finnhub.maxRequestsPerMinute}/min`;
+            element.className = 'finnhub-rate-status is-success';
+        }
     }
 
     initializeDefaultFeeControls() {
@@ -10235,6 +10499,74 @@ class GammaLedger {
             localStorage.removeItem(DEFAULT_FEE_STORAGE_KEY);
         } catch (error) {
             console.warn('Failed to remove default fee from storage:', error);
+        }
+    }
+
+    // Finnhub rate limit storage methods
+    loadFinnhubRateLimitFromStorage() {
+        try {
+            const stored = localStorage.getItem(FINNHUB_RATE_LIMIT_STORAGE_KEY);
+            if (stored !== null) {
+                const value = parseInt(stored, 10);
+                if (Number.isFinite(value) && value > 0) {
+                    return value;
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to load Finnhub rate limit from storage:', error);
+        }
+        return DEFAULT_FINNHUB_RATE_LIMIT;
+    }
+
+    saveFinnhubRateLimitToStorage() {
+        try {
+            if (this.finnhub?.maxRequestsPerMinute) {
+                localStorage.setItem(FINNHUB_RATE_LIMIT_STORAGE_KEY, String(this.finnhub.maxRequestsPerMinute));
+            }
+        } catch (error) {
+            console.warn('Failed to save Finnhub rate limit to storage:', error);
+        }
+    }
+
+    removeFinnhubRateLimitFromStorage() {
+        try {
+            localStorage.removeItem(FINNHUB_RATE_LIMIT_STORAGE_KEY);
+        } catch (error) {
+            console.warn('Failed to remove Finnhub rate limit from storage:', error);
+        }
+    }
+
+    // Gemini max tokens storage methods
+    loadGeminiMaxTokensFromStorage() {
+        try {
+            const stored = localStorage.getItem(GEMINI_MAX_TOKENS_STORAGE_KEY);
+            if (stored !== null) {
+                const value = parseInt(stored, 10);
+                if (Number.isFinite(value) && value > 0) {
+                    return value;
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to load Gemini max tokens from storage:', error);
+        }
+        return DEFAULT_GEMINI_MAX_TOKENS;
+    }
+
+    saveGeminiMaxTokensToStorage() {
+        try {
+            if (this.gemini?.maxOutputTokens) {
+                localStorage.setItem(GEMINI_MAX_TOKENS_STORAGE_KEY, String(this.gemini.maxOutputTokens));
+            }
+        } catch (error) {
+            console.warn('Failed to save Gemini max tokens to storage:', error);
+        }
+    }
+
+    removeGeminiMaxTokensFromStorage() {
+        try {
+            localStorage.removeItem(GEMINI_MAX_TOKENS_STORAGE_KEY);
+        } catch (error) {
+            console.warn('Failed to remove Gemini max tokens from storage:', error);
         }
     }
 
@@ -11625,6 +11957,27 @@ class GammaLedger {
         if (this.activeQuoteEntries?.size === 0) {
             this.quoteRefreshKeys = [];
             this.quoteRefreshCursor = 0;
+        }
+    }
+
+    /**
+     * Recalculates and restarts the quote auto-refresh with the current rate limit.
+     * Called when the Finnhub rate limit setting is changed.
+     */
+    restartQuoteRefreshWithNewRate() {
+        // Force recalculation of the refresh interval
+        this.autoRefreshIntervalMs = this.computeAutoRefreshInterval();
+        
+        // Stop current refresh timer
+        this.stopQuoteAutoRefresh();
+        
+        // Restart with new interval if there are entries to refresh
+        const totalEntries = (this.activeQuoteEntries?.size || 0) + 
+                            (this.creditPlaybookQuoteEntries?.size || 0) + 
+                            (this.assignedPositionsQuoteEntries?.size || 0);
+        
+        if (totalEntries > 0) {
+            this.startQuoteAutoRefresh();
         }
     }
 
@@ -18331,7 +18684,7 @@ class GeminiInsightsAgent {
         ];
 
         const generationConfig = {
-            maxOutputTokens: 65536
+            maxOutputTokens: this.gemini.maxOutputTokens || DEFAULT_GEMINI_MAX_TOKENS
         };
 
         generationConfig.temperature = Number(temperature.toFixed(2));
