@@ -13,6 +13,7 @@ const APP_CONFIG = Object.freeze({
         AI_COACH_CONSENT: 'GammaLedgerAICoachConsentAt',
         SIDEBAR_COLLAPSED: 'GammaLedgerSidebarCollapsed',
         LOCAL_DATABASE: 'GammaLedgerLocalDatabase',
+        DEFAULT_FEE_PER_CONTRACT: 'GammaLedgerDefaultFeePerContract',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',
@@ -47,6 +48,7 @@ const SHARE_CARD_CHART_WIDTH_RATIO = APP_CONFIG.SHARE_CARD.CHART_WIDTH_RATIO;
 const SHARE_CARD_CHART_HEIGHT_RATIO = APP_CONFIG.SHARE_CARD.CHART_HEIGHT_RATIO;
 const SHARE_CARD_CHART_MIN_HEIGHT = APP_CONFIG.SHARE_CARD.CHART_MIN_HEIGHT;
 const CUMULATIVE_PL_RANGES = APP_CONFIG.PL_RANGES;
+const DEFAULT_FEE_STORAGE_KEY = APP_CONFIG.STORAGE.DEFAULT_FEE_PER_CONTRACT;
 
 const RUNTIME_TRADE_FIELDS = new Set([
     'legsCount',
@@ -1427,6 +1429,8 @@ class GammaLedger {
 
         this.assignedPositionsStatusFilter = 'open';
 
+        this.defaultFeePerContract = null; // User's default fee setting
+
         this.sidebarState = {
             container: null,
             sidebar: null,
@@ -1594,6 +1598,7 @@ class GammaLedger {
             this.initializeGeminiControls();
             this.initializeAIChat();
             this.initializeFinnhubControls();
+            this.initializeDefaultFeeControls();
             this.initializeDisclaimerBanner();
             this.initializeAICoachConsent();
             this.initializeSidebarToggle();
@@ -3791,7 +3796,10 @@ class GammaLedger {
         row.innerHTML = `
             <div class="trade-leg__header">
                 <span class="trade-leg__title" data-leg-label></span>
-                <button type="button" class="btn btn--sm btn--secondary trade-leg__remove">Remove Leg</button>
+                <div class="trade-leg__actions">
+                    <button type="button" class="btn btn--sm btn--accent trade-leg__close" title="Create a closing leg with pre-filled data">Close Leg</button>
+                    <button type="button" class="btn btn--sm btn--secondary trade-leg__remove">Remove Leg</button>
+                </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
@@ -3917,7 +3925,29 @@ class GammaLedger {
 
         const feesInput = row.querySelector('[data-leg-field="fees"]');
         if (feesInput) {
-            feesInput.value = Number.isFinite(Number(leg?.fees)) ? Number(leg.fees) : '';
+            if (Number.isFinite(Number(leg?.fees))) {
+                // Existing leg has a fee value
+                feesInput.value = Number(leg.fees);
+            } else if (!leg && this.defaultFeePerContract !== null) {
+                // New leg - apply default fee based on quantity (default quantity is 1)
+                const defaultFee = this.getDefaultFeeForQuantity(1);
+                if (defaultFee !== null) {
+                    feesInput.value = defaultFee;
+                }
+            } else {
+                feesInput.value = '';
+            }
+        }
+
+        // Update fees when quantity changes (only for new legs with default fee set)
+        if (!leg && this.defaultFeePerContract !== null) {
+            quantityInput?.addEventListener('change', () => {
+                const qty = Math.abs(Number(quantityInput.value) || 1);
+                const defaultFee = this.getDefaultFeeForQuantity(qty);
+                if (defaultFee !== null && feesInput) {
+                    feesInput.value = defaultFee;
+                }
+            });
         }
 
         const multiplierInput = row.querySelector('[data-leg-field="multiplier"]');
@@ -3957,6 +3987,14 @@ class GammaLedger {
             });
         }
 
+        // Close Leg button - creates a closing leg with inverted action
+        const closeButton = row.querySelector('.trade-leg__close');
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                this.createClosingLegFromRow(row);
+            });
+        }
+
         container.appendChild(row);
         this.applyUnderlyingTypeToLegMultipliers({ row, force: !leg });
         this.syncLegMultiplierVisibility(row);
@@ -3977,6 +4015,91 @@ class GammaLedger {
         } else {
             this.updateLegRowNumbers();
             this.applyUnderlyingTypeToLegMultipliers({ force: false });
+        }
+    }
+
+    /**
+     * Creates a closing leg from an existing leg row.
+     * Pre-fills the closing action, quantity, dates, strike, and expiration.
+     * User only needs to enter the premium and optionally adjust fees.
+     */
+    createClosingLegFromRow(sourceRow) {
+        if (!sourceRow) {
+            return;
+        }
+
+        // Extract values from the source leg
+        const orderTypeSelect = sourceRow.querySelector('[data-leg-field="orderType"]');
+        const typeSelect = sourceRow.querySelector('[data-leg-field="type"]');
+        const quantityInput = sourceRow.querySelector('[data-leg-field="quantity"]');
+        const executionInput = sourceRow.querySelector('[data-leg-field="executionDate"]');
+        const expirationInput = sourceRow.querySelector('[data-leg-field="expirationDate"]');
+        const strikeInput = sourceRow.querySelector('[data-leg-field="strike"]');
+        const multiplierInput = sourceRow.querySelector('[data-leg-field="multiplier"]');
+
+        const orderType = orderTypeSelect?.value || 'BTO';
+        const instrumentType = typeSelect?.value || 'CALL';
+        const quantity = quantityInput?.value || 1;
+        const executionDate = executionInput?.value || '';
+        const expirationDate = expirationInput?.value || '';
+        const strike = strikeInput?.value || '';
+        const multiplier = multiplierInput?.value || '';
+
+        // Determine the closing order type
+        // BTO -> STC (bought to open, sell to close)
+        // STO -> BTC (sold to open, buy to close)
+        // BTC -> already a close, don't create another
+        // STC -> already a close, don't create another
+        let closingOrderType;
+        if (orderType === 'BTO') {
+            closingOrderType = 'STC';
+        } else if (orderType === 'STO') {
+            closingOrderType = 'BTC';
+        } else {
+            // Already a closing leg - show notification
+            this.showNotification('This leg is already a closing position.', 'warning');
+            return;
+        }
+
+        // Get today's date as the default execution date for the closing leg
+        const today = new Date().toISOString().slice(0, 10);
+
+        // Calculate default fee based on quantity
+        const qty = Math.abs(Number(quantity) || 1);
+        const defaultFee = this.getDefaultFeeForQuantity(qty);
+
+        // Build the closing leg data
+        const closingLeg = {
+            orderType: closingOrderType,
+            type: instrumentType,
+            quantity: qty,
+            executionDate: today,
+            expirationDate: expirationDate,
+            strike: strike,
+            premium: '', // User must enter
+            fees: defaultFee !== null ? defaultFee : '',
+            multiplier: multiplier
+        };
+
+        // Add the closing leg
+        const newRow = this.addLegFormRow(closingLeg);
+
+        // Highlight the new leg briefly
+        if (newRow) {
+            newRow.classList.add('trade-leg--highlight');
+            newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Focus on the premium field since that's what the user needs to enter
+            setTimeout(() => {
+                const premiumInput = newRow.querySelector('[data-leg-field="premium"]');
+                if (premiumInput) {
+                    premiumInput.focus();
+                }
+                // Remove highlight after animation
+                setTimeout(() => {
+                    newRow.classList.remove('trade-leg--highlight');
+                }, 1500);
+            }, 100);
         }
     }
 
@@ -10021,6 +10144,136 @@ class GammaLedger {
                 await commit();
             }
         });
+    }
+
+    initializeDefaultFeeControls() {
+        const container = document.getElementById('default-fees-controls');
+        if (!container) {
+            return;
+        }
+
+        const input = document.getElementById('default-fee-per-contract');
+        const saveButton = document.getElementById('default-fee-save');
+        const clearButton = document.getElementById('default-fee-clear');
+        const status = document.getElementById('default-fee-status');
+
+        // Load saved value from localStorage
+        this.loadDefaultFeeFromStorage();
+
+        // Initialize input with saved value
+        if (input && this.defaultFeePerContract !== null) {
+            input.value = this.defaultFeePerContract;
+        }
+
+        // Update status display
+        this.updateDefaultFeeStatus(status);
+
+        // Save button handler
+        saveButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            const value = parseFloat(input?.value || '');
+            
+            if (Number.isFinite(value) && value >= 0) {
+                this.defaultFeePerContract = value;
+                this.saveDefaultFeeToStorage();
+                this.updateDefaultFeeStatus(status, `Default fee set to ${this.formatCurrency(value)} per contract`, 'success');
+            } else if (input?.value === '' || input?.value === null) {
+                this.defaultFeePerContract = null;
+                this.removeDefaultFeeFromStorage();
+                this.updateDefaultFeeStatus(status, 'Default fee cleared', 'neutral');
+            } else {
+                this.updateDefaultFeeStatus(status, 'Please enter a valid fee amount', 'error');
+            }
+        });
+
+        // Clear button handler
+        clearButton?.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.defaultFeePerContract = null;
+            this.removeDefaultFeeFromStorage();
+            if (input) {
+                input.value = '';
+            }
+            this.updateDefaultFeeStatus(status, 'Default fee cleared', 'neutral');
+        });
+
+        // Enter key handler
+        input?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                saveButton?.click();
+            }
+        });
+    }
+
+    loadDefaultFeeFromStorage() {
+        try {
+            const stored = localStorage.getItem(DEFAULT_FEE_STORAGE_KEY);
+            if (stored !== null) {
+                const value = parseFloat(stored);
+                if (Number.isFinite(value) && value >= 0) {
+                    this.defaultFeePerContract = value;
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to load default fee from storage:', error);
+        }
+    }
+
+    saveDefaultFeeToStorage() {
+        try {
+            if (this.defaultFeePerContract !== null) {
+                localStorage.setItem(DEFAULT_FEE_STORAGE_KEY, String(this.defaultFeePerContract));
+            }
+        } catch (error) {
+            console.warn('Failed to save default fee to storage:', error);
+        }
+    }
+
+    removeDefaultFeeFromStorage() {
+        try {
+            localStorage.removeItem(DEFAULT_FEE_STORAGE_KEY);
+        } catch (error) {
+            console.warn('Failed to remove default fee from storage:', error);
+        }
+    }
+
+    updateDefaultFeeStatus(element, message = null, variant = 'neutral', duration = 4000) {
+        if (!element) {
+            return;
+        }
+
+        if (message) {
+            element.textContent = message;
+            element.className = 'default-fee-status';
+            if (variant === 'success') {
+                element.classList.add('is-success');
+            } else if (variant === 'error') {
+                element.classList.add('is-error');
+            }
+            return;
+        }
+
+        // Default status based on current value
+        if (this.defaultFeePerContract !== null) {
+            element.textContent = `Default: ${this.formatCurrency(this.defaultFeePerContract)} per contract`;
+            element.className = 'default-fee-status is-success';
+        } else {
+            element.textContent = 'Not set';
+            element.className = 'default-fee-status';
+        }
+    }
+
+    /**
+     * Get the default fee for a leg based on quantity.
+     * Returns the total fee (defaultFeePerContract * quantity) or null if not set.
+     */
+    getDefaultFeeForQuantity(quantity = 1) {
+        if (this.defaultFeePerContract === null || !Number.isFinite(this.defaultFeePerContract)) {
+            return null;
+        }
+        const qty = Math.abs(Number(quantity) || 1);
+        return this.defaultFeePerContract * qty;
     }
 
     initializeDisclaimerBanner() {
