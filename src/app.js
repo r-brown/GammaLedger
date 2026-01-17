@@ -12531,6 +12531,56 @@ class GammaLedger {
             return false;
         }
 
+        if (trade && this.isWheelOrPmccTrade(trade)) {
+            const summary = this.summarizeLegs(trade.legs || []);
+            const normalizedLegs = Array.isArray(summary.legs) ? summary.legs : [];
+            const netShort = new Map();
+
+            normalizedLegs.forEach((leg) => {
+                const type = (leg?.type || leg?.optionType || '').toString().trim().toUpperCase();
+                if (!['CALL', 'PUT'].includes(type)) {
+                    return;
+                }
+
+                const strike = this.parseDecimal(leg?.strike, null, { allowNegative: false });
+                if (!Number.isFinite(strike)) {
+                    return;
+                }
+
+                const quantity = Math.abs(Number(leg?.quantity) || 0);
+                if (!quantity) {
+                    return;
+                }
+
+                const action = this.getLegAction(leg);
+                const side = this.getLegSide(leg);
+                const key = `${type}|${strike}|${leg?.expirationDate || ''}`;
+
+                if (action === 'SELL' && (side === 'OPEN' || side === 'ROLL')) {
+                    netShort.set(key, (netShort.get(key) || 0) + quantity);
+                } else if (action === 'BUY' && side === 'CLOSE') {
+                    netShort.set(key, (netShort.get(key) || 0) - quantity);
+                }
+            });
+
+            for (const [key, netQty] of netShort.entries()) {
+                if (netQty <= 0) {
+                    continue;
+                }
+                const [type, strikeValue] = key.split('|');
+                const strike = Number(strikeValue);
+                if (!Number.isFinite(strike)) {
+                    continue;
+                }
+                const isLegItm = type === 'CALL'
+                    ? currentPrice >= strike
+                    : currentPrice <= strike;
+                if (isLegItm) {
+                    return true;
+                }
+            }
+        }
+
         const strike = this.resolveStrikeForHighlight(trade, row);
         if (!Number.isFinite(strike)) {
             return false;
