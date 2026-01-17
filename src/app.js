@@ -1643,7 +1643,7 @@ class GammaLedger {
         // Unified refresh interval for both Active Positions and Credit Playbook
         // Formula: 240 seconds / (rate limit - 2) to process all quotes safely
         const limit = Number(this.finnhub?.maxRequestsPerMinute) || 60;
-        const safeLimit = Math.min(Math.max(limit - 2, 1), 60);
+        const safeLimit = Math.max(limit - 2, 1);
         return Math.max(1600, Math.ceil(240_000 / safeLimit));
     }
 
@@ -4055,7 +4055,6 @@ class GammaLedger {
             }
         } catch (error) {
             // Silently fail - don't disrupt the user if price fetch fails
-            console.debug('Auto-fill underlying price failed:', error.message);
         }
     }
 
@@ -4094,7 +4093,7 @@ class GammaLedger {
                 });
             }
         } catch (error) {
-            console.debug('Auto-fill underlying prices failed:', error.message);
+            // Silently fail - don't disrupt the user if price fetch fails
         }
     }
 
@@ -9731,7 +9730,6 @@ class GammaLedger {
             // Add change event listener
             modelSelect.addEventListener('change', (event) => {
                 const selectedModel = event.target.value;
-                console.log('Gemini model dropdown changed to:', selectedModel);
                 this.setGeminiModel(selectedModel);
                 this.saveGeminiConfigToStorage();
             });
