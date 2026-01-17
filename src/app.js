@@ -2183,6 +2183,96 @@ class GammaLedger {
         }, 0);
     }
 
+    /**
+     * Calculate net open short call contracts for a trade.
+     * Returns the number of short call contracts currently open (sold but not yet closed/expired).
+     * Used for Wheel/PMCC coverage tracking.
+     */
+    getNetOpenShortCalls(legs = []) {
+        const normalizedLegs = Array.isArray(legs) ? legs : [];
+        if (!normalizedLegs.length) {
+            return { contracts: 0, details: [] };
+        }
+
+        const now = this.currentDate instanceof Date ? this.currentDate : new Date();
+        const shortCallNet = new Map();
+
+        normalizedLegs.forEach((leg) => {
+            const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+            if (type !== 'CALL') {
+                return;
+            }
+
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            if (!quantity) {
+                return;
+            }
+
+            const action = this.getLegAction(leg);
+            const side = this.getLegSide(leg);
+            const strike = leg.strike ?? '';
+            const expiration = leg.expirationDate ?? '';
+            const key = `${strike}|${expiration}`;
+
+            // Selling to open = opening short call
+            if (action === 'SELL' && (side === 'OPEN' || side === 'ROLL')) {
+                if (!shortCallNet.has(key)) {
+                    shortCallNet.set(key, { net: 0, strike, expiration });
+                }
+                shortCallNet.get(key).net += quantity;
+            }
+            // Buying to close = closing short call
+            else if (action === 'BUY' && side === 'CLOSE') {
+                if (!shortCallNet.has(key)) {
+                    shortCallNet.set(key, { net: 0, strike, expiration });
+                }
+                shortCallNet.get(key).net -= quantity;
+            }
+            // Selling to close also reduces the position (rarely used for calls)
+            else if (action === 'SELL' && side === 'CLOSE') {
+                if (!shortCallNet.has(key)) {
+                    shortCallNet.set(key, { net: 0, strike, expiration });
+                }
+                shortCallNet.get(key).net -= quantity;
+            }
+        });
+
+        // Filter to only positions with net > 0 (still open) and not expired
+        const openPositions = [];
+        let totalContracts = 0;
+
+        shortCallNet.forEach((data, key) => {
+            if (data.net <= 0) {
+                return; // Position is closed
+            }
+
+            // Check if expired
+            if (data.expiration) {
+                const expDate = this.parseDateValue(data.expiration);
+                if (expDate) {
+                    // Options expire at market close on expiration day
+                    const expWithMarketClose = new Date(expDate);
+                    expWithMarketClose.setUTCHours(21, 0, 0, 0); // 4 PM ET = 21:00 UTC
+                    if (expWithMarketClose < now) {
+                        return; // Already expired
+                    }
+                }
+            }
+
+            totalContracts += data.net;
+            openPositions.push({
+                strike: data.strike,
+                expiration: data.expiration,
+                contracts: data.net
+            });
+        });
+
+        return {
+            contracts: totalContracts,
+            details: openPositions
+        };
+    }
+
     buildRiskFormulaContext(trade = {}, details = null) {
         const summary = details || this.summarizeLegs(trade?.legs || []);
         if (!summary) {
@@ -6614,6 +6704,24 @@ class GammaLedger {
                 return null;
             }
 
+            // Calculate coverage: how many shares are covered by active short calls
+            const rawLegs = Array.isArray(trade.legs) ? trade.legs : [];
+            const shortCallInfo = this.getNetOpenShortCalls(rawLegs);
+            const activeShortCalls = shortCallInfo.contracts;
+            
+            // Standard contract = 100 shares per contract
+            const multiplier = 100;
+            const coveredShares = activeShortCalls * multiplier;
+            const uncoveredShares = Math.max(0, shares - coveredShares);
+            
+            // Coverage status: 'full', 'partial', 'none'
+            let coverageStatus = 'none';
+            if (coveredShares >= shares && shares > 0) {
+                coverageStatus = 'full';
+            } else if (coveredShares > 0 && coveredShares < shares) {
+                coverageStatus = 'partial';
+            }
+
             return {
                 trade,
                 positionType,
@@ -6628,7 +6736,13 @@ class GammaLedger {
                 effectiveCostBasis,
                 shares,
                 assignmentCostBasis,
-                assignmentDate: assignmentDateValue
+                assignmentDate: assignmentDateValue,
+                // Coverage tracking
+                activeShortCalls,
+                activeShortCallDetails: shortCallInfo.details,
+                coveredShares,
+                uncoveredShares,
+                coverageStatus
             };
         })
             .filter(Boolean);
@@ -6876,7 +6990,7 @@ class GammaLedger {
         if (tbody) {
             tbody.innerHTML = '';
 
-            const columnLabels = ['Ticker', 'Strategy', 'Status', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Market Value', 'Unrealized Gain/Loss', 'Notes'];
+            const columnLabels = ['Ticker', 'Strategy', 'Status', 'Coverage', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Market Value', 'Unrealized Gain/Loss', 'Notes'];
 
             // Filter assignments based on the status filter
             const currentFilter = this.assignedPositionsStatusFilter;
@@ -6892,7 +7006,7 @@ class GammaLedger {
             // Create quote entries map for live price updates
             const quoteEntries = new Map();
 
-            filteredAssignments.forEach(({ trade, strike, premiumCollected, premiumHistory, effectiveCostBasis, shares, initialPutPremium, callPremium, longCallCost, positionType, assignmentCostBasis, assignmentDate }) => {
+            filteredAssignments.forEach(({ trade, strike, premiumCollected, premiumHistory, effectiveCostBasis, shares, initialPutPremium, callPremium, longCallCost, positionType, assignmentCostBasis, assignmentDate, activeShortCalls, activeShortCallDetails, coveredShares, uncoveredShares, coverageStatus }) => {
                 const row = tbody.insertRow();
                 
                 // Ticker
@@ -6919,22 +7033,60 @@ class GammaLedger {
                 statusBadge.textContent = isOpen ? 'Open' : 'Closed';
                 statusCell.appendChild(statusBadge);
 
+                // Coverage (shows missing covered calls indicator)
+                const coverageCell = row.insertCell(3);
+                const coverageWrapper = document.createElement('div');
+                coverageWrapper.className = 'coverage-indicator-wrapper';
+                
+                const coverageBadge = document.createElement('span');
+                coverageBadge.className = 'coverage-badge';
+                
+                // For closed positions, don't show coverage status
+                if (!isOpen) {
+                    coverageBadge.classList.add('coverage-na');
+                    coverageBadge.textContent = '—';
+                    coverageBadge.title = 'Position is closed';
+                } else if (coverageStatus === 'full') {
+                    coverageBadge.classList.add('coverage-full');
+                    coverageBadge.textContent = '✓ Covered';
+                    const tooltipParts = [`${activeShortCalls} contract${activeShortCalls !== 1 ? 's' : ''} sold`];
+                    if (activeShortCallDetails && activeShortCallDetails.length > 0) {
+                        activeShortCallDetails.forEach(detail => {
+                            const strikeStr = this.formatCurrency(detail.strike);
+                            const expStr = this.formatDate(detail.expiration);
+                            tooltipParts.push(`${detail.contracts}x ${strikeStr} Call exp ${expStr}`);
+                        });
+                    }
+                    coverageBadge.title = tooltipParts.join('\n');
+                } else if (coverageStatus === 'partial') {
+                    coverageBadge.classList.add('coverage-partial');
+                    coverageBadge.innerHTML = `<span class="coverage-warning-icon">⚠</span> Partial`;
+                    coverageBadge.title = `${uncoveredShares} of ${shares} shares uncovered\n${activeShortCalls} contract${activeShortCalls !== 1 ? 's' : ''} sold (covers ${coveredShares} shares)`;
+                } else {
+                    coverageBadge.classList.add('coverage-none');
+                    coverageBadge.innerHTML = `<span class="coverage-alert-icon">⚡</span> Uncovered`;
+                    coverageBadge.title = `${shares} shares have no active covered call\nSell a call to collect premium and reduce cost basis`;
+                }
+                
+                coverageWrapper.appendChild(coverageBadge);
+                coverageCell.appendChild(coverageWrapper);
+
                 // Assignment date (use LEAP open date for PMCC or fallback value)
-                row.insertCell(3).textContent = this.formatDate(assignmentDate);
+                row.insertCell(4).textContent = this.formatDate(assignmentDate);
 
                 // Shares (standard contract size)
-                const sharesCell = row.insertCell(4);
+                const sharesCell = row.insertCell(5);
                 sharesCell.textContent = this.formatNumber(shares, { decimals: 0, useGrouping: true }) ?? shares.toString();
 
                 // Strike Price (actual assignment strike)
-                row.insertCell(5).textContent = this.formatCurrency(strike);
+                row.insertCell(6).textContent = this.formatCurrency(strike);
 
                 // Assignment Cost Basis (total cost at original strike price before premium adjustments)
-                const assignmentCostBasisCell = row.insertCell(6);
+                const assignmentCostBasisCell = row.insertCell(7);
                 assignmentCostBasisCell.textContent = this.formatCurrency(assignmentCostBasis);
 
                 // Premium Collected (covered calls only) with formula tooltip
-                const premiumCell = row.insertCell(7);
+                const premiumCell = row.insertCell(8);
                 const premiumWrapper = document.createElement('span');
                 premiumWrapper.className = 'formula-value-wrapper';
 
@@ -7042,17 +7194,17 @@ class GammaLedger {
                 premiumCell.appendChild(premiumWrapper);
 
                 // Eff. Cost Basis
-                row.insertCell(8).textContent = this.formatCurrency(effectiveCostBasis);
+                row.insertCell(9).textContent = this.formatCurrency(effectiveCostBasis);
 
                 // Market Value (Current Price × Shares) - will be populated when quote loads
-                const marketValueCell = row.insertCell(9);
+                const marketValueCell = row.insertCell(10);
                 marketValueCell.className = 'market-value-cell quote-dependent';
                 marketValueCell.textContent = '—';
                 marketValueCell.dataset.shares = String(shares);
                 marketValueCell.dataset.effectiveCostBasis = String(effectiveCostBasis);
 
                 // Unrealized Gain/Loss (Market Value - Eff. Cost Basis) - will be populated when quote loads
-                const unrealizedGLCell = row.insertCell(10);
+                const unrealizedGLCell = row.insertCell(11);
                 unrealizedGLCell.className = 'unrealized-gl-cell quote-dependent';
                 unrealizedGLCell.textContent = '—';
 
@@ -7074,7 +7226,7 @@ class GammaLedger {
                 }
 
                 // Notes
-                const notesCell = row.insertCell(11);
+                const notesCell = row.insertCell(12);
                 notesCell.textContent = trade.notes || '—';
                 notesCell.className = 'notes-col';
 

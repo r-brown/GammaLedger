@@ -2744,8 +2744,8 @@ select.form-control {
 }
 
 /* Wheel / PMCC tracker column sizing */
-/* Columns: Ticker, Shares, Type, Assigned Date, Avg Price, Eff Cost Basis, Sold Calls, Max Risk Gain, Status, Market Value, Unrealized G/L, Notes */
-/* First 11 columns: equally distributed (75% / 11 = ~6.82% each), Notes: 25% */
+/* Columns: Ticker, Strategy, Status, Coverage, Assigned Date, Shares, Strike, Assignment Cost Basis, Premium, Eff Cost Basis, Market Value, Unrealized G/L, Notes */
+/* First 12 columns: equally distributed (75% / 12 = ~6.25% each), Notes: 25% */
 #assigned-positions-table th:nth-child(1),
 #assigned-positions-table td:nth-child(1),
 #assigned-positions-table th:nth-child(2),
@@ -2767,17 +2767,75 @@ select.form-control {
 #assigned-positions-table th:nth-child(10),
 #assigned-positions-table td:nth-child(10),
 #assigned-positions-table th:nth-child(11),
-#assigned-positions-table td:nth-child(11) {
-  width: 6.82%;
-}
-
+#assigned-positions-table td:nth-child(11),
 #assigned-positions-table th:nth-child(12),
 #assigned-positions-table td:nth-child(12) {
+  width: 6.25%;
+}
+
+#assigned-positions-table th:nth-child(13),
+#assigned-positions-table td:nth-child(13) {
   width: 25%;
 }
 
-#assigned-positions-table td:nth-child(12) {
+#assigned-positions-table td:nth-child(13) {
   word-break: break-word;
+}
+
+/* Coverage indicator styling */
+.coverage-indicator-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.coverage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.coverage-badge.coverage-full {
+  background-color: rgba(var(--color-success-rgb, 33, 128, 141), 0.15);
+  color: var(--color-success);
+  border: 1px solid rgba(var(--color-success-rgb, 33, 128, 141), 0.3);
+}
+
+.coverage-badge.coverage-partial {
+  background-color: rgba(var(--color-warning-rgb, 168, 75, 47), 0.15);
+  color: var(--color-warning);
+  border: 1px solid rgba(var(--color-warning-rgb, 168, 75, 47), 0.3);
+}
+
+.coverage-badge.coverage-none {
+  background-color: rgba(var(--color-danger-rgb, 178, 56, 45), 0.15);
+  color: var(--color-danger);
+  border: 1px solid rgba(var(--color-danger-rgb, 178, 56, 45), 0.3);
+}
+
+.coverage-badge.coverage-na {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  padding: 0;
+}
+
+.coverage-warning-icon,
+.coverage-alert-icon {
+  font-size: var(--font-size-sm);
+}
+
+.coverage-warning-icon {
+  color: var(--color-warning);
+}
+
+.coverage-alert-icon {
+  color: var(--color-danger);
 }
 
 /* Market Value and Unrealized G/L cell styling */
