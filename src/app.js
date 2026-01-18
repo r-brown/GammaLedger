@@ -12625,6 +12625,28 @@ class GammaLedger {
             const normalizedLegs = Array.isArray(summary.legs) ? summary.legs : [];
             const netShort = new Map();
 
+            // Track stock legs to detect PUT assignments
+            // When a PUT is assigned, a BTO STOCK appears at the same strike
+            const stockAssignments = new Map();
+            normalizedLegs.forEach((leg) => {
+                const type = (leg?.type || leg?.optionType || '').toString().trim().toUpperCase();
+                if (type === 'STOCK') {
+                    const action = this.getLegAction(leg);
+                    if (action === 'BUY') {
+                        // BTO STOCK indicates PUT assignment at the strike price
+                        const strike = this.parseDecimal(leg?.strike, null, { allowNegative: false });
+                        if (Number.isFinite(strike)) {
+                            const quantity = Math.abs(Number(leg?.quantity) || 0);
+                            // Convert shares to contracts (100 shares = 1 contract)
+                            const contracts = Math.floor(quantity / 100);
+                            if (contracts > 0) {
+                                stockAssignments.set(strike, (stockAssignments.get(strike) || 0) + contracts);
+                            }
+                        }
+                    }
+                }
+            });
+
             normalizedLegs.forEach((leg) => {
                 const type = (leg?.type || leg?.optionType || '').toString().trim().toUpperCase();
                 if (!['CALL', 'PUT'].includes(type)) {
@@ -12652,6 +12674,29 @@ class GammaLedger {
                 }
             });
 
+            // Reduce PUT net short counts by stock assignments at the same strike
+            // This handles PUT assignments where BTO STOCK closes the PUT position
+            for (const [key, netQty] of netShort.entries()) {
+                if (netQty <= 0) {
+                    continue;
+                }
+                const [type, strikeValue] = key.split('|');
+                if (type !== 'PUT') {
+                    continue;
+                }
+                const strike = Number(strikeValue);
+                if (!Number.isFinite(strike)) {
+                    continue;
+                }
+                const assignedContracts = stockAssignments.get(strike) || 0;
+                if (assignedContracts > 0) {
+                    const newNetQty = Math.max(0, netQty - assignedContracts);
+                    netShort.set(key, newNetQty);
+                    // Reduce the available assignments for this strike
+                    stockAssignments.set(strike, Math.max(0, assignedContracts - netQty));
+                }
+            }
+
             for (const [key, netQty] of netShort.entries()) {
                 if (netQty <= 0) {
                     continue;
@@ -12661,9 +12706,10 @@ class GammaLedger {
                 if (!Number.isFinite(strike)) {
                     continue;
                 }
+                // For SHORT positions: CALL is ITM when price > strike, PUT is ITM when price < strike
                 const isLegItm = type === 'CALL'
-                    ? currentPrice >= strike
-                    : currentPrice <= strike;
+                    ? currentPrice > strike
+                    : currentPrice < strike;
                 if (isLegItm) {
                     return true;
                 }
@@ -12677,10 +12723,10 @@ class GammaLedger {
 
         const flavor = this.inferOptionFlavor(trade);
         if (flavor === 'call') {
-            return currentPrice >= strike;
+            return currentPrice > strike;
         }
         if (flavor === 'put') {
-            return currentPrice <= strike;
+            return currentPrice < strike;
         }
         return false;
     }
