@@ -1397,11 +1397,20 @@ class GammaLedger {
             'Bear Call Spread',
             'Bear Put Ladder',
             'Bear Put Spread',
+            'Box Spread',
             'Bull Call Ladder',
             'Bull Call Spread',
             'Bull Put Ladder',
             'Bull Put Spread',
+            'Calendar Call Spread',
+            'Calendar Put Spread',
+            'Calendar Straddle',
+            'Calendar Strangle',
+            'Call Broken Wing',
+            'Call Ratio Backspread',
+            'Call Ratio Spread',
             'Cash-Secured Put',
+            'Collar',
             'Covered Call',
             'Covered Put',
             'Covered Short Straddle',
@@ -1409,6 +1418,7 @@ class GammaLedger {
             'Diagonal Call Spread',
             'Diagonal Put Spread',
             'Double Diagonal',
+            'Guts',
             'Inverse Call Broken Wing',
             'Inverse Iron Butterfly',
             'Inverse Iron Condor',
@@ -1417,7 +1427,16 @@ class GammaLedger {
             'Iron Butterfly',
             'Iron Condor',
             'Jade Lizard',
+            'Long Call',
+            'Long Call Butterfly',
+            'Long Call Condor',
+            'Long Put',
+            'Long Put Butterfly',
+            'Long Put Condor',
+            'Long Straddle',
+            'Long Strangle',
             "Poor Man's Covered Call",
+            'Protective Put',
             'Put Broken Wing',
             'Put Ratio Backspread',
             'Put Ratio Spread',
@@ -1431,6 +1450,11 @@ class GammaLedger {
             'Short Put Condor',
             'Short Straddle',
             'Short Strangle',
+            'Strap',
+            'Strip',
+            'Synthetic Long Stock',
+            'Synthetic Short Stock',
+            'Synthetic Put',
             'Wheel'
         ];
 
@@ -7907,8 +7931,11 @@ class GammaLedger {
                 return false;
             }
 
-            if (strategyFilter !== 'all' && entry.strategy !== strategyFilter) {
-                return false;
+            if (strategyFilter !== 'all') {
+                const normalizedEntryStrategy = this.normalizeCreditPlaybookStrategyValue(entry.strategy);
+                if (normalizedEntryStrategy !== strategyFilter) {
+                    return false;
+                }
             }
 
             if (symbolFilter && (!entry.ticker || !entry.ticker.includes(symbolFilter))) {
@@ -7952,8 +7979,11 @@ class GammaLedger {
         const dayMs = 24 * 60 * 60 * 1000;
 
         return legPairs.filter((pair) => {
-            if (strategyFilter !== 'all' && pair.strategy !== strategyFilter) {
-                return false;
+            if (strategyFilter !== 'all') {
+                const normalizedPairStrategy = this.normalizeCreditPlaybookStrategyValue(pair.strategy);
+                if (normalizedPairStrategy !== strategyFilter) {
+                    return false;
+                }
             }
 
             if (symbolFilter && (!pair.ticker || !pair.ticker.includes(symbolFilter))) {
