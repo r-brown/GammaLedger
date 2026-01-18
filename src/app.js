@@ -1346,8 +1346,6 @@ class GammaLedger {
             rateLimitQueue: Promise.resolve(),
             maxRequestsPerMinute: this.loadFinnhubRateLimitFromStorage(),
             timestamps: [],
-            minIdleMs: 1000, // Minimum 1 second between requests
-            lastRequestTime: 0,
             statusTimeoutId: null,
             lastStatus: null,
             elements: {}
@@ -1664,11 +1662,10 @@ class GammaLedger {
     }
 
     computeAutoRefreshInterval() {
-        // Unified refresh interval for both Active Positions and Credit Playbook
-        // Formula: 240 seconds / (rate limit - 2) to process all quotes safely
-        const limit = Number(this.finnhub?.maxRequestsPerMinute) || 60;
-        const safeLimit = Math.max(limit - 2, 1);
-        return Math.max(1600, Math.ceil(240_000 / safeLimit));
+        // Refresh interval derived directly from user's rate limit setting
+        // Interval = 60 seconds / requests per minute (respects user's configured rate)
+        const limit = Number(this.finnhub?.maxRequestsPerMinute) || DEFAULT_FINNHUB_RATE_LIMIT;
+        return Math.ceil(60_000 / Math.max(limit, 1));
     }
 
     checkBrowserCompatibility() {
@@ -4048,10 +4045,16 @@ class GammaLedger {
     /**
      * Auto-fills the underlying price input with the current ticker price.
      * Fetches the price asynchronously from Finnhub if API key is configured.
+     * Only fetches when in add-trade view (add/edit mode) to avoid unnecessary API calls.
      * @param {HTMLInputElement} inputElement - The underlying price input element
      */
     async autoFillUnderlyingPrice(inputElement) {
         if (!inputElement) {
+            return;
+        }
+
+        // Only fetch prices when in add-trade view (add/edit mode)
+        if (this.currentView !== 'add-trade') {
             return;
         }
 
@@ -4085,8 +4088,14 @@ class GammaLedger {
     /**
      * Auto-fills underlying price for all empty leg inputs using the current ticker price.
      * Fetches the price once and applies to empty fields only.
+     * Only fetches when in add-trade view (add/edit mode) to avoid unnecessary API calls.
      */
     async autoFillUnderlyingPricesForLegs() {
+        // Only fetch prices when in add-trade view (add/edit mode)
+        if (this.currentView !== 'add-trade') {
+            return;
+        }
+
         const tickerInput = document.getElementById('ticker');
         const ticker = (tickerInput?.value || '').trim().toUpperCase();
 
@@ -7502,41 +7511,77 @@ class GammaLedger {
     }
 
     refreshAssignedPositionsQuotes({ force = false, immediate = false } = {}) {
+        // Process ONE Assigned Positions quote per call to respect rate limits
+        // Called by unified auto-refresh timer that alternates between tables
         if (!(this.assignedPositionsQuoteEntries instanceof Map) || this.assignedPositionsQuoteEntries.size === 0) {
             return;
         }
 
-        this.assignedPositionsQuoteEntries.forEach((entry) => {
+        // Find one entry to refresh, prioritizing entries without prices or with errors
+        let entryToRefresh = null;
+        let keyToRefresh = null;
+
+        // First pass: look for high-priority entries (no price yet, errors, rate-limited)
+        for (const [key, entry] of this.assignedPositionsQuoteEntries.entries()) {
             if (!entry || !entry.row?.isConnected) {
-                return;
+                this.assignedPositionsQuoteEntries.delete(key);
+                continue;
             }
 
-            const ticker = (entry.trade?.ticker || '').toString().trim().toUpperCase();
+            // Check if this entry needs a price (no market value displayed or shows error)
+            const marketValueText = entry.marketValueCell?.textContent || '';
+            const hasNoPrice = !marketValueText || marketValueText === '—' || marketValueText === 'Loading…';
+            
+            if (hasNoPrice) {
+                entryToRefresh = entry;
+                keyToRefresh = key;
+                break;
+            }
+        }
+
+        // Second pass: if no high-priority entry found, take any entry for refresh
+        if (!entryToRefresh) {
+            for (const [key, entry] of this.assignedPositionsQuoteEntries.entries()) {
+                if (!entry || !entry.row?.isConnected) {
+                    this.assignedPositionsQuoteEntries.delete(key);
+                    continue;
+                }
+
+                entryToRefresh = entry;
+                keyToRefresh = key;
+                break;
+            }
+        }
+
+        // Process one entry per refresh cycle
+        if (entryToRefresh) {
+            const ticker = (entryToRefresh.trade?.ticker || '').toString().trim().toUpperCase();
             if (!ticker) {
+                this.assignedPositionsQuoteEntries.delete(keyToRefresh);
                 return;
             }
 
             this.getCurrentPrice(ticker, { forceRefresh: force })
                 .then(quote => {
-                    if (!entry.row?.isConnected) {
+                    if (!entryToRefresh.row?.isConnected) {
                         return;
                     }
-                    this.updateAssignedPositionMetrics(entry, quote);
+                    this.updateAssignedPositionMetrics(entryToRefresh, quote);
                 })
                 .catch(error => {
-                    if (!entry.row?.isConnected) {
+                    if (!entryToRefresh.row?.isConnected) {
                         return;
                     }
-                    // Clear values on error
-                    if (entry.marketValueCell) {
-                        entry.marketValueCell.textContent = '—';
+                    // Mark as needing refresh on next cycle
+                    if (entryToRefresh.marketValueCell) {
+                        entryToRefresh.marketValueCell.textContent = '—';
                     }
-                    if (entry.unrealizedGLCell) {
-                        entry.unrealizedGLCell.textContent = '—';
-                        entry.unrealizedGLCell.classList.remove('pl-positive', 'pl-negative', 'pl-neutral');
+                    if (entryToRefresh.unrealizedGLCell) {
+                        entryToRefresh.unrealizedGLCell.textContent = '—';
+                        entryToRefresh.unrealizedGLCell.classList.remove('pl-positive', 'pl-negative', 'pl-neutral');
                     }
                 });
-        });
+        }
     }
 
     updateAssignedPositionMetrics(entry, quote) {
@@ -11893,17 +11938,22 @@ class GammaLedger {
             this.activeQuoteEntries = new Map();
         }
 
-        // Prioritize entries by state: error/loading/idle first, then ready
+        // Prioritize entries by state:
+        // - High priority: no price yet, errors, rate-limited, unavailable
+        // - Low priority: has valid price (ready state)
         const priorityGroups = {
-            highPriority: [],  // error, loading, idle (no price yet)
-            lowPriority: []    // ready (has price)
+            highPriority: [],
+            lowPriority: []
         };
 
         this.activeQuoteEntries.forEach((entry, key) => {
             const state = entry.cell?.dataset?.priceState;
-            if (state === 'error' || state === 'loading' || state === 'idle' || !state) {
+            // High priority: idle, error, loading, refreshing, or no state
+            // This includes rate-limited, unavailable, and any other error conditions
+            if (!state || state === 'idle' || state === 'error' || state === 'loading' || state === 'refreshing') {
                 priorityGroups.highPriority.push(key);
             } else {
+                // Low priority: ready state (has valid price)
                 priorityGroups.lowPriority.push(key);
             }
         });
@@ -11914,8 +11964,7 @@ class GammaLedger {
     }
 
     startQuoteAutoRefreshIfNeeded() {
-        // Unified auto-refresh for Active Positions, Credit Playbook, and Assigned Positions
-        // Uses same computeAutoRefreshInterval() for consistent timing
+        // Only refresh quotes for the currently active view to reduce API calls
         if (!(this.activeQuoteEntries instanceof Map)) {
             this.activeQuoteEntries = new Map();
         }
@@ -11928,7 +11977,15 @@ class GammaLedger {
             this.assignedPositionsQuoteEntries = new Map();
         }
 
-        const totalEntries = this.activeQuoteEntries.size + this.creditPlaybookQuoteEntries.size + this.assignedPositionsQuoteEntries.size;
+        // Determine which views are active based on currentView
+        const isDashboardView = this.currentView === 'dashboard';
+        const isCreditPlaybookView = this.currentView === 'credit-playbook';
+
+        // Count entries only for active views
+        const activePositionsCount = isDashboardView ? this.activeQuoteEntries.size : 0;
+        const assignedPositionsCount = isDashboardView ? this.assignedPositionsQuoteEntries.size : 0;
+        const creditPlaybookCount = isCreditPlaybookView ? this.creditPlaybookQuoteEntries.size : 0;
+        const totalEntries = activePositionsCount + assignedPositionsCount + creditPlaybookCount;
         
         if (totalEntries === 0) {
             this.stopQuoteAutoRefresh();
@@ -11945,32 +12002,38 @@ class GammaLedger {
             return;
         }
 
-        // Cycle between Active Positions, Credit Playbook, and Assigned Positions to distribute load
-        // Each refresh function processes ONE entry per call to respect rate limits
+        // Cycle between active sources based on current view
         let cycleIndex = 0;
 
         this.quoteRefreshIntervalId = setInterval(() => {
-            const hasActiveEntries = this.activeQuoteEntries.size > 0;
-            const hasCreditEntries = this.creditPlaybookQuoteEntries.size > 0;
-            const hasAssignedEntries = this.assignedPositionsQuoteEntries.size > 0;
+            // Re-check current view each interval (view may have changed)
+            const isCurrentlyDashboard = this.currentView === 'dashboard';
+            const isCurrentlyCreditPlaybook = this.currentView === 'credit-playbook';
 
-            if (!hasActiveEntries && !hasCreditEntries && !hasAssignedEntries) {
-                this.stopQuoteAutoRefresh();
+            // Build sources list based on current view
+            const sources = [];
+
+            if (isCurrentlyDashboard) {
+                if (this.activeQuoteEntries.size > 0) {
+                    sources.push({ refresh: () => this.refreshActivePositionsQuotes({ force: true }) });
+                }
+                if (this.assignedPositionsQuoteEntries.size > 0) {
+                    sources.push({ refresh: () => this.refreshAssignedPositionsQuotes({ force: true }) });
+                }
+            } else if (isCurrentlyCreditPlaybook) {
+                if (this.creditPlaybookQuoteEntries.size > 0) {
+                    sources.push({ refresh: () => this.refreshCreditPlaybookQuotes({ force: true }) });
+                }
+            }
+
+            if (sources.length === 0) {
+                // No active sources for current view, but don't stop - view might change
                 return;
             }
 
-            // Count how many sources have entries
-            const sources = [
-                { has: hasActiveEntries, refresh: () => this.refreshActivePositionsQuotes({ force: true }) },
-                { has: hasCreditEntries, refresh: () => this.refreshCreditPlaybookQuotes({ force: true }) },
-                { has: hasAssignedEntries, refresh: () => this.refreshAssignedPositionsQuotes({ force: true }) }
-            ].filter(s => s.has);
-
-            if (sources.length > 0) {
-                // Cycle through available sources
-                sources[cycleIndex % sources.length].refresh();
-                cycleIndex++;
-            }
+            // Cycle through available sources
+            sources[cycleIndex % sources.length].refresh();
+            cycleIndex++;
         }, this.autoRefreshIntervalMs);
     }
 
@@ -12069,7 +12132,7 @@ class GammaLedger {
         let entryToRefresh = null;
         let keyToRefresh = null;
 
-        // First pass: look for high-priority entries (error/loading/idle/no state)
+        // First pass: look for high-priority entries (no price yet, errors, rate-limited, unavailable)
         for (const [key, entry] of this.creditPlaybookQuoteEntries.entries()) {
             if (!entry || !entry.cell?.isConnected || !entry.row?.isConnected) {
                 this.creditPlaybookQuoteEntries.delete(key);
@@ -12077,7 +12140,8 @@ class GammaLedger {
             }
 
             const state = entry.cell?.dataset?.priceState;
-            if (state === 'error' || state === 'loading' || state === 'idle' || !state) {
+            // High priority: idle, error, loading, refreshing, or no state
+            if (!state || state === 'idle' || state === 'error' || state === 'loading' || state === 'refreshing') {
                 entryToRefresh = entry;
                 keyToRefresh = key;
                 break;
@@ -12446,30 +12510,27 @@ class GammaLedger {
     async enforceFinnhubRateLimit() {
         const windowMs = 60_000;
         const timestamps = this.finnhub.timestamps;
+        const maxRequests = this.finnhub.maxRequestsPerMinute;
         const now = Date.now();
-
-        // Enforce minimum idle time between requests
-        const timeSinceLastRequest = now - this.finnhub.lastRequestTime;
-        if (timeSinceLastRequest < this.finnhub.minIdleMs) {
-            const idleWait = this.finnhub.minIdleMs - timeSinceLastRequest;
-            await new Promise(resolve => setTimeout(resolve, idleWait));
-        }
 
         // Clean up old timestamps outside the rate limit window
         while (timestamps.length > 0 && now - timestamps[0] >= windowMs) {
             timestamps.shift();
         }
 
-        // Enforce rate limit (requests per minute)
-        if (timestamps.length >= this.finnhub.maxRequestsPerMinute) {
+        // Enforce rate limit (requests per minute) using sliding window
+        if (timestamps.length >= maxRequests) {
             const waitTime = windowMs - (now - timestamps[0]) + 50;
             await new Promise(resolve => setTimeout(resolve, waitTime));
+            // Re-clean after waiting
+            const afterWait = Date.now();
+            while (timestamps.length > 0 && afterWait - timestamps[0] >= windowMs) {
+                timestamps.shift();
+            }
         }
 
         // Record this request timestamp
-        const requestTime = Date.now();
-        timestamps.push(requestTime);
-        this.finnhub.lastRequestTime = requestTime;
+        timestamps.push(Date.now());
     }
 
     applyPositionHighlight(row, trade, currentPrice = null) {
