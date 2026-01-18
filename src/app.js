@@ -5621,8 +5621,7 @@ class GammaLedger {
         const snapshot = this.calculateAdvancedStats();
         this.aiAgent.updateContext({
             stats: snapshot,
-            openTrades: snapshot.openTradesList,
-            closedTrades: snapshot.closedTradesList
+            openTrades: snapshot.openTradesList
         });
 
         this.aiChatSessionId = Date.now();
@@ -6374,8 +6373,7 @@ class GammaLedger {
         if (this.aiAgent) {
             this.aiAgent.updateContext({
                 stats,
-                openTrades: openTradesList,
-                closedTrades: closedTradesList
+                openTrades: openTradesList
             });
         }
 
@@ -18417,25 +18415,23 @@ class LocalInsightsAgent {
         this.app = app;
         this.context = {
             stats: null,
-            openTrades: [],
-            closedTrades: []
+            openTrades: []
         };
     }
 
-    updateContext({ stats, openTrades, closedTrades } = {}) {
+    updateContext({ stats, openTrades } = {}) {
         if (stats) {
             this.context.stats = stats;
         }
         if (Array.isArray(openTrades)) {
             this.context.openTrades = openTrades;
         }
-        if (Array.isArray(closedTrades)) {
-            this.context.closedTrades = closedTrades;
-        }
     }
 
     hasTradeHistory() {
-        return (this.context.openTrades?.length || 0) > 0 || (this.context.closedTrades?.length || 0) > 0;
+        const hasOpen = (this.context.openTrades?.length || 0) > 0;
+        const hasClosed = (this.context.stats?.closedTrades || 0) > 0;
+        return hasOpen || hasClosed;
     }
 
     getGreeting() {
@@ -18449,7 +18445,7 @@ class LocalInsightsAgent {
         }
 
         const openCount = this.context.openTrades?.length || 0;
-        const closedCount = this.context.closedTrades?.length || 0;
+        const closedCount = this.context.stats?.closedTrades || 0;
         return `Hi! I\'m your local AI coach. You have ${openCount} active ${openCount === 1 ? 'position' : 'positions'} and ${closedCount} closed trades with realised P&L of ${this.formatCurrency(stats.totalPL)}.`;
     }
 
@@ -18497,7 +18493,7 @@ class LocalInsightsAgent {
             return '';
         }
 
-        const closed = this.context.closedTrades?.length || 0;
+        const closed = stats.closedTrades || 0;
         if (!closed) {
             return 'No closed trades yet. Once you realize some P&L I\'ll summarize your performance here.';
         }
@@ -18565,19 +18561,9 @@ class LocalInsightsAgent {
             return '';
         }
 
-        const lossTrades = (this.context.closedTrades || []).filter(trade => trade.pl < 0);
-        const winTrades = (this.context.closedTrades || []).filter(trade => trade.pl > 0);
-
-        const avgSeen = (list, selector) => {
-            if (!list.length) {
-                return NaN;
-            }
-            const sum = list.reduce((acc, item) => acc + selector(item), 0);
-            return sum / list.length;
-        };
-
-        const avgLossDays = avgSeen(lossTrades, trade => Number(trade.daysHeld) || 0);
-        const avgWinDays = avgSeen(winTrades, trade => Number(trade.daysHeld) || 0);
+        // Use pre-computed stats for behavioral insights
+        const avgLossDays = stats.avgLoserDays;
+        const avgWinDays = stats.avgWinnerDays;
 
         if (Number.isFinite(avgLossDays) && Number.isFinite(avgWinDays)) {
             const diff = avgLossDays - avgWinDays;
@@ -18589,7 +18575,7 @@ class LocalInsightsAgent {
             }
         }
 
-        if (Number.isFinite(stats.winRate) && stats.winRate < 45 && (this.context.closedTrades?.length || 0) >= 5) {
+        if (Number.isFinite(stats.winRate) && stats.winRate < 45 && (stats.closedTrades || 0) >= 5) {
             return 'Win rate is under 45%. Focus on highest-conviction setups or scale size down until consistency improves.';
         }
 
@@ -18597,24 +18583,21 @@ class LocalInsightsAgent {
     }
 
     getStrategyBreakdown() {
-        const map = new Map();
-        (this.context.closedTrades || []).forEach(trade => {
-            const key = (trade.strategy || 'Unclassified').toString().trim() || 'Unclassified';
-            if (!map.has(key)) {
-                map.set(key, { name: key, pl: 0, trades: 0, wins: 0, losses: 0 });
-            }
-            const entry = map.get(key);
-            const plValue = Number(trade.pl) || 0;
-            entry.pl += plValue;
-            entry.trades += 1;
-            if (plValue > 0) {
-                entry.wins += 1;
-            } else if (plValue < 0) {
-                entry.losses += 1;
-            }
-        });
+        // Use pre-computed ticker performance from stats
+        const tickerPerformance = this.context.stats?.tickerPerformance;
+        if (!tickerPerformance || typeof tickerPerformance !== 'object') {
+            return [];
+        }
 
-        return Array.from(map.values()).sort((a, b) => b.pl - a.pl);
+        return Object.entries(tickerPerformance)
+            .map(([ticker, data]) => ({
+                name: ticker,
+                pl: data.pl || 0,
+                trades: data.trades || 0,
+                wins: data.wins || 0,
+                losses: data.losses || 0
+            }))
+            .sort((a, b) => b.pl - a.pl);
     }
 
     formatCurrency(value, options) {
@@ -18643,23 +18626,20 @@ class GeminiInsightsAgent {
         this.app = app;
         this.context = {
             stats: null,
-            openTrades: [],
-            closedTrades: []
+            openTrades: []
         };
         this.fallback = new LocalInsightsAgent(app);
     }
 
-    updateContext({ stats, openTrades, closedTrades } = {}) {
+    updateContext({ stats, openTrades } = {}) {
         if (stats) {
             this.context.stats = stats;
         }
         if (Array.isArray(openTrades)) {
             this.context.openTrades = openTrades;
         }
-        if (Array.isArray(closedTrades)) {
-            this.context.closedTrades = closedTrades;
-        }
-        this.fallback.updateContext({ stats: this.context.stats, openTrades: this.context.openTrades, closedTrades: this.context.closedTrades });
+        // Only pass open trades to fallback agent for risk analysis
+        this.fallback.updateContext({ stats: this.context.stats, openTrades: this.context.openTrades });
     }
 
     getGreeting() {
@@ -18732,7 +18712,7 @@ class GeminiInsightsAgent {
         ];
 
         const generationConfig = {
-            maxOutputTokens: this.gemini.maxOutputTokens || DEFAULT_GEMINI_MAX_TOKENS
+            maxOutputTokens: this.app.gemini?.maxOutputTokens || DEFAULT_GEMINI_MAX_TOKENS
         };
 
         generationConfig.temperature = Number(temperature.toFixed(2));
@@ -18771,7 +18751,7 @@ class GeminiInsightsAgent {
             totalROI: this.formatNumber(stats.totalROI, { style: 'percent' }),
             annualizedROI: this.formatNumber(stats.annualizedROI, { style: 'percent' }),
             maxDrawdown: this.formatNumber(stats.maxDrawdown, { style: 'percent' }),
-            closedTrades: stats.closedTrades ?? (this.context.closedTrades?.length || 0),
+            closedTrades: stats.closedTrades ?? 0,
             openPositions: stats.activePositions ?? (this.context.openTrades?.length || 0)
         };
 
@@ -18782,7 +18762,6 @@ class GeminiInsightsAgent {
             coachingHighlight: this.fallback.buildCoachingHighlight(),
             performanceHighlight: this.fallback.buildPerformanceSummary?.() || '',
             openPositions: this.buildOpenPositionsSummary(),
-            recentClosedTrades: this.buildRecentClosedTradesSummary(),
             topStrategies: this.buildStrategySummary()
         };
 
@@ -18829,38 +18808,7 @@ class GeminiInsightsAgent {
         }
     }
 
-    buildRecentClosedTradesSummary(limit = 8) {
-        const trades = Array.isArray(this.context.closedTrades) ? [...this.context.closedTrades] : [];
-        return trades
-            .sort((a, b) => new Date(b.exitDate || 0) - new Date(a.exitDate || 0))
-            .slice(0, limit)
-            .map(trade => {
-                const snapshot = this.snapshotObjectForPrompt(trade);
-                const derived = {
-                    plRounded: this.formatNumber(trade?.pl, { style: 'currency' }),
-                    roiRounded: this.formatNumber(trade?.roi, { style: 'percent' })
-                };
-
-                const exitReasonPreview = this.cleanNote(trade?.exitReason);
-                if (exitReasonPreview) {
-                    derived.exitReasonPreview = exitReasonPreview;
-                }
-
-                if (Number.isFinite(trade?.daysHeld)) {
-                    derived.daysHeld = Number(trade.daysHeld);
-                }
-
-                snapshot.__promptDerived = Object.fromEntries(
-                    Object.entries(derived).filter(([, value]) => value !== null && value !== undefined)
-                );
-
-                if (!Object.keys(snapshot.__promptDerived).length) {
-                    delete snapshot.__promptDerived;
-                }
-
-                return snapshot;
-            });
-    }
+    // buildRecentClosedTradesSummary removed - only sending open positions data
 
     buildStrategySummary(limit = 5) {
         const breakdown = this.fallback.getStrategyBreakdown();
