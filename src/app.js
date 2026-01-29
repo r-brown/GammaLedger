@@ -3894,7 +3894,7 @@ class GammaLedger {
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Entry Underlying Price</label>
-                    <input type="number" class="form-control" data-leg-field="underlyingPrice" step="0.01" min="0">
+                    <input type="number" class="form-control" data-leg-field="underlyingPrice" step="0.0000001" min="0">
                 </div>
             </div>
         `;
