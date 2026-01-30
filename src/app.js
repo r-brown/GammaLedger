@@ -94,6 +94,8 @@ const RUNTIME_TRADE_FIELDS = new Set([
     'autoExpired',
     'daysHeld',
     'dte',
+    'weeklyROI',
+    'monthlyROI',
     'annualizedROI',
     'tradeReasoning'
 ]);
@@ -4644,6 +4646,50 @@ class GammaLedger {
         return parseFloat(annualizedROI.toFixed(2));
     }
 
+    // Weekly ROI calculation: (premium_received / collateral_used) × (7 / days_held)
+    calculateWeeklyROI(trade) {
+        if (!trade || !this.isClosedStatus(trade.status)) {
+            return 0;
+        }
+
+        const roiPercent = Number.isFinite(Number(trade.roi)) ? Number(trade.roi) : this.calculateROI(trade);
+        if (!Number.isFinite(roiPercent)) {
+            return 0;
+        }
+
+        const daysHeldValue = Number(trade.daysHeld) || this.calculateDaysHeld(trade) || 0;
+        const daysHeld = Math.max(1, daysHeldValue);
+        const weeklyROI = (7 * roiPercent) / daysHeld;
+
+        if (!Number.isFinite(weeklyROI)) {
+            return 0;
+        }
+
+        return parseFloat(weeklyROI.toFixed(2));
+    }
+
+    // Monthly ROI calculation: (premium_received / collateral_used) × (30 / days_held)
+    calculateMonthlyROI(trade) {
+        if (!trade || !this.isClosedStatus(trade.status)) {
+            return 0;
+        }
+
+        const roiPercent = Number.isFinite(Number(trade.roi)) ? Number(trade.roi) : this.calculateROI(trade);
+        if (!Number.isFinite(roiPercent)) {
+            return 0;
+        }
+
+        const daysHeldValue = Number(trade.daysHeld) || this.calculateDaysHeld(trade) || 0;
+        const daysHeld = Math.max(1, daysHeldValue);
+        const monthlyROI = (30 * roiPercent) / daysHeld;
+
+        if (!Number.isFinite(monthlyROI)) {
+            return 0;
+        }
+
+        return parseFloat(monthlyROI.toFixed(2));
+    }
+
     buildLegLifecycleKey(leg = {}) {
         const type = this.normalizeLegType(leg.type);
         const strikeValue = Number(leg.strike);
@@ -5024,6 +5070,8 @@ class GammaLedger {
 
         enriched.daysHeld = this.calculateDaysHeld(enriched);
         enriched.dte = this.calculateDTE(enriched.expirationDate, enriched);
+        enriched.weeklyROI = this.calculateWeeklyROI(enriched);
+        enriched.monthlyROI = this.calculateMonthlyROI(enriched);
         enriched.annualizedROI = this.calculateAnnualizedROI(enriched);
 
         return enriched;
@@ -13447,7 +13495,7 @@ class GammaLedger {
 
         const columnLabels = [
             '', 'Ticker', 'Strategy', 'Strike', 'Qty', 'Entry Date', 'Expiration Date',
-            'DTE', 'Exit Date', 'Days Held', 'Max Risk', 'P&L', 'ROI', 'Annual ROI', 'Status', 'Actions'
+            'DTE', 'Exit Date', 'Days Held', 'Max Risk', 'P&L', 'ROI', 'Weekly ROI', 'Monthly ROI', 'Annual ROI', 'Status', 'Actions'
         ];
 
         tradesToRender.forEach((trade, index) => {
@@ -13592,6 +13640,30 @@ class GammaLedger {
                 roiCell.className = 'pl-neutral';
             } else {
                 roiCell.className = roiValue > 0 ? 'pl-positive' : roiValue < 0 ? 'pl-negative' : 'pl-neutral';
+            }
+
+            const weeklyRoiCell = row.insertCell();
+            const weeklyROIValue = safeNumber(trade.weeklyROI);
+            const hasWeeklyROI = this.isClosedStatus(trade.status) && weeklyROIValue !== null;
+            if (hasWeeklyROI) {
+                const weeklyDisplay = this.formatPercent(weeklyROIValue, '—');
+                weeklyRoiCell.textContent = weeklyDisplay;
+                weeklyRoiCell.className = weeklyROIValue > 0 ? 'pl-positive' : weeklyROIValue < 0 ? 'pl-negative' : 'pl-neutral';
+            } else {
+                weeklyRoiCell.textContent = '—';
+                weeklyRoiCell.className = 'pl-neutral';
+            }
+
+            const monthlyRoiCell = row.insertCell();
+            const monthlyROIValue = safeNumber(trade.monthlyROI);
+            const hasMonthlyROI = this.isClosedStatus(trade.status) && monthlyROIValue !== null;
+            if (hasMonthlyROI) {
+                const monthlyDisplay = this.formatPercent(monthlyROIValue, '—');
+                monthlyRoiCell.textContent = monthlyDisplay;
+                monthlyRoiCell.className = monthlyROIValue > 0 ? 'pl-positive' : monthlyROIValue < 0 ? 'pl-negative' : 'pl-neutral';
+            } else {
+                monthlyRoiCell.textContent = '—';
+                monthlyRoiCell.className = 'pl-neutral';
             }
 
             const annRoiCell = row.insertCell();
@@ -15163,7 +15235,7 @@ class GammaLedger {
     exportToCSV() {
         const headers = [
             'Ticker', 'Strategy', 'Trade Type', 'Strike', 'Defined Risk Width', 'Qty', 'Exit Price', 'DTE', 'Days Held',
-            'Entry Date', 'Expiration Date', 'Exit Date', 'Max Risk', 'P&L', 'ROI %', 'Annual ROI %', 'Status',
+            'Entry Date', 'Expiration Date', 'Exit Date', 'Max Risk', 'P&L', 'ROI %', 'Weekly ROI %', 'Monthly ROI %', 'Annual ROI %', 'Status',
             'Stock Price at Entry', 'Fees', 'Max Risk Override', 'IV Rank', 'Notes', 'Exit Reason'
         ];
 
@@ -15239,6 +15311,8 @@ class GammaLedger {
                 formatOptionalCurrency(trade.maxRisk),
                 formatOptionalCurrency(trade.pl),
                 formatPercentValue(trade.roi),
+                formatPercentValue(trade.weeklyROI),
+                formatPercentValue(trade.monthlyROI),
                 formatPercentValue(trade.annualizedROI),
                 trade.status ?? '',
                 formatOptionalCurrency(trade.stockPriceAtEntry),
