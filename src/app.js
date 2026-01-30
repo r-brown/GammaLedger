@@ -7247,7 +7247,7 @@ class GammaLedger {
         if (tbody) {
             tbody.innerHTML = '';
 
-            const columnLabels = ['Ticker', 'Strategy', 'Exit Date', 'Days Held', 'P&L', 'ROI'];
+            const columnLabels = ['Ticker', 'Strategy', 'Exit Date', 'Days Held', 'P&L', 'ROI', 'Weekly ROI'];
 
             recentTrades.forEach(trade => {
                 const row = tbody.insertRow();
@@ -7279,6 +7279,16 @@ class GammaLedger {
                     roiCell.className = 'pl-neutral';
                 } else {
                     roiCell.className = roiValue >= 0 ? 'pl-positive' : 'pl-negative';
+                }
+
+                const weeklyRoiCell = row.insertCell(6);
+                const weeklyRoiValue = Number(trade.weeklyROI);
+                const weeklyRoiDisplay = this.formatPercent(weeklyRoiValue, '—');
+                weeklyRoiCell.textContent = weeklyRoiDisplay;
+                if (weeklyRoiDisplay === '—') {
+                    weeklyRoiCell.className = 'pl-neutral';
+                } else {
+                    weeklyRoiCell.className = weeklyRoiValue >= 0 ? 'pl-positive' : 'pl-negative';
                 }
 
                 this.applyResponsiveLabels(row, columnLabels);
