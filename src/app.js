@@ -6471,7 +6471,15 @@ class GammaLedger {
         
         // Update new metrics
         document.getElementById('collateral-at-risk').textContent = this.formatCurrency(stats.collateralAtRisk);
-        document.getElementById('realized-pl').textContent = this.formatCurrency(stats.realizedPL);
+        
+        const realizedPLElement = document.getElementById('realized-pl');
+        realizedPLElement.textContent = this.formatCurrency(stats.realizedPL);
+        realizedPLElement.className = 'card-value';
+        if (stats.realizedPL > 0) {
+            realizedPLElement.classList.add('pl-positive');
+        } else if (stats.realizedPL < 0) {
+            realizedPLElement.classList.add('pl-negative');
+        }
         
         const unrealizedPLElement = document.getElementById('unrealized-pl');
         unrealizedPLElement.textContent = this.formatCurrency(stats.unrealizedPL);
@@ -6483,6 +6491,52 @@ class GammaLedger {
         }
         
         document.getElementById('total-roi').textContent = this.formatNumber(stats.totalROI, { style: 'percent' }) ?? '—';
+
+        // Update new advanced metrics
+        const maxDrawdownElement = document.getElementById('max-drawdown');
+        if (maxDrawdownElement) {
+            maxDrawdownElement.textContent = this.formatNumber(stats.maxDrawdown, { style: 'percent', decimals: 1 }) ?? '0%';
+            maxDrawdownElement.className = 'card-value';
+            if (stats.maxDrawdown > 20) {
+                maxDrawdownElement.classList.add('pl-negative');
+            } else if (stats.maxDrawdown > 10) {
+                maxDrawdownElement.classList.add('pl-warning');
+            }
+        }
+
+        const avgWinLossElement = document.getElementById('avg-win-loss');
+        if (avgWinLossElement) {
+            const avgWinFormatted = this.formatCurrency(stats.avgWin, { compact: true });
+            const avgLossFormatted = this.formatCurrency(stats.avgLoss, { compact: true });
+            avgWinLossElement.textContent = `${avgWinFormatted} / ${avgLossFormatted}`;
+        }
+
+        const expectancyElement = document.getElementById('expectancy');
+        if (expectancyElement) {
+            expectancyElement.textContent = this.formatCurrency(stats.expectancy);
+            expectancyElement.className = 'card-value';
+            if (stats.expectancy > 0) {
+                expectancyElement.classList.add('pl-positive');
+            } else if (stats.expectancy < 0) {
+                expectancyElement.classList.add('pl-negative');
+            }
+        }
+
+        const sharpeElement = document.getElementById('sharpe-ratio');
+        if (sharpeElement) {
+            const sharpeValue = stats.sharpeRatio;
+            if (Number.isFinite(sharpeValue)) {
+                sharpeElement.textContent = sharpeValue.toFixed(2);
+                sharpeElement.className = 'card-value';
+                if (sharpeValue >= 1) {
+                    sharpeElement.classList.add('pl-positive');
+                } else if (sharpeValue < 0) {
+                    sharpeElement.classList.add('pl-negative');
+                }
+            } else {
+                sharpeElement.textContent = '—';
+            }
+        }
 
         // Update tables
         this.updateActivePositionsTable(openTradesList);
@@ -6569,9 +6623,31 @@ class GammaLedger {
             }
         });
 
-    const totalROI = totalMaxRisk > 0 ? (totalPL / totalMaxRisk) * 100 : 0;
+        // Calculate Total ROI (Annualized) using capital-days weighted average
+        // This is the financially correct aggregation across trades of varying size and duration
+        // Formula: Σ(trade_annualized_ROI × trade_weight) / Σ(trade_weight)
+        // where trade_weight = collateral_used × days_held (capital-days at risk)
+        let totalWeight = 0;
+        let weightedAnnualizedROISum = 0;
+        
+        closedTrades.forEach(trade => {
+            const collateral = this.getCapitalAtRisk(trade);
+            const daysHeld = Math.max(1, Number(trade.daysHeld) || 0);
+            const tradeAnnualizedROI = Number(trade.annualizedROI) || 0;
+            
+            if (Number.isFinite(collateral) && collateral > 0 && Number.isFinite(tradeAnnualizedROI)) {
+                const tradeWeight = collateral * daysHeld;
+                totalWeight += tradeWeight;
+                weightedAnnualizedROISum += tradeAnnualizedROI * tradeWeight;
+            }
+        });
+        
+        // Total ROI is now the weighted average annualized ROI
+        const totalROI = totalWeight > 0 ? weightedAnnualizedROISum / totalWeight : 0;
+        
+        // Keep avgDaysHeld for reference/other uses, annualizedROI is now same as totalROI
         const avgDaysHeld = closedTrades.length > 0 ? closedTrades.reduce((sum, trade) => sum + trade.daysHeld, 0) / closedTrades.length : 0;
-        const annualizedROI = avgDaysHeld > 0 ? (Math.pow(1 + totalROI / 100, 365 / avgDaysHeld) - 1) * 100 : 0;
+        const annualizedROI = totalROI;
 
         const totalFees = closedTrades.reduce((sum, trade) => {
             const fees = Number(trade.totalFees);
@@ -6661,6 +6737,19 @@ class GammaLedger {
             return Number.isFinite(pl) ? sum + pl : sum;
         }, 0);
 
+        // Calculate average win and average loss
+        const avgWin = winningTrades.length > 0 
+            ? winningTrades.reduce((sum, trade) => sum + trade.pl, 0) / winningTrades.length 
+            : 0;
+        const avgLoss = losingTrades.length > 0 
+            ? Math.abs(losingTrades.reduce((sum, trade) => sum + trade.pl, 0) / losingTrades.length) 
+            : 0;
+        
+        // Calculate expectancy: (Win Rate × Avg Win) - (Loss Rate × Avg Loss)
+        const winRateDecimal = closedTrades.length > 0 ? winningTrades.length / closedTrades.length : 0;
+        const lossRateDecimal = closedTrades.length > 0 ? losingTrades.length / closedTrades.length : 0;
+        const expectancy = (winRateDecimal * avgWin) - (lossRateDecimal * avgLoss);
+
         // Calculate assignment statistics
         const assignmentStats = this.calculateAssignmentStats(wheelPmccTrades);
 
@@ -6696,6 +6785,9 @@ class GammaLedger {
             collateralAtRisk,
             realizedPL,
             unrealizedPL,
+            avgWin,
+            avgLoss,
+            expectancy,
             assignmentStats
         };
     }

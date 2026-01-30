@@ -1509,7 +1509,7 @@ select.form-control {
   margin-bottom: var(--space-32);
 }
 
-.overview-cards {
+.overview-cards-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-20);
@@ -3737,6 +3737,11 @@ tr:hover {
   font-weight: var(--font-weight-medium);
 }
 
+.pl-warning {
+  color: var(--color-warning, #f59e0b);
+  font-weight: var(--font-weight-medium);
+}
+
 .pl-neutral {
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
@@ -3999,7 +4004,7 @@ tr.position-itm.position-expiring-critical td {
     grid-template-columns: 1fr;
   }
 
-  .overview-cards {
+  .overview-cards-row {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 
@@ -4097,7 +4102,7 @@ tr.position-itm.position-expiring-critical td {
     padding: var(--space-16);
   }
 
-  .overview-cards {
+  .overview-cards-row {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -4152,7 +4157,7 @@ tr.position-itm.position-expiring-critical td {
     font-size: var(--font-size-sm);
   }
 
-  .overview-cards,
+  .overview-cards-row,
   .risk-cards {
     grid-template-columns: 1fr;
   }
