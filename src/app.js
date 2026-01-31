@@ -4723,7 +4723,8 @@ class GammaLedger {
                 hasRollLegs: false,
                 hasCloseActivity: false,
                 hasAssignmentEvent: false,
-                hasExpirationEvent: false
+                hasExpirationEvent: false,
+                hasOpenStockPosition: false
             }
         };
 
@@ -4737,6 +4738,10 @@ class GammaLedger {
         let hasCloseActivity = false;
         let hasAssignmentEvent = false;
         let hasExpirationEvent = false;
+        
+        // Track stock position separately (stocks don't expire)
+        let stockBought = 0;
+        let stockSold = 0;
 
         legs.forEach((leg) => {
             const quantity = Math.abs(Number(leg.quantity) || 0);
@@ -4756,6 +4761,18 @@ class GammaLedger {
 
             const bucket = pairMap.get(key);
             const orderType = this.getNormalizedLegOrderType(leg);
+            const legType = this.normalizeLegType(leg.type);
+            
+            // Track stock positions separately for Wheel trades
+            if (legType === 'STOCK') {
+                if (orderType === 'BTO') {
+                    stockBought += quantity;
+                } else if (orderType === 'STC') {
+                    stockSold += quantity;
+                    hasCloseActivity = true;
+                }
+            }
+            
             switch (orderType) {
                 case 'BTO':
                     bucket.longOpen += quantity;
@@ -4786,6 +4803,9 @@ class GammaLedger {
                 hasExpirationEvent = true;
             }
         });
+        
+        // Check if there's an open stock position (stock bought but not sold)
+        const hasOpenStockPosition = stockBought > stockSold;
 
         let matchedPairs = true;
         let unmatchedExposure = 0;
@@ -4831,7 +4851,8 @@ class GammaLedger {
             hasCloseActivity,
             hasAssignmentEvent,
             hasExpirationEvent,
-            activityAfterExpiration
+            activityAfterExpiration,
+            hasOpenStockPosition
         };
 
         const normalizedStatus = this.normalizeStatus(trade.status);
@@ -4839,7 +4860,9 @@ class GammaLedger {
             hasAssignmentEvent = true;
         }
 
-        if (hasAssignmentEvent) {
+        // For Wheel trades: if stock position is still open, don't mark as Assigned/closed
+        // The stock keeps the trade open even after option assignment
+        if (hasAssignmentEvent && !hasOpenStockPosition) {
             result.status = 'Assigned';
             result.exitReason = trade.exitReason || 'Assigned';
             result.openContractsOverride = 0;
@@ -4848,8 +4871,21 @@ class GammaLedger {
             }
             return result;
         }
+        
+        // Wheel trade with open stock position - stays Open for continued Wheel strategy
+        if (hasAssignmentEvent && hasOpenStockPosition) {
+            result.status = 'Open';
+            result.exitReason = null;
+            // Don't set openContractsOverride - position is still active
+            return result;
+        }
 
         if (matchedPairs || unmatchedExposure === 0) {
+            // Even if all options matched, if stock is still held, position is Open (Wheel)
+            if (hasOpenStockPosition) {
+                result.status = 'Open';
+                return result;
+            }
             result.status = 'Closed';
             if (hasExpirationEvent && !trade.exitReason) {
                 result.exitReason = 'Expired OTM';
@@ -4861,7 +4897,9 @@ class GammaLedger {
             return result;
         }
 
-        if (expirationPassed && !hasAssignmentEvent) {
+        // For Wheel trades with open stock, option expiration doesn't close the position
+        // The stock is still held and can have new covered calls written
+        if (expirationPassed && !hasAssignmentEvent && !hasOpenStockPosition) {
             result.status = 'Expired';
             if (!trade.exitReason) {
                 result.exitReason = 'Expired OTM';
@@ -4878,7 +4916,7 @@ class GammaLedger {
             return result;
         }
 
-        if (activityAfterExpiration && !hasAssignmentEvent) {
+        if (activityAfterExpiration && !hasAssignmentEvent && !hasOpenStockPosition) {
             result.status = 'Closed';
             if (!trade.exitReason) {
                 result.exitReason = 'Closed post-expiration';
@@ -4890,7 +4928,9 @@ class GammaLedger {
             return result;
         }
 
-        if (normalizedStatus === 'expired' && expirationDate) {
+        // Wheel trades with open stock: even if status was explicitly set to expired, 
+        // stock position keeps the trade open
+        if (normalizedStatus === 'expired' && expirationDate && !hasOpenStockPosition) {
             result.status = 'Expired';
             result.openContractsOverride = 0;
             if (!trade.exitReason) {
@@ -4964,9 +5004,28 @@ class GammaLedger {
                 enriched.quantity = enriched.tradeDirection === 'short' ? -normalizedQuantity : normalizedQuantity;
             }
         } else {
-            // Use primary leg quantity for option-only trades
-            const normalizedQuantity = primaryLeg ? Math.abs(Number(primaryLeg.quantity) || 0) : 0;
-            enriched.quantity = enriched.tradeDirection === 'short' ? -normalizedQuantity : normalizedQuantity;
+            // Sum quantities from all opening legs of the same type as primary leg
+            // This handles split orders that were filled in multiple parts
+            const primaryType = (primaryLeg?.type || '').toUpperCase();
+            const primaryStrike = Number(primaryLeg?.strike) || 0;
+            const primaryExpiration = primaryLeg?.expirationDate || '';
+            
+            const matchingOpenLegs = openLegsForStock.filter(leg => {
+                const type = (leg.type || '').toUpperCase();
+                const strike = Number(leg.strike) || 0;
+                const expiration = leg.expirationDate || '';
+                return type === primaryType && strike === primaryStrike && expiration === primaryExpiration;
+            });
+            
+            let totalQuantity = 0;
+            if (matchingOpenLegs.length > 0) {
+                totalQuantity = matchingOpenLegs.reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0);
+            } else {
+                // Fall back to primary leg quantity
+                totalQuantity = primaryLeg ? Math.abs(Number(primaryLeg.quantity) || 0) : 0;
+            }
+            
+            enriched.quantity = enriched.tradeDirection === 'short' ? -totalQuantity : totalQuantity;
         }
         
         enriched.strikePrice = this.derivePrimaryStrike(legSummary);
@@ -5180,7 +5239,24 @@ class GammaLedger {
     }
 
     isWheelOrPmccTrade(trade = {}) {
-        return this.isWheelTrade(trade) || this.isPmccTrade(trade);
+        if (this.isWheelTrade(trade) || this.isPmccTrade(trade)) {
+            return true;
+        }
+        
+        // Also check for trades with assigned status that have stock legs
+        // (in case strategy wasn't set correctly during import)
+        if (this.isAssignedStatus(trade.status)) {
+            const legs = Array.isArray(trade.legs) ? trade.legs : [];
+            const hasStockLeg = legs.some(leg => {
+                const type = (leg.type || '').toUpperCase();
+                return type === 'STOCK';
+            });
+            if (hasStockLeg) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     isCoveredCall(trade = {}) {
@@ -17238,154 +17314,211 @@ class GammaLedger {
             return { newTrades, updates, stats, batchId, reviewTradeIds };
         }
 
-        const groups = this.groupTransactionsForImport(transactions);
+        // Build position index from existing trades for matching closing legs
         const positionIndex = this.buildPositionIndex(this.trades);
         const existingExternalIds = this.buildExistingExternalIdSet();
         const seenExternalIds = new Set();
 
-        stats.totalGroups = groups.size;
-
-        groups.forEach((group) => {
-            if (!group || !Array.isArray(group.transactions) || group.transactions.length === 0) {
+        // Convert all transactions to legs first
+        const allLegs = [];
+        transactions.forEach((tx) => {
+            const leg = this.buildLegFromRobinhoodTransaction(tx);
+            if (!leg) {
                 return;
             }
-
-            const legs = [];
-            group.transactions.forEach((tx) => {
-                const leg = this.buildLegFromRobinhoodTransaction(tx);
-                if (!leg) {
-                    return;
-                }
-                if (leg.externalId && (existingExternalIds.has(leg.externalId) || seenExternalIds.has(leg.externalId))) {
-                    stats.duplicateLegs += 1;
-                    return;
-                }
-                if (batchId) {
-                    leg.importBatchId = batchId;
-                }
-                if (leg.externalId) {
-                    seenExternalIds.add(leg.externalId);
-                }
-                legs.push(leg);
-            });
-
-            if (!legs.length) {
+            if (leg.externalId && (existingExternalIds.has(leg.externalId) || seenExternalIds.has(leg.externalId))) {
+                stats.duplicateLegs += 1;
                 return;
             }
+            if (batchId) {
+                leg.importBatchId = batchId;
+            }
+            if (leg.externalId) {
+                seenExternalIds.add(leg.externalId);
+            }
+            allLegs.push(leg);
+        });
 
-            const ticker = (group.ticker || legs[0]?.tickerSymbol || '').toUpperCase();
-            const openingLegs = legs.filter((leg) => this.getLegSide(leg) === 'OPEN');
-            const closingLegs = legs.filter((leg) => this.getLegSide(leg) === 'CLOSE');
+        // Separate into opening and closing legs
+        const openingLegs = allLegs.filter((leg) => this.getLegSide(leg) === 'OPEN');
+        const closingLegs = allLegs.filter((leg) => this.getLegSide(leg) === 'CLOSE');
 
-            stats.openingLegs += openingLegs.length;
-            stats.closingLegs += closingLegs.length;
+        stats.openingLegs = openingLegs.length;
+        stats.closingLegs = closingLegs.length;
 
-            const unmatchedClosingLegs = [];
+        // Group opening legs by position signature (ticker + optionType + strike + expiration)
+        // This groups split orders into single trades
+        const openingGroups = new Map();
+        openingLegs.forEach((leg) => {
+            const ticker = (leg.tickerSymbol || '').toUpperCase();
+            const type = (leg.type || '').toUpperCase();
+            const strike = Number(leg.strike) || 0;
+            const expiration = leg.expirationDate || '';
+            const positionKey = [ticker, type, strike, expiration].join('|');
 
-            closingLegs.forEach((closingLeg) => {
-                const key = this.buildPositionKey(ticker, closingLeg);
-                const match = this.consumePositionMatches(positionIndex, key, closingLeg);
+            if (!openingGroups.has(positionKey)) {
+                openingGroups.set(positionKey, { ticker, legs: [] });
+            }
+            openingGroups.get(positionKey).legs.push(leg);
+        });
 
-                if (match.matched.length) {
-                    match.matched.forEach((entry) => {
-                        const targetTrade = entry.trade;
-                        if (!targetTrade) {
-                            return;
-                        }
-                        if (this.tradeContainsExternalId(targetTrade, closingLeg.externalId)) {
-                            return;
-                        }
+        // Create trades from opening leg groups and build a new position index for matching closing legs
+        const newPositionIndex = new Map();
+        const pendingTrades = [];
 
-                        const bucket = updates.get(targetTrade.id) || [];
-                        const legClone = { ...closingLeg, quantity: entry.quantity };
-                        if (batchId) {
-                            legClone.importBatchId = batchId;
-                        }
-                        bucket.push(this.sanitizeImportedLeg(legClone));
-                        updates.set(targetTrade.id, bucket);
-                        stats.legsAddedToUpdates += 1;
-                        stats.matchedClosingLegs += entry.quantity;
-                    });
-                }
+        openingGroups.forEach((group, positionKey) => {
+            const ticker = group.ticker;
+            const legs = group.legs;
 
-                const unmatchedQty = Math.max(0, match.unmatched);
-                if (!match.matched.length || unmatchedQty > 0) {
-                    const remainder = { ...closingLeg };
-                    if (unmatchedQty > 0 && remainder.quantity !== unmatchedQty) {
-                        remainder.quantity = unmatchedQty;
-                    }
-                    if (match.matched.length && remainder.externalId) {
-                        remainder.externalId = `${remainder.externalId}-UNMATCHED`;
-                    }
-                    if (batchId) {
-                        remainder.importBatchId = batchId;
-                    }
-                    unmatchedClosingLegs.push(remainder);
-                    stats.unmatchedClosingLegs += remainder.quantity || 0;
-                }
+            // Consolidate legs with same properties (split orders from same trade)
+            const consolidatedLegs = this.consolidateImportLegs(legs);
 
-                if (closingLeg.externalId) {
-                    seenExternalIds.add(closingLeg.externalId);
-                }
+            const tradeId = `TRD-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+            const strategy = this.inferStrategyFromLegs(consolidatedLegs);
+            const sanitizedLegs = consolidatedLegs.map((leg) => this.sanitizeImportedLeg(leg));
+            const note = this.composeImportNotes(context, { legCount: sanitizedLegs.length });
+
+            // Determine status
+            const hasAssignmentLegs = consolidatedLegs.some((leg) => leg.isAssignment);
+            const status = hasAssignmentLegs ? 'Assigned' : 'Open';
+
+            const newTrade = {
+                id: tradeId,
+                ticker,
+                strategy,
+                status,
+                notes: note,
+                legs: sanitizedLegs,
+                importReview: consolidatedLegs.length > 4
+            };
+
+            pendingTrades.push({ trade: newTrade, consolidatedLegs, ticker });
+
+            // Add to new position index for matching closing legs
+            consolidatedLegs.forEach((leg) => {
+                const key = this.buildPositionKey(ticker, leg);
+                if (!key) return;
+                const quantity = Math.abs(Number(leg.quantity) || 0);
+                if (!quantity) return;
+
+                const bucket = newPositionIndex.get(key) || [];
+                bucket.push({ trade: newTrade, remaining: quantity });
+                newPositionIndex.set(key, bucket);
             });
+        });
 
-            if (unmatchedClosingLegs.length > 0) {
-                const note = this.composeImportNotes(context, {
-                    legCount: unmatchedClosingLegs.length,
-                    note: 'Review required: closing legs have no matching open position.'
+        // Match closing legs to existing trades first, then to newly created trades
+        const unmatchedClosingLegs = [];
+
+        closingLegs.forEach((closingLeg) => {
+            const ticker = (closingLeg.tickerSymbol || '').toUpperCase();
+            const key = this.buildPositionKey(ticker, closingLeg, { forMatching: true });
+            let remainingQty = Math.abs(Number(closingLeg.quantity) || 0);
+
+            // First try to match against existing trades
+            const existingMatch = this.consumePositionMatches(positionIndex, key, { ...closingLeg, quantity: remainingQty });
+
+            if (existingMatch.matched.length) {
+                existingMatch.matched.forEach((entry) => {
+                    const targetTrade = entry.trade;
+                    if (!targetTrade) return;
+                    if (this.tradeContainsExternalId(targetTrade, closingLeg.externalId)) return;
+
+                    const bucket = updates.get(targetTrade.id) || [];
+                    const legClone = { ...closingLeg, quantity: entry.quantity };
+                    if (batchId) legClone.importBatchId = batchId;
+                    bucket.push(this.sanitizeImportedLeg(legClone));
+                    updates.set(targetTrade.id, bucket);
+                    stats.legsAddedToUpdates += 1;
+                    stats.matchedClosingLegs += entry.quantity;
                 });
-
-                const sanitizedLegs = unmatchedClosingLegs.map((leg) => this.sanitizeImportedLeg(leg));
-                const resolvedTicker = (ticker || (unmatchedClosingLegs[0]?.tickerSymbol || '')).toUpperCase() || 'UNKNOWN';
-                const reviewId = `IMP-REVIEW-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-
-                newTrades.push({
-                    id: reviewId,
-                    ticker: resolvedTicker,
-                    strategy: 'Import Review',
-                    status: 'Closed',
-                    exitReason: '',
-                    notes: note,
-                    legs: sanitizedLegs,
-                    importBatchId: batchId,
-                    importReview: true
-                });
-
-                reviewTradeIds.push(reviewId);
-                stats.reviewTradesCreated += 1;
-                stats.legsAddedToNewTrades += sanitizedLegs.length;
+                remainingQty = existingMatch.unmatched;
             }
 
-            if (openingLegs.length > 0) {
-                const tradeId = `TRD-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
-                const strategy = this.inferStrategyFromLegs(openingLegs);
-                const sanitizedLegs = openingLegs.map((leg) => this.sanitizeImportedLeg(leg));
-                const note = this.composeImportNotes(context, { legCount: sanitizedLegs.length });
+            // Then try to match against newly created trades in this import
+            if (remainingQty > 0 && newPositionIndex.has(key)) {
+                const entries = newPositionIndex.get(key) || [];
+                entries.forEach((entry) => {
+                    if (remainingQty <= 0 || entry.remaining <= 0) return;
+                    const matchQty = Math.min(entry.remaining, remainingQty);
 
-                // Determine status: if we have closing legs matching opening legs, it may be closed
-                const hasAssignmentLegs = openingLegs.some((leg) => leg.isAssignment);
-                const status = hasAssignmentLegs ? 'Assigned' : 'Open';
+                    // Add closing leg to the pending trade
+                    const legClone = { ...closingLeg, quantity: matchQty };
+                    if (batchId) legClone.importBatchId = batchId;
+                    entry.trade.legs.push(this.sanitizeImportedLeg(legClone));
 
-                const newTrade = {
-                    id: tradeId,
-                    ticker,
-                    strategy,
-                    status,
-                    notes: note,
-                    legs: sanitizedLegs,
-                    importReview: openingLegs.length > 4
-                };
+                    entry.remaining -= matchQty;
+                    remainingQty -= matchQty;
+                    stats.matchedClosingLegs += matchQty;
+                });
 
-                if (newTrade.importReview) {
-                    reviewTradeIds.push(tradeId);
-                    stats.reviewTradesCreated += 1;
+                // Clean up fully consumed entries
+                const filtered = entries.filter((entry) => entry.remaining > 0);
+                if (filtered.length > 0) {
+                    newPositionIndex.set(key, filtered);
+                } else {
+                    newPositionIndex.delete(key);
                 }
+            }
 
-                newTrades.push(newTrade);
-                stats.tradesCreated += 1;
-                stats.legsAddedToNewTrades += openingLegs.length;
+            // Any remaining unmatched quantity goes to review
+            if (remainingQty > 0) {
+                const remainder = { ...closingLeg, quantity: remainingQty };
+                if (batchId) remainder.importBatchId = batchId;
+                unmatchedClosingLegs.push(remainder);
+                stats.unmatchedClosingLegs += remainingQty;
             }
         });
+
+        // Finalize pending trades - update status based on whether they're fully closed
+        pendingTrades.forEach(({ trade, consolidatedLegs, ticker }) => {
+            // Calculate net open contracts
+            const openQty = consolidatedLegs.reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0);
+            const closeQty = trade.legs.filter((leg) => this.getLegSide(leg) === 'CLOSE')
+                .reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0);
+
+            // Update status if all positions are closed
+            if (closeQty >= openQty && trade.status !== 'Assigned') {
+                trade.status = 'Closed';
+            }
+
+            if (trade.importReview) {
+                reviewTradeIds.push(trade.id);
+                stats.reviewTradesCreated += 1;
+            }
+
+            newTrades.push(trade);
+            stats.tradesCreated += 1;
+            stats.legsAddedToNewTrades += trade.legs.length;
+        });
+
+        // Handle unmatched closing legs - create review trades
+        if (unmatchedClosingLegs.length > 0) {
+            const note = this.composeImportNotes(context, {
+                legCount: unmatchedClosingLegs.length,
+                note: 'Review required: closing legs have no matching open position.'
+            });
+
+            const sanitizedLegs = unmatchedClosingLegs.map((leg) => this.sanitizeImportedLeg(leg));
+            const resolvedTicker = (unmatchedClosingLegs[0]?.tickerSymbol || '').toUpperCase() || 'UNKNOWN';
+            const reviewId = `IMP-REVIEW-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+            newTrades.push({
+                id: reviewId,
+                ticker: resolvedTicker,
+                strategy: 'Import Review',
+                status: 'Closed',
+                exitReason: '',
+                notes: note,
+                legs: sanitizedLegs,
+                importBatchId: batchId,
+                importReview: true
+            });
+
+            reviewTradeIds.push(reviewId);
+            stats.reviewTradesCreated += 1;
+            stats.legsAddedToNewTrades += sanitizedLegs.length;
+        }
 
         stats.totalTradesCreated = newTrades.length;
         stats.tradesUpdated = updates.size;
@@ -17394,6 +17527,78 @@ class GammaLedger {
             .reduce((acc, trade) => acc + ((trade.legs || []).length), 0);
 
         return { newTrades, updates, stats, batchId, reviewTradeIds };
+    }
+
+    /**
+     * Consolidate multiple legs from split orders into aggregated legs.
+     * When Robinhood splits an order into multiple fills, this combines them.
+     */
+    consolidateImportLegs(legs = []) {
+        if (!Array.isArray(legs) || legs.length <= 1) {
+            return legs;
+        }
+
+        // Group by unique leg signature (same orderType, type, strike, expiration, executionDate)
+        const groups = new Map();
+        legs.forEach((leg) => {
+            const key = [
+                leg.orderType || '',
+                leg.type || '',
+                leg.strike ?? '',
+                leg.expirationDate || '',
+                leg.executionDate || ''
+            ].join('|');
+
+            if (!groups.has(key)) {
+                groups.set(key, []);
+            }
+            groups.get(key).push(leg);
+        });
+
+        // Consolidate each group
+        const result = [];
+        groups.forEach((groupLegs) => {
+            if (groupLegs.length === 1) {
+                result.push(groupLegs[0]);
+                return;
+            }
+
+            // Aggregate quantities, premiums, and fees
+            let totalQty = 0;
+            let weightedPremiumSum = 0;
+            let totalFees = 0;
+            const externalIds = [];
+
+            groupLegs.forEach((leg) => {
+                const qty = Math.abs(Number(leg.quantity) || 0);
+                const premium = Number(leg.premium) || 0;
+                const fees = Number(leg.fees) || 0;
+
+                totalQty += qty;
+                weightedPremiumSum += premium * qty;
+                totalFees += fees;
+
+                if (leg.externalId) {
+                    externalIds.push(leg.externalId);
+                }
+            });
+
+            // Create consolidated leg (use first leg as template)
+            const consolidated = { ...groupLegs[0] };
+            consolidated.quantity = totalQty;
+            consolidated.premium = totalQty > 0 ? weightedPremiumSum / totalQty : 0;
+            consolidated.fees = totalFees;
+
+            // Generate a new ID that references all originals
+            if (externalIds.length > 1) {
+                consolidated.id = `CONS-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
+                consolidated.consolidatedFrom = externalIds;
+            }
+
+            result.push(consolidated);
+        });
+
+        return result;
     }
 
     buildLegFromRobinhoodTransaction(transaction) {
@@ -17925,7 +18130,7 @@ class GammaLedger {
         return clone;
     }
 
-    buildPositionKey(ticker, leg) {
+    buildPositionKey(ticker, leg, options = {}) {
         if (!leg) {
             return '';
         }
@@ -17939,7 +18144,21 @@ class GammaLedger {
             return '';
         }
 
-    const direction = this.getLegAction(leg) === 'SELL' ? 'short' : 'long';
+        // Determine position direction based on the underlying position, not the action
+        // For closing legs, we need to match the position they're closing
+        const side = this.getLegSide(leg);
+        const action = this.getLegAction(leg);
+        
+        let direction;
+        if (options.forMatching && side === 'CLOSE') {
+            // For closing legs when matching, invert the direction to find the position
+            // BTC (Buy to Close) closes a short position -> look for 'short'
+            // STC (Sell to Close) closes a long position -> look for 'long'
+            direction = action === 'BUY' ? 'short' : 'long';
+        } else {
+            // For opening legs or general use, direction follows the action
+            direction = action === 'SELL' ? 'short' : 'long';
+        }
 
         if (type === 'STOCK') {
             return [symbol, type, direction].join('|');
@@ -18065,8 +18284,24 @@ class GammaLedger {
             return 'Imported Trade';
         }
 
-    const openLegs = legs.filter((leg) => this.getLegSide(leg) === 'OPEN');
+        // Check if any leg is a stock assignment (from put assignment)
+        const hasAssignment = legs.some((leg) => leg.isAssignment === true);
+
+        const openLegs = legs.filter((leg) => this.getLegSide(leg) === 'OPEN');
         const relevant = openLegs.length ? openLegs : legs;
+
+        // Check for Wheel: stock leg (usually from assignment) + option legs (covered calls)
+        const stockLegs = relevant.filter((leg) => (leg.type || '').toUpperCase() === 'STOCK');
+        const callLegs = relevant.filter((leg) => (leg.type || '').toUpperCase() === 'CALL');
+        const putLegs = relevant.filter((leg) => (leg.type || '').toUpperCase() === 'PUT');
+        
+        // Wheel: stock + covered calls (STO CALL), or stock from assignment
+        if (stockLegs.length > 0) {
+            const hasShortCalls = callLegs.some((leg) => this.getLegAction(leg) === 'SELL');
+            if (hasAssignment || hasShortCalls) {
+                return 'Wheel';
+            }
+        }
 
         if (relevant.length === 1) {
             const leg = relevant[0];
@@ -18080,6 +18315,10 @@ class GammaLedger {
                 return this.getLegAction(leg) === 'SELL' ? 'Short Call' : 'Long Call';
             }
             if (leg.type === 'STOCK') {
+                // If this is a stock assignment, identify as Wheel trade
+                if (hasAssignment || leg.isAssignment) {
+                    return 'Wheel';
+                }
                 return this.getLegAction(leg) === 'SELL' ? 'Stock Sale' : 'Stock Purchase';
             }
         }
@@ -18197,7 +18436,7 @@ class GammaLedger {
             stats.closingLegs += closingLegs.length;
 
             closingLegs.forEach((leg) => {
-                const key = this.buildPositionKey(ticker, leg);
+                const key = this.buildPositionKey(ticker, leg, { forMatching: true });
                 const match = this.consumePositionMatches(positionIndex, key, leg);
 
                 if (match.matched.length) {
