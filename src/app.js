@@ -2078,6 +2078,136 @@ class GammaLedger {
             }
         });
 
+        // Compute net-active open legs for rolled positions where some opens
+        // have been closed by matching close legs (e.g., 1→2 contract rolls).
+        // This ensures vertical spread detection, strike display, risk, and
+        // quantity all reflect the CURRENT position, not closed-out legs.
+        const netPositionMap = new Map();
+        normalizedLegs.forEach((leg) => {
+            const type = (leg.type || '').toUpperCase();
+            if (!['CALL', 'PUT'].includes(type)) {
+                return;
+            }
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            if (!quantity) {
+                return;
+            }
+            const key = this.buildLegLifecycleKey(leg);
+            const side = this.getLegSide(leg);
+            if (!netPositionMap.has(key)) {
+                netPositionMap.set(key, { openQty: 0, closeQty: 0, openLegs: [] });
+            }
+            const entry = netPositionMap.get(key);
+            if (side === 'OPEN') {
+                entry.openQty += quantity;
+                entry.openLegs.push(leg);
+            } else if (side === 'CLOSE') {
+                entry.closeQty += quantity;
+            }
+        });
+
+        const activeOpenLegs = [];
+        let hasClosedOutOpenLegs = false;
+        netPositionMap.forEach((entry) => {
+            const net = entry.openQty - entry.closeQty;
+            if (net <= 0) {
+                if (entry.openQty > 0 && entry.closeQty > 0) {
+                    hasClosedOutOpenLegs = true;
+                }
+                return;
+            }
+            if (entry.closeQty > 0) {
+                hasClosedOutOpenLegs = true;
+            }
+            // Take from latest open legs first (LIFO for remaining active contracts)
+            let remaining = net;
+            const reversedLegs = [...entry.openLegs].reverse();
+            for (const leg of reversedLegs) {
+                if (remaining <= 0) {
+                    break;
+                }
+                const legQty = Math.abs(Number(leg.quantity) || 0);
+                const activeQty = Math.min(legQty, remaining);
+                if (activeQty > 0) {
+                    activeOpenLegs.push({ ...leg, quantity: activeQty });
+                    remaining -= activeQty;
+                }
+            }
+        });
+
+        summary.activeOpenLegs = activeOpenLegs;
+        summary.hasClosedOutOpenLegs = hasClosedOutOpenLegs;
+
+        // When there are closed-out open legs (rolled positions), recompute
+        // spread detection, premiums, and primary leg from active legs only.
+        if (hasClosedOutOpenLegs && activeOpenLegs.length > 0) {
+            const activeOptionGroups = new Map();
+            let activeBaseContracts = 0;
+            let activeCreditGross = 0;
+            let activeDebitGross = 0;
+            let activeFees = 0;
+            let activeOpenCashFlow = 0;
+
+            activeOpenLegs.forEach((leg) => {
+                const action = this.getLegAction(leg);
+                const quantity = Math.abs(Number(leg.quantity) || 0);
+                const multiplier = this.getLegMultiplier(leg) || 1;
+                const premium = Number(leg.premium) || 0;
+                const fees = Number(leg.fees) || 0;
+                const cashFlow = this.calculateLegCashFlow(leg);
+
+                activeOpenCashFlow += cashFlow;
+                activeFees += fees;
+
+                const grossPremium = Math.abs(premium) * multiplier * quantity;
+                if (action === 'SELL') {
+                    activeCreditGross += grossPremium;
+                } else {
+                    activeDebitGross += grossPremium;
+                }
+                if (['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike))) {
+                    const key = `${leg.type}|${leg.expirationDate || ''}`;
+                    if (!activeOptionGroups.has(key)) {
+                        activeOptionGroups.set(key, []);
+                    }
+                    activeOptionGroups.get(key).push({ leg, action, side: 'OPEN' });
+                }
+            });
+
+            // Compute activeBaseContracts by aggregating split fills per strike
+            const activeStrikeQty = new Map();
+            activeOpenLegs.forEach((leg) => {
+                const quantity = Math.abs(Number(leg.quantity) || 0);
+                if (!quantity) return;
+                const key = this.buildLegLifecycleKey(leg);
+                activeStrikeQty.set(key, (activeStrikeQty.get(key) || 0) + quantity);
+            });
+            activeStrikeQty.forEach((qty) => {
+                if (qty > activeBaseContracts) activeBaseContracts = qty;
+            });
+
+            // Override summary with active-only values
+            summary.openBaseContracts = activeBaseContracts || summary.openBaseContracts;
+            summary.openCreditGross = activeCreditGross;
+            summary.openDebitGross = activeDebitGross;
+            summary.openFees = activeFees;
+            summary.openCashFlow = activeOpenCashFlow;
+
+            // Update primary leg to reflect active position
+            const activePrimaryLeg = activeOpenLegs.find(
+                leg => this.getLegAction(leg) === 'SELL' && Number.isFinite(Number(leg.strike))
+            );
+            if (activePrimaryLeg) {
+                summary.primaryLeg = activePrimaryLeg;
+            } else if (activeOpenLegs.length > 0) {
+                summary.primaryLeg = activeOpenLegs[0];
+            }
+
+            // Replace openOptionGroups with active-only groups for spread detection
+            openOptionGroups.clear();
+            activeOptionGroups.forEach((value, key) => openOptionGroups.set(key, value));
+        }
+
         // Aggregate opening-leg cash flows and gross premium components
         // Attempt to detect a vertical spread for precise risk math
         let verticalSpreadInfo = null;
@@ -2101,12 +2231,14 @@ class GammaLedger {
                 continue;
             }
             const multiplier = this.getLegMultiplier(legsGroup[0]?.leg) || 1;
-            const contractCounts = legsGroup
-                .map(({ leg }) => Math.abs(Number(leg.quantity) || 0))
-                .filter(value => value > 0);
-            const contracts = contractCounts.length
-                ? Math.min(...contractCounts)
-                : (summary.openBaseContracts || 1);
+            // Aggregate quantities by action side (handles split fills)
+            const buyQty = legsGroup
+                .filter(({ action }) => action === 'BUY')
+                .reduce((sum, { leg }) => sum + Math.abs(Number(leg.quantity) || 0), 0);
+            const sellQty = legsGroup
+                .filter(({ action }) => action === 'SELL')
+                .reduce((sum, { leg }) => sum + Math.abs(Number(leg.quantity) || 0), 0);
+            const contracts = Math.min(buyQty || 1, sellQty || 1);
             verticalSpreadInfo = {
                 width: spreadWidth,
                 multiplier,
@@ -2404,9 +2536,17 @@ class GammaLedger {
         const netDebitPerShare = Math.max(-netPremiumPerShare, 0);
         const totalFeesPerShare = contractValue > 0 ? feesDollars / contractValue : 0;
 
-        const openLegs = Array.isArray(summary?.legs)
+        // Use active open legs for rolled positions to build risk context from current position
+        const activeLegs = Array.isArray(summary?.activeOpenLegs) && summary.activeOpenLegs.length > 0 && summary.hasClosedOutOpenLegs
+            ? summary.activeOpenLegs
+            : null;
+        const allOpenLegs = Array.isArray(summary?.legs)
             ? summary.legs.filter((leg) => leg && this.getLegSide(leg) === 'OPEN')
             : [];
+        // Combine active option legs with any non-option (stock) open legs
+        const openLegs = activeLegs
+            ? [...activeLegs, ...allOpenLegs.filter(leg => !['CALL', 'PUT'].includes((leg.type || '').toUpperCase()))]
+            : allOpenLegs;
         const optionLegs = openLegs.filter((leg) => ['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike)));
 
         const strikeValues = optionLegs
@@ -2874,7 +3014,11 @@ class GammaLedger {
         if (!summary || !Array.isArray(summary.legs)) {
             return null;
         }
-    const openLegs = summary.legs.filter(leg => this.getLegSide(leg) === 'OPEN');
+        // Use active open legs for rolled positions to derive strike from current position
+        const activeLegs = Array.isArray(summary?.activeOpenLegs) && summary.activeOpenLegs.length > 0 && summary.hasClosedOutOpenLegs
+            ? summary.activeOpenLegs
+            : null;
+        const openLegs = activeLegs || summary.legs.filter(leg => this.getLegSide(leg) === 'OPEN');
         const relevantLegs = openLegs.length ? openLegs : summary.legs;
 
     const shortOption = relevantLegs.find(leg => this.getLegAction(leg) === 'SELL' && Number.isFinite(Number(leg.strike)));
@@ -2945,7 +3089,11 @@ class GammaLedger {
             return '—';
         }
 
-    const openLegs = legs.filter(leg => this.getLegSide(leg) === 'OPEN');
+        // Use active open legs for rolled positions to show only current strikes
+        const activeLegs = Array.isArray(legSummary?.activeOpenLegs) && legSummary.activeOpenLegs.length > 0 && legSummary.hasClosedOutOpenLegs
+            ? legSummary.activeOpenLegs
+            : null;
+        const openLegs = activeLegs || legs.filter(leg => this.getLegSide(leg) === 'OPEN');
         const relevantLegs = openLegs.length ? openLegs : legs;
         const optionLegs = relevantLegs.filter(leg => ['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike)));
 
