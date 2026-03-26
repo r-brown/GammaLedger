@@ -189,8 +189,8 @@
                     <h4>⚠️ Limited File System Support</h4>
                     <p>Your browser doesn't fully support the File System Access API. You can still export/import data
                         using download/upload methods.</p>
-                    <button class="btn btn--sm btn--secondary"
-                        onclick="this.parentElement.parentElement.classList.add('hidden')">Dismiss</button>
+                    <button class="btn btn--sm btn--secondary" id="dismiss-fs-notice"
+                        aria-label="Dismiss notice">Dismiss</button>
                 </div>
             </div>
 
@@ -427,6 +427,7 @@
                                         <th>Assignment Cost Basis</th>
                                         <th>Premium Collected</th>
                                         <th>Eff. Cost Basis</th>
+                                        <th>Current Price</th>
                                         <th>Market Value</th>
                                         <th>Unrealized Gain/Loss</th>
                                         <th class="notes-col">Notes</th>
@@ -671,6 +672,14 @@
 
                 <section class="credit-playbook-controls" aria-label="Credit playbook filters">
                     <div class="credit-playbook-filter">
+                        <span class="filter-label">Status</span>
+                        <div class="chart-range" id="credit-playbook-status-filter" role="group" aria-label="Status filter">
+                            <button type="button" class="chart-range__button" data-status="all">All</button>
+                            <button type="button" class="chart-range__button is-active" data-status="active">Active</button>
+                            <button type="button" class="chart-range__button" data-status="closed">Closed</button>
+                        </div>
+                    </div>
+                    <div class="credit-playbook-filter">
                         <span class="filter-label">Time Horizon</span>
                         <select id="credit-playbook-horizon-filter" class="form-control">
                             <option value="all" selected>All time</option>
@@ -772,6 +781,8 @@
                                 <th class="sortable" data-sort="pricePerContract" data-sort-context="credit-playbook">Price/Contract</th>
                                 <th class="sortable" data-sort="fees" data-sort-context="credit-playbook">Fees</th>
                                 <th class="sortable" data-sort="premium" data-sort-context="credit-playbook">Premium</th>
+                                <th class="sortable" data-sort="pl" data-sort-context="credit-playbook">P&amp;L</th>
+                                <th class="sortable" data-sort="roi" data-sort-context="credit-playbook">ROI</th>
                                 <th class="sortable" data-sort="currentPrice" data-sort-context="credit-playbook">Current Price</th>
                                 <th class="sortable" data-sort="entryDate" data-sort-context="credit-playbook">Entry Date</th>
                                 <th class="sortable" data-sort="expirationDate" data-sort-context="credit-playbook">Expiration Date</th>
@@ -790,32 +801,37 @@
                 <section class="import-section">
                     <header class="import-header">
                         <h2>Import Trade Activity</h2>
-                        <p>Bring in broker exports without overwriting your existing database. OFX, CSV files are merged into your current trades; JSON imports create a brand new database.</p>
+                        <p>Bring in broker exports without overwriting your existing database. Trades from OFX and CSV files are merged into your current portfolio.</p>
                     </header>
-                    <div class="import-actions">
-                        <button type="button" class="btn btn--primary" id="import-ofx-btn">Import OFX…</button>
-                        <button type="button" class="btn btn--primary" id="import-robinhood-btn">Import Robinhood CSV…</button>
-                        <button type="button" class="btn btn--secondary" id="import-json-btn">Import JSON…</button>
+                    <div class="import-dropzone" id="import-dropzone" role="region" aria-label="Drop zone for import files">
+                        <div class="import-actions">
+                            <button type="button" class="btn btn--primary" id="import-ofx-btn">Import OFX…</button>
+                            <button type="button" class="btn btn--primary" id="import-robinhood-btn">Import Robinhood CSV…</button>
+                        </div>
+                        <p class="import-dropzone__hint">or drag &amp; drop an OFX or CSV file here</p>
                     </div>
                     <section class="import-stats" aria-live="polite">
                         <h3>Latest Import Summary</h3>
                         <div id="import-summary" class="import-summary"></div>
                     </section>
-                    <section class="import-feedback" aria-live="polite">
-                        <h3>Recent Imports</h3>
-                        <div id="import-log" class="import-log" role="status"></div>
-                    </section>
                     <section class="import-merge import-merge--hint" aria-live="polite">
-                        <h3>Merge Trades After Import</h3>
-                        <p id="import-merge-hint" class="import-merge__help">Review trades flagged for manual merge on the All Trades page after completing an import.</p>
+                        <h3>Merge Trades <span id="import-merge-count" class="import-merge__badge"></span></h3>
+                        <p id="import-merge-hint" class="import-merge__help">After importing, some trades may need to be combined — for example, matching STO and BTC legs or rolling positions. Use the Merge Trades tool on the All Trades page to review and merge them.</p>
                         <button type="button" class="btn btn--secondary" id="import-merge-hint-btn">Review Merge Opportunities</button>
+                    </section>
+                    <section class="import-feedback" aria-live="polite">
+                        <h3>Import Log</h3>
+                        <div id="import-log" class="import-log" role="status"></div>
                     </section>
                     <section class="import-help">
                         <h3>Import Tips</h3>
                         <ul>
-                            <li>Download activity reports from your broker in the OFX/QFX, CSV format.</li>
-                            <li>Multi-leg option trades that share a timestamp are grouped automatically.</li>
-                            <li>Closing legs update any open positions with matching strikes and expirations.</li>
+                            <li>Download activity reports from your broker in OFX/QFX or CSV format.</li>
+                            <li>Multi-leg trades that share a timestamp are grouped automatically.</li>
+                            <li>Closing legs (BTC/STC) automatically match open positions with the same strike and expiration.</li>
+                            <li>Rolls are detected when a BTC and STO for the same ticker and option type occur on the same day.</li>
+                            <li>Assigned options and stock legs are merged into unified Wheel trades.</li>
+                            <li>Split fills from the same order are consolidated into a single leg entry.</li>
                         </ul>
                     </section>
                 </section>
@@ -889,9 +905,9 @@
                             <div class="gemini-tokens-status" id="gemini-tokens-status" role="status">Default: 65536</div>
                         </div>
                     </div>
-                </section>
-                <br/>
-                <section class="settings-section">
+            </section>
+            <br>
+            <section class="settings-section">
                     <header class="settings-section__header">
                         <h2>Trade Entry Defaults</h2>
                         <p>Set default values to speed up manual trade entry.</p>
@@ -918,10 +934,9 @@
     </div>
 
     <!-- Hidden file input for fallback -->
-    <input type="file" id="file-input" accept=".json" style="display: none;">
-    <input type="file" id="import-ofx-input" accept=".ofx,.OFX" style="display: none;">
-    <input type="file" id="import-robinhood-input" accept=".csv,.CSV" style="display: none;">
-    <input type="file" id="import-json-input" accept=".json" style="display: none;">
+    <input type="file" id="file-input" accept=".json" class="hidden">
+    <input type="file" id="import-ofx-input" accept=".ofx,.OFX" class="hidden">
+    <input type="file" id="import-robinhood-input" accept=".csv,.CSV" class="hidden">
 
     <div class="ai-chat" id="ai-chat">
         <button type="button" class="ai-chat__toggle" id="ai-chat-toggle" aria-controls="ai-chat-panel" aria-expanded="false">
