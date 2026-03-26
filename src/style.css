@@ -1207,10 +1207,34 @@ select.form-control {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-12);
+  justify-content: center;
+}
+
+.import-dropzone {
+  display: grid;
+  gap: var(--space-12);
+  justify-items: center;
+  padding: var(--space-24);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-base);
+  background-color: var(--color-bg-2);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.import-dropzone.is-drag-over {
+  border-color: var(--color-primary);
+  background-color: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+
+.import-dropzone__hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 .import-feedback h3,
-.import-help h3 {
+.import-help h3,
+.import-stats h3 {
   margin: 0 0 var(--space-8);
   font-size: var(--font-size-lg);
 }
@@ -1295,10 +1319,26 @@ select.form-control {
   gap: var(--space-16);
 }
 
+.import-merge h3 {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-lg);
+}
+
+.import-merge__badge {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+.import-merge__badge:empty {
+  display: none;
+}
+
 .import-merge__help {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
+  line-height: 1.5;
 }
 
 .import-merge-list {
@@ -1398,6 +1438,14 @@ select.form-control {
   .import-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .import-dropzone {
+    padding: var(--space-16);
+  }
+
+  .import-dropzone__hint {
+    display: none;
   }
 }
 
@@ -2744,8 +2792,8 @@ select.form-control {
 }
 
 /* Wheel / PMCC tracker column sizing */
-/* Columns: Ticker, Strategy, Status, Coverage, Assigned Date, Shares, Strike, Assignment Cost Basis, Premium, Eff Cost Basis, Market Value, Unrealized G/L, Notes */
-/* First 12 columns: equally distributed (75% / 12 = ~6.25% each), Notes: 25% */
+/* Columns: Ticker, Strategy, Status, Coverage, Assigned Date, Shares, Strike, Assignment Cost Basis, Premium, Eff Cost Basis, Current Price, Market Value, Unrealized G/L, Notes */
+/* First 13 columns: equally distributed (81.25% / 13 = ~6.25% each), Notes: 25% */
 #assigned-positions-table th:nth-child(1),
 #assigned-positions-table td:nth-child(1),
 #assigned-positions-table th:nth-child(2),
@@ -2769,12 +2817,14 @@ select.form-control {
 #assigned-positions-table th:nth-child(11),
 #assigned-positions-table td:nth-child(11),
 #assigned-positions-table th:nth-child(12),
-#assigned-positions-table td:nth-child(12) {
+#assigned-positions-table td:nth-child(12),
+#assigned-positions-table th:nth-child(13),
+#assigned-positions-table td:nth-child(13) {
   width: 6.25%;
 }
 
-#assigned-positions-table th:nth-child(13),
-#assigned-positions-table td:nth-child(13) {
+#assigned-positions-table th:nth-child(14),
+#assigned-positions-table td:nth-child(14) {
   width: 25%;
 }
 
@@ -2871,9 +2921,10 @@ select.form-control {
 }
 
 .credit-playbook-controls {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
   gap: var(--space-16);
+  align-items: end;
   padding: var(--space-20);
   background-color: var(--color-surface);
   border: 1px solid var(--color-card-border);
@@ -2885,6 +2936,8 @@ select.form-control {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .credit-playbook-filter .filter-label {
@@ -2975,7 +3028,8 @@ select.form-control {
   }
 
   .credit-playbook-controls {
-    grid-template-columns: 1fr;
+    flex-wrap: wrap;
+    align-items: stretch;
   }
 
   .credit-playbook-table-container {
@@ -3689,6 +3743,12 @@ tr:hover {
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+.option-type-badge.type-multi {
+  background-color: rgba(139, 92, 246, 0.15);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
 /* Status color classes for backward compatibility */
 .status-open {
   color: var(--color-warning);
@@ -4336,7 +4396,7 @@ tr.position-itm.position-expiring-critical td {
   padding: var(--space-16);
   min-width: 400px;
   max-width: 525px;
-  box-shadow: 
+  box-shadow:
     0 12px 32px rgba(var(--color-slate-900-rgb), 0.2),
     0 4px 16px rgba(0, 0, 0, 0.12);
   z-index: 10000;
@@ -4448,12 +4508,12 @@ tr.position-itm.position-expiring-critical td {
     color: var(--color-teal-300);
     border-color: rgba(var(--color-teal-300-rgb), 0.3);
   }
-  
+
   .formula-info-icon:hover {
     background: rgba(var(--color-teal-300-rgb), 0.25);
     border-color: rgba(var(--color-teal-300-rgb), 0.5);
   }
-  
+
   .formula-tooltip {
     background: var(--color-charcoal-800);
     border-color: rgba(var(--color-teal-300-rgb), 0.2);
@@ -4495,7 +4555,7 @@ tr.position-itm.position-expiring-critical td {
   padding: var(--space-16);
   min-width: 320px;
   max-width: 400px;
-  box-shadow: 
+  box-shadow:
     0 12px 32px rgba(var(--color-slate-900-rgb), 0.2),
     0 4px 16px rgba(0, 0, 0, 0.12);
   z-index: 10000;
@@ -4530,7 +4590,7 @@ tr.position-itm.position-expiring-critical td {
   padding: var(--space-8) var(--space-12);
   min-width: 120px;
   max-width: 250px;
-  box-shadow: 
+  box-shadow:
     0 8px 24px rgba(var(--color-slate-900-rgb), 0.2),
     0 2px 8px rgba(0, 0, 0, 0.12);
   z-index: 10000;
@@ -4657,12 +4717,12 @@ tr.position-itm.position-expiring-critical td {
     background: rgba(var(--color-teal-300-rgb), 0.15);
     border-color: rgba(var(--color-teal-300-rgb), 0.3);
   }
-  
+
   .info-icon:hover {
     background: rgba(var(--color-teal-300-rgb), 0.25);
     border-color: rgba(var(--color-teal-300-rgb), 0.5);
   }
-  
+
   .info-tooltip-popup,
   .has-tooltip::after {
     background: var(--color-charcoal-800);

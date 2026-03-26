@@ -1315,7 +1315,7 @@ class GammaLedger {
             key: null,
             direction: 'asc'
         };
-    this.cumulativePLRange = 'ALL';
+        this.cumulativePLRange = 'ALL';
 
         this.disclaimerBanner = {
             element: null,
@@ -1485,10 +1485,14 @@ class GammaLedger {
             exportSize: SHARE_CARD_EXPORT_SIZE
         };
 
-        // Current date for calculations (always use actual current date)
-        this.currentDate = new Date(); // Current date
+        // currentDate is now a live getter — see get currentDate() below
 
         this.init();
+    }
+
+    // Always returns the actual current date so DTE and "today" references stay fresh
+    get currentDate() {
+        return new Date();
     }
 
     // Safe localStorage operations with error handling
@@ -1894,7 +1898,15 @@ class GammaLedger {
             return -(Number(leg.fees) || 0);
         }
         const multiplier = this.getLegMultiplier(leg);
-        const premium = Number(leg.premium) || 0;
+        let premium = Number(leg.premium) || 0;
+
+        // For STOCK legs the per-unit price is stored in `strike` when premium is 0
+        // (e.g. assignment at $295/share → strike=295, premium=0).
+        const legType = this.normalizeLegType(leg.type);
+        if (legType === 'STOCK' && premium === 0) {
+            premium = Number(leg.strike) || 0;
+        }
+
         const fees = Number(leg.fees) || 0;
         const direction = this.getLegAction(leg) === 'SELL' ? 1 : -1;
         return direction * premium * multiplier * quantity - fees;
@@ -1944,6 +1956,8 @@ class GammaLedger {
         
         // Track net positions for short calls to find truly open positions
         const shortCallPositions = new Map();
+        // Aggregate opening leg quantities by lifecycle key to handle split fills
+        const openBaseContractsByKey = new Map();
 
         normalizedLegs.forEach((leg, index) => {
             const originalLeg = Array.isArray(legs) ? legs[index] : null;
@@ -1972,9 +1986,9 @@ class GammaLedger {
                         summary.openDebitGross += grossPremium;
                     }
                     summary.openFees += Number(leg.fees) || 0;
-                    if (quantity > summary.openBaseContracts) {
-                        summary.openBaseContracts = quantity;
-                    }
+                    // Aggregate open contracts by lifecycle key to handle split fills
+                    const openLifecycleKey = this.buildLegLifecycleKey(leg);
+                    openBaseContractsByKey.set(openLifecycleKey, (openBaseContractsByKey.get(openLifecycleKey) || 0) + quantity);
 
                     if (['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike))) {
                         const key = `${leg.type}|${leg.expirationDate || ''}`;
@@ -2075,6 +2089,13 @@ class GammaLedger {
                 if (!summary.nextShortCallExpiration || exp < summary.nextShortCallExpiration) {
                     summary.nextShortCallExpiration = exp;
                 }
+            }
+        });
+
+        // Derive openBaseContracts as the max aggregated quantity across lifecycle keys
+        openBaseContractsByKey.forEach((qty) => {
+            if (qty > summary.openBaseContracts) {
+                summary.openBaseContracts = qty;
             }
         });
 
@@ -2310,6 +2331,92 @@ class GammaLedger {
         }
 
         return Array.from(optionNet.values()).some(count => count > 0);
+    }
+
+    /**
+     * Check whether a trade has any SHORT option legs that are both net-open AND not yet expired.
+     * Only counts STO positions (short options) minus their matching BTC closes.
+     * Long positions (BTO/LEAP) are excluded since they don't represent active coverage.
+     * Used to hide "uncovered" Wheel/PMCC trades from Active Positions when all
+     * short options have been closed, expired, or assigned.
+     */
+    hasNonExpiredOpenShortOptions(trade = {}) {
+        const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+        if (!legs.length) {
+            return false;
+        }
+
+        const summary = this.summarizeLegs(legs);
+        const normalizedLegs = Array.isArray(summary?.legs) ? summary.legs : [];
+        if (!normalizedLegs.length) {
+            return false;
+        }
+
+        const now = this.currentDate instanceof Date ? this.currentDate : new Date();
+
+        // Track net short quantities per lifecycle key
+        const shortNet = new Map();
+
+        normalizedLegs.forEach((leg) => {
+            if (!leg || !['CALL', 'PUT'].includes((leg.type || '').toUpperCase())) {
+                return;
+            }
+
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            if (!quantity) {
+                return;
+            }
+
+            const orderType = this.getNormalizedLegOrderType(leg);
+            // Only count STO (sell to open) and BTC (buy to close) for short positions
+            if (orderType !== 'STO' && orderType !== 'BTC') {
+                return;
+            }
+
+            const key = `${leg.type}|${leg.strike ?? ''}|${leg.expirationDate ?? ''}`;
+
+            if (!shortNet.has(key)) {
+                shortNet.set(key, { net: 0, expiration: leg.expirationDate || '' });
+            }
+            const entry = shortNet.get(key);
+
+            if (orderType === 'STO') {
+                entry.net += quantity;
+            } else if (orderType === 'BTC') {
+                entry.net -= quantity;
+            }
+        });
+
+        if (!shortNet.size) {
+            return false;
+        }
+
+        // Check if any net-open short position has a future expiration
+        for (const [, entry] of shortNet) {
+            if (entry.net <= 0) {
+                continue; // Position is fully closed
+            }
+            // If no expiration date, treat as active
+            if (!entry.expiration) {
+                return true;
+            }
+            const expDate = this.parseDateValue(entry.expiration);
+            if (!expDate) {
+                return true; // Can't parse → assume active
+            }
+            // Options expire at 4 PM ET on expiration day (21:00 UTC)
+            const expWithMarketClose = new Date(Date.UTC(
+                expDate.getUTCFullYear(),
+                expDate.getUTCMonth(),
+                expDate.getUTCDate(),
+                21, 0, 0
+            ));
+            if (now.getTime() <= expWithMarketClose.getTime()) {
+                return true; // Not yet expired
+            }
+        }
+
+        return false;
     }
 
     getNetOpenOptionContracts(legs = []) {
@@ -3786,7 +3893,7 @@ class GammaLedger {
                     this.positionFormulaTooltip(wrapper, tooltip);
                 }
             };
-            
+
             window.addEventListener('scroll', handleScroll, { passive: true });
             wrapper.addEventListener('mouseleave', () => {
                 window.removeEventListener('scroll', handleScroll);
@@ -4890,10 +4997,43 @@ class GammaLedger {
         // Track stock position separately (stocks don't expire)
         let stockBought = 0;
         let stockSold = 0;
+        // Track assignment strikes from BTO STOCK legs (strike = assignment price)
+        const assignmentStrikes = new Map(); // strike → total shares
 
         legs.forEach((leg) => {
             const quantity = Math.abs(Number(leg.quantity) || 0);
             if (!quantity) {
+                return;
+            }
+
+            const orderType = this.getNormalizedLegOrderType(leg);
+            const legType = this.normalizeLegType(leg.type);
+
+            // Track stock positions separately — do not add to pairMap.
+            // Stock buy/sell prices naturally differ so using strike in the
+            // lifecycle key would create mismatched entries.
+            if (legType === 'STOCK') {
+                if (orderType === 'BTO') {
+                    stockBought += quantity;
+                    const strike = Number(leg.strike);
+                    if (Number.isFinite(strike) && strike > 0) {
+                        assignmentStrikes.set(strike, (assignmentStrikes.get(strike) || 0) + quantity);
+                    }
+                } else if (orderType === 'STC') {
+                    stockSold += quantity;
+                    hasCloseActivity = true;
+                }
+                // Skip adding STOCK legs to pairMap
+                const rawOrder = (leg.orderType || leg.tradeType || leg.order || '').toString().toUpperCase();
+                if (rawOrder.includes('ROLL')) {
+                    hasRollLegs = true;
+                }
+                if (rawOrder.includes('ASSIGN') || leg.isAssignment) {
+                    hasAssignmentEvent = true;
+                }
+                if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY')) {
+                    hasExpirationEvent = true;
+                }
                 return;
             }
 
@@ -4908,19 +5048,7 @@ class GammaLedger {
             }
 
             const bucket = pairMap.get(key);
-            const orderType = this.getNormalizedLegOrderType(leg);
-            const legType = this.normalizeLegType(leg.type);
-            
-            // Track stock positions separately for Wheel trades
-            if (legType === 'STOCK') {
-                if (orderType === 'BTO') {
-                    stockBought += quantity;
-                } else if (orderType === 'STC') {
-                    stockSold += quantity;
-                    hasCloseActivity = true;
-                }
-            }
-            
+
             switch (orderType) {
                 case 'BTO':
                     bucket.longOpen += quantity;
@@ -4944,7 +5072,7 @@ class GammaLedger {
             if (rawOrder.includes('ROLL')) {
                 hasRollLegs = true;
             }
-            if (rawOrder.includes('ASSIGN')) {
+            if (rawOrder.includes('ASSIGN') || leg.isAssignment) {
                 hasAssignmentEvent = true;
             }
             if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY')) {
@@ -4954,6 +5082,42 @@ class GammaLedger {
         
         // Check if there's an open stock position (stock bought but not sold)
         const hasOpenStockPosition = stockBought > stockSold;
+
+        // When stock was assigned (BTO STOCK), the short puts at the assignment
+        // strike are implicitly closed by the exchange.  Credit their close count
+        // so that the lifecycle can detect a fully-closed position.
+        if (stockBought > 0 && assignmentStrikes.size > 0) {
+            hasAssignmentEvent = true;
+
+            assignmentStrikes.forEach((shares, strike) => {
+                // Find pairMap entries for short puts at this strike
+                pairMap.forEach((bucket, key) => {
+                    // Key format: "TYPE|STRIKE|EXPIRATION|MULTIPLIER"
+                    if (!key.startsWith('PUT|')) {
+                        return;
+                    }
+                    const parts = key.split('|');
+                    const keyStrike = parseFloat(parts[1]);
+                    const multiplier = parseInt(parts[3], 10) || 100;
+
+                    if (!Number.isFinite(keyStrike) || Math.abs(keyStrike - strike) > 0.01) {
+                        return;
+                    }
+
+                    // How many contracts does this stock assignment cover?
+                    const unmatched = bucket.shortOpen - bucket.shortClose;
+                    if (unmatched <= 0) {
+                        return;
+                    }
+
+                    const assignedContracts = Math.min(unmatched, Math.floor(shares / multiplier));
+                    if (assignedContracts > 0) {
+                        bucket.shortClose += assignedContracts;
+                        hasCloseActivity = true;
+                    }
+                });
+            });
+        }
 
         let matchedPairs = true;
         let unmatchedExposure = 0;
@@ -5010,6 +5174,19 @@ class GammaLedger {
 
         // For Wheel trades: if stock position is still open, don't mark as Assigned/closed
         // The stock keeps the trade open even after option assignment
+
+        // Assignment happened, stock was sold, all positions matched → fully Closed
+        if (hasAssignmentEvent && !hasOpenStockPosition && stockBought > 0 && stockSold >= stockBought && (matchedPairs || unmatchedExposure === 0)) {
+            result.status = 'Closed';
+            result.exitReason = trade.exitReason || 'Assignment resolved';
+            result.openContractsOverride = 0;
+            if (!result.effectiveClosedDate && lastActivityDate) {
+                result.effectiveClosedDate = lastActivityDate.toISOString().slice(0, 10);
+            }
+            return result;
+        }
+
+        // Assignment happened, no open stock, but some option legs still unmatched
         if (hasAssignmentEvent && !hasOpenStockPosition) {
             result.status = 'Assigned';
             result.exitReason = trade.exitReason || 'Assigned';
@@ -5391,17 +5568,11 @@ class GammaLedger {
             return true;
         }
         
-        // Also check for trades with assigned status that have stock legs
-        // (in case strategy wasn't set correctly during import)
+        // Assigned trades are inherently wheel trades — the short option
+        // was closed via assignment.  Stock legs may live in a separate
+        // trade entry when imported from Robinhood CSV, so don't require them.
         if (this.isAssignedStatus(trade.status)) {
-            const legs = Array.isArray(trade.legs) ? trade.legs : [];
-            const hasStockLeg = legs.some(leg => {
-                const type = (leg.type || '').toUpperCase();
-                return type === 'STOCK';
-            });
-            if (hasStockLeg) {
-                return true;
-            }
+            return true;
         }
         
         return false;
@@ -5499,8 +5670,8 @@ class GammaLedger {
             });
         }
 
-    this.setupImportControls();
-    this.setupTradesMergeControls();
+        this.setupImportControls();
+        this.setupTradesMergeControls();
 
         // Add trade form
         const addTradeForm = document.getElementById('add-trade-form');
@@ -5647,7 +5818,7 @@ class GammaLedger {
         this.setupResponsiveFilters();
         this.initializeCumulativePLControls();
         this.initializeAssignedPositionsStatusFilter();
-    this.initializeCreditPlaybookControls();
+        this.initializeCreditPlaybookControls();
     }
 
     setupResponsiveFilters() {
@@ -6815,6 +6986,21 @@ class GammaLedger {
         const losingTrades = closedTrades.filter(trade => trade.pl < 0);
 
         const totalPL = closedTrades.reduce((sum, trade) => sum + trade.pl, 0);
+
+        // Assigned trades have realized option premium P&L (the short option
+        // was closed via assignment).  Include that premium in realized totals.
+        // Exclude assigned trades that were promoted to openTrades (they have
+        // active option legs and their P&L is already counted in unrealizedPL).
+        const activeAssignedIds = new Set(
+            assignedWithActiveOptions.map(t => String(t.id ?? `${t.ticker || ''}-${t.openedDate || ''}`))
+        );
+        const assignedPL = assignedTrades.reduce((sum, trade) => {
+            const key = String(trade.id ?? `${trade.ticker || ''}-${trade.openedDate || ''}`);
+            if (activeAssignedIds.has(key)) return sum; // already in unrealizedPL
+            const pl = Number(trade.pl);
+            return Number.isFinite(pl) ? sum + pl : sum;
+        }, 0);
+
         const totalMaxRisk = closedTrades.reduce((sum, trade) => {
             const capital = this.getCapitalAtRisk(trade);
             return Number.isFinite(capital) && capital > 0 ? sum + capital : sum;
@@ -6952,8 +7138,9 @@ class GammaLedger {
             return Number.isFinite(capital) && capital > 0 ? sum + capital : sum;
         }, 0);
 
-        // Realized P&L: Actual profits/losses from closed trades (same as totalPL)
-        const realizedPL = totalPL;
+        // Realized P&L: Actual profits/losses from closed trades plus
+        // option premium realized through assignment (assigned trades).
+        const realizedPL = totalPL + assignedPL;
 
         // Unrealized P&L: Estimated current P&L on open positions
         const unrealizedPL = openTrades.reduce((sum, trade) => {
@@ -7054,6 +7241,13 @@ class GammaLedger {
             const stockLegInfo = stockLegs[0]; // Keep first for compatibility with strike/date logic
             
             if (positionType === 'other' && stockLegs.length > 0) {
+                positionType = 'wheel';
+            }
+
+            // Assigned CSP trades may not have stock legs (e.g. import created
+            // the stock in a separate trade entry).  Treat them as wheel so they
+            // show up in the wheel/assignment tracker.
+            if (positionType === 'other' && this.isAssignedStatus(trade.status)) {
                 positionType = 'wheel';
             }
             const stockDate = stockLegInfo?.executionDate || null;
@@ -7433,15 +7627,17 @@ class GammaLedger {
     updateActivePositionsTable(openTrades = this.trades.filter(trade => {
         // Include trades with Open or Rolling status
         if (this.isActiveStatus(trade.status)) {
+            // Exclude uncovered/expired: Wheel, PMCC, or assigned trades where
+            // all short option legs have been closed or expired (only stock/LEAP remains)
+            if (this.isWheelOrPmccTrade(trade) || this.isAssignmentTrade(trade)) {
+                return this.hasNonExpiredOpenShortOptions(trade);
+            }
             return true;
         }
         
-        // Also include Assigned Wheel/PMCC trades that have net open option legs
-        // (i.e., unclosed covered calls or puts)
+        // Also include Assigned Wheel/PMCC trades that have non-expired open short options
         if (this.isAssignmentTrade(trade) && this.isWheelOrPmccTrade(trade)) {
-            if (this.hasNetOpenOptionLegs(trade)) {
-                return true;
-            }
+            return this.hasNonExpiredOpenShortOptions(trade);
         }
         
         return false;
@@ -7621,7 +7817,7 @@ class GammaLedger {
         if (tbody) {
             tbody.innerHTML = '';
 
-            const columnLabels = ['Ticker', 'Strategy', 'Status', 'Coverage', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Market Value', 'Unrealized Gain/Loss', 'Notes'];
+            const columnLabels = ['Ticker', 'Strategy', 'Status', 'Coverage', 'Assignment Date', 'Shares', 'Strike Price', 'Assignment Cost Basis', 'Premium Collected', 'Eff. Cost Basis', 'Current Price', 'Market Value', 'Unrealized Gain/Loss', 'Notes'];
 
             // Filter assignments based on the status filter
             const currentFilter = this.assignedPositionsStatusFilter;
@@ -7827,15 +8023,20 @@ class GammaLedger {
                 // Eff. Cost Basis
                 row.insertCell(9).textContent = this.formatCurrency(effectiveCostBasis);
 
+                // Current Price - will be populated when quote loads
+                const currentPriceCell = row.insertCell(10);
+                currentPriceCell.className = 'current-price-cell quote-dependent';
+                currentPriceCell.textContent = '—';
+
                 // Market Value (Current Price × Shares) - will be populated when quote loads
-                const marketValueCell = row.insertCell(10);
+                const marketValueCell = row.insertCell(11);
                 marketValueCell.className = 'market-value-cell quote-dependent';
                 marketValueCell.textContent = '—';
                 marketValueCell.dataset.shares = String(shares);
                 marketValueCell.dataset.effectiveCostBasis = String(effectiveCostBasis);
 
                 // Unrealized Gain/Loss (Market Value - Eff. Cost Basis) - will be populated when quote loads
-                const unrealizedGLCell = row.insertCell(11);
+                const unrealizedGLCell = row.insertCell(12);
                 unrealizedGLCell.className = 'unrealized-gl-cell quote-dependent';
                 unrealizedGLCell.textContent = '—';
 
@@ -7848,6 +8049,7 @@ class GammaLedger {
                     quoteEntries.set(quoteKey, {
                         trade,
                         row,
+                        currentPriceCell,
                         marketValueCell,
                         unrealizedGLCell,
                         shares,
@@ -7857,7 +8059,7 @@ class GammaLedger {
                 }
 
                 // Notes
-                const notesCell = row.insertCell(12);
+                const notesCell = row.insertCell(13);
                 notesCell.textContent = trade.notes || '—';
                 notesCell.className = 'notes-col';
 
@@ -7947,6 +8149,9 @@ class GammaLedger {
                         return;
                     }
                     // Mark as needing refresh on next cycle
+                    if (entryToRefresh.currentPriceCell) {
+                        entryToRefresh.currentPriceCell.textContent = '—';
+                    }
                     if (entryToRefresh.marketValueCell) {
                         entryToRefresh.marketValueCell.textContent = '—';
                     }
@@ -7977,6 +8182,11 @@ class GammaLedger {
         // Calculate Unrealized Gain/Loss (Market Value - Eff. Cost Basis)
         const unrealizedGL = marketValue - effectiveCostBasis;
         const unrealizedGLPercent = effectiveCostBasis !== 0 ? (unrealizedGL / effectiveCostBasis) * 100 : 0;
+
+        // Update Current Price cell
+        if (entry.currentPriceCell) {
+            entry.currentPriceCell.textContent = this.formatCurrency(currentPrice);
+        }
 
         // Update Market Value cell
         if (entry.marketValueCell) {
@@ -8391,6 +8601,7 @@ class GammaLedger {
     }
 
     filterCreditPlaybookLegPairs(legPairs = []) {
+        const statusFilter = this.creditPlaybookStatus;
         const strategyFilter = this.creditPlaybookStrategy;
         const horizonFilter = this.creditPlaybookHorizon;
         const symbolFilter = this.creditPlaybookSymbol;
@@ -8398,6 +8609,13 @@ class GammaLedger {
         const dayMs = 24 * 60 * 60 * 1000;
 
         return legPairs.filter((pair) => {
+            // Status filter
+            if (statusFilter === 'active' && !pair.isOpen) {
+                return false;
+            }
+            if (statusFilter === 'closed' && pair.isOpen) {
+                return false;
+            }
             if (strategyFilter !== 'all') {
                 const normalizedPairStrategy = this.normalizeCreditPlaybookStrategyValue(pair.strategy);
                 if (normalizedPairStrategy !== strategyFilter) {
@@ -8485,9 +8703,9 @@ class GammaLedger {
                     }
                     break;
                 case 'status':
-                    // Rolling > Open > Expired > Closed
-                    aVal = a.isRolling ? 0 : (a.isExpired && a.isOpen ? 2 : (a.isOpen ? 1 : 3));
-                    bVal = b.isRolling ? 0 : (b.isExpired && b.isOpen ? 2 : (b.isOpen ? 1 : 3));
+                    // Assigned > Rolling > Open > Expired > Closed
+                    aVal = a.isAssigned ? -1 : (a.isRolling ? 0 : (a.isExpired && a.isOpen ? 2 : (a.isOpen ? 1 : 3)));
+                    bVal = b.isAssigned ? -1 : (b.isRolling ? 0 : (b.isExpired && b.isOpen ? 2 : (b.isOpen ? 1 : 3)));
                     break;
                 case 'quantity':
                     aVal = Number(a.quantity) || 0;
@@ -8504,6 +8722,14 @@ class GammaLedger {
                 case 'premium':
                     aVal = Number(a.premium) || 0;
                     bVal = Number(b.premium) || 0;
+                    break;
+                case 'pl':
+                    aVal = Number(a.pl) || 0;
+                    bVal = Number(b.pl) || 0;
+                    break;
+                case 'roi':
+                    aVal = Number(a.roi) ?? -Infinity;
+                    bVal = Number(b.roi) ?? -Infinity;
                     break;
                 case 'currentPrice':
                     aVal = Number(a.currentPrice) || 0;
@@ -8566,41 +8792,64 @@ class GammaLedger {
         container.innerHTML = '';
 
         const totalCount = legPairs.length;
-        const openCount = legPairs.filter((pair) => pair.isOpen).length;
-        const closedCount = totalCount - openCount;
-        const totalPremium = legPairs.reduce((sum, pair) => sum + (Number(pair.premium) || 0), 0);
-        const totalCapital = legPairs.reduce((sum, pair) => sum + (Number(pair.capital) || 0), 0);
-        const premiumValues = legPairs.map((pair) => Number(pair.premium)).filter(Number.isFinite);
-        const capitalValues = legPairs.map((pair) => Number(pair.capital)).filter((value) => Number.isFinite(value) && value > 0);
+        const openPairs = legPairs.filter((pair) => pair.isOpen);
+        const closedPairs = legPairs.filter((pair) => !pair.isOpen);
+        const openCount = openPairs.length;
+        const closedCount = closedPairs.length;
 
-        const avgPremium = premiumValues.length ? totalPremium / premiumValues.length : null;
-        const avgCapital = capitalValues.length ? totalCapital / capitalValues.length : null;
+        const totalPremium = legPairs.reduce((sum, pair) => sum + (Number(pair.premium) || 0), 0);
+        const totalCapital = openPairs.reduce((sum, pair) => sum + (Number(pair.capital) || 0), 0);
+
+        // Realized P&L from closed positions
+        const realizedPL = closedPairs.reduce((sum, pair) => {
+            const pl = Number(pair.pl);
+            return Number.isFinite(pl) ? sum + pl : sum;
+        }, 0);
+
+        // Win rate from closed positions
+        const winners = closedPairs.filter((p) => (Number(p.pl) || 0) > 0).length;
+        const winRate = closedCount > 0 ? (winners / closedCount) * 100 : null;
+
+        // Average DTE for open positions
+        const openDTEs = openPairs.map((p) => Number(p.dte)).filter(Number.isFinite);
+        const avgDTE = openDTEs.length > 0
+            ? Math.round(openDTEs.reduce((s, d) => s + d, 0) / openDTEs.length)
+            : null;
 
         const metrics = [
             {
                 label: 'Positions',
                 value: this.formatNumber(totalCount, { decimals: 0, useGrouping: true }) ?? String(totalCount),
-                sublabel: `${openCount} open • ${closedCount} closed`
+                sublabel: `${openCount} active · ${closedCount} closed`
             },
             {
-                label: 'Total Premiums',
+                label: 'Net Premium',
                 value: this.formatCurrency(totalPremium),
-                sublabel: 'Net credit across filtered positions'
+                sublabel: 'Total credit/debit across all legs',
+                valueClass: totalPremium >= 0 ? 'pl-positive' : 'pl-negative'
             },
             {
-                label: 'Avg Premium',
-                value: Number.isFinite(avgPremium) ? this.formatCurrency(avgPremium) : '—',
-                sublabel: premiumValues.length ? `${premiumValues.length} trades with premium` : 'No premium data'
+                label: 'Realized P&L',
+                value: closedCount > 0 ? this.formatCurrency(realizedPL) : '—',
+                sublabel: closedCount > 0 ? `From ${closedCount} closed position${closedCount === 1 ? '' : 's'}` : 'No closed positions yet',
+                valueClass: realizedPL > 0 ? 'pl-positive' : (realizedPL < 0 ? 'pl-negative' : '')
             },
             {
-                label: 'Capital at Risk',
+                label: 'Win Rate',
+                value: Number.isFinite(winRate)
+                    ? `${(this.formatNumber(winRate, { decimals: 1, useGrouping: false }) ?? winRate.toFixed(1))}%`
+                    : '—',
+                sublabel: closedCount > 0 ? `${winners}W / ${closedCount - winners}L` : 'No closed positions'
+            },
+            {
+                label: 'Active Risk',
                 value: this.formatCurrency(totalCapital),
-                sublabel: capitalValues.length ? `${capitalValues.length} trades with defined risk` : 'No risk data available'
+                sublabel: openCount > 0 ? `Across ${openCount} open position${openCount === 1 ? '' : 's'}` : 'No open positions'
             },
             {
-                label: 'Avg Capital',
-                value: Number.isFinite(avgCapital) ? this.formatCurrency(avgCapital) : '—',
-                sublabel: 'Per trade with capital defined'
+                label: 'Avg DTE',
+                value: Number.isFinite(avgDTE) ? String(avgDTE) : '—',
+                sublabel: openDTEs.length > 0 ? `${openDTEs.length} open with expiration` : 'No active expirations'
             }
         ];
 
@@ -8613,6 +8862,9 @@ class GammaLedger {
 
             const valueEl = document.createElement('div');
             valueEl.className = 'card-value';
+            if (metric.valueClass) {
+                valueEl.classList.add(metric.valueClass);
+            }
             valueEl.textContent = metric.value;
 
             const labelEl = document.createElement('small');
@@ -8688,6 +8940,9 @@ class GammaLedger {
             } else if (pair.type === 'PUT') {
                 typeSpan.classList.add('type-put');
                 typeSpan.textContent = 'PUT';
+            } else if (pair.type === 'CALL/PUT') {
+                typeSpan.classList.add('type-multi');
+                typeSpan.textContent = 'C/P';
             } else {
                 typeSpan.textContent = pair.type || '—';
             }
@@ -8710,7 +8965,10 @@ class GammaLedger {
             statusBadge.className = 'status-badge';
             
             let statusClass, statusText;
-            if (pair.isRolling) {
+            if (pair.isAssigned) {
+                statusClass = 'assigned';
+                statusText = 'Assigned';
+            } else if (pair.isRolling) {
                 statusClass = 'rolling';
                 statusText = 'Rolling';
             } else if (pair.isExpired && pair.isOpen) {
@@ -8752,10 +9010,31 @@ class GammaLedger {
                 : '—';
             premiumCell.className = pair.premium >= 0 ? 'pl-positive' : 'pl-negative';
 
+            // P&L
+            const plCell = row.insertCell(columnIndex++);
+            if (Number.isFinite(pair.pl)) {
+                plCell.textContent = this.formatCurrency(pair.pl);
+                plCell.className = pair.pl > 0 ? 'pl-positive' : (pair.pl < 0 ? 'pl-negative' : 'pl-neutral');
+            } else {
+                plCell.textContent = '—';
+            }
+
+            // ROI
+            const roiCell = row.insertCell(columnIndex++);
+            if (Number.isFinite(pair.roi)) {
+                const roiAbs = Math.abs(pair.roi);
+                const roiStr = this.formatNumber(roiAbs, { decimals: 1, useGrouping: false }) ?? roiAbs.toFixed(1);
+                const roiPrefix = pair.roi > 0 ? '+' : (pair.roi < 0 ? '-' : '');
+                roiCell.textContent = `${roiPrefix}${roiStr}%`;
+                roiCell.className = pair.roi > 0 ? 'pl-positive' : (pair.roi < 0 ? 'pl-negative' : 'pl-neutral');
+            } else {
+                roiCell.textContent = '—';
+            }
+
             // Current Price (only for open positions)
             const currentPriceCell = row.insertCell(columnIndex++);
             currentPriceCell.className = 'quote-cell';
-            if (!pair.isOpen || statusClass === 'closed' || statusClass === 'expired') {
+            if (!pair.isOpen || statusClass === 'closed' || statusClass === 'expired' || statusClass === 'assigned') {
                 currentPriceCell.textContent = '—';
             } else {
                 // Set up for live price fetching
@@ -8807,10 +9086,18 @@ class GammaLedger {
 
             // DTE
             const dteCell = row.insertCell(columnIndex++);
-            dteCell.textContent = Number.isFinite(pair.dte) ? pair.dte : '—';
-            
+            if (Number.isFinite(pair.dte)) {
+                dteCell.textContent = pair.dte;
+            } else if (pair.isExpired || statusClass === 'expired') {
+                dteCell.textContent = '0';
+            } else if (!pair.isOpen) {
+                dteCell.textContent = '—';
+            } else {
+                dteCell.textContent = '—';
+            }
+
             // Apply DTE highlighting for open positions
-            if (pair.isOpen && statusClass !== 'closed') {
+            if (pair.isOpen && statusClass !== 'closed' && statusClass !== 'expired') {
                 const mockTrade = { dte: pair.dte };
                 this.updateExpirationHighlight(dteCell, mockTrade);
             }
@@ -8833,6 +9120,8 @@ class GammaLedger {
                 'Price/Contract',
                 'Fees',
                 'Premium',
+                'P&L',
+                'ROI',
                 'Current Price',
                 'Entry Date',
                 'Expiration Date',
@@ -8841,7 +9130,7 @@ class GammaLedger {
                 'Days Held'
             ]);
         });
-        
+
         // Trigger quote fetching and auto-refresh for Credit Playbook if we have entries
         if (this.creditPlaybookQuoteEntries && this.creditPlaybookQuoteEntries.size > 0) {
             this.startQuoteAutoRefreshIfNeeded();
@@ -8861,10 +9150,25 @@ class GammaLedger {
             }
 
             const strategy = trade.strategy || '';
-            const isSpread = strategy.toLowerCase().includes('spread');
+            const strategyLower = strategy.toLowerCase();
+            const isMultiLeg = strategyLower.includes('spread')
+                || strategyLower.includes('condor')
+                || strategyLower.includes('butterfly')
+                || strategyLower.includes('iron')
+                || strategyLower.includes('straddle')
+                || strategyLower.includes('strangle')
+                || strategyLower.includes('collar')
+                || strategyLower.includes('albatross')
+                || strategyLower.includes('diagonal')
+                || strategyLower.includes('jade lizard')
+                || strategyLower.includes('reverse jade')
+                || strategyLower.includes('broken wing')
+                || strategyLower.includes('box')
+                || strategyLower.includes('guts')
+                || strategyLower.includes('synthetic');
 
-            if (isSpread) {
-                // Handle spreads as a single combined position
+            if (isMultiLeg) {
+                // Handle multi-leg strategies as a single combined position
                 this.extractSpreadPair(trade, legs, now, pairs);
             } else {
                 // Handle naked options individually by strike
@@ -8917,8 +9221,16 @@ class GammaLedger {
             return dateA.getTime() - dateB.getTime();
         });
 
-        // Get option type (all should be same for a vertical spread)
-        const type = sortedLegs[0]?.type || 'CALL';
+        // Determine option type for display
+        const legTypes = new Set(sortedLegs.map(l => l.type).filter(Boolean));
+        let type;
+        if (legTypes.size === 1) {
+            type = legTypes.values().next().value;
+        } else if (legTypes.has('CALL') && legTypes.has('PUT')) {
+            type = 'CALL/PUT';
+        } else {
+            type = sortedLegs[0]?.type || 'CALL';
+        }
 
         // Calculate total premium (gross, before fees) and fees across all legs
         let totalGrossPremium = 0;
@@ -9023,6 +9335,7 @@ class GammaLedger {
             isOpen,
             isExpired: hasExpired,
             isRolling,
+            isAssigned: this.isAssignedStatus(trade.status),
             capital
         });
     }
@@ -9032,14 +9345,29 @@ class GammaLedger {
         const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
         const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
 
-        // Get option type (all should be same for a vertical spread)
-        const type = openingLegs[0]?.type || closingLegs[0]?.type || 'CALL';
+        // Determine option type — for mixed CALL/PUT strategies show combined
+        const allLegsForType = openingLegs.length > 0 ? openingLegs : closingLegs;
+        const legTypes = new Set(allLegsForType.map(l => l.type).filter(Boolean));
+        let type;
+        if (legTypes.size === 1) {
+            type = legTypes.values().next().value;
+        } else if (legTypes.has('CALL') && legTypes.has('PUT')) {
+            type = 'CALL/PUT';
+        } else {
+            type = allLegsForType[0]?.type || 'CALL';
+        }
 
-        // Calculate strikes for spread
+        // Calculate strikes for spread display
         const strikes = openingLegs.map(leg => Number(leg.strike)).filter(s => Number.isFinite(s));
-        const spreadStrike = strikes.length >= 2
-            ? `${Math.min(...strikes)}/${Math.max(...strikes)}`
-            : (strikes.length === 1 ? String(strikes[0]) : '—');
+        const uniqueStrikes = [...new Set(strikes)].sort((a, b) => a - b);
+        let spreadStrike;
+        if (uniqueStrikes.length >= 2) {
+            spreadStrike = uniqueStrikes.join('/');
+        } else if (uniqueStrikes.length === 1) {
+            spreadStrike = String(uniqueStrikes[0]);
+        } else {
+            spreadStrike = '—';
+        }
 
         // Calculate net position (gross premium, before fees)
         let totalGrossPremium = 0;
@@ -9099,7 +9427,18 @@ class GammaLedger {
         const pricePerContract = quantity > 0 ? totalGrossPremium / (quantity * multiplier) : 0;
         
         // For spreads, capital is width of strikes * quantity * multiplier
-        const width = strikes.length >= 2 ? Math.max(...strikes) - Math.min(...strikes) : 0;
+        // For condors/butterflies, use the widest side (call side or put side)
+        let width = 0;
+        if (type === 'CALL/PUT' && strikes.length >= 4) {
+            // Multi-leg with both sides: group by leg type, use max side width
+            const callStrikes = openingLegs.filter(l => l.type === 'CALL').map(l => Number(l.strike)).filter(Number.isFinite);
+            const putStrikes = openingLegs.filter(l => l.type === 'PUT').map(l => Number(l.strike)).filter(Number.isFinite);
+            const callWidth = callStrikes.length >= 2 ? Math.max(...callStrikes) - Math.min(...callStrikes) : 0;
+            const putWidth = putStrikes.length >= 2 ? Math.max(...putStrikes) - Math.min(...putStrikes) : 0;
+            width = Math.max(callWidth, putWidth);
+        } else {
+            width = strikes.length >= 2 ? Math.max(...strikes) - Math.min(...strikes) : 0;
+        }
         const capital = width > 0 ? Math.abs(width * quantity * multiplier) : 0;
         const netPremium = totalGrossPremium - totalFees;
         const pl = netPremium;
@@ -9125,61 +9464,219 @@ class GammaLedger {
             isOpen,
             isExpired: hasExpired,
             isRolling: false,
+            isAssigned: this.isAssignedStatus(trade.status),
             capital
         });
     }
 
     extractIndividualLegPairs(trade, legs, now, pairs) {
-        // For naked options, we need to track all legs with same strike/type across different expirations
-        // to properly handle rolls
-        
-        // Group all legs by strike and type (not expiration) to detect rolls
-        const strikeTypeGroups = new Map();
-        
+        // For naked options, we need to track all legs across different strikes and expirations
+        // to properly handle rolls (e.g., CSP rolled from $30 to $28 strike)
+
+        const tradeStatus = (trade.status || '').toLowerCase();
+        const isTradeRolling = tradeStatus === 'rolling' || tradeStatus === 'rolled';
+
+        // Separate option legs by type
+        const typeGroups = new Map();
         legs.forEach((leg) => {
             if (leg.type !== 'CALL' && leg.type !== 'PUT') {
-                return; // Skip non-option legs
+                return; // Skip non-option legs (stocks)
             }
-
-            const strike = Number(leg.strike);
             const type = leg.type;
-            const key = `${type}|${strike}`;
-
-            if (!strikeTypeGroups.has(key)) {
-                strikeTypeGroups.set(key, []);
+            if (!typeGroups.has(type)) {
+                typeGroups.set(type, []);
             }
-            strikeTypeGroups.get(key).push(leg);
+            typeGroups.get(type).push(leg);
         });
 
-        // Process each strike/type group
-        strikeTypeGroups.forEach((groupLegs, key) => {
-            const [type, strikeStr] = key.split('|');
-            const strike = Number(strikeStr);
-
-            // Group by expiration within this strike/type
-            const expirationGroups = new Map();
-            groupLegs.forEach(leg => {
-                const expiration = leg.expirationDate || '';
-                if (!expirationGroups.has(expiration)) {
-                    expirationGroups.set(expiration, []);
-                }
-                expirationGroups.get(expiration).push(leg);
+        typeGroups.forEach((typeLegs, type) => {
+            // Sort legs chronologically
+            const sorted = typeLegs.slice().sort((a, b) => {
+                const dA = this.parseDateValue(a.executionDate);
+                const dB = this.parseDateValue(b.executionDate);
+                if (!dA || !dB) return 0;
+                return dA.getTime() - dB.getTime();
             });
 
-            // Check if this is a rolled position (multiple expirations with close+open pattern)
-            const isRolled = expirationGroups.size > 1;
-            const tradeStatus = (trade.status || '').toLowerCase();
-            const isRolling = tradeStatus === 'rolling' || tradeStatus === 'rolled';
+            // Detect roll chains: close+open on same day with different strikes/expirations
+            const hasRollChain = this.detectRollChain(sorted);
 
-            if (isRolled || isRolling) {
-                // Handle as a single rolled position
-                this.extractRolledPosition(trade, groupLegs, strike, type, now, pairs);
+            if (isTradeRolling || hasRollChain) {
+                // Treat all legs of this type as a single rolled position
+                this.extractRolledPositionAcrossStrikes(trade, sorted, type, now, pairs);
             } else {
-                // Handle each expiration separately
-                expirationGroups.forEach((expLegs, expiration) => {
-                    this.extractSingleLegPair(trade, expLegs, strike, type, expiration, now, pairs);
+                // Group by strike and handle individually
+                const strikeGroups = new Map();
+                sorted.forEach(leg => {
+                    const strike = Number(leg.strike);
+                    const key = `${strike}`;
+                    if (!strikeGroups.has(key)) {
+                        strikeGroups.set(key, []);
+                    }
+                    strikeGroups.get(key).push(leg);
+                });
+
+                strikeGroups.forEach((groupLegs, strikeStr) => {
+                    const strike = Number(strikeStr);
+
+                    // Group by expiration within this strike
+                    const expirationGroups = new Map();
+                    groupLegs.forEach(leg => {
+                        const expiration = leg.expirationDate || '';
+                        if (!expirationGroups.has(expiration)) {
+                            expirationGroups.set(expiration, []);
+                        }
+                        expirationGroups.get(expiration).push(leg);
+                    });
+
+                    // Check if this is a rolled position (multiple expirations with close+open pattern)
+                    const isRolled = expirationGroups.size > 1;
+
+                    if (isRolled) {
+                        // Handle as a single rolled position
+                        this.extractRolledPosition(trade, groupLegs, strike, type, now, pairs);
+                    } else {
+                        // Handle each expiration separately
+                        expirationGroups.forEach((expLegs, expiration) => {
+                            this.extractSingleLegPair(trade, expLegs, strike, type, expiration, now, pairs);
+                        });
+                    }
                 });
             }
+        });
+    }
+
+    detectRollChain(sortedLegs) {
+        // Detect if legs form a roll chain: close + open on same or adjacent dates
+        // with different strikes or expirations
+        for (let i = 0; i < sortedLegs.length - 1; i++) {
+            const legA = sortedLegs[i];
+            const legB = sortedLegs[i + 1];
+            const sideA = this.getLegSide(legA);
+            const sideB = this.getLegSide(legB);
+
+            if (sideA === 'CLOSE' && sideB === 'OPEN') {
+                const dateA = this.parseDateValue(legA.executionDate);
+                const dateB = this.parseDateValue(legB.executionDate);
+                if (dateA && dateB) {
+                    const dayDiff = Math.abs(dateB.getTime() - dateA.getTime()) / (24 * 60 * 60 * 1000);
+                    if (dayDiff <= 1) {
+                        // Close+Open within a day — this is a roll
+                        const strikeA = Number(legA.strike);
+                        const strikeB = Number(legB.strike);
+                        if (strikeA !== strikeB || legA.expirationDate !== legB.expirationDate) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    extractRolledPositionAcrossStrikes(trade, allLegs, type, now, pairs) {
+        // Calculate total premium (gross, before fees) and fees across all legs
+        let totalGrossPremium = 0;
+        let totalFees = 0;
+        let entryDate = null;
+        let exitDate = null;
+        let currentStrike = null;
+        let currentExpiration = null;
+        let netQuantity = 0;
+
+        allLegs.forEach(leg => {
+            const legSide = this.getLegSide(leg);
+            const action = this.getLegAction(leg);
+            const quantity = Math.abs(Number(leg.quantity) || 0);
+            const legPremium = Number(leg.premium) || 0;
+            const multiplier = this.getLegMultiplier(leg);
+            const direction = action === 'SELL' ? 1 : -1;
+
+            totalGrossPremium += direction * legPremium * multiplier * quantity;
+            totalFees += Number(leg.fees) || 0;
+
+            if (legSide === 'OPEN') {
+                if (action === 'SELL') {
+                    netQuantity += quantity;
+                } else {
+                    netQuantity -= quantity;
+                }
+                // Track the most recent open leg's strike and expiration
+                currentStrike = Number(leg.strike);
+                currentExpiration = leg.expirationDate;
+            } else if (legSide === 'CLOSE') {
+                if (action === 'BUY') {
+                    netQuantity -= quantity;
+                } else {
+                    netQuantity += quantity;
+                }
+            }
+
+            const legDate = this.parseDateValue(leg.executionDate);
+            if (legDate) {
+                if (!entryDate || legDate < entryDate) {
+                    entryDate = legDate;
+                }
+                if (legSide === 'CLOSE' && (!exitDate || legDate > exitDate)) {
+                    exitDate = legDate;
+                }
+            }
+        });
+
+        const strike = Number.isFinite(currentStrike) ? currentStrike : Number(allLegs[0]?.strike);
+        const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
+        const hasExpired = expirationDate && expirationDate < now;
+        const hasOpenLegs = allLegs.some(leg => this.getLegSide(leg) === 'OPEN');
+        const hasCloseLegs = allLegs.some(leg => this.getLegSide(leg) === 'CLOSE');
+
+        const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0;
+        const isOpen = netQuantity !== 0 && !hasExpired;
+
+        if (netQuantity === 0 && !isOpen) {
+            netQuantity = Math.abs(allLegs
+                .filter(leg => this.getLegSide(leg) === 'OPEN')
+                .reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0));
+        }
+
+        const absoluteQuantity = Math.abs(netQuantity);
+
+        const dte = isOpen && expirationDate && !isRolling
+            ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+            : null;
+
+        const daysHeld = entryDate && (exitDate || hasExpired)
+            ? Math.ceil(((exitDate || expirationDate || now).getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000))
+            : (entryDate ? Math.ceil((now.getTime() - entryDate.getTime()) / (24 * 60 * 60 * 1000)) : null);
+
+        const multiplier = 100;
+        const pricePerContract = absoluteQuantity > 0 ? totalGrossPremium / (absoluteQuantity * multiplier) : 0;
+        const capital = Math.abs(strike * absoluteQuantity * multiplier);
+        const netPremium = totalGrossPremium - totalFees;
+        const pl = netPremium;
+        const roi = capital > 0 ? (pl / capital) * 100 : null;
+
+        pairs.push({
+            tradeId: trade.id,
+            ticker: trade.ticker,
+            strategy: trade.strategy,
+            strike,
+            type,
+            quantity: absoluteQuantity,
+            pricePerContract,
+            fees: totalFees,
+            premium: netPremium,
+            entryDate,
+            expirationDate: currentExpiration,
+            dte,
+            exitDate: exitDate || (hasExpired ? expirationDate : null),
+            daysHeld,
+            pl,
+            roi,
+            isOpen,
+            isExpired: hasExpired,
+            isRolling,
+            isAssigned: this.isAssignedStatus(trade.status),
+            capital
         });
     }
 
@@ -9296,6 +9793,7 @@ class GammaLedger {
             isOpen,
             isExpired: hasExpired,
             isRolling,
+            isAssigned: this.isAssignedStatus(trade.status),
             capital
         });
     }
@@ -9406,6 +9904,7 @@ class GammaLedger {
             isOpen,
             isExpired: hasExpired,
             isRolling: false,
+            isAssigned: this.isAssignedStatus(trade.status),
             capital
         });
     }
@@ -14945,7 +15444,7 @@ class GammaLedger {
             const premium = Number(leg.premium) || 0;
             const quantity = Math.abs(Number(leg.quantity) || 1);
             const multiplier = 100 * quantity;
-            
+
             if (leg.action === 'BUY') {
                 totalPremium -= Math.abs(premium) * multiplier;
             } else if (leg.action === 'SELL') {
@@ -15446,6 +15945,10 @@ class GammaLedger {
             if (value === Infinity || value === -Infinity) {
                 return 'Unlimited';
             }
+            if (Array.isArray(value)) {
+                const formatted = value.filter(v => Number.isFinite(v)).map(v => formatter.format(v));
+                return formatted.length > 0 ? formatted.join(', ') : '—';
+            }
             if (Number.isFinite(value)) {
                 return formatter.format(value);
             }
@@ -15917,9 +16420,7 @@ class GammaLedger {
         }
 
         const ofxButton = document.getElementById('import-ofx-btn');
-        const jsonButton = document.getElementById('import-json-btn');
         const ofxInput = document.getElementById('import-ofx-input');
-        const jsonInput = document.getElementById('import-json-input');
 
         if (ofxButton && ofxInput) {
             ofxButton.addEventListener('click', (event) => {
@@ -15948,50 +16449,6 @@ class GammaLedger {
             });
         }
 
-        if (jsonButton && jsonInput) {
-            jsonButton.addEventListener('click', (event) => {
-                event.preventDefault();
-                jsonInput.value = '';
-                jsonInput.click();
-            });
-
-            jsonInput.addEventListener('change', async (event) => {
-                const input = event?.target;
-                if (!input || !input.files || input.files.length === 0) {
-                    return;
-                }
-                const [file] = input.files;
-                input.value = '';
-
-                if (!file) {
-                    return;
-                }
-
-                try {
-                    this.showLoadingIndicator('Importing JSON...');
-                    const text = await file.text();
-                    const data = JSON.parse(text);
-                    const tradeCount = Array.isArray(data?.trades) ? data.trades.length : 0;
-                    this.processLoadedData(data, { fileName: file.name || 'Imported JSON', source: 'json-import' });
-                    this.appendImportLog({
-                        type: 'success',
-                        message: `Imported ${tradeCount} trades from ${file.name || 'JSON file'}.`,
-                        timestamp: new Date()
-                    });
-                } catch (error) {
-                    console.error('JSON import error:', error);
-                    this.showNotification('Invalid JSON file', 'error');
-                    this.appendImportLog({
-                        type: 'error',
-                        message: `Failed to import JSON: ${error?.message || 'Unknown error'}.`,
-                        timestamp: new Date()
-                    });
-                } finally {
-                    this.hideLoadingIndicator();
-                }
-            });
-        }
-
         const mergeButton = document.getElementById('import-merge-btn');
         if (mergeButton) {
             mergeButton.addEventListener('click', (event) => {
@@ -16007,6 +16464,50 @@ class GammaLedger {
                 this.showView('trades-list');
                 this.setupTradesMergeControls();
                 this.toggleTradesMergePanel(true);
+            });
+        }
+
+        // Drag-and-drop support
+        const dropzone = document.getElementById('import-dropzone');
+        if (dropzone) {
+            ['dragenter', 'dragover'].forEach((evt) => {
+                dropzone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.add('is-drag-over');
+                });
+            });
+            ['dragleave', 'drop'].forEach((evt) => {
+                dropzone.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('is-drag-over');
+                });
+            });
+            dropzone.addEventListener('drop', (e) => {
+                const files = e.dataTransfer?.files;
+                if (!files || files.length === 0) return;
+                const file = files[0];
+                const name = (file.name || '').toLowerCase();
+                if (name.endsWith('.ofx') || name.endsWith('.qfx')) {
+                    // Trigger the OFX import path
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    if (ofxInput) {
+                        ofxInput.files = dt.files;
+                        ofxInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                } else if (name.endsWith('.csv')) {
+                    // Trigger the Robinhood CSV import path
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    if (robinhoodInput) {
+                        robinhoodInput.files = dt.files;
+                        robinhoodInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                } else {
+                    this.showNotification('Unsupported file type. Please use OFX, QFX, or CSV files.', 'error');
+                }
             });
         }
 
@@ -16186,7 +16687,7 @@ class GammaLedger {
 
         const summary = {
             timestamp,
-            fileName: details.fileName || 'OFX import',
+            fileName: details.fileName || 'Broker import',
             batchId: details.batchId || null,
             stats: { ...(details.stats || {}) },
             reviewTradeIds: Array.isArray(details.reviewTradeIds)
@@ -16206,13 +16707,13 @@ class GammaLedger {
         }
 
         if (!this.importSummary) {
-            container.innerHTML = '<p class="import-summary__empty">Run an OFX import to see how many trades and legs were created.</p>';
+            container.innerHTML = '<p class="import-summary__empty">Import a broker file to see how many trades and legs were created.</p>';
             return;
         }
 
         const summary = this.importSummary;
         const stats = summary.stats || {};
-        const fileName = summary.fileName || 'OFX import';
+        const fileName = summary.fileName || 'Broker import';
         const timestamp = summary.timestamp instanceof Date
             ? summary.timestamp
             : new Date(summary.timestamp || Date.now());
@@ -16292,12 +16793,41 @@ class GammaLedger {
             });
     }
 
+    /**
+     * Count ticker groups where multiple trades share the same ticker and
+     * could potentially be merged (e.g. separate legs for a wheel strategy).
+     */
+    countMergeableTickerGroups() {
+        const tickerCounts = new Map();
+        this.trades.forEach((trade) => {
+            if (!trade) return;
+            const ticker = (trade.ticker || '').toUpperCase();
+            if (!ticker) return;
+            // Only consider imported trades (have importSource on at least one leg)
+            const isImported = (trade.legs || []).some(
+                (leg) => leg.importSource || leg.externalId
+            );
+            if (!isImported) return;
+            tickerCounts.set(ticker, (tickerCounts.get(ticker) || 0) + 1);
+        });
+        let groups = 0;
+        tickerCounts.forEach((count) => {
+            if (count >= 2) groups += 1;
+        });
+        return groups;
+    }
+
     refreshImportMergeList() {
         const container = document.getElementById('import-merge-list');
         const hintElement = document.getElementById('import-merge-hint');
         const hintButton = document.getElementById('import-merge-hint-btn');
+        const countBadge = document.getElementById('import-merge-count');
         const mergeButton = document.getElementById('import-merge-btn');
         const reviewTrades = this.getImportReviewTrades();
+
+        // Also count same-ticker trade groups that could be merged
+        const mergeableTickers = this.countMergeableTickerGroups();
+        const totalMergeOpportunities = reviewTrades.length + mergeableTickers;
 
         if (!reviewTrades.length) {
             this.importMergeSelection.clear();
@@ -16310,23 +16840,33 @@ class GammaLedger {
             });
         }
 
-        if (hintElement) {
-            if (!reviewTrades.length) {
-                hintElement.textContent = 'No review trades require manual merging right now.';
+        if (countBadge) {
+            if (totalMergeOpportunities > 0) {
+                countBadge.textContent = `(${totalMergeOpportunities})`;
             } else {
-                const tradeLabel = reviewTrades.length === 1 ? 'review trade' : 'review trades';
-                hintElement.textContent = `Detected ${reviewTrades.length} ${tradeLabel} that might be combined. Open the All Trades page and enable "Merge Trades" to review them.`;
+                countBadge.textContent = '';
             }
         }
 
-        if (hintButton) {
-            if (!reviewTrades.length) {
-                hintButton.disabled = true;
-                hintButton.title = 'No merge opportunities detected from the latest import.';
+        if (hintElement) {
+            if (!totalMergeOpportunities) {
+                hintElement.textContent = 'No merge opportunities detected. All trades look clean.';
+            } else if (reviewTrades.length && mergeableTickers) {
+                hintElement.textContent = `${reviewTrades.length} flagged review trade${reviewTrades.length === 1 ? '' : 's'} and ${mergeableTickers} ticker group${mergeableTickers === 1 ? '' : 's'} with multiple trades that could be combined.`;
+            } else if (reviewTrades.length) {
+                const tradeLabel = reviewTrades.length === 1 ? 'review trade' : 'review trades';
+                hintElement.textContent = `${reviewTrades.length} ${tradeLabel} flagged for merge review. Open the All Trades page to combine them.`;
             } else {
-                hintButton.disabled = false;
-                hintButton.title = 'Review potential merges on the All Trades page.';
+                hintElement.textContent = `${mergeableTickers} ticker group${mergeableTickers === 1 ? '' : 's'} with multiple trades that could be combined.`;
             }
+        }
+
+        // Always keep the button enabled so users can review trades at any time
+        if (hintButton) {
+            hintButton.disabled = false;
+            hintButton.title = totalMergeOpportunities > 0
+                ? `Review ${totalMergeOpportunities} potential merge opportunit${totalMergeOpportunities === 1 ? 'y' : 'ies'} on the All Trades page.`
+                : 'Open the All Trades page with the Merge Trades panel.';
         }
 
         if (!container) {
@@ -17134,9 +17674,11 @@ class GammaLedger {
 
         const normalizedTransCode = transCode.toString().trim().toUpperCase();
 
-        // Skip OASGN rows - the actual stock assignment is in the "Buy" row
+        // OASGN rows record which option was assigned — parse them into an
+        // implicit closing leg (BTC for puts, STC for calls) so the original
+        // short-option trade is marked as closed.
         if (normalizedTransCode === 'OASGN') {
-            return null;
+            return this.parseRobinhoodAssignmentClosingLeg(row);
         }
 
         // Handle stock purchase from assignment (Buy with CUSIP in description)
@@ -17286,7 +17828,7 @@ class GammaLedger {
             ticker: tickerSymbol,
             underlying: tickerSymbol,
             optionType: '',
-            strike: null,
+            strike: unitPrice || null,
             expiration: '',
             multiplier: 1,
             quantity: qty,
@@ -17330,7 +17872,7 @@ class GammaLedger {
             ticker: tickerSymbol,
             underlying: tickerSymbol,
             optionType: '',
-            strike: null,
+            strike: unitPrice || null,
             expiration: '',
             multiplier: 1,
             quantity: qty,
@@ -17340,6 +17882,67 @@ class GammaLedger {
             category: 'STOCK',
             securityId: null,
             memo: 'Shares from put assignment',
+            currency: 'USD',
+            isAssignment: true
+        };
+    }
+
+    /**
+     * Parse an OASGN row from a Robinhood CSV into an implicit closing leg.
+     * A put assignment creates a BTC (Buy to Close) leg; a call assignment
+     * creates an STC (Sell to Close) leg.  Premium is 0 because the exchange
+     * closes the option via assignment, not a market transaction.
+     */
+    parseRobinhoodAssignmentClosingLeg(row) {
+        const { activityDate, processDate, description, instrument, quantity, rowIndex } = row;
+
+        // Reuse the standard option-description regex:
+        // "TICKER MM/DD/YYYY Put|Call $STRIKE"
+        const optionMatch = (description || '').match(
+            /^([A-Z]+)\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(Put|Call)\s+\$?([\d,.]+)$/i
+        );
+        if (!optionMatch) {
+            return null;
+        }
+
+        const ticker = (optionMatch[1] || instrument || '').toUpperCase();
+        const expirationRaw = optionMatch[2];
+        const optionType = optionMatch[3].toUpperCase();
+        const strike = this.parseRobinhoodNumber(optionMatch[4]);
+
+        const tradeDateIso = this.normalizeRobinhoodDate(processDate) || this.normalizeRobinhoodDate(activityDate) || '';
+        const expirationIso = this.normalizeRobinhoodDate(expirationRaw) || '';
+        const qty = Math.abs(this.parseRobinhoodNumber(quantity) || 0) || 1;
+
+        // Assigned put → exchange buys it back (BTC); assigned call → exchange sells it (STC)
+        const orderType = optionType === 'PUT' ? 'BTC' : 'STC';
+        const tag = optionType === 'PUT' ? 'BUYOPT' : 'SELLOPT';
+
+        const timeKey = tradeDateIso.replace(/-/g, '');
+        const actionSide = this.mapOrderTypeToActionSide(orderType);
+        const groupKey = [timeKey, ticker, actionSide.side, 'OPTION', expirationIso].filter(Boolean).join('|');
+        const externalId = `RH-${tradeDateIso}-${ticker}-${optionType}-${strike}-OASGN-${rowIndex}`;
+
+        return {
+            externalId,
+            groupKey,
+            tag,
+            orderType,
+            tradeDate: tradeDateIso,
+            tradeTimeKey: timeKey,
+            ticker,
+            underlying: ticker,
+            optionType,
+            strike,
+            expiration: expirationIso,
+            multiplier: 100,
+            quantity: qty,
+            price: 0,       // assignment has no premium
+            total: 0,
+            fees: 0,
+            category: 'OPTION',
+            securityId: null,
+            memo: `Assigned (${optionType.toLowerCase()})`,
             currency: 'USD',
             isAssignment: true
         };
@@ -17489,7 +18092,9 @@ class GammaLedger {
 
         // Separate into opening and closing legs
         const openingLegs = allLegs.filter((leg) => this.getLegSide(leg) === 'OPEN');
-        const closingLegs = allLegs.filter((leg) => this.getLegSide(leg) === 'CLOSE');
+        // Consolidate closing leg split fills (e.g. BTC 2 + BTC 1 → BTC 3)
+        const rawClosingLegs = allLegs.filter((leg) => this.getLegSide(leg) === 'CLOSE');
+        const closingLegs = this.consolidateImportLegs(rawClosingLegs);
 
         stats.openingLegs = openingLegs.length;
         stats.closingLegs = closingLegs.length;
@@ -17640,32 +18245,160 @@ class GammaLedger {
             stats.legsAddedToNewTrades += trade.legs.length;
         });
 
-        // Handle unmatched closing legs - create review trades
+        // --- Post-import merge passes ---
+
+        // Pass 1: Absorb unmatched OASGN closing legs into stock assignment
+        // trades for the same ticker so assignment data stays unified.
+        {
+            const absorbed = [];
+            const remaining = [];
+            unmatchedClosingLegs.forEach((leg) => {
+                if (!leg.isAssignment) {
+                    remaining.push(leg);
+                    return;
+                }
+                const ticker = (leg.tickerSymbol || '').toUpperCase();
+                const target = newTrades.find((t) => {
+                    if ((t.ticker || '').toUpperCase() !== ticker) return false;
+                    return (t.legs || []).some(
+                        (tl) => tl.isAssignment && (tl.type || '').toUpperCase() === 'STOCK'
+                    );
+                });
+                if (target) {
+                    target.legs.push(this.sanitizeImportedLeg(leg));
+                    absorbed.push(leg);
+                } else {
+                    remaining.push(leg);
+                }
+            });
+            if (absorbed.length) {
+                const absorbedQty = absorbed.reduce(
+                    (s, l) => s + Math.abs(Number(l.quantity) || 0), 0
+                );
+                stats.matchedClosingLegs += absorbedQty;
+                stats.unmatchedClosingLegs = Math.max(0, stats.unmatchedClosingLegs - absorbedQty);
+                unmatchedClosingLegs.length = 0;
+                unmatchedClosingLegs.push(...remaining);
+            }
+        }
+
+        // Pass 2: Roll detection — unmatched BTC legs that share the same
+        // ticker, execution date, and option type as an STO opening leg in
+        // a newly created trade are almost certainly roll transactions.
+        // Merge them into the new trade so the position shows as "Rolling".
+        {
+            const remaining = [];
+            unmatchedClosingLegs.forEach((leg) => {
+                const ticker = (leg.tickerSymbol || '').toUpperCase();
+                const legDate = leg.executionDate || '';
+                const legType = (leg.type || '').toUpperCase();
+                if (!legDate || !legType || legType === 'STOCK') {
+                    remaining.push(leg);
+                    return;
+                }
+                const target = newTrades.find((t) => {
+                    if ((t.ticker || '').toUpperCase() !== ticker) return false;
+                    return (t.legs || []).some((tl) => {
+                        const tlType = (tl.type || '').toUpperCase();
+                        const tlDate = tl.executionDate || '';
+                        return this.getLegSide(tl) === 'OPEN'
+                            && tlType === legType
+                            && tlDate === legDate;
+                    });
+                });
+                if (target) {
+                    target.legs.push(this.sanitizeImportedLeg(leg));
+                    if (target.status === 'Open') {
+                        target.status = 'Rolling';
+                    }
+                    const qty = Math.abs(Number(leg.quantity) || 0);
+                    stats.matchedClosingLegs += qty;
+                    stats.unmatchedClosingLegs = Math.max(0, stats.unmatchedClosingLegs - qty);
+                } else {
+                    remaining.push(leg);
+                }
+            });
+            unmatchedClosingLegs.length = 0;
+            unmatchedClosingLegs.push(...remaining);
+        }
+
+        // Pass 3: Merge stock assignment trades with other same-ticker trades
+        // created in this import (e.g. covered calls written on assigned stock).
+        {
+            const tickerGroups = new Map();
+            newTrades.forEach((trade, idx) => {
+                const tk = (trade.ticker || '').toUpperCase();
+                if (!tickerGroups.has(tk)) tickerGroups.set(tk, []);
+                tickerGroups.get(tk).push({ trade, idx });
+            });
+
+            const toRemove = new Set();
+            tickerGroups.forEach((entries) => {
+                if (entries.length < 2) return;
+
+                // Find the anchor: stock assignment trade
+                const anchor = entries.find(({ trade }) =>
+                    (trade.legs || []).some(
+                        (l) => l.isAssignment && (l.type || '').toUpperCase() === 'STOCK'
+                    )
+                );
+                if (!anchor) return;
+
+                entries.forEach(({ trade, idx }) => {
+                    if (trade === anchor.trade) return;
+                    if (trade.importReview) return;
+                    // Absorb legs into anchor trade
+                    (trade.legs || []).forEach((leg) => anchor.trade.legs.push(leg));
+                    toRemove.add(idx);
+                });
+
+                // Re-infer strategy on the merged trade
+                const inferred = this.inferStrategyFromLegs(anchor.trade.legs);
+                anchor.trade.strategy = (inferred === 'Imported Trade' || inferred === 'Short Call')
+                    ? 'Wheel'
+                    : inferred;
+            });
+
+            // Remove absorbed trades in reverse index order
+            [...toRemove].sort((a, b) => b - a).forEach((i) => newTrades.splice(i, 1));
+        }
+
+        // Handle unmatched closing legs - create one review trade per ticker
         if (unmatchedClosingLegs.length > 0) {
-            const note = this.composeImportNotes(context, {
-                legCount: unmatchedClosingLegs.length,
-                note: 'Review required: closing legs have no matching open position.'
+            const byTicker = new Map();
+            unmatchedClosingLegs.forEach((leg) => {
+                const tk = (leg.tickerSymbol || '').toUpperCase() || 'UNKNOWN';
+                if (!byTicker.has(tk)) {
+                    byTicker.set(tk, []);
+                }
+                byTicker.get(tk).push(leg);
             });
 
-            const sanitizedLegs = unmatchedClosingLegs.map((leg) => this.sanitizeImportedLeg(leg));
-            const resolvedTicker = (unmatchedClosingLegs[0]?.tickerSymbol || '').toUpperCase() || 'UNKNOWN';
-            const reviewId = `IMP-REVIEW-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+            byTicker.forEach((legs, tk) => {
+                const note = this.composeImportNotes(context, {
+                    legCount: legs.length,
+                    note: 'Review required: closing legs have no matching open position.'
+                });
 
-            newTrades.push({
-                id: reviewId,
-                ticker: resolvedTicker,
-                strategy: 'Import Review',
-                status: 'Closed',
-                exitReason: '',
-                notes: note,
-                legs: sanitizedLegs,
-                importBatchId: batchId,
-                importReview: true
+                const sanitizedLegs = legs.map((leg) => this.sanitizeImportedLeg(leg));
+                const reviewId = `IMP-REVIEW-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+                newTrades.push({
+                    id: reviewId,
+                    ticker: tk,
+                    strategy: 'Import Review',
+                    status: 'Closed',
+                    exitReason: '',
+                    notes: note,
+                    legs: sanitizedLegs,
+                    importBatchId: batchId,
+                    importReview: true
+                });
+
+                reviewTradeIds.push(reviewId);
+                stats.reviewTradesCreated += 1;
+                stats.legsAddedToNewTrades += sanitizedLegs.length;
             });
-
-            reviewTradeIds.push(reviewId);
-            stats.reviewTradesCreated += 1;
-            stats.legsAddedToNewTrades += sanitizedLegs.length;
         }
 
         stats.totalTradesCreated = newTrades.length;
@@ -17741,6 +18474,11 @@ class GammaLedger {
             if (externalIds.length > 1) {
                 consolidated.id = `CONS-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
                 consolidated.consolidatedFrom = externalIds;
+            }
+
+            // Preserve assignment flag if any source leg is an assignment
+            if (!consolidated.isAssignment && groupLegs.some((leg) => leg.isAssignment)) {
+                consolidated.isAssignment = true;
             }
 
             result.push(consolidated);
@@ -19625,7 +20363,7 @@ class GeminiInsightsAgent {
         const url = `${urlBase}?key=${encodeURIComponent(apiKey)}`;
 
         const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timeoutId = controller ? setTimeout(() => controller.abort(), 20000) : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 120_000) : null;
 
         try {
             const response = await fetch(url, {
