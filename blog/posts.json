@@ -248,5 +248,15 @@
     "tags": ["options", "strategy", "covered-calls"],
     "file": "how-to-generate-monthly-income-with-covered-calls.md",
     "image": "../assets/img/gammaledger-stage-01.jpg"
+  },
+  {
+    "id": "gammaledger-april-options-watchlist",
+    "title": "Selling Premium Into the Selloff: April Options Watchlist",
+    "description": "I ran a quantitative analysis across seven tickers on my radar — INTU, UBER, ADBE, CMCSA, OKTA, QLYS, and DXC...",
+    "author": "GammaLedger",
+    "date": "2026-04-05",
+    "tags": ["options", "strategy", "covered-calls", "options-income", "cash-secured-puts", "wheel", "INTU", "UBER", "ADBE", "CMCSA", "premium-selling", "april-2026"],
+    "file": "gammaledger-april-options-watchlist.md",
+    "image": "../assets/img/gammaledger-stage-01.jpg"
   }
 ]
