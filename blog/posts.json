@@ -230,6 +230,16 @@
     "image": "../assets/img/gammaledger-stage-01.jpg"
   },
   {
+    "id": "cash-secured-puts-beginner-strategy",
+    "title": "Cash-Secured Puts Beginner Strategy: Get Paid to Buy Stocks at a Discount",
+    "description": "What if you could earn income from a stock you don't even own yet — and only buy it if the price drops to exactly what you wanted to pay?",
+    "author": "GammaLedger",
+    "date": "2026-01-23",
+    "tags": ["options", "strategy", "csp", "income", "beginner", "wheel"],
+    "file": "cash-secured-puts-beginner-strategy.md",
+    "image": "../assets/img/gammaledger-stage-01.jpg"
+  },
+  {
     "id": "how-to-generate-monthly-income-with-covered-calls",
     "title": "How to Generate Monthly Income with Covered Calls: A Practical Guide",
     "description": "Step-by-step guide to generating consistent monthly income using covered calls, including strategy setup, trade management, and real examples.",
