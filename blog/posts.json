@@ -228,5 +228,15 @@
     "tags": ["options", "guide", "getting-started"],
     "file": "options-trading-glossary.md",
     "image": "../assets/img/gammaledger-stage-01.jpg"
+  },
+  {
+    "id": "how-to-generate-monthly-income-with-covered-calls",
+    "title": "How to Generate Monthly Income with Covered Calls: A Practical Guide",
+    "description": "Step-by-step guide to generating consistent monthly income using covered calls, including strategy setup, trade management, and real examples.",
+    "author": "GammaLedger",
+    "date": "2026-02-14",
+    "tags": ["options", "strategy", "covered-calls"],
+    "file": "how-to-generate-monthly-income-with-covered-calls.md",
+    "image": "../assets/img/gammaledger-stage-01.jpg"
   }
 ]
