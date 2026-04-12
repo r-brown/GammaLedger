@@ -6,3 +6,10 @@ node_modules
 _site
 playwright-report
 test-results
+
+# Generated blog post HTML pages (built by scripts/build-blog.py during CI)
+# Source markdown stays in blog/posts/, only the generated directories are ignored.
+blog/*/
+!blog/posts/
+
+.idea

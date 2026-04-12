@@ -25,18 +25,7 @@
     <meta name="twitter:description" content="Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.">
     <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
     <meta name="twitter:image:alt" content="GammaLedger Options Tracker Preview">
-    <!-- Dublin Core -->
-    <meta name="DC.Title" content="GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely">
-    <meta name="DC.Description" content="Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.">
-    <meta name="DC.Subject" content="GammaLedger, options trading analytics, portfolio management, derivatives strategies, trade journal, fintech">
-    <meta name="DC.Creator" content="GammaLedger Contributors">
-    <meta name="DC.Publisher" content="GammaLedger">
-    <meta name="DC.Type" content="Text">
-    <meta name="DC.Format" content="text/html">
-    <meta name="DC.Language" content="en">
-    <meta name="DC.Date" content="2025-10-23">
-    <!-- Cache Control -->
-    <meta http-equiv="Cache-Control" content="public, max-age=31536000, immutable">
+    <meta name="theme-color" content="#0a0b1a">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <!-- Load fonts asynchronously to avoid render blocking -->
@@ -844,7 +833,89 @@
         .fade-in {
             animation: fadeInUp 0.6s var(--ease-out) forwards;
         }
+
+        /* Respect user motion preferences */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
     </style>
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    [{
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "GammaLedger",
+        "url": "https://gammaledger.com",
+        "logo": "https://gammaledger.com/assets/img/gammaledger-logo-64x64.png",
+        "description": "Privacy-first options trading analytics platform with professional-grade tools.",
+        "sameAs": [
+            "https://github.com/r-brown/GammaLedger",
+            "https://x.com/GammaLedger",
+            "https://www.reddit.com/r/GammaLedger/",
+            "https://discord.gg/GammaLedger"
+        ]
+    },
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "GammaLedger",
+        "url": "https://gammaledger.com/app/",
+        "applicationCategory": "FinanceApplication",
+        "operatingSystem": "Web Browser",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "description": "Professional-grade options trading analytics with complete privacy. Track complex strategies, monitor performance, and optimize your trading.",
+        "screenshot": "https://gammaledger.com/assets/img/gammaledger-stage-01.jpg",
+        "featureList": "50+ Options Strategies, Real-time Greeks, AI Coach, Local Privacy, OFX Import, Trade Journaling",
+        "license": "https://github.com/r-brown/GammaLedger/blob/main/LICENSE"
+    },
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "Is my data safe with GammaLedger?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes. GammaLedger uses local-first architecture. All data is stored in your browser's IndexedDB. Nothing is sent to external servers. Your trading data never leaves your device."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What brokers work with GammaLedger?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Any broker that exports OFX files. GammaLedger has direct integration with Interactive Brokers, and popular brokers like TD Ameritrade, Schwab, E*TRADE, and Fidelity support OFX export."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Is GammaLedger free?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes. GammaLedger is open source and free forever under the AGPLv3 license for non-commercial use. A commercial license is available for proprietary or institutional applications."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What is the AI Coach feature?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "The AI Coach is an integrated assistant that analyzes your trades and provides portfolio insights, risk management advice, position sizing suggestions, and strategy recommendations to help improve your trading decisions."
+                }
+            }
+        ]
+    }]
+    </script>
 </head>
 <body>
     <!-- Navigation -->
@@ -860,9 +931,9 @@
                     <li><a href="#dashboard">Dashboard</a></li>
                     <li><a href="#users">For You</a></li>
                     <li><a href="./blog/">Blog</a></li>
-                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank">GitHub</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub</a></li>
                 </ul>
-                <a href="./app" target="_blank" class="btn btn-primary">Launch App</a>
+                <a href="./app" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Launch App</a>
             </div>
         </div>
     </nav>
@@ -874,7 +945,7 @@
                 <h1>Your Data-Driven Edge in Options Trading</h1>
                 <p>Professional-grade options trading analytics with complete privacy. Track complex strategies, monitor performance, and optimize your trading with sophisticated fintech tools.</p>
                 <div class="hero-actions">
-                    <a href="./app" target="_blank" class="btn btn-primary btn-lg">Get Started</a>
+                    <a href="./app" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">Get Started</a>
                     <a href="#dashboard" class="btn btn-secondary btn-lg">Features</a>
                 </div>
                 <div class="hero-metrics">
@@ -1055,8 +1126,8 @@
                     <h2 class="cta-title">Start Trading Smarter Today</h2>
                     <p class="cta-description">Join professional traders who demand advanced analytics, complete privacy, and sophisticated portfolio management tools.</p>
                     <div class="cta-actions">
-                        <a href="https://github.com/r-brown/GammaLedger" target="_blank" class="btn btn-primary btn-lg">Access Repository</a>
-                        <a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank" class="btn btn-secondary btn-lg">View Documentation</a>
+                        <a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg">Access Repository</a>
+                        <a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-lg">View Documentation</a>
                     </div>
                 </div>
             </div>
@@ -1074,11 +1145,11 @@
                 <div class="footer-section">
                     <h3>Resources</h3>
                     <ul class="footer-links">
-                        <li><a href="./blog/" target="_blank">Blog</a></li>
-                        <li><a href="https://github.com/r-brown/GammaLedger" target="_blank">GitHub Repository</a></li>
-                        <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank">Documentation</a></li>
-                        <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank">Support</a></li>
-                        <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank">Releases</a></li>
+                        <li><a href="./blog/" target="_blank" rel="noopener noreferrer">Blog</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener noreferrer">Support</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
                     </ul>
                 </div>
                 <div class="footer-section">
@@ -1087,7 +1158,7 @@
                         <li><a href="terms.html">Terms of Service</a></li>
                         <li><a href="privacy.html">Privacy Policy</a></li>
                         <li><a href="disclaimer.html">Risk Disclaimer</a></li>
-                        <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank">AGPLv3 License</a></li>
+                        <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 License</a></li>
                         <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
                     </ul>
                 </div>
@@ -1099,6 +1170,9 @@
     </footer>
 
     <script>
+        // Respect user motion preferences
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
         // Navigation scroll effect
         const nav = document.getElementById('nav');
         
@@ -1110,21 +1184,20 @@
             }
         });
 
-        // Smooth scrolling for anchor links (optimized to prevent forced reflow)
+        // Smooth scrolling for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
                     const headerOffset = 80;
-                    // Use requestAnimationFrame to batch DOM reads and prevent forced reflow
                     requestAnimationFrame(() => {
                         const elementPosition = target.getBoundingClientRect().top;
-                        const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+                        const offsetPosition = elementPosition + window.scrollY - headerOffset;
 
                         window.scrollTo({
                             top: offsetPosition,
-                            behavior: 'smooth'
+                            behavior: prefersReducedMotion ? 'auto' : 'smooth'
                         });
                     });
                 }
@@ -1132,61 +1205,57 @@
         });
 
         // Intersection Observer for animations
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
+        if (!prefersReducedMotion) {
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
 
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('fade-in');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('fade-in');
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.feature-card, .stat-card, .user-card, .tech-item, .section-header').forEach(el => {
+                observer.observe(el);
+            });
+
+            // Staggered animation delays
+            document.querySelectorAll('.feature-card').forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.1}s`;
+            });
+            document.querySelectorAll('.stat-card').forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.1}s`;
+            });
+            document.querySelectorAll('.user-card').forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.2}s`;
+            });
+
+            // Enhanced hover effects
+            document.querySelectorAll('.feature-card, .user-card').forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-12px) scale(1.02)';
+                });
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+
+            // Parallax effect for hero background
+            window.addEventListener('scroll', () => {
+                const scrolled = window.scrollY;
+                const hero = document.querySelector('.hero');
+                if (hero) {
+                    hero.style.transform = `translateY(${scrolled * -0.5}px)`;
                 }
             });
-        }, observerOptions);
+        }
 
-        // Observe all cards and sections for animations
-        document.querySelectorAll('.feature-card, .stat-card, .user-card, .tech-item, .section-header').forEach(el => {
-            observer.observe(el);
-        });
-
-        // Add staggered animation delays
-        document.querySelectorAll('.feature-card').forEach((card, index) => {
-            card.style.animationDelay = `${index * 0.1}s`;
-        });
-
-        document.querySelectorAll('.stat-card').forEach((card, index) => {
-            card.style.animationDelay = `${index * 0.1}s`;
-        });
-
-        document.querySelectorAll('.user-card').forEach((card, index) => {
-            card.style.animationDelay = `${index * 0.2}s`;
-        });
-
-        // Enhanced hover effects for cards
-        document.querySelectorAll('.feature-card, .user-card').forEach(card => {
-            card.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateY(-12px) scale(1.02)';
-            });
-            
-            card.addEventListener('mouseleave', function() {
-                this.style.transform = 'translateY(0) scale(1)';
-            });
-        });
-
-        // Parallax effect for hero background
-        window.addEventListener('scroll', () => {
-            const scrolled = window.pageYOffset;
-            const hero = document.querySelector('.hero');
-            if (hero) {
-                const rate = scrolled * -0.5;
-                hero.style.transform = `translateY(${rate}px)`;
-            }
-        });
-
-        // Performance optimization: reduce animations on mobile
-        const isMobile = window.innerWidth <= 768;
-        if (isMobile) {
+        // Performance: reduce animations on mobile
+        if (window.innerWidth <= 768) {
             document.querySelectorAll('.float-animation').forEach(el => {
                 el.style.animation = 'none';
             });
@@ -1196,23 +1265,12 @@
         document.querySelectorAll('img').forEach(img => {
             img.addEventListener('error', function() {
                 this.style.display = 'none';
-                console.warn('Image failed to load:', this.src);
             });
         });
 
-        // Add loading state for buttons
-        document.querySelectorAll('.btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                if (this.href && this.href.includes('github.com')) {
-                    this.style.opacity = '0.8';
-                    this.textContent = 'Loading...';
-                }
-            });
-        });
-
-        // Initialize animations on load
-        window.addEventListener('load', () => {
-            document.body.style.opacity = '1';
+        // Dynamic copyright year
+        document.querySelectorAll('.footer-bottom p').forEach(el => {
+            el.innerHTML = el.innerHTML.replace('2025', new Date().getFullYear());
         });
     </script>
 </body>

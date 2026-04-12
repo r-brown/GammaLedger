@@ -1,0 +1,35 @@
+# GammaLedger
+
+> GammaLedger is a privacy-first, browser-based options trading analytics platform. It helps active options traders analyze strategies, track performance, and optimize trades using professional-grade tools — all running locally with zero cloud dependency.
+
+## Core Value Proposition
+
+- **Complete Privacy**: All data is stored locally in the browser (IndexedDB). No servers, no cloud, no tracking.
+- **Professional Analytics**: Track 50+ options strategies including Wheel, PMCC, Iron Condors, Spreads, Straddles, and more.
+- **AI-Powered Coach**: Built-in AI assistant for trade analysis, risk assessment, and strategy recommendations.
+- **Free & Open Source**: Released under the AGPLv3 license for non-commercial use.
+
+## Key Features
+
+- Multi-leg strategy tracking (PMCC, Wheel, Iron Condor, Collar, Spreads)
+- Real-time Greeks monitoring (Delta, Gamma, Theta, Vega)
+- Automatic roll detection and position grouping
+- Unified dashboard with live P&L, win rates, and performance metrics
+- OFX and JSON import/export for major brokers (Interactive Brokers, Schwab, Fidelity, E*TRADE)
+- Portfolio sharing with social-media-optimized exports
+- Trade journaling with Markdown support
+
+## Target Users
+
+- **Active Options Traders**: Managing complex multi-leg strategies with risk management needs
+- **Portfolio Managers**: Consolidated reporting and risk assessment across accounts
+- **Quantitative Analysts**: Data export and integration with analytical workflows
+
+## Links
+
+- Website: https://gammaledger.com
+- Launch App: https://gammaledger.com/app/
+- Blog: https://gammaledger.com/blog/
+- GitHub: https://github.com/r-brown/GammaLedger
+- Documentation: https://github.com/r-brown/GammaLedger/wiki
+- Full AI context: https://gammaledger.com/llms-full.txt

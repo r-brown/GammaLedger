@@ -75,8 +75,8 @@ const example = "value";
 
 [Guide readers on what to do next]
 
-- [Related Article 1](./related-post-slug)
-- [Related Article 2](./another-post-slug)
+- [Related Article 1](/blog/related-post-slug/)
+- [Related Article 2](/blog/another-post-slug/)
 - [External Resource](https://example.com)
 
 ## Resources
@@ -100,13 +100,15 @@ const example = "value";
 - [ ] Update title, date, and author
 - [ ] Add appropriate headings and structure
 - [ ] Include relevant examples
-- [ ] Add internal links to related posts
+- [ ] Add internal links to related posts (use `/blog/post-slug/` format)
 - [ ] Include images if applicable (in `/assets/img/`)
 - [ ] Proofread for spelling/grammar
 - [ ] Verify all links work
 - [ ] Add entry to `posts.json`
 - [ ] Choose 2-4 relevant tags
 - [ ] Write compelling description for blog index
+- [ ] (Optional) Run `python scripts/build-blog.py` locally to preview
+- [ ] Push to `gh-pages` branch — CI will build blog pages and deploy automatically
 - [ ] Delete this "Template Usage Notes" section
 
 ### Markdown Quick Reference:

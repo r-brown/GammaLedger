@@ -1,0 +1,97 @@
+# GammaLedger — Full AI Context
+
+> GammaLedger is a privacy-first, browser-based options trading analytics platform. It helps active options traders analyze strategies, track performance, and optimize trades using professional-grade tools — all running locally with zero cloud dependency.
+
+## About
+
+GammaLedger is a desktop-class web application for active options traders and investors who want to analyze, track, and optimize their options trading strategies. It runs entirely in the browser with local-first data architecture — no servers, no accounts, no subscriptions.
+
+Released under the AGPLv3 license, it is free and open source for non-commercial use.
+
+## Core Features
+
+### Advanced Strategy Analytics
+- Professional tracking for 50+ strategies: PMCC (Poor Man's Covered Call), Wheel Strategy, Iron Condors, Bull/Bear Spreads, Collar Strategies, Cash-Secured Puts, Covered Calls, Straddles, Strangles, Calendar Spreads, Butterfly Spreads, and custom multi-leg setups
+- Performance metrics: cumulative P&L growth, win rates by strategy, risk-adjusted returns
+- Visual analytics with interactive charts
+- Real-time Greeks monitoring: Delta, Gamma, Theta, Vega across all positions
+
+### AI-Powered Trading Coach
+- Intelligent trade analysis with AI-driven insights on options positions
+- Strategy recommendations and adjustment suggestions
+- Risk assessment evaluating position Greeks, break-evens, and assignment risk
+- Learning assistant for options concepts
+- Performance coaching to understand what's working and where to improve
+
+### Local-First Data Architecture
+- Complete privacy: all data stays on user's device using IndexedDB
+- File System Access API for direct import/export without browser limitations
+- Offline capable: nearly all features work without internet
+- No account registration, no subscriptions, no third-party data sharing
+
+### Unified Dashboard
+- Consolidated single view combining key metrics
+- Real-time P&L calculations and position tracking
+- Multi-timeframe analysis: daily, weekly, monthly, custom date ranges
+- Performance widgets: Cumulative P&L Growth, Strategy Performance, Win Rate charts
+
+### Trade Management
+- Multi-leg trade entry for complex positions in one workflow
+- Smart filtering by ticker, strategy, date range
+- Automatic roll detection: intelligent grouping of rolled positions
+- Position tracking with Greeks, time decay, adjustment opportunities
+- Trade journal with Markdown support
+- Performance attribution by strategy and ticker
+
+### Import/Export
+- OFX (Open Financial Exchange) import from Interactive Brokers, TD Ameritrade, Charles Schwab, E*TRADE, Fidelity
+- JSON native format for full backup
+- Portfolio image export optimized for social media sharing
+- Tax reporting compatible data export
+
+## Target Users
+
+### Active Traders
+Track complex multi-leg strategies like Spreads, Strangles, Straddles, Condors, Wheels and PMCCs. Monitor time decay and adjustment opportunities with real-time Greeks. Automatic roll detection groups rolled positions seamlessly. Analyze win rates by strategy type. AI coaching for trade analysis.
+
+### Portfolio Managers
+Consolidate options performance across multiple accounts. Generate client reports with attribution analysis. Export portfolio visualizations for social media. Monitor risk exposure and position sizing. Track performance against benchmarks.
+
+### Quantitative Analysts
+Export data for backtesting and strategy development. Integrate with analytical workflows. Customize metrics and calculations. Build automated reporting.
+
+## Technology
+
+- Pure vanilla JavaScript — no frameworks
+- IndexedDB for persistent local storage
+- File System Access API for file operations
+- Web-based, runs in Chrome, Edge, or Firefox
+- No build process required for development
+
+## FAQ
+
+### Is my data safe?
+Yes. GammaLedger uses local-first architecture. All data is stored in the browser's IndexedDB. Nothing is sent to external servers. Trading data never leaves the user's device.
+
+### Does this support futures or stocks?
+Currently optimized for options trading. Stock and futures support may be added based on community demand.
+
+### Can I sync across devices?
+Not automatically. Data is stored locally for privacy. Users can manually export/import JSON backups.
+
+### What brokers work with GammaLedger?
+Any broker that exports OFX files. Direct integration with Interactive Brokers. Popular brokers like TD Ameritrade, Schwab, E*TRADE, and Fidelity support OFX export.
+
+### Is there a paid version?
+GammaLedger is open source and free under AGPLv3 for non-commercial use. A commercial license is available for proprietary/institutional applications.
+
+## Links
+
+- Website: https://gammaledger.com
+- Launch App: https://gammaledger.com/app/
+- Blog: https://gammaledger.com/blog/
+- GitHub Repository: https://github.com/r-brown/GammaLedger
+- Documentation Wiki: https://github.com/r-brown/GammaLedger/wiki
+- Releases: https://github.com/r-brown/GammaLedger/releases
+- Issues/Support: https://github.com/r-brown/GammaLedger/issues
+- License: AGPLv3 — https://github.com/r-brown/GammaLedger/blob/main/LICENSE

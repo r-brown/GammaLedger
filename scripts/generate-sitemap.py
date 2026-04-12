@@ -70,13 +70,20 @@ def generate_sitemap():
     <priority>0.3</priority>
   </url>
   
+  <url>
+    <loc>https://gammaledger.com/app/</loc>
+    <lastmod>{today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
   <!-- Blog Posts -->
 '''
     
-    # Add all blog posts dynamically
+    # Add all blog posts with clean SEO-friendly URLs
     for post in posts:
         sitemap += f'''  <url>
-    <loc>https://gammaledger.com/blog/#/{post['id']}</loc>
+    <loc>https://gammaledger.com/blog/{post['id']}/</loc>
     <lastmod>{post['date']}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
