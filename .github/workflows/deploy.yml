@@ -2,6 +2,18 @@
 #
 # Builds blog post pages from Markdown sources, then deploys
 # the full site to GitHub Pages.
+#
+# ┌─────────────────────────────────────────────────────────┐
+# │  REQUIRED ONE-TIME SETUP                                │
+# │                                                         │
+# │  1. Go to repo Settings → Pages                        │
+# │  2. Under "Build and deployment", set Source to:        │
+# │     ★ "GitHub Actions"  (NOT "Deploy from a branch")   │
+# │                                                         │
+# │  Without this, the workflow runs but Pages still        │
+# │  serves the raw branch — and generated blog posts       │
+# │  will 404 because they are not committed to the repo.   │
+# └─────────────────────────────────────────────────────────┘
 
 name: Deploy to GitHub Pages
 
@@ -40,8 +52,22 @@ jobs:
       - name: Build blog posts and sitemap
         run: python scripts/build-blog.py
 
+      - name: Verify build output
+        run: |
+          echo "::group::Generated blog directories"
+          ls -d blog/*/
+          echo "::endgroup::"
+          count=$(find blog -maxdepth 2 -name 'index.html' -not -path 'blog/index.html' | wc -l)
+          echo "✓ Generated $count blog post pages"
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No blog post pages were generated!"
+            exit 1
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
@@ -51,3 +77,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+ 
