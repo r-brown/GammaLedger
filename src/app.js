@@ -16312,8 +16312,390 @@ class GammaLedger {
         return {
             trades: this.getStorageTrades(),
             exportDate: new Date().toISOString(),
-            version: '2.5'
+            version: '2.5',
+            mcpContext: this.buildMCPContext()
         };
+    }
+
+    buildMCPContext() {
+        try {
+            const stats = this.calculateAdvancedStats();
+            const closedTrades = stats.closedTradesList || [];
+            const openTrades = stats.openTradesList || [];
+            const r2 = (v) => {
+                if (v === null || v === undefined || v === '') return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+            };
+            const r4 = (v) => {
+                if (v === null || v === undefined || v === '') return null;
+                const n = Number(v);
+                return Number.isFinite(n) ? Math.round(n * 10000) / 10000 : null;
+            };
+            const compact = (obj) => Object.fromEntries(
+                Object.entries(obj).filter(([, v]) => v !== null && v !== undefined && v !== '')
+            );
+
+            // Time-windowed realized P&L using existing getClosedTradesInRange logic
+            const sumPL = (trades) => trades.reduce((s, t) => s + (Number(t.pl) || 0), 0);
+            const plByRange = {};
+            ['7D', 'MTD', '1M', '3M', 'YTD', '1Y'].forEach(range => {
+                plByRange[range] = r2(sumPL(this.getClosedTradesInRange(range)));
+            });
+
+            // Current win/loss streak from most-recent closed trades backwards
+            const sortedByExit = [...closedTrades]
+                .filter(t => t.closedDate || t.exitDate)
+                .sort((a, b) =>
+                    new Date(b.closedDate || b.exitDate) - new Date(a.closedDate || a.exitDate)
+                );
+            let streak = { type: null, count: 0 };
+            for (const t of sortedByExit) {
+                const pl = Number(t.pl) || 0;
+                if (pl > 0) {
+                    if (streak.type === 'win') streak.count++;
+                    else if (streak.type === null) streak = { type: 'win', count: 1 };
+                    else break;
+                } else if (pl < 0) {
+                    if (streak.type === 'loss') streak.count++;
+                    else if (streak.type === null) streak = { type: 'loss', count: 1 };
+                    else break;
+                }
+            }
+
+            // Days since last trade activity (last open or close event)
+            const today = (this.currentDate instanceof Date ? this.currentDate : new Date()).getTime();
+            const lastActivityMs = this.trades.reduce((max, t) => {
+                const closed = t.closedDate ? new Date(t.closedDate).getTime() : 0;
+                const opened = t.openedDate ? new Date(t.openedDate).getTime() : 0;
+                return Math.max(max, closed || 0, opened || 0);
+            }, 0);
+            const daysSinceLastTrade = lastActivityMs > 0
+                ? Math.max(0, Math.floor((today - lastActivityMs) / 86400000))
+                : null;
+
+            // Largest winner / loser (closed trades only)
+            const sortedByPL = [...closedTrades]
+                .filter(t => Number.isFinite(Number(t.pl)))
+                .sort((a, b) => (Number(a.pl) || 0) - (Number(b.pl) || 0));
+            const briefTrade = (t) => t ? compact({
+                id: t.id,
+                ticker: t.ticker,
+                strategy: t.strategy,
+                pl: r2(t.pl),
+                roi: r2(t.roi),
+                closedDate: t.closedDate || t.exitDate || null,
+            }) : null;
+            const largestWinner = sortedByPL.length ? briefTrade(sortedByPL[sortedByPL.length - 1]) : null;
+            const largestLoser = sortedByPL.length ? briefTrade(sortedByPL[0]) : null;
+
+            // Strategy breakdown (full lifecycle counts + closed-trade P&L stats)
+            const strategyMap = new Map();
+            this.trades.forEach(t => {
+                const key = t.strategy || 'Unknown';
+                if (!strategyMap.has(key)) {
+                    strategyMap.set(key, {
+                        strategy: key, total: 0, open: 0, closed: 0, assigned: 0,
+                        wins: 0, losses: 0, totalPL: 0
+                    });
+                }
+                const e = strategyMap.get(key);
+                e.total++;
+                if (this.isClosedStatus(t.status)) {
+                    e.closed++;
+                    const pl = Number(t.pl) || 0;
+                    e.totalPL += pl;
+                    if (pl > 0) e.wins++;
+                    else if (pl < 0) e.losses++;
+                } else if (this.isAssignedStatus(t.status)) {
+                    e.assigned++;
+                } else if (this.isActiveStatus(t.status)) {
+                    e.open++;
+                }
+            });
+            const strategyBreakdown = Array.from(strategyMap.values())
+                .map(e => compact({
+                    strategy: e.strategy,
+                    total: e.total,
+                    open: e.open || null,
+                    closed: e.closed || null,
+                    assigned: e.assigned || null,
+                    wins: e.wins || null,
+                    losses: e.losses || null,
+                    totalPL: r2(e.totalPL),
+                    winRate: e.closed > 0 ? r2((e.wins / e.closed) * 100) : null,
+                    avgPL: e.closed > 0 ? r2(e.totalPL / e.closed) : null,
+                }))
+                .sort((a, b) => Math.abs(b.totalPL || 0) - Math.abs(a.totalPL || 0));
+
+            // Underlying-type breakdown (Stock / ETF / Index / Future)
+            const underlyingMap = new Map();
+            this.trades.forEach(t => {
+                const type = t.underlyingType || 'Unknown';
+                if (!underlyingMap.has(type)) {
+                    underlyingMap.set(type, { type, count: 0, totalPL: 0, capitalAtRisk: 0 });
+                }
+                const e = underlyingMap.get(type);
+                e.count++;
+                if (this.isClosedStatus(t.status)) e.totalPL += Number(t.pl) || 0;
+                if (this.isActiveStatus(t.status)) e.capitalAtRisk += Number(t.capitalAtRisk) || 0;
+            });
+            const underlyingBreakdown = Array.from(underlyingMap.values()).map(e => compact({
+                type: e.type,
+                count: e.count,
+                totalPL: r2(e.totalPL),
+                capitalAtRisk: r2(e.capitalAtRisk),
+            }));
+
+            // DTE buckets for active positions (technical risk indicator)
+            const dteDistribution = { expired: 0, '0-7d': 0, '8-30d': 0, '31-60d': 0, '61-90d': 0, '90d+': 0 };
+            openTrades.forEach(t => {
+                const dte = Number(t.dte);
+                if (!Number.isFinite(dte) || dte < 0) dteDistribution.expired++;
+                else if (dte <= 7) dteDistribution['0-7d']++;
+                else if (dte <= 30) dteDistribution['8-30d']++;
+                else if (dte <= 60) dteDistribution['31-60d']++;
+                else if (dte <= 90) dteDistribution['61-90d']++;
+                else dteDistribution['90d+']++;
+            });
+
+            // Concentration: top 5 active positions by capital at risk
+            const collateral = Number(stats.collateralAtRisk) || 0;
+            const concentration = [...openTrades]
+                .filter(t => Number.isFinite(Number(t.capitalAtRisk)) && Number(t.capitalAtRisk) > 0)
+                .sort((a, b) => (Number(b.capitalAtRisk) || 0) - (Number(a.capitalAtRisk) || 0))
+                .slice(0, 5)
+                .map(t => compact({
+                    id: t.id,
+                    ticker: t.ticker,
+                    strategy: t.strategy,
+                    capitalAtRisk: r2(t.capitalAtRisk),
+                    sharePct: collateral > 0
+                        ? r2((Number(t.capitalAtRisk) || 0) / collateral * 100)
+                        : null,
+                }));
+
+            return {
+                generatedAt: new Date().toISOString(),
+                asOfDate: (this.currentDate instanceof Date ? this.currentDate : new Date())
+                    .toISOString().slice(0, 10),
+
+                portfolio: {
+                    counts: {
+                        totalTrades: stats.totalTrades,
+                        closed: stats.closedTrades,
+                        active: stats.activePositions,
+                        assigned: stats.assignedPositions,
+                    },
+
+                    pl: compact({
+                        total: r2(stats.totalPL),
+                        realized: r2(stats.realizedPL),
+                        unrealized: r2(stats.unrealizedPL),
+                        ytd: plByRange.YTD,
+                        mtd: plByRange.MTD,
+                        last7d: plByRange['7D'],
+                        last30d: plByRange['1M'],
+                        last90d: plByRange['3M'],
+                        last1y: plByRange['1Y'],
+                    }),
+
+                    performance: compact({
+                        winRate: r2(stats.winRate),
+                        wins: stats.wins,
+                        losses: stats.losses,
+                        profitFactor: Number.isFinite(stats.profitFactor) ? r4(stats.profitFactor) : null,
+                        avgWin: r2(stats.avgWin),
+                        avgLoss: r2(stats.avgLoss),
+                        expectancy: r2(stats.expectancy),
+                        totalROI: r2(stats.totalROI),
+                        annualizedROI: r2(stats.annualizedROI),
+                        maxDrawdown: r2(stats.maxDrawdown),
+                        sharpeRatio: r4(stats.sharpeRatio),
+                        sortinoRatio: r4(stats.sortinoRatio),
+                    }),
+
+                    risk: compact({
+                        collateralAtRisk: r2(stats.collateralAtRisk),
+                        totalMaxRisk: r2(stats.totalMaxRisk),
+                    }),
+
+                    fees: compact({
+                        total: r2(stats.totalFees),
+                        shareOfGross: r2(stats.feeShareOfGross),
+                    }),
+
+                    trading: compact({
+                        avgWinnerDays: r2(stats.avgWinnerDays),
+                        avgLoserDays: r2(stats.avgLoserDays),
+                        currentStreak: streak.count > 0 ? streak : null,
+                        daysSinceLastTrade,
+                    }),
+
+                    largestWinner,
+                    largestLoser,
+                },
+
+                strategyBreakdown,
+                underlyingBreakdown,
+                dteDistribution,
+                concentration,
+
+                activePositions: openTrades.map(t => this.buildMCPTrade(t, { isOpen: true })),
+
+                wheelPmccPositions: (stats.assignmentStats?.assignments || [])
+                    .map(a => this.buildMCPAssignment(a)),
+
+                tickerExposure: (stats.tickerPerformance?.items || [])
+                    .slice(0, 15)
+                    .map(item => compact({
+                        ticker: item.ticker,
+                        totalPL: r2(item.totalPL),
+                        trades: item.tradeCount,
+                        wins: item.wins,
+                        losses: item.losses,
+                        winRate: r2(item.winRate),
+                        avgPL: r2(item.avgPL),
+                    })),
+
+                recentClosedTrades: sortedByExit.slice(0, 10)
+                    .map(t => this.buildMCPTrade(t, { isOpen: false })),
+            };
+        } catch (e) {
+            console.warn('Failed to build MCP context:', e);
+            return null;
+        }
+    }
+
+    buildMCPTrade(trade, { isOpen = false } = {}) {
+        if (!trade) return null;
+        const r2 = (v) => {
+            if (v === null || v === undefined || v === '') return null;
+            const n = Number(v);
+            return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+        };
+        const out = {
+            id: trade.id,
+            ticker: trade.ticker,
+            strategy: trade.strategy,
+            status: trade.status,
+            underlying: trade.underlyingType,
+            direction: trade.tradeDirection,
+
+            opened: trade.openedDate,
+            expires: trade.expirationDate,
+            quantity: trade.quantity,
+            strike: trade.displayStrike ?? trade.strikePrice ?? null,
+            entryPrice: r2(trade.entryPrice),
+
+            pl: r2(trade.pl),
+            roi: r2(trade.roi),
+            annualizedROI: r2(trade.annualizedROI),
+
+            capitalAtRisk: r2(trade.capitalAtRisk),
+            maxRiskLabel: trade.maxRiskLabel,
+
+            cashFlow: r2(trade.cashFlow),
+            fees: r2(trade.totalFees),
+            daysHeld: trade.daysHeld,
+        };
+
+        if (isOpen) {
+            out.dte = trade.dte;
+            if (trade.riskIsUnlimited) out.riskIsUnlimited = true;
+        } else {
+            out.closed = trade.closedDate;
+            out.exitPrice = r2(trade.exitPrice);
+            if (trade.exitReason) out.exitReason = trade.exitReason;
+        }
+
+        if (trade.partialClose) out.partialClose = true;
+        if (trade.rolledForward) out.rolledForward = true;
+        if (trade.autoExpired) out.autoExpired = true;
+
+        if (trade.notes) {
+            const notes = String(trade.notes).trim();
+            if (notes) {
+                out.notes = notes.length > 280 ? notes.slice(0, 277) + '...' : notes;
+            }
+        }
+
+        return Object.fromEntries(
+            Object.entries(out).filter(([, v]) => v !== null && v !== undefined && v !== '')
+        );
+    }
+
+    buildMCPAssignment(a) {
+        if (!a) return null;
+        const r2 = (v) => {
+            if (v === null || v === undefined || v === '') return null;
+            const n = Number(v);
+            return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+        };
+        const history = Array.isArray(a.premiumHistory) ? a.premiumHistory : [];
+        const totalPremium = history.reduce((s, h) => s + (Number(h.amount) || 0), 0);
+
+        const out = {
+            id: a.trade?.id,
+            ticker: a.trade?.ticker,
+            strategy: a.trade?.strategy,
+            type: a.positionType, // 'pmcc' | 'wheel' | 'other'
+            status: a.trade?.status,
+
+            opened: a.trade?.openedDate,
+            assignedOn: a.assignmentDate,
+            shares: a.shares,
+            strike: r2(a.strike),
+
+            costBasis: r2(a.assignmentCostBasis),
+            costBasisPerShare: r2(a.costBasisPerShare),
+            effectiveCostBasis: r2(a.effectiveCostBasis),
+
+            initialPutPremium: r2(a.initialPutPremium),
+            callPremium: r2(a.callPremium),
+            longCallCost: r2(a.longCallCost),
+            premiumCollected: r2(a.premiumCollected),
+            coveredCallCount: a.coveredCallCount,
+
+            coverageStatus: a.coverageStatus,
+            coveredShares: a.coveredShares,
+            uncoveredShares: a.uncoveredShares,
+            activeShortCalls: a.activeShortCalls,
+            activeShortCallDetails: (a.activeShortCallDetails || []).map(d => ({
+                strike: r2(d.strike),
+                expiration: d.expiration,
+                contracts: d.contracts,
+            })),
+
+            premiumHistorySummary: history.length ? {
+                events: history.length,
+                total: r2(totalPremium),
+                recent: history.slice(-5).map(h => ({
+                    date: h.date,
+                    amount: r2(h.amount),
+                    category: h.category,
+                    label: h.label,
+                })),
+            } : null,
+
+            pl: r2(a.trade?.pl),
+            roi: r2(a.trade?.roi),
+        };
+
+        if (a.trade?.notes) {
+            const notes = String(a.trade.notes).trim();
+            if (notes) {
+                out.notes = notes.length > 280 ? notes.slice(0, 277) + '...' : notes;
+            }
+        }
+
+        if (Array.isArray(out.activeShortCallDetails) && out.activeShortCallDetails.length === 0) {
+            delete out.activeShortCallDetails;
+        }
+
+        return Object.fromEntries(
+            Object.entries(out).filter(([, v]) => v !== null && v !== undefined && v !== '')
+        );
     }
 
     async saveWithFileSystemAPI(data) {
@@ -19657,7 +20039,8 @@ class GammaLedger {
                 version: '2.5',
                 timestamp: new Date().toISOString(),
                 fileName: metadata.fileName || this.currentFileName || 'Unsaved Database',
-                trades: this.getStorageTrades()
+                trades: this.getStorageTrades(),
+                mcpContext: this.buildMCPContext()
             };
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
             LEGACY_STORAGE_KEYS.forEach(key => {
