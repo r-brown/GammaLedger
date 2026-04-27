@@ -26,12 +26,37 @@ src/
   app.js        # ~20 000 lines — all application logic (single file)
   index.html    # ~1 000 lines — SPA shell; all views defined here
   style.css     # ~4 700 lines — full design system with light/dark tokens
+mcp/            # GammaLedger MCP server (Python, uv-managed)
+  pyproject.toml
+  src/
+    gammaledger_mcp/
+      server.py   # FastMCP server — tools, resources, prompts
+      database.py # Lazy JSON DB reader with mtime auto-reload
+      prompts/    # Registered MCP prompt templates
+  tests/
 assets/
   img/          # Marketing and screenshot images
 blog/           # Blog content
 CONTRIBUTING.md
 README.md
 ```
+
+### MCP server (`mcp/`)
+
+The `mcp/` subdirectory contains a standalone Python package (`gammaledger-mcp`) that exposes the GammaLedger database as an MCP server for AI clients (Claude Desktop, Claude Code, etc.).
+
+- **Language**: Python ≥ 3.10, managed with `uv`
+- **Build backend**: `setuptools` + `setuptools-scm` (VCS versioning); `package_dir` maps `src/` → `gammaledger_mcp` in the wheel
+- **Entry point**: `gammaledger_mcp.server:main` (console script `gammaledger-mcp`)
+- **Dev workflow** (run from `mcp/`):
+  ```bash
+  uv sync --all-extras
+  uv run python -m pytest
+  uv run python -m ruff check src tests
+  uv run mcp dev src/gammaledger_mcp/server.py
+  ```
+- Do **not** edit files under `mcp/src/` directly above the `gammaledger_mcp/` package directory.
+- The `mcp/` folder retains its own git history (nested repo); treat it accordingly when committing.
 
 ## Architecture
 

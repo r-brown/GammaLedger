@@ -16310,9 +16310,9 @@ class GammaLedger {
 
     buildDatabasePayload() {
         return {
-            trades: this.getStorageTrades(),
-            exportDate: new Date().toISOString(),
             version: '2.5',
+            exportDate: new Date().toISOString(),
+            trades: this.getStorageTrades(),
             mcpContext: this.buildMCPContext()
         };
     }

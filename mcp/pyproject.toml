@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=68", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gammaledger-mcp"
+dynamic = ["version"]
+description = "MCP server for GammaLedger — privacy-first, local-first options trading journal"
+readme = "README.md"
+license = { text = "AGPL-3.0-or-later" }
+requires-python = ">=3.10"
+keywords = ["mcp", "gammaledger", "options", "trading", "journal", "fastmcp"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
+dependencies = [
+    "mcp[cli]>=1.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff",
+    "mypy",
+]
+
+[project.urls]
+Homepage = "https://gammaledger.com"
+Repository = "https://github.com/r-brown/GammaLedger"
+Issues = "https://github.com/r-brown/GammaLedger/issues"
+
+[project.scripts]
+gammaledger-mcp = "gammaledger_mcp.server:main"
+
+[tool.setuptools]
+package-dir = {"gammaledger_mcp" = "src", "gammaledger_mcp.prompts" = "src/prompts"}
+packages = ["gammaledger_mcp", "gammaledger_mcp.prompts"]
+
+[tool.setuptools_scm]
+version_file = "src/_version.py"
+fallback_version = "0.0.0.dev0"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true   # mcp stubs ship inside the mcp package; mypy
+                                 # may not always find them in all environments
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]

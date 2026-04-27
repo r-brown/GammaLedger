@@ -1,0 +1,13 @@
+{
+  "_comment": "Drop into ~/Library/Application Support/Claude/claude_desktop_config.json on macOS, or %APPDATA%\\Claude\\claude_desktop_config.json on Windows. Replace the db path with your own.",
+  "mcpServers": {
+    "gammaledger": {
+      "command": "uvx",
+      "args": [
+        "gammaledger-mcp",
+        "--db-path",
+        "/Users/you/gammaledger.json"
+      ]
+    }
+  }
+}

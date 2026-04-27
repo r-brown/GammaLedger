@@ -1,0 +1,10 @@
+{
+  "_comment": "Add via: claude mcp add-json gammaledger \"$(cat examples/claude_code_config.json)\"",
+  "command": "uvx",
+  "args": [
+    "gammaledger-mcp"
+  ],
+  "env": {
+    "GAMMALEDGER_DB_PATH": "/Users/you/gammaledger.json"
+  }
+}
