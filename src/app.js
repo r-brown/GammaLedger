@@ -97,7 +97,13 @@ const RUNTIME_TRADE_FIELDS = new Set([
     'weeklyROI',
     'monthlyROI',
     'annualizedROI',
-    'tradeReasoning'
+    'tradeReasoning',
+    'wheelCoverage',
+    'shares',
+    'effectiveCostBasis',
+    'marketValue',
+    'unrealizedPL',
+    'marketPriceSource'
 ]);
 
 const RUNTIME_LEG_FIELDS = new Set([
@@ -4700,8 +4706,17 @@ class GammaLedger {
         }
 
         const normalized = rawStatus.toLowerCase();
+        // A closed trade with an assignment exit reason is only "Assigned" if it
+        // still has something to manage (held shares for wheels, open LEAP for
+        // PMCC). Once the stock/LEAP is gone the trade is fully resolved and
+        // should display as Closed.
         if (normalized === 'closed' && this.isAssignmentReason(trade.exitReason)) {
-            return 'Assigned';
+            const hasShares = this.getTradeOpenStockShares(trade) > 0;
+            const hasLongCalls = this.getNetOpenLongCallContracts(trade) > 0;
+            if (hasShares || hasLongCalls) {
+                return 'Assigned';
+            }
+            return 'Closed';
         }
 
         if (normalized === 'assigned') {
@@ -5424,6 +5439,92 @@ class GammaLedger {
         enriched.lifecycleMeta = lifecycle.meta;
         enriched.lifecycleStatus = lifecycle.status;
 
+        // Wheel/PMCC coverage tag — independent descriptive field.
+        enriched.wheelCoverage = this.getTradeWheelCoverage(enriched);
+
+        // Awaiting-coverage flag: assigned wheel/PMCC with shares held and NO
+        // active short call. Surfaced only in the Wheel/PMCC tracker, not Active
+        // Trades. Partially-covered trades (≥1 active short call) keep their
+        // normal lifecycle so the active CC remains visible in Active Trades.
+        if (enriched.wheelCoverage === 'uncovered') {
+            enriched.lifecycleStatus = 'awaiting_coverage';
+        }
+
+        // Mark-to-market unrealized P&L for any open wheel/PMCC trade with held
+        // exposure (stock shares, or LEAP for PMCC). Without this, raw cashflow
+        // includes the stock purchase cost and shows a phantom loss equal to the
+        // share value. Applies to all coverage states (covered / partial /
+        // uncovered) and to status='Assigned'. Closed trades are skipped — their
+        // pl is the realized cashflow which is already correct.
+        const heldStockShares = this.getTradeOpenStockShares(enriched);
+        const heldLongCallContracts = this.isPmccTrade(enriched)
+            ? this.getNetOpenLongCallContracts(enriched)
+            : 0;
+        const hasHeldExposure = !this.isClosedStatus(enriched.status)
+            && (heldStockShares > 0 || heldLongCallContracts > 0);
+
+        if (hasHeldExposure) {
+            const cb = this.computeWheelEffectiveCostBasis(enriched);
+            enriched.shares = cb.shares;
+            enriched.effectiveCostBasis = Number.isFinite(cb.effectiveCostBasis)
+                ? Number(cb.effectiveCostBasis.toFixed(2))
+                : null;
+
+            // Resolve a current price for MTM. Priority:
+            //  1. persisted marketPriceSnapshot (last save)
+            //  2. live Finnhub quote cache (if available in memory)
+            //  3. fallback: assignment cost-per-share (≈ entry strike) — conservative,
+            //     pretends stock hasn't moved. Triggers a one-time warning so the
+            //     user knows the number is a placeholder until a real quote loads.
+            let resolvedPrice = Number(trade.marketPriceSnapshot);
+            let priceSource = 'snapshot';
+            if (!Number.isFinite(resolvedPrice) || resolvedPrice <= 0) {
+                const ticker = (trade.ticker || '').toString().trim().toUpperCase();
+                const cachedQuote = this.getCachedQuote ? this.getCachedQuote(ticker) : null;
+                const livePrice = Number(cachedQuote?.value?.price);
+                if (Number.isFinite(livePrice) && livePrice > 0) {
+                    resolvedPrice = livePrice;
+                    priceSource = 'live';
+                } else if (cb.shares > 0 && Number.isFinite(cb.assignmentCostBasis) && cb.assignmentCostBasis > 0) {
+                    resolvedPrice = cb.assignmentCostBasis / cb.shares;
+                    priceSource = 'fallback-strike';
+                    if (!this._wheelPriceFallbackWarned) {
+                        console.warn('[GammaLedger] No market price for wheel/PMCC position(s); falling back to entry strike for unrealized P&L. Set Finnhub API key in Settings for live quotes.');
+                        this._wheelPriceFallbackWarned = true;
+                    }
+                }
+            }
+
+            if (Number.isFinite(resolvedPrice) && resolvedPrice > 0 && cb.shares > 0 && Number.isFinite(cb.effectiveCostBasis)) {
+                const marketValue = resolvedPrice * cb.shares;
+                const unrealizedPL = marketValue - cb.effectiveCostBasis;
+                enriched.marketValue = Number(marketValue.toFixed(2));
+                enriched.unrealizedPL = Number(unrealizedPL.toFixed(2));
+                enriched.marketPriceSource = priceSource;
+                // Override raw cashflow-based pl so dashboards & MCP report the
+                // mark-to-market figure for held-stock positions.
+                enriched.pl = enriched.unrealizedPL;
+                enriched.roi = cb.effectiveCostBasis !== 0
+                    ? Number(((unrealizedPL / cb.effectiveCostBasis) * 100).toFixed(2))
+                    : 0;
+            } else {
+                enriched.marketValue = null;
+                enriched.unrealizedPL = null;
+                enriched.marketPriceSource = null;
+                if (enriched.lifecycleStatus === 'awaiting_coverage') {
+                    // Keep historical behavior: hide phantom cashflow loss.
+                    enriched.pl = 0;
+                    enriched.roi = 0;
+                }
+                // For covered/assigned without any price hint, leave pl as cashFlow.
+            }
+        } else {
+            enriched.shares = null;
+            enriched.effectiveCostBasis = null;
+            enriched.marketValue = null;
+            enriched.unrealizedPL = null;
+        }
+
         if (typeof lifecycle.openContractsOverride === 'number') {
             enriched.openContracts = Math.max(0, lifecycle.openContractsOverride);
         }
@@ -5616,6 +5717,155 @@ class GammaLedger {
             return true;
         }
         return this.isAssignmentReason(trade.exitReason);
+    }
+
+    /**
+     * Total open stock shares currently held in a trade (BUY-OPEN minus SELL legs).
+     * Used to size wheel/PMCC coverage and cost-basis math.
+     */
+    getTradeOpenStockShares(trade = {}) {
+        const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+        if (!legs.length) return 0;
+        let shares = 0;
+        legs.forEach((leg) => {
+            const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+            if (type !== 'STOCK') return;
+            const qty = Math.abs(Number(leg.quantity) || 0) * (this.getLegMultiplier(leg) || 1);
+            if (!qty) return;
+            const action = this.getLegAction(leg);
+            const side = this.getLegSide(leg);
+            if (action === 'BUY' && side === 'OPEN') {
+                shares += qty;
+            } else if (action === 'SELL') {
+                shares -= qty;
+            }
+        });
+        return Math.max(0, Math.round(shares));
+    }
+
+    /**
+     * Net-open long call contracts (BTO open minus STC close). Used as the PMCC
+     * equivalent of "held shares" for coverage math: each long call covers up to
+     * one short call.
+     */
+    getNetOpenLongCallContracts(trade = {}) {
+        const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+        let net = 0;
+        legs.forEach((leg) => {
+            const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+            if (type !== 'CALL') return;
+            const qty = Math.abs(Number(leg.quantity) || 0);
+            if (!qty) return;
+            const action = this.getLegAction(leg);
+            const side = this.getLegSide(leg);
+            if (action === 'BUY' && side === 'OPEN') net += qty;
+            else if (action === 'SELL' && side === 'CLOSE') net -= qty;
+        });
+        return Math.max(0, net);
+    }
+
+    /**
+     * Coverage status for a wheel/PMCC position.
+     * Returns 'covered' | 'partial' | 'uncovered' | 'n/a'.
+     * - Wheel: base = open stock shares; covered when active short calls × 100 ≥ shares.
+     * - PMCC: base = net-open long call contracts × 100; covered when active short
+     *         calls match the long-call count.
+     */
+    getTradeWheelCoverage(trade = {}) {
+        const isWheelPmcc = this.isWheelOrPmccTrade(trade) || this.isAssignmentTrade(trade);
+        if (!isWheelPmcc) return 'n/a';
+
+        const isPmcc = this.isPmccTrade(trade);
+        const baseShares = isPmcc
+            ? this.getNetOpenLongCallContracts(trade) * 100
+            : this.getTradeOpenStockShares(trade);
+        if (baseShares <= 0) return 'n/a';
+
+        const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+        const shortInfo = this.getNetOpenShortCalls(legs);
+        const coveredShares = (Number(shortInfo?.contracts) || 0) * 100;
+        if (coveredShares >= baseShares) return 'covered';
+        if (coveredShares > 0) return 'partial';
+        return 'uncovered';
+    }
+
+    /**
+     * True when a wheel/PMCC trade is assigned (shares held) but coverage is not full.
+     * These positions appear only in the Wheel/PMCC tracker, not in Active Trades.
+     */
+    isAwaitingCoverage(trade = {}) {
+        const cov = this.getTradeWheelCoverage(trade);
+        return cov === 'uncovered' || cov === 'partial';
+    }
+
+    /**
+     * Lightweight per-trade cost-basis math for wheel/PMCC awaiting-coverage positions.
+     * Returns shares, assignmentCostBasis, and effectiveCostBasis (cost basis after
+     * subtracting net option premium collected). Used to compute unrealized P&L.
+     */
+    computeWheelEffectiveCostBasis(trade = {}) {
+        const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+        const isPmcc = this.isPmccTrade(trade);
+
+        let stockShares = 0;
+        let stockCost = 0;
+        let optionCashFlow = 0;
+        let longCallCost = 0;
+        let shortCallNet = 0;
+        let longCallShares = 0;
+
+        legs.forEach((leg) => {
+            const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+            const action = this.getLegAction(leg);
+            const side = this.getLegSide(leg);
+            const qty = Math.abs(Number(leg.quantity) || 0);
+            const mult = this.getLegMultiplier(leg) || 1;
+            const cashFlow = Number(this.calculateLegCashFlow(leg)) || 0;
+
+            if (type === 'STOCK') {
+                if (action === 'BUY' && side === 'OPEN') {
+                    stockShares += qty * mult;
+                    stockCost += Math.abs(cashFlow);
+                } else if (action === 'SELL') {
+                    stockShares -= qty * mult;
+                }
+                return;
+            }
+
+            if (type !== 'CALL' && type !== 'PUT') return;
+
+            if (isPmcc && type === 'CALL' && action === 'BUY' && side === 'OPEN') {
+                longCallCost += Math.abs(cashFlow);
+                longCallShares += qty * (mult || 100);
+                return;
+            }
+            if (isPmcc && type === 'CALL') {
+                shortCallNet += cashFlow;
+                return;
+            }
+            optionCashFlow += cashFlow;
+        });
+
+        if (isPmcc) {
+            // Prefer net-open long call count (× 100) so a closed LEAP zeroes out.
+            const netLongShares = this.getNetOpenLongCallContracts(trade) * 100;
+            const shares = netLongShares > 0
+                ? netLongShares
+                : (stockShares > 0 ? stockShares : longCallShares);
+            const effectiveCostBasis = longCallCost - shortCallNet;
+            return {
+                shares: Math.max(0, Math.round(shares)),
+                assignmentCostBasis: longCallCost,
+                effectiveCostBasis
+            };
+        }
+
+        const shares = Math.max(0, Math.round(stockShares));
+        return {
+            shares,
+            assignmentCostBasis: stockCost,
+            effectiveCostBasis: stockCost - optionCashFlow
+        };
     }
 
     calculateOptionPremium(trade = {}) {
@@ -6955,15 +7205,37 @@ class GammaLedger {
     calculateAdvancedStats() {
         const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
         const assignedTrades = this.trades.filter(trade => this.isAssignedStatus(trade.status));
-        let openTrades = this.trades.filter(trade => this.isActiveStatus(trade.status));
+        // Awaiting-coverage trades (uncovered/partial wheel/PMCC) live only in the
+        // Wheel/PMCC tracker — exclude from Active Trades and from "expired" buckets.
+        let openTrades = this.trades.filter(trade =>
+            this.isActiveStatus(trade.status) && trade.lifecycleStatus !== 'awaiting_coverage'
+        );
+        const awaitingCoverageTrades = this.trades.filter(trade => trade.lifecycleStatus === 'awaiting_coverage');
         const wheelPmccTrades = this.trades.filter(trade => {
-            if (this.isWheelOrPmccTrade(trade)) {
-                return true;
+            const isWheelPmcc = this.isWheelOrPmccTrade(trade);
+            const isAssigned = this.isAssignedStatus(trade.status);
+            if (!isWheelPmcc && !isAssigned) return false;
+
+            // Exclude fully-resolved wheel/PMCC trades: status is Closed and
+            // there is nothing left to manage (no held shares, no open LEAP).
+            // Such trades contributed historical assignments but no longer
+            // belong in the assignment tracker or MCP wheelPmccPositions.
+            if (this.isClosedStatus(trade.status)) {
+                const hasShares = this.getTradeOpenStockShares(trade) > 0;
+                const hasLongCalls = this.getNetOpenLongCallContracts(trade) > 0;
+                if (!hasShares && !hasLongCalls) return false;
             }
-            return this.isAssignedStatus(trade.status);
+            return true;
         });
 
-        const assignedWithActiveOptions = assignedTrades.filter(trade => this.isWheelOrPmccTrade(trade) && this.hasNetOpenOptionLegs(trade));
+        // Promote assigned wheel/PMCC trades to "open" only when coverage is full
+        // (active short calls covering all assigned shares). Partial/uncovered are
+        // routed to the Wheel/PMCC tracker via `awaitingCoverageTrades`.
+        const assignedWithActiveOptions = assignedTrades.filter(trade =>
+            this.isWheelOrPmccTrade(trade)
+            && trade.lifecycleStatus !== 'awaiting_coverage'
+            && this.hasNetOpenOptionLegs(trade)
+        );
         if (assignedWithActiveOptions.length) {
             const openTradeMap = new Map();
             openTrades.forEach(trade => {
@@ -7142,9 +7414,13 @@ class GammaLedger {
         // option premium realized through assignment (assigned trades).
         const realizedPL = totalPL + assignedPL;
 
-        // Unrealized P&L: Estimated current P&L on open positions
+        // Unrealized P&L: Estimated current P&L on open positions plus
+        // mark-to-market on awaiting-coverage wheel/PMCC stock holdings.
         const unrealizedPL = openTrades.reduce((sum, trade) => {
             const pl = Number(trade.pl);
+            return Number.isFinite(pl) ? sum + pl : sum;
+        }, 0) + awaitingCoverageTrades.reduce((sum, trade) => {
+            const pl = Number(trade.unrealizedPL);
             return Number.isFinite(pl) ? sum + pl : sum;
         }, 0);
 
@@ -7625,6 +7901,10 @@ class GammaLedger {
 
 
     updateActivePositionsTable(openTrades = this.trades.filter(trade => {
+        // Awaiting-coverage wheel/PMCC trades belong only to the Wheel/PMCC tracker.
+        if (trade.lifecycleStatus === 'awaiting_coverage') {
+            return false;
+        }
         // Include trades with Open or Rolling status
         if (this.isActiveStatus(trade.status)) {
             // Exclude uncovered/expired: Wheel, PMCC, or assigned trades where
@@ -7634,12 +7914,12 @@ class GammaLedger {
             }
             return true;
         }
-        
+
         // Also include Assigned Wheel/PMCC trades that have non-expired open short options
         if (this.isAssignmentTrade(trade) && this.isWheelOrPmccTrade(trade)) {
             return this.hasNonExpiredOpenShortOptions(trade);
         }
-        
+
         return false;
     })) {
         const tbody = document.querySelector('#active-positions-table tbody');
@@ -16213,6 +16493,37 @@ class GammaLedger {
             return [];
         }
 
+        // Capture latest market price for awaiting-coverage trades from the Finnhub
+        // quote cache so MCP and reload-time Unrealized G/L stay in sync without a
+        // live API call. Mutates the in-memory trade record (these are persisted,
+        // not runtime, fields).
+        let snapshotChanged = false;
+        const needsSnapshot = (t) => {
+            if (!t || typeof t !== 'object') return false;
+            if (this.isClosedStatus(t.status)) return false;
+            const heldShares = this.getTradeOpenStockShares(t);
+            const heldLeap = this.isPmccTrade(t) ? this.getNetOpenLongCallContracts(t) : 0;
+            return heldShares > 0 || heldLeap > 0;
+        };
+        this.trades.forEach((trade) => {
+            if (!needsSnapshot(trade)) return;
+            const ticker = (trade.ticker || '').toString().trim().toUpperCase();
+            if (!ticker) return;
+            const cached = this.getCachedQuote ? this.getCachedQuote(ticker) : null;
+            const price = Number(cached?.value?.price);
+            if (Number.isFinite(price) && price > 0) {
+                trade.marketPriceSnapshot = price;
+                trade.marketPriceSnapshotAt = new Date().toISOString();
+                snapshotChanged = true;
+            }
+        });
+
+        // Re-enrich any trade with held stock/LEAP so unrealizedPL & marketValue
+        // reflect the latest snapshot price before MCP context is built.
+        if (snapshotChanged) {
+            this.trades = this.trades.map(t => (needsSnapshot(t) ? this.enrichTradeData(t) : t));
+        }
+
         return this.trades
             .map((trade) => this.buildTradeStorageSnapshot(trade))
             .filter(Boolean);
@@ -16486,6 +16797,7 @@ class GammaLedger {
                         closed: stats.closedTrades,
                         active: stats.activePositions,
                         assigned: stats.assignedPositions,
+                        awaitingCoverage: this.trades.filter(t => t.lifecycleStatus === 'awaiting_coverage').length,
                     },
 
                     pl: compact({
@@ -16613,6 +16925,28 @@ class GammaLedger {
         if (trade.rolledForward) out.rolledForward = true;
         if (trade.autoExpired) out.autoExpired = true;
 
+        // Wheel/PMCC coverage signal — present on every trade so MCP clients can
+        // distinguish covered/partial/uncovered/n/a without re-deriving from legs.
+        if (trade.wheelCoverage && trade.wheelCoverage !== 'n/a') {
+            out.wheelCoverage = trade.wheelCoverage;
+        }
+        if (trade.lifecycleStatus && trade.lifecycleStatus !== trade.status) {
+            out.lifecycleStatus = trade.lifecycleStatus;
+        }
+        // Mark-to-market fields for trades with held stock/LEAP exposure.
+        if (Number.isFinite(Number(trade.unrealizedPL))) {
+            out.unrealizedPL = r2(trade.unrealizedPL);
+            out.marketValue = r2(trade.marketValue);
+            out.effectiveCostBasis = r2(trade.effectiveCostBasis);
+            out.shares = trade.shares;
+            if (Number.isFinite(Number(trade.marketPriceSnapshot))) {
+                out.marketPriceSnapshot = r2(trade.marketPriceSnapshot);
+            }
+            if (trade.marketPriceSource) {
+                out.marketPriceSource = trade.marketPriceSource;
+            }
+        }
+
         if (trade.notes) {
             const notes = String(trade.notes).trim();
             if (notes) {
@@ -16658,6 +16992,12 @@ class GammaLedger {
             coveredCallCount: a.coveredCallCount,
 
             coverageStatus: a.coverageStatus,
+            wheelCoverage: a.trade?.wheelCoverage,
+            lifecycleStatus: a.trade?.lifecycleStatus,
+            marketPriceSnapshot: r2(a.trade?.marketPriceSnapshot),
+            marketPriceSnapshotAt: a.trade?.marketPriceSnapshotAt,
+            marketValue: r2(a.trade?.marketValue),
+            unrealizedPL: r2(a.trade?.unrealizedPL),
             coveredShares: a.coveredShares,
             uncoveredShares: a.uncoveredShares,
             activeShortCalls: a.activeShortCalls,
