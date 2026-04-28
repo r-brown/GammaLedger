@@ -1286,6 +1286,43 @@ const BUILTIN_SAMPLE_DATA = (() => {
                     fees: 0.3
                 }
             ]
+        },
+        {
+            id: 'TRD-3022',
+            ticker: 'VIX',
+            strategy: 'Cash-Secured Put',
+            status: 'Closed',
+            openedDate: offset(-55),
+            closedDate: offset(-35),
+            expirationDate: offset(-35),
+            exitReason: 'Cash Settlement',
+            notes: 'VIX put expired ITM — settled in cash at expiration. VIX settled at 14, strike was 18, settlement = $4.00/pt × 100 = $400 debit. Net P&L: $210 credit − $400 settlement = −$190 loss.',
+            underlyingType: 'Index',
+            legs: [
+                {
+                    id: 'TRD-3022-L1',
+                    orderType: 'STO',
+                    type: 'PUT',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-55),
+                    expirationDate: offset(-35),
+                    strike: 18,
+                    premium: 2.1,
+                    fees: 0.35
+                },
+                {
+                    id: 'TRD-3022-L2',
+                    orderType: 'BTC',
+                    type: 'CASH',
+                    quantity: 1,
+                    multiplier: 100,
+                    executionDate: offset(-35),
+                    strike: 18,
+                    premium: 4.0,
+                    fees: 0
+                }
+            ]
         }
     ];
 
@@ -3969,8 +4006,12 @@ class GammaLedger {
 
     getDefaultMultiplierForLegType(legType, underlyingType = 'Stock') {
         const normalizedLegType = this.normalizeLegType(legType || 'CALL');
-        if (normalizedLegType === 'STOCK' || normalizedLegType === 'CASH') {
+        if (normalizedLegType === 'STOCK') {
             return 1;
+        }
+        // CASH settlement legs use the same multiplier as the option contract they settle
+        if (normalizedLegType === 'CASH') {
+            return 100;
         }
         const normalizedUnderlying = this.normalizeUnderlyingType(underlyingType, { fallback: 'Stock' });
         if (normalizedUnderlying === 'Stock') {
@@ -4014,6 +4055,46 @@ class GammaLedger {
 
         multiplierGroup.classList.toggle('is-hidden', !hasCustomValue);
         toggleButton.textContent = hasCustomValue ? 'Hide multiplier' : 'Override multiplier';
+    }
+
+    /**
+     * Shows/hides leg form fields based on leg type.
+     * For CASH (cash settlement) legs: hides strike and expiration (not applicable),
+     * and updates the premium label to clarify it is the settlement amount.
+     */
+    syncLegTypeFieldVisibility(row) {
+        if (!row) {
+            return;
+        }
+        const typeSelect = row.querySelector('[data-leg-field="type"]');
+        if (!typeSelect) {
+            return;
+        }
+        const legType = this.normalizeLegType(typeSelect.value || 'CALL');
+        const isCash = legType === 'CASH';
+        const isStock = legType === 'STOCK';
+
+        // Strike: hide for CASH and STOCK types
+        const strikeGroup = row.querySelector('[data-leg-group="strike-group"]');
+        if (strikeGroup) {
+            strikeGroup.classList.toggle('is-hidden', isCash || isStock);
+        }
+
+        // Expiration: hide for CASH and STOCK types
+        const expirationGroup = row.querySelector('[data-leg-group="expiration-group"]');
+        if (expirationGroup) {
+            expirationGroup.classList.toggle('is-hidden', isCash || isStock);
+        }
+
+        // Premium label: clarify for CASH settlement legs
+        const premiumLabel = row.querySelector('[data-leg-label="premium"]');
+        if (premiumLabel) {
+            if (isCash) {
+                premiumLabel.textContent = 'Settlement Amount (per point)';
+            } else {
+                premiumLabel.textContent = 'Premium (per share)';
+            }
+        }
     }
 
     applyUnderlyingTypeToLegMultipliers({ row = null, force = false } = {}) {
@@ -4110,6 +4191,7 @@ class GammaLedger {
                         <option value="CALL">Call</option>
                         <option value="PUT">Put</option>
                         <option value="STOCK">Stock</option>
+                        <option value="CASH">Cash Settlement</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -4122,18 +4204,18 @@ class GammaLedger {
                     <label class="form-label">Entry Date</label>
                     <input type="date" class="form-control" data-leg-field="executionDate">
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-leg-group="expiration-group">
                     <label class="form-label">Expiration Date</label>
                     <input type="date" class="form-control" data-leg-field="expirationDate">
                 </div>
             </div>
             <div class="form-row">
-                <div class="form-group">
+                <div class="form-group" data-leg-group="strike-group">
                     <label class="form-label">Strike</label>
                     <input type="number" class="form-control" data-leg-field="strike" step="0.01">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Premium (per share)</label>
+                    <label class="form-label" data-leg-label="premium">Premium (per share)</label>
                     <input type="number" class="form-control" data-leg-field="premium" step="0.000001" min="0">
                 </div>
             </div>
@@ -4179,6 +4261,7 @@ class GammaLedger {
             typeSelect.value = normalizedType;
             typeSelect.addEventListener('change', () => {
                 this.applyUnderlyingTypeToLegMultipliers({ row, force: true });
+                this.syncLegTypeFieldVisibility(row);
             });
         }
 
@@ -4295,6 +4378,7 @@ class GammaLedger {
         container.appendChild(row);
         this.applyUnderlyingTypeToLegMultipliers({ row, force: !leg });
         this.syncLegMultiplierVisibility(row);
+        this.syncLegTypeFieldVisibility(row);
         this.updateLegRowNumbers();
         
         // Auto-fill underlying price AFTER row is in the DOM
@@ -4692,7 +4776,37 @@ class GammaLedger {
 
     isAssignmentReason(reason) {
         const normalized = (reason || '').toString().trim().toLowerCase();
-        return normalized.includes('assign');
+        return normalized.includes('assign') || normalized.includes('cash settlement');
+    }
+
+    /**
+     * Returns true when the exit reason specifically describes a cash settlement
+     * (as opposed to a physical-delivery assignment).
+     */
+    isCashSettlementReason(reason) {
+        const normalized = (reason || '').toString().trim().toLowerCase();
+        return normalized.includes('cash settlement');
+    }
+
+    /**
+     * Returns true when the trade contains one or more CASH settlement legs.
+     * Cash-settled options (VIX, SPX, NDX, etc.) record settlement proceeds
+     * as a CASH-type leg rather than delivering/receiving shares.
+     * Only closing-side legs (BTC / STC) are treated as settlement events.
+     */
+    isCashSettledTrade(trade = {}) {
+        const legs = trade?.legs;
+        if (!Array.isArray(legs)) {
+            return false;
+        }
+        return legs.some((leg) => {
+            if (this.normalizeLegType(leg?.type) !== 'CASH') {
+                return false;
+            }
+            const orderType = this.getNormalizedLegOrderType(leg);
+            // BTC = bought back (short-put settlement payment) or STC = sold back (long-call settlement receipt)
+            return orderType === 'BTC' || orderType === 'STC';
+        });
     }
 
     getDisplayStatus(trade) {
@@ -5008,7 +5122,8 @@ class GammaLedger {
         let hasCloseActivity = false;
         let hasAssignmentEvent = false;
         let hasExpirationEvent = false;
-        
+        let hasCashSettlementEvent = false;
+
         // Track stock position separately (stocks don't expire)
         let stockBought = 0;
         let stockSold = 0;
@@ -5049,6 +5164,43 @@ class GammaLedger {
                 if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY')) {
                     hasExpirationEvent = true;
                 }
+                return;
+            }
+
+            // Cash settlement legs — used for cash-settled options (VIX, SPX, NDX, etc.).
+            // BTC = settlement payment on a short ITM option (debit).
+            // STC = settlement receipt on a long ITM option (credit).
+            if (legType === 'CASH' && (orderType === 'BTC' || orderType === 'STC')) {
+                hasCashSettlementEvent = true;
+                hasAssignmentEvent = true;
+                hasCloseActivity = true;
+
+                // Credit the matching open option legs in pairMap so that
+                // unmatchedExposure collapses to 0 (resolves the position).
+                const cashStrike = Number(leg.strike);
+                const hasStrike = Number.isFinite(cashStrike) && cashStrike > 0;
+
+                pairMap.forEach((bucket, key) => {
+                    const parts = key.split('|');
+                    const keyStrike = parseFloat(parts[1]);
+                    if (hasStrike && Number.isFinite(keyStrike) && Math.abs(keyStrike - cashStrike) > 0.01) {
+                        return; // Strike mismatch — skip
+                    }
+                    // Credit unmatched short open (BTC = closing short positions)
+                    if (orderType === 'BTC') {
+                        const unmatched = bucket.shortOpen - bucket.shortClose;
+                        if (unmatched > 0) {
+                            bucket.shortClose += Math.min(unmatched, quantity);
+                        }
+                    }
+                    // Credit unmatched long open (STC = closing long positions)
+                    if (orderType === 'STC') {
+                        const unmatched = bucket.longOpen - bucket.longClose;
+                        if (unmatched > 0) {
+                            bucket.longClose += Math.min(unmatched, quantity);
+                        }
+                    }
+                });
                 return;
             }
 
@@ -5101,37 +5253,68 @@ class GammaLedger {
         // When stock was assigned (BTO STOCK), the short puts at the assignment
         // strike are implicitly closed by the exchange.  Credit their close count
         // so that the lifecycle can detect a fully-closed position.
-        if (stockBought > 0 && assignmentStrikes.size > 0) {
+        //
+        // If the BTO STOCK leg has no strike recorded (common when brokers don't
+        // stamp a strike on the stock transaction), we still mark hasAssignmentEvent
+        // true and fall back to crediting unmatched short options proportionally by
+        // shares / multiplier.  Without this fallback, a "assign then immediately sell"
+        // trade is incorrectly classified as Expired because hasAssignmentEvent stays
+        // false and the option expiration date drives the status.
+        if (stockBought > 0) {
             hasAssignmentEvent = true;
 
-            assignmentStrikes.forEach((shares, strike) => {
-                // Find pairMap entries for short puts at this strike
-                pairMap.forEach((bucket, key) => {
-                    // Key format: "TYPE|STRIKE|EXPIRATION|MULTIPLIER"
-                    if (!key.startsWith('PUT|')) {
-                        return;
-                    }
-                    const parts = key.split('|');
-                    const keyStrike = parseFloat(parts[1]);
-                    const multiplier = parseInt(parts[3], 10) || 100;
+            if (assignmentStrikes.size > 0) {
+                // Preferred path: precise per-strike matching.
+                assignmentStrikes.forEach((shares, strike) => {
+                    // Find pairMap entries for short puts at this strike
+                    pairMap.forEach((bucket, key) => {
+                        // Key format: "TYPE|STRIKE|EXPIRATION|MULTIPLIER"
+                        if (!key.startsWith('PUT|')) {
+                            return;
+                        }
+                        const parts = key.split('|');
+                        const keyStrike = parseFloat(parts[1]);
+                        const multiplier = parseInt(parts[3], 10) || 100;
 
-                    if (!Number.isFinite(keyStrike) || Math.abs(keyStrike - strike) > 0.01) {
-                        return;
-                    }
+                        if (!Number.isFinite(keyStrike) || Math.abs(keyStrike - strike) > 0.01) {
+                            return;
+                        }
 
-                    // How many contracts does this stock assignment cover?
-                    const unmatched = bucket.shortOpen - bucket.shortClose;
-                    if (unmatched <= 0) {
-                        return;
-                    }
+                        // How many contracts does this stock assignment cover?
+                        const unmatched = bucket.shortOpen - bucket.shortClose;
+                        if (unmatched <= 0) {
+                            return;
+                        }
 
-                    const assignedContracts = Math.min(unmatched, Math.floor(shares / multiplier));
-                    if (assignedContracts > 0) {
-                        bucket.shortClose += assignedContracts;
-                        hasCloseActivity = true;
-                    }
+                        const assignedContracts = Math.min(unmatched, Math.floor(shares / multiplier));
+                        if (assignedContracts > 0) {
+                            bucket.shortClose += assignedContracts;
+                            hasCloseActivity = true;
+                        }
+                    });
                 });
-            });
+            } else {
+                // Fallback: no strike info on the BTO STOCK leg.
+                // Credit unmatched short put contracts first (put assignment is most
+                // common), then short call contracts (covered call assignment).
+                let sharesRemaining = stockBought;
+                for (const prefix of ['PUT|', 'CALL|']) {
+                    if (sharesRemaining <= 0) break;
+                    pairMap.forEach((bucket, key) => {
+                        if (!key.startsWith(prefix) || sharesRemaining <= 0) return;
+                        const parts = key.split('|');
+                        const multiplier = parseInt(parts[3], 10) || 100;
+                        const unmatched = bucket.shortOpen - bucket.shortClose;
+                        if (unmatched <= 0) return;
+                        const assignedContracts = Math.min(unmatched, Math.floor(sharesRemaining / multiplier));
+                        if (assignedContracts > 0) {
+                            bucket.shortClose += assignedContracts;
+                            sharesRemaining -= assignedContracts * multiplier;
+                            hasCloseActivity = true;
+                        }
+                    });
+                }
+            }
         }
 
         let matchedPairs = true;
@@ -5178,6 +5361,7 @@ class GammaLedger {
             hasCloseActivity,
             hasAssignmentEvent,
             hasExpirationEvent,
+            hasCashSettlementEvent,
             activityAfterExpiration,
             hasOpenStockPosition
         };
@@ -5185,6 +5369,18 @@ class GammaLedger {
         const normalizedStatus = this.normalizeStatus(trade.status);
         if (!hasAssignmentEvent && this.isAssignmentTrade(trade)) {
             hasAssignmentEvent = true;
+        }
+
+        // Cash-settled assignment (VIX, SPX, etc.): no stock position will ever
+        // follow, so the trade is always fully Closed after settlement.
+        if (hasCashSettlementEvent) {
+            result.status = 'Closed';
+            result.exitReason = trade.exitReason || 'Cash Settlement';
+            result.openContractsOverride = 0;
+            if (!result.effectiveClosedDate && lastActivityDate) {
+                result.effectiveClosedDate = lastActivityDate.toISOString().slice(0, 10);
+            }
+            return result;
         }
 
         // For Wheel trades: if stock position is still open, don't mark as Assigned/closed
@@ -5668,7 +5864,13 @@ class GammaLedger {
         if (this.isWheelTrade(trade) || this.isPmccTrade(trade)) {
             return true;
         }
-        
+
+        // Cash-settled trades (VIX, SPX, etc.) are never Wheel/PMCC —
+        // they close via cash payment, not share delivery.
+        if (this.isCashSettledTrade(trade)) {
+            return false;
+        }
+
         // Assigned trades are inherently wheel trades — the short option
         // was closed via assignment.  Stock legs may live in a separate
         // trade entry when imported from Robinhood CSV, so don't require them.
@@ -14514,8 +14716,10 @@ class GammaLedger {
             if (hasStatusFilter) {
                 matchesStatus = statusFilters.some(filterStatus => {
                     if (filterStatus === 'assigned') {
-                        return normalizedStatus === 'assigned' ||
-                            (normalizedStatus === 'closed' && this.isAssignmentReason(trade.exitReason));
+                        // Use getDisplayStatus so that fully-resolved assignment trades
+                        // (status='Closed', exitReason contains 'assign', but no open
+                        // shares remaining) are NOT shown under the Assigned filter.
+                        return this.getDisplayStatus(trade).toLowerCase() === 'assigned';
                     }
                     return normalizedStatus === filterStatus;
                 });
@@ -19896,7 +20100,10 @@ class GammaLedger {
         const hasAssignment = legs.some((leg) => leg.isAssignment === true);
 
         const openLegs = legs.filter((leg) => this.getLegSide(leg) === 'OPEN');
-        const relevant = openLegs.length ? openLegs : legs;
+        // Exclude CASH settlement legs from strategy inference — they record the
+        // settlement payment, not an independent position type.
+        const filterForStrategy = (legList) => legList.filter((leg) => this.normalizeLegType(leg?.type) !== 'CASH');
+        const relevant = filterForStrategy(openLegs.length ? openLegs : legs);
 
         // Check for Wheel: stock leg (usually from assignment) + option legs (covered calls)
         const stockLegs = relevant.filter((leg) => (leg.type || '').toUpperCase() === 'STOCK');
