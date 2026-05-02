@@ -6263,8 +6263,9 @@ class GammaLedger {
         document.querySelectorAll('.ai-chat__quick-btn').forEach(button => {
             button.addEventListener('click', () => {
                 const prompt = button.getAttribute('data-ai-prompt');
+                const promptType = button.getAttribute('data-ai-prompt-type') || null;
                 if (prompt) {
-                    this.handleAIQuickPrompt(prompt);
+                    this.handleAIQuickPrompt(prompt, { promptType });
                 }
             });
         });
@@ -6678,13 +6679,13 @@ class GammaLedger {
         }
     }
 
-    async handleAIQuickPrompt(prompt) {
+    async handleAIQuickPrompt(prompt, options = {}) {
         if (this.aiChatPendingRequest || !prompt) {
             return;
         }
 
         if (!this.hasAICoachConsent()) {
-            this.promptAICoachConsent(() => this.handleAIQuickPrompt(prompt));
+            this.promptAICoachConsent(() => this.handleAIQuickPrompt(prompt, options));
             return;
         }
 
@@ -6707,7 +6708,7 @@ class GammaLedger {
 
         try {
             const response = this.aiAgent
-                ? await this.aiAgent.generateResponse(prompt, { history: historySnapshot })
+                ? await this.aiAgent.generateResponse(prompt, { history: historySnapshot, promptType: options.promptType || null })
                 : 'AI assistant is unavailable at the moment.';
             this.appendAIChatMessage('ai', response, { replaceId: placeholderId, pending: false });
         } catch (error) {
@@ -21081,18 +21082,13 @@ class GeminiInsightsAgent {
         const contextBlock = this.buildContextBlock();
         const historyContents = this.buildHistoryContents(options.history || []);
 
-        const userContent = [
-            '# ROLE & PHILOSOPHY',
-            'You are an expert options trading coach. Your philosophy is rooted in rigorous risk management, capital preservation, and generating consistent returns. You are assisting an intermediate trader who wants to refine their strategy and tighten their risk controls. Your goal is to provide a concise, data-driven portfolio health check that identifies key risks and offers actionable, educational insights.',
-            '# CONTEXT: PORTFOLIO DATA',
-            contextBlock,
-            '# TRADER\'S OBJECTIVE',
-            question,
-            '# ANALYSIS FRAMEWORK & INSTRUCTIONS',
-            '1.  **Acknowledge Strengths:** Briefly highlight the **strong overall performance** (e.g., win rate, profit factor, successful strategies).\n2.  **Prioritize Top Risks:** Scrutinize the data to identify and explain the **top 2-3 risks**. In addition to the systemic risks below, **identify open positions near expiration (low DTE) or those with previous rolls/adjustments (in the \"notes\") as potential immediate risks.** Focus specifically on:\n    * **Concentration Risk:** Explicitly cite and explain the **`riskHeadline`**.\n    * **Behavioral Risk:** Connect the **`coachingHighlight`** to the risk.\n3.  **Provide Actionable Recommendations:** Based on the identified risks, provide **clear, bulleted recommendations**. Link them directly to the data.\n    * Suggest a specific rule for **position sizing**.\n    * Propose a concrete action to address the **behavioral risk**.\n4.  **Suggest Next Steps:** Conclude with **2-3 forward-looking actions** for process improvement.',
-            '# OUTPUT FORMATTING',
-            '- **Tone:** Professional, direct, and risk-aware coach.\n- **Length:** Keep the response under 400 words.\n- **Structure:** Use bullet points for recommendations and next steps.\n- **Disclaimer:** End with a clear statement that this is educational analysis, not financial advice.'
-        ].join('\n\n');
+        const userContent = options.promptType === 'risk_check'
+            ? this.buildRiskCheckPrompt(contextBlock)
+            : options.promptType === 'strategy_ideas'
+                ? this.buildStrategyIdeasPrompt(contextBlock)
+                : options.promptType === 'portfolio_health'
+                    ? this.buildPortfolioHealthPrompt(contextBlock, null)
+                    : this.buildPortfolioHealthPrompt(contextBlock, question);
 
         const contents = [
             ...historyContents,
@@ -21117,6 +21113,63 @@ class GeminiInsightsAgent {
         };
     }
 
+    buildPortfolioHealthPrompt(contextBlock, question) {
+        return [
+            '# ROLE & PHILOSOPHY',
+            'You are a disciplined options trading coach specializing in income-focused\nretail portfolios. Your responses are concise, data-driven, and honest —\nincluding about the limits of the data itself. You never fabricate missing\nvalues or force conclusions that the data does not support.',
+            '---',
+            '# PORTFOLIO DATA',
+            contextBlock,
+            '---',
+            '# TRADER\'S OBJECTIVE',
+            question || 'Deliver a portfolio health check focused on:\n1. Capital utilization and idle cash risk\n2. Strategy concentration and single-ticker exposure\n3. Identifying any open positions at immediate risk (low DTE, breached\n   strikes, prior rolls) — or explicitly stating none exist if the\n   active position list is empty',
+            '---',
+            '# ANALYSIS INSTRUCTIONS',
+            'Follow these steps in order. Skip any step that is not applicable\ngiven the data, and say so explicitly rather than padding.\n\n## Step 0 — Data Integrity Check (always run first)\nBefore any analysis, scan for anomalies:\n- Does `largestLoser.pl` equal `largestWinner.pl`? If yes, flag as a\n  possible data artifact and note that loss analysis is unavailable.\n- Does `exitPrice` in `recentClosedTrades` conflict with the `notes`\n  field? If yes, use the notes as ground truth and flag the discrepancy.\n- Are `activePositions` and `dteDistribution` both empty/zero?\n  If yes, note that open-position risk analysis is not applicable.\n\n## Step 1 — Acknowledge Strengths (2–3 sentences max)\nState win rate, realized P&L, annualized ROI, and fee efficiency\n(fees.shareOfGross). Be factual — do not inflate a 1-trade sample\ninto a pattern.\n\n## Step 2 — Top Risks (identify 2–3, each with a specific data citation)\nPrioritize in this order:\n1. Idle capital risk — if `activePositions` is empty and\n   `daysSinceLastTrade` > 30, quantify the opportunity cost.\n2. Concentration risk — cite specific ticker(s) from `tickerExposure`\n   where a single name represents > 50% of realized P&L or capital at risk.\n3. Sample-size risk — if `totalTrades` < 5, explicitly warn that\n   win rate and ROI figures are statistically meaningless and should\n   not drive sizing decisions.\n4. Open position risk — only if `activePositions` is non-empty:\n   flag positions with DTE ≤ 14, any noted prior rolls, or strikes\n   within 3% of current price.\n\n## Step 3 — Actionable Recommendations (bullet list)\nEach bullet must reference a specific data point.\n- Position sizing: propose a max-collateral-per-trade rule based on\n  the account size implied by `totalMaxRisk`.\n- Diversification: suggest minimum ticker and sector count targets\n  before the next trade is opened.\n- Behavioral: if `daysSinceLastTrade` > 60, address inactivity as a\n  capital efficiency risk, not just a streak observation.\n\n## Step 4 — Next Steps (2–3 forward-looking actions)\nConcrete, time-bound. No vague advice like "stay disciplined."',
+            '---',
+            '# OUTPUT FORMAT',
+            '- Tone: direct, risk-aware, educational\n- Length: 350–500 words (adjust naturally; do not truncate to hit a cap)\n- Structure: headers for each step, bullets for recommendations\n- Flag any field you cannot interpret clearly rather than guessing\n- Close with: "This analysis is educational only and does not\n  constitute financial advice."'
+        ].join('\n\n');
+    }
+
+    buildRiskCheckPrompt(contextBlock) {
+        return [
+            '# ROLE',
+            'You are a disciplined options risk analyst. Your job is to assess\ncurrent and forward-looking risk exposure with precision. You cite\nspecific data fields, flag anomalies, and never manufacture risk\nfindings where the data does not support them.',
+            '---',
+            '# PORTFOLIO DATA',
+            contextBlock,
+            '---',
+            '# TRADER\'S OBJECTIVE',
+            'Identify the largest concentration risk in this portfolio and, where\nan open position exists, propose a specific strategy to reduce its\nleverage or exposure. Reference drawdown data only where it is\nstatistically valid.',
+            '---',
+            '# ANALYSIS INSTRUCTIONS',
+            '## Step 0 — Data Integrity & State Classification (always run first)\n\nRun these checks before any analysis:\n\n**Data anomalies:**\n- If `largestLoser.pl` equals `largestWinner.pl`, flag as a data\n  artifact. State: "Loss-side analysis is unavailable."\n- If `exitPrice` in `recentClosedTrades` conflicts with the `notes`\n  field, use notes as ground truth and flag the discrepancy explicitly.\n- If `maxDrawdown` is 0 and `totalTrades` < 5, state:\n  "Max Drawdown of 0% is a sample-size artifact, not a risk signal.\n  It will not be used to draw conclusions."\n\n**Portfolio state — classify as exactly one of:**\n- **LIVE**: `activePositions` is non-empty → proceed to all steps\n- **FLAT**: `activePositions` is empty → Step 2 becomes a\n  *forward-looking* risk analysis for the next trade; skip all\n  open-position sub-items. State this classification clearly.\n\n---\n\n## Step 1 — Concentration Risk (primary objective — always run)\n\nThis step directly addresses the trader\'s question regardless of\nportfolio state.\n\n**For LIVE portfolios:**\n- From `tickerExposure`, identify any single ticker representing\n  > 30% of `capitalAtRisk` or > 50% of `collateralAtRisk`. Express\n  as: "[TICKER] = $X,XXX collateral = X% of implied account size\n  (derived from `totalMaxRisk`)."\n- Calculate the position\'s effective leverage:\n  `leverage = capitalAtRisk / totalMaxRisk`. Flag if > 10%.\n- Recommend a specific reduction strategy with concrete parameters:\n  - Rolling the short strike further OTM (specify delta target)\n  - Converting CSP → Bull Put Spread to cap max risk\n  - Partial close (specify % of position to close)\n\n**For FLAT portfolios:**\n- Identify the ticker(s) from `tickerExposure` that dominated\n  historical P&L (> 50% of realized gains from a single name).\n- State: "This portfolio has a single-ticker P&L dependency.\n  Before the next trade, diversification targets should be set."\n- Propose a maximum per-ticker allocation rule using `totalMaxRisk`\n  as the implied account size. Express as: "No single ticker should\n  exceed $X collateral (X% of $Y account)."\n\n---\n\n## Step 2 — Secondary Risks (2 maximum, data-cited only)\n\nChoose from this list — only include if data clearly supports the finding:\n\n- **Idle capital risk**: If `daysSinceLastTrade` > 60, calculate the\n  opportunity cost in annualized terms using the trade\'s\n  `annualizedROI` as a baseline. Express as dollars, not percentages.\n- **Sample-size risk**: If `totalTrades` < 5, state that `winRate`,\n  `profitFactor`, and `annualizedROI` cannot be used for sizing or\n  strategy decisions. Name the specific figure that is unreliable.\n- **Leverage creep risk**: If any open trade\'s `capitalAtRisk`\n  exceeds 10% of `totalMaxRisk`, flag it by trade ID and amount.\n- **Drawdown proximity**: Only cite `maxDrawdown` if it is > 0 and\n  `totalTrades` ≥ 5. If those conditions are not met, skip entirely\n  and say so.\n\n---\n\n## Step 3 — Recommendations (bullet list, data-referenced)\n\nEach bullet must name a specific field and value.\n\n- **Max collateral per trade**: Propose a hard cap based on\n  `totalMaxRisk`. Standard rule: 5% per position, 10% max in\n  any single sector. Show the math.\n- **Diversification floor**: State the minimum number of tickers\n  and sectors before next trade entry.\n- **Re-entry trigger** (FLAT portfolios only): Propose a specific\n  condition to re-enter the market — e.g., "Open first position\n  within 7 days; target 2–3 tickers across different sectors."\n\n---\n\n## Step 4 — Next Actions (2–3, time-bound and specific)\n\nNo generic advice. Each action must include:\n- What to do\n- A concrete condition or deadline\n- The specific field or metric that triggers it',
+            '---',
+            '# OUTPUT FORMAT',
+            '- Tone: analytical, direct, risk-first\n- Length: 400–550 words\n- Structure: step headers, bullet points for recommendations\n- Lead with the portfolio state classification from Step 0\n- Flag data anomalies inline as [⚠️ DATA NOTE: ...]\n- Close with: "This analysis is educational only and does not\n  constitute financial advice."'
+        ].join('\n\n');
+    }
+
+    buildStrategyIdeasPrompt(contextBlock) {
+        return [
+            '# ROLE',
+            'You are an options strategy analyst for income-focused retail\nportfolios. Your job is to assess whether the current strategy mix\nis appropriate, identify gaps, and recommend specific new strategies\n— with entry conditions and sizing — grounded in the data provided.\nYou never invent performance patterns from insufficient data.',
+            '---',
+            '# PORTFOLIO DATA',
+            contextBlock,
+            '---',
+            '# TRADER\'S OBJECTIVE',
+            'Based on the portfolio\'s historical strategy performance, assess\nwhether the current strategy mix is optimal and recommend specific\nstrategies to add, adjust, or avoid — with concrete entry conditions\nfor each recommendation.',
+            '---',
+            '# ANALYSIS INSTRUCTIONS',
+            '## Step 0 — Data Integrity & Feasibility Gate (always run first)\n\nRun these checks. If a gate fails, state it explicitly and skip the\ndependent analysis — do not substitute invented data.\n\n**Data anomalies:**\n- If `largestLoser.pl` equals `largestWinner.pl`, state:\n  "[⚠️ DATA NOTE: largestLoser appears to be a duplicate of\n  largestWinner. Loss-pattern analysis is unavailable.]"\n- If `exitPrice` conflicts with `notes`, use notes as ground truth\n  and flag: "[⚠️ DATA NOTE: exitPrice ($X) conflicts with notes.\n  Using notes as ground truth.]"\n\n**Strategy mix feasibility:**\n- Count entries in `strategyBreakdown`.\n- If count = 1: state "Single-strategy portfolio — no cross-strategy\n  comparison is possible. Analysis will focus on strategy fit\n  assessment and forward recommendations only."\n- If count = 0: state "No closed trades with strategy data — strategy\n  analysis cannot be performed. Provide general framework only."\n\n**Loss analysis feasibility:**\n- If `losses = 0` and `totalTrades` < 5, state:\n  "Zero losses is a sample-size artifact, not a risk-management\n  signal. Loss reduction recommendations cannot be grounded in\n  this data."\n\n**IV environment:**\n- This prompt requires IV context for strategy recommendations.\n  If no IVR or VIX data is present in the portfolio JSON, state:\n  "[⚠️ DATA NOTE: No IV environment data available. Strategy\n  suitability assessments will note where IV rank is required\n  before entry.]"\n\n---\n\n## Step 1 — Current Strategy Fit Assessment\n\nEvaluate whether the existing strategy is appropriate given the\nportfolio\'s characteristics. Answer these specific questions using\nonly data present in the JSON:\n\n1. **Size fit**: Does `capitalAtRisk` (from `recentClosedTrades`) fit\n   within a 5–10% per-trade rule given the implied account size\n   (`totalMaxRisk`)? Show the math: `capitalAtRisk / totalMaxRisk`.\n   Flag if > 10%.\n\n2. **Duration fit**: Is `avgWinnerDays` consistent with the strategy?\n   A Wheel averaging 86 days is reasonable. A CSP averaging 86 days\n   suggests possible over-holding or repeated rolls — check `notes`\n   for evidence.\n\n3. **Return quality**: Is the annualized ROI driven by premium\n   collection, stock appreciation, or both? Parse from `notes`\n   if the breakdown is available (e.g., "Options net: $630. Stock\n   gain: $1,300."). State the split explicitly.\n\n4. **Verdict**: One sentence — is the current strategy appropriate\n   for this account size and style? Cite the single most important\n   supporting data point.\n\n---\n\n## Step 2 — Strategy Gap Analysis\n\nIdentify what the current strategy mix is *missing*, not what it\ndid wrong. Use the strategy selection logic below.\n\n**For each gap, state:**\n- What market condition it addresses that the current strategy does not\n- The specific data signal that would trigger it\n- Whether the current portfolio data suggests that trigger is present\n\n**Strategy gap checklist** (evaluate each; skip if data is absent):\n\n| Gap | Trigger condition | Check field |\n|---|---|---|\n| No defined-risk structure | Single large position > 10% of account | `capitalAtRisk / totalMaxRisk` |\n| No high-IV strategy (Condor/Butterfly) | IVR > 50 — not assessable without IV data | Flag as unknown |\n| No low-IV strategy (PMCC/Long Call) | IVR < 35 and bullish bias | Flag as unknown |\n| No sector diversification | All P&L from 1 ticker | `tickerExposure` count |\n| No short-duration trades (< 30 DTE) | `avgWinnerDays` > 60 | `trading.avgWinnerDays` |\n\nFor gaps where IV data is missing, state the gap and the data needed\nto assess it — do not skip silently.\n\n---\n\n## Step 3 — Strategy Recommendations\n\nProvide 2–3 specific strategy recommendations. For each:\n\n**Format:**\nStrategy: [Name]\nWhy now: [1 sentence connecting to a gap from Step 2]\nEntry condition: [Specific, measurable trigger — e.g., "IVR > 45, RSI < 50, no earnings within 30 days"]\nSizing: [Collateral or debit cap derived from totalMaxRisk; show the math]\nWhat it replaces or complements: [Reference current strategy]\n\nIf IV data is unavailable, mark each recommendation\'s entry\ncondition with "[requires IVR check before entry]".\n\nDo not recommend strategies that would require data not present in\nthe portfolio JSON to size correctly.\n\n---\n\n## Step 4 — Re-entry Plan (FLAT portfolios only)\n\nIf `activePositions` is empty and `daysSinceLastTrade` > 30:\n\n- State the opportunity cost of inactivity using `annualizedROI` as\n  baseline: "`daysSinceLastTrade` idle days × (`annualizedROI` / 365)\n  × `totalMaxRisk` = $X foregone."\n- Propose a sequenced re-entry: first trade, second trade, with\n  specific conditions separating them (e.g., "Open Trade 1 this\n  week. Do not open Trade 2 until Trade 1 has been open ≥ 14 days\n  and is profitable.")\n- Set a diversification floor: minimum 2 tickers, 2 sectors,\n  before considering a third position.',
+            '---',
+            '# OUTPUT FORMAT',
+            '- Tone: analytical, strategy-focused, honest about data limits\n- Length: 450–600 words\n- Structure: step headers; strategy recommendations in the\n  defined template format\n- All data anomalies flagged inline as [⚠️ DATA NOTE: ...]\n- All IV-dependent recommendations flagged as\n  [requires IVR check before entry]\n- Close with: "This analysis is educational only and does not\n  constitute financial advice."'
+        ].join('\n\n');
+    }
+
     buildHistoryContents(history) {
         if (!Array.isArray(history) || history.length === 0) {
             return [];
@@ -21132,31 +21185,34 @@ class GeminiInsightsAgent {
     }
 
     buildContextBlock() {
-        const stats = this.context.stats || {};
-        const totals = {
-            totalPL: this.formatNumber(stats.totalPL, { style: 'currency' }),
-            winRate: this.formatNumber(stats.winRate, { style: 'percent' }),
-            profitFactor: Number.isFinite(stats.profitFactor)
-                ? this.formatNumber(stats.profitFactor)
-                : (stats.profitFactor === Number.POSITIVE_INFINITY ? 'Infinite' : null),
-            totalROI: this.formatNumber(stats.totalROI, { style: 'percent' }),
-            annualizedROI: this.formatNumber(stats.annualizedROI, { style: 'percent' }),
-            maxDrawdown: this.formatNumber(stats.maxDrawdown, { style: 'percent' }),
-            closedTrades: stats.closedTrades ?? 0,
-            openPositions: stats.activePositions ?? (this.context.openTrades?.length || 0)
-        };
-
-        const contextData = {
-            totals,
-            riskHeadline: this.fallback.buildRiskHeadline(),
-            strategyHighlight: this.fallback.buildStrategyHeadline(),
-            coachingHighlight: this.fallback.buildCoachingHighlight(),
-            performanceHighlight: this.fallback.buildPerformanceSummary?.() || '',
-            openPositions: this.buildOpenPositionsSummary(),
-            topStrategies: this.buildStrategySummary()
-        };
-
-        return JSON.stringify(contextData, null, 2);
+        try {
+            const mcpContext = this.app.buildMCPContext();
+            return JSON.stringify(mcpContext, null, 2);
+        } catch (_err) {
+            // Fallback: legacy hand-crafted snapshot if buildMCPContext fails
+            const stats = this.context.stats || {};
+            const totals = {
+                totalPL: this.formatNumber(stats.totalPL, { style: 'currency' }),
+                winRate: this.formatNumber(stats.winRate, { style: 'percent' }),
+                profitFactor: Number.isFinite(stats.profitFactor)
+                    ? this.formatNumber(stats.profitFactor)
+                    : (stats.profitFactor === Number.POSITIVE_INFINITY ? 'Infinite' : null),
+                totalROI: this.formatNumber(stats.totalROI, { style: 'percent' }),
+                annualizedROI: this.formatNumber(stats.annualizedROI, { style: 'percent' }),
+                maxDrawdown: this.formatNumber(stats.maxDrawdown, { style: 'percent' }),
+                closedTrades: stats.closedTrades ?? 0,
+                openPositions: stats.activePositions ?? (this.context.openTrades?.length || 0)
+            };
+            return JSON.stringify({
+                totals,
+                riskHeadline: this.fallback.buildRiskHeadline(),
+                strategyHighlight: this.fallback.buildStrategyHeadline(),
+                coachingHighlight: this.fallback.buildCoachingHighlight(),
+                performanceHighlight: this.fallback.buildPerformanceSummary?.() || '',
+                openPositions: this.buildOpenPositionsSummary(),
+                topStrategies: this.buildStrategySummary()
+            }, null, 2);
+        }
     }
 
     buildOpenPositionsSummary(limit = 8) {
