@@ -1,10 +1,10 @@
 gammaledger.json
 *.ofx
 _drafts
-test
 node_modules
 playwright-report
+tests
 test-results
 .idea
 .claude
-tests
+
