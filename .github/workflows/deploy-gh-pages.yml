@@ -28,6 +28,12 @@ jobs:
       - name: Create gammaledger directory
         run: cp -r ./src ./gammaledger
 
+      - name: Inject build version for cache-busting
+        run: |
+          VERSION=${{ github.event.release.tag_name }}
+          sed -i "s/app\.js\"/app.js?v=$VERSION\"/g" ./gammaledger/index.html
+          sed -i "s/style\.css\"/style.css?v=$VERSION\"/g" ./gammaledger/index.html
+
       - name: Minify JavaScript
         run: find ./gammaledger -type f -name "*.js" -exec terser --compress --mangle --output {} {} \;
 
