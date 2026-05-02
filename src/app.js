@@ -5143,14 +5143,20 @@ class GammaLedger {
             // Stock buy/sell prices naturally differ so using strike in the
             // lifecycle key would create mismatched entries.
             if (legType === 'STOCK') {
+                // Stock legs store quantity as contracts (e.g. 1) with a separate
+                // multiplier (e.g. 100).  We need actual share counts here so that
+                // the later `shares / multiplier` arithmetic produces the correct
+                // contract count (100 shares / 100 = 1 contract, not 1/100 = 0).
+                const stockMultiplier = Math.abs(Number(leg.multiplier) || 100);
+                const shares = quantity * stockMultiplier;
                 if (orderType === 'BTO') {
-                    stockBought += quantity;
+                    stockBought += shares;
                     const strike = Number(leg.strike);
                     if (Number.isFinite(strike) && strike > 0) {
-                        assignmentStrikes.set(strike, (assignmentStrikes.get(strike) || 0) + quantity);
+                        assignmentStrikes.set(strike, (assignmentStrikes.get(strike) || 0) + shares);
                     }
                 } else if (orderType === 'STC') {
-                    stockSold += quantity;
+                    stockSold += shares;
                     hasCloseActivity = true;
                 }
                 // Skip adding STOCK legs to pairMap
@@ -5315,6 +5321,31 @@ class GammaLedger {
                     });
                 }
             }
+        }
+
+        // When all assigned stock has been sold (STC STOCK leg present and
+        // stockSold >= stockBought), any remaining unmatched short CALLs in pairMap
+        // are implicitly closed — the shares backing those covered calls are gone.
+        // This covers scenario 6b (shares called away at CC strike — no explicit BTC
+        // leg) and 6a (voluntary stock sale while a CC had already expired OTM).
+        //
+        // Guard: stockBought > 0 keeps this unreachable for pure-option strategies
+        // (Iron Condor, Spreads, PMCC, etc.) where stockBought is always zero.
+        if (stockBought > 0 && stockSold >= stockBought) {
+            let sharesRemaining = stockSold;
+            pairMap.forEach((bucket, key) => {
+                if (!key.startsWith('CALL|') || sharesRemaining <= 0) return;
+                const parts = key.split('|');
+                const multiplier = parseInt(parts[3], 10) || 100;
+                const unmatched = bucket.shortOpen - bucket.shortClose;
+                if (unmatched <= 0) return;
+                const contracts = Math.min(unmatched, Math.floor(sharesRemaining / multiplier));
+                if (contracts > 0) {
+                    bucket.shortClose += contracts;
+                    sharesRemaining -= contracts * multiplier;
+                    hasCloseActivity = true;
+                }
+            });
         }
 
         let matchedPairs = true;
@@ -7416,18 +7447,9 @@ class GammaLedger {
         const wheelPmccTrades = this.trades.filter(trade => {
             const isWheelPmcc = this.isWheelOrPmccTrade(trade);
             const isAssigned = this.isAssignedStatus(trade.status);
-            if (!isWheelPmcc && !isAssigned) return false;
-
-            // Exclude fully-resolved wheel/PMCC trades: status is Closed and
-            // there is nothing left to manage (no held shares, no open LEAP).
-            // Such trades contributed historical assignments but no longer
-            // belong in the assignment tracker or MCP wheelPmccPositions.
-            if (this.isClosedStatus(trade.status)) {
-                const hasShares = this.getTradeOpenStockShares(trade) > 0;
-                const hasLongCalls = this.getNetOpenLongCallContracts(trade) > 0;
-                if (!hasShares && !hasLongCalls) return false;
-            }
-            return true;
+            // Include all Wheel/PMCC and Assigned trades — closed ones are shown
+            // when the user selects the "Closed" filter in the tracker table.
+            return isWheelPmcc || isAssigned;
         });
 
         // Promote assigned wheel/PMCC trades to "open" only when coverage is full
@@ -17060,6 +17082,7 @@ class GammaLedger {
                 activePositions: openTrades.map(t => this.buildMCPTrade(t, { isOpen: true })),
 
                 wheelPmccPositions: (stats.assignmentStats?.assignments || [])
+                    .filter(({ trade }) => !this.isClosedStatus(trade.status))
                     .map(a => this.buildMCPAssignment(a)),
 
                 tickerExposure: (stats.tickerPerformance?.items || [])
