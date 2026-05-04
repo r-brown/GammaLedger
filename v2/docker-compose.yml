@@ -1,0 +1,45 @@
+# Local-mode default: api + frontend (SQLite, no Redis).
+# Hosted-mode profile: `docker compose --profile hosted up` adds postgres + redis.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    ports:
+      - "8765:8765"
+    environment:
+      APP_ENV: local
+      DATABASE_URL: sqlite+aiosqlite:////data/gammaledger.db
+    volumes:
+      - api_data:/data
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  postgres:
+    image: postgres:15-alpine
+    profiles: ["hosted"]
+    environment:
+      POSTGRES_DB: gammaledger
+      POSTGRES_USER: gammaledger
+      POSTGRES_PASSWORD: gammaledger
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["hosted"]
+    ports:
+      - "6379:6379"
+
+volumes:
+  api_data:
+  pg_data:

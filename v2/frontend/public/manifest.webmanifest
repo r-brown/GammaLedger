@@ -1,0 +1,17 @@
+{
+  "name": "GammaLedger",
+  "short_name": "GammaLedger",
+  "description": "Local-first options trading journal and analytics dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcfcf9",
+  "theme_color": "#21808d",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,226 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens — mirrored from legacy src/style.css.
+ * Two layers: primitives (raw scales) and semantics (component-facing).
+ * Dark mode flips semantics via @media or [data-color-scheme="dark"].
+ */
+:root {
+  /* primitives */
+  --color-cream-50: #fbfbf7;
+  --color-cream-100: #fffefa;
+  --color-charcoal-700: #1f2121;
+  --color-charcoal-800: #262828;
+  --color-teal-300: #32b8c6;
+  --color-teal-500: #21808d;
+  --color-teal-600: #1f7f8b;
+  --color-brand-purple: #6500d3;
+  --color-brand-purple-dark: #4d00a8;
+  --color-trend-up: #16a34a;
+  --color-trend-down: #c44a4a;
+  --shadow-card: 0 1px 2px rgba(31, 33, 33, 0.04), 0 8px 24px rgba(31, 33, 33, 0.03);
+  --shadow-action: 0 8px 22px rgba(101, 0, 211, 0.25);
+
+  /* semantics — light */
+  --color-background: var(--color-cream-50);
+  --color-surface: var(--color-cream-100);
+  --color-text: #20383c;
+  --color-text-secondary: #6f7d80;
+  --color-border: #e7e6df;
+  --color-primary: var(--color-brand-purple);
+  --color-primary-foreground: var(--color-cream-50);
+  --color-success: var(--color-trend-up);
+  --color-error: var(--color-trend-down);
+  --color-warning: #d39a1f;
+  --color-info: var(--color-teal-600);
+  --color-focus-ring: rgba(101, 0, 211, 0.32);
+  --font-body: "Inter", Roboto, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-background: var(--color-charcoal-700);
+    --color-surface: var(--color-charcoal-800);
+    --color-text: #e6e6e2;
+    --color-text-secondary: #a0a0a0;
+    --color-border: #3a3c3c;
+    --color-primary: var(--color-teal-300);
+    --color-primary-foreground: #0a0a0a;
+    --color-trend-up: #22c55e;
+    --color-trend-down: #f87171;
+  }
+}
+
+[data-color-scheme="dark"] {
+  --color-background: var(--color-charcoal-700);
+  --color-surface: var(--color-charcoal-800);
+  --color-text: #e6e6e2;
+  --color-text-secondary: #a0a0a0;
+  --color-border: #3a3c3c;
+  --color-primary: var(--color-teal-300);
+  --color-primary-foreground: #0a0a0a;
+  --color-trend-up: #22c55e;
+  --color-trend-down: #f87171;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+@layer components {
+  .gl-card {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .gl-panel {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card);
+    padding: 1.15rem;
+  }
+
+  .gl-section-title {
+    color: var(--color-info);
+    font-weight: 650;
+    letter-spacing: 0;
+  }
+
+  .gl-input {
+    min-height: 38px;
+    width: 100%;
+    border-radius: 7px;
+    border: 1px solid var(--color-border);
+    background: #fff;
+    padding: 0 0.75rem;
+    color: var(--color-text);
+    font-size: 0.875rem;
+  }
+
+  .gl-input::placeholder {
+    color: #97a0a2;
+  }
+
+  .gl-btn-primary {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: 7px;
+    background: linear-gradient(180deg, var(--color-primary), var(--color-brand-purple-dark));
+    color: var(--color-primary-foreground);
+    padding: 0 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 650;
+    box-shadow: var(--shadow-action);
+  }
+
+  .gl-btn-muted {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 7px;
+    background: #eeeeea;
+    color: var(--color-text);
+    padding: 0 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .gl-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.79rem;
+  }
+
+  .gl-table thead {
+    background: #eef3fb;
+    color: #345056;
+    font-size: 0.74rem;
+  }
+
+  .gl-table th,
+  .gl-table td {
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.72rem 0.85rem;
+    white-space: nowrap;
+  }
+
+  .gl-table tbody tr:hover {
+    background: rgba(33, 128, 141, 0.04);
+  }
+
+  .gl-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.17rem 0.46rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .gl-badge-teal {
+    background: #d8f2f2;
+    color: #1b7f89;
+  }
+
+  .gl-badge-green {
+    background: #d9f9e7;
+    color: #13834d;
+  }
+
+  .gl-badge-red {
+    background: #fde1e3;
+    color: #b5404c;
+  }
+
+  .gl-badge-yellow {
+    background: #fff2c6;
+    color: #9b7a12;
+  }
+
+  .gl-badge-blue {
+    background: #e1ecff;
+    color: #4071ba;
+  }
+}

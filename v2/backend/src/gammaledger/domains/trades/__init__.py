@@ -1,0 +1,1 @@
+"""Trades domain package."""
