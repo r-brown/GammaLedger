@@ -34,6 +34,8 @@ import * as dates from '../utils/dates.js';
 import * as dom from '../utils/dom.js';
 import * as fmt from '../utils/formatting.js';
 import * as cryptoUtil from '../utils/crypto.js';
+import { safeLocalStorage } from '../core/storage.js';
+import { parseCsvRow } from '../utils/import-csv.js';
 
 
 class GammaLedger {
@@ -242,40 +244,7 @@ class GammaLedger {
     }
 
     // Safe localStorage operations with error handling
-    safeLocalStorage = {
-        getItem: (key) => {
-            try {
-                return localStorage.getItem(key);
-            } catch (error) {
-                console.warn(`Failed to read from localStorage (key: ${key}):`, error);
-                return null;
-            }
-        },
-        setItem: (key, value) => {
-            try {
-                localStorage.setItem(key, value);
-                return true;
-            } catch (error) {
-                console.warn(`Failed to write to localStorage (key: ${key}):`, error);
-                // Handle quota exceeded or privacy mode
-                if (error.name === 'QuotaExceededError') {
-                    alert('Storage quota exceeded. Please clear some data or use a different browser.');
-                } else if (error.name === 'SecurityError') {
-                    console.warn('localStorage is disabled in this browser (private mode?)');
-                }
-                return false;
-            }
-        },
-        removeItem: (key) => {
-            try {
-                localStorage.removeItem(key);
-                return true;
-            } catch (error) {
-                console.warn(`Failed to remove from localStorage (key: ${key}):`, error);
-                return false;
-            }
-        }
-    };
+    safeLocalStorage = safeLocalStorage;
 
     // Input validation utilities
     validateNumber(value, options = {}) {
@@ -17021,39 +16990,7 @@ class GammaLedger {
         return { transactions };
     }
 
-    parseCsvRow(line) {
-        const values = [];
-        let current = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            const nextChar = line[i + 1];
-
-            if (inQuotes) {
-                if (char === '"' && nextChar === '"') {
-                    current += '"';
-                    i++;
-                } else if (char === '"') {
-                    inQuotes = false;
-                } else {
-                    current += char;
-                }
-            } else {
-                if (char === '"') {
-                    inQuotes = true;
-                } else if (char === ',') {
-                    values.push(current);
-                    current = '';
-                } else {
-                    current += char;
-                }
-            }
-        }
-        values.push(current);
-
-        return values;
-    }
+    parseCsvRow(line) { return parseCsvRow(line); }
 
     parseRobinhoodTransaction(row) {
         const { activityDate, processDate, description, transCode, instrument, quantity, price, amount, rowIndex } = row;

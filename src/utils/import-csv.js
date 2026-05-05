@@ -1,1 +1,36 @@
-// src/utils/import-csv.js — placeholder for phase 1 migration. Populated in waves per docs/refactor/phase1-module-map.md.
+// Generic CSV row parser — handles quoted values with embedded commas and "" escapes.
+// Migrated from class GammaLedger (see docs/refactor/phase1-analysis.md §10).
+
+export function parseCsvRow(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+
+        if (inQuotes) {
+            if (char === '"' && nextChar === '"') {
+                current += '"';
+                i++;
+            } else if (char === '"') {
+                inQuotes = false;
+            } else {
+                current += char;
+            }
+        } else {
+            if (char === '"') {
+                inQuotes = true;
+            } else if (char === ',') {
+                values.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+    }
+    values.push(current);
+
+    return values;
+}
