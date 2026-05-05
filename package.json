@@ -23,7 +23,7 @@
   "bugs": {
     "url": "https://github.com/r-brown/gammaledger/issues"
   },
-  "homepage": "https://github.com/r-brown/gammaledger#readme",
+  "homepage": "https://gammaledger.com",
   "devDependencies": {
     "vite": "^8.0.10"
   }
