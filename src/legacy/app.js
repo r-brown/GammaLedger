@@ -30,6 +30,10 @@ import {
     RUNTIME_LEG_FIELDS
 } from '../core/config.js';
 import { BUILTIN_SAMPLE_DATA } from '../core/sample-data.js';
+import * as dates from '../utils/dates.js';
+import * as dom from '../utils/dom.js';
+import * as fmt from '../utils/formatting.js';
+import * as cryptoUtil from '../utils/crypto.js';
 
 
 class GammaLedger {
@@ -302,14 +306,7 @@ class GammaLedger {
         return isNaN(date.getTime()) ? null : dateString;
     }
 
-    sanitizeString(value, maxLength = 1000) {
-        if (value === null || value === undefined) {
-            return '';
-        }
-        
-        const str = String(value).trim();
-        return str.length > maxLength ? str.substring(0, maxLength) : str;
-    }
+    sanitizeString(value, maxLength = 1000) { return fmt.sanitizeString(value, maxLength); }
 
     // Safe chart cleanup helper
     destroyChart(chart) {
@@ -2600,10 +2597,7 @@ class GammaLedger {
         return variables;
     }
 
-    escapeHtml(text) {
-        // Deprecated: Use escapeHTML() for consistency
-        return this.escapeHTML(text);
-    }
+    escapeHtml(text) { return dom.escapeHtml(text); }
 
     createFormulaIcon(trade, metricType) {
         const wrapper = document.createElement('span');
@@ -4489,89 +4483,16 @@ class GammaLedger {
     }
 
     // Fixed date format conversion for form fields
-    formatDateForInput(dateString) {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return '';
+    formatDateForInput(dateString) { return dates.formatDateForInput(dateString); }
 
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    calculateDaysBetween(date1, date2) {
-        const d1 = new Date(date1);
-        const d2 = new Date(date2);
-        const timeDiff = Math.abs(d2.getTime() - d1.getTime());
-        return Math.ceil(timeDiff / (1000 * 3600 * 24));
-    }
+    calculateDaysBetween(date1, date2) { return dates.calculateDaysBetween(date1, date2); }
 
     // Fixed ticker link generation using investing.com search
-    generateTickerLink(ticker) {
-        const safeTicker = (ticker ?? '').toString().trim().toUpperCase();
-        if (!safeTicker) {
-            return 'https://www.investing.com/search/';
-        }
-        return `https://www.investing.com/search/?q=${encodeURIComponent(safeTicker)}`;
-    }
+    generateTickerLink(ticker) { return dom.generateTickerLink(ticker); }
 
-    createTickerElement(ticker, className = 'ticker-link', options = {}) {
-        const safeTicker = (ticker ?? '').toString().trim().toUpperCase();
+    createTickerElement(ticker, className = 'ticker-link', options = {}) { return dom.createTickerElement(ticker, className, options); }
 
-        if (!safeTicker) {
-            const placeholder = document.createElement('span');
-            placeholder.className = `${className} ticker-link--placeholder`.trim();
-            placeholder.textContent = '—';
-            return placeholder;
-        }
-
-        const { behavior = 'external', onClick = null, title = '' } = options || {};
-
-        const link = document.createElement('a');
-        link.className = className;
-        link.textContent = safeTicker;
-        if (title) {
-            link.title = title;
-        }
-
-        if (behavior === 'filter' && typeof onClick === 'function') {
-            link.href = '#';
-            link.setAttribute('role', 'button');
-            link.dataset.ticker = safeTicker;
-            link.addEventListener('click', (event) => {
-                event.preventDefault();
-                onClick(safeTicker);
-            });
-        } else {
-            link.href = this.generateTickerLink(safeTicker);
-            link.target = '_blank';
-            link.rel = 'noopener noreferrer';
-
-            link.addEventListener('click', (event) => {
-                event.preventDefault();
-                window.open(this.generateTickerLink(safeTicker), '_blank', 'noopener,noreferrer');
-            });
-        }
-
-        return link;
-    }
-
-    applyResponsiveLabels(row, labels = []) {
-        if (!row || !Array.isArray(labels) || labels.length === 0) {
-            return;
-        }
-
-        const cells = Array.from(row.cells || []);
-        cells.forEach((cell, index) => {
-            const label = labels[index];
-            if (label) {
-                cell.setAttribute('data-label', label);
-            } else {
-                cell.removeAttribute('data-label');
-            }
-        });
-    }
+    applyResponsiveLabels(row, labels = []) { return dom.applyResponsiveLabels(row, labels); }
 
     normalizeUnderlyingType(type, { fallback = 'Stock' } = {}) {
         const normalized = (type || '').toString().trim().toLowerCase();
@@ -5839,102 +5760,13 @@ class GammaLedger {
         this.updateTickerPreview('');
         }
 
-    parseDecimal(value, defaultValue = null, { allowNegative = true } = {}) {
-        if (value === null || value === undefined) {
-            return defaultValue;
-        }
+    parseDecimal(value, defaultValue = null, options = {}) { return fmt.parseDecimal(value, defaultValue, options); }
 
-        let normalized = typeof value === 'string' ? value.trim() : value;
-        if (typeof normalized === 'string') {
-            if (normalized === '') {
-                return defaultValue;
-            }
+    parseDateValue(value) { return dates.parseDateValue(value); }
 
-            let text = normalized.replace(/\s+/g, '');
-            if (!text) {
-                return defaultValue;
-            }
+    parseInteger(value, defaultValue = null, options = {}) { return fmt.parseInteger(value, defaultValue, options); }
 
-            const hasComma = text.includes(',');
-            const hasDot = text.includes('.');
-
-            if (hasComma && !hasDot) {
-                text = text.replace(/,/g, '.');
-            } else if (hasComma && hasDot) {
-                const lastComma = text.lastIndexOf(',');
-                const lastDot = text.lastIndexOf('.');
-                if (lastComma > lastDot) {
-                    text = text.replace(/\./g, '').replace(/,/g, '.');
-                } else {
-                    text = text.replace(/,/g, '');
-                }
-            }
-
-            text = text.replace(/_/g, '');
-            normalized = text;
-        }
-
-        const parsedValue = Number(normalized);
-        if (!Number.isFinite(parsedValue)) {
-            return defaultValue;
-        }
-
-        if (!allowNegative && parsedValue < 0) {
-            return defaultValue;
-        }
-
-        return parsedValue;
-    }
-
-    parseDateValue(value) {
-        if (!value) {
-            return null;
-        }
-
-        if (value instanceof Date) {
-            return Number.isNaN(value.getTime()) ? null : value;
-        }
-
-        const normalized = value.toString().trim();
-        if (!normalized) {
-            return null;
-        }
-
-        const parsed = new Date(normalized);
-        if (Number.isNaN(parsed.getTime())) {
-            return null;
-        }
-
-        return parsed;
-    }
-
-    parseInteger(value, defaultValue = null, { allowNegative = true } = {}) {
-        if (value === null || value === undefined) {
-            return defaultValue;
-        }
-
-        const normalized = typeof value === 'string' ? value.trim() : value;
-        if (normalized === '') {
-            return defaultValue;
-        }
-
-        const parsedValue = parseInt(normalized, 10);
-        if (!Number.isFinite(parsedValue)) {
-            return defaultValue;
-        }
-
-        if (!allowNegative && parsedValue < 0) {
-            return defaultValue;
-        }
-
-        return parsedValue;
-    }
-
-    // Helper method to properly parse exit price, allowing 0 as valid
-    parseExitPrice(exitPriceValue) {
-        const parsedValue = this.parseDecimal(exitPriceValue, null, { allowNegative: false });
-        return parsedValue === null ? null : parsedValue;
-    }
+    parseExitPrice(exitPriceValue) { return fmt.parseExitPrice(exitPriceValue); }
 
     // FIXED: Handle trade submission for both new and edited trades
     handleTradeSubmit() {
@@ -11896,24 +11728,9 @@ class GammaLedger {
         }
     }
 
-    arrayBufferToBase64(buffer) {
-        const bytes = new Uint8Array(buffer);
-        let binary = '';
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary);
-    }
+    arrayBufferToBase64(buffer) { return cryptoUtil.arrayBufferToBase64(buffer); }
 
-    base64ToArrayBuffer(base64) {
-        const binary = atob(base64);
-        const len = binary.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binary.charCodeAt(i);
-        }
-        return bytes.buffer;
-    }
+    base64ToArrayBuffer(base64) { return cryptoUtil.base64ToArrayBuffer(base64); }
 
     getFinnhubSecretStorageKey() {
         return 'GammaLedgerFinnhubSecret';
@@ -11941,33 +11758,11 @@ class GammaLedger {
         return cryptoKey;
     }
 
-    async encryptString(plainText, cryptoApi, cryptoKey) {
-        const iv = cryptoApi.getRandomValues(new Uint8Array(12));
-        const enc = new TextEncoder();
-        const cipherBuffer = await cryptoApi.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, enc.encode(plainText));
-        return {
-            iv: this.arrayBufferToBase64(iv.buffer),
-            ct: this.arrayBufferToBase64(cipherBuffer)
-        };
-    }
+    async encryptString(plainText, cryptoApi, cryptoKey) { return cryptoUtil.encryptString(plainText, cryptoApi, cryptoKey); }
 
-    getCrypto() {
-        if (typeof globalThis !== 'undefined' && globalThis.crypto) {
-            return globalThis.crypto;
-        }
-        if (typeof window !== 'undefined' && window.crypto) {
-            return window.crypto;
-        }
-        return null;
-    }
+    getCrypto() { return cryptoUtil.getCrypto(); }
 
-    async decryptString(payload, cryptoApi, cryptoKey) {
-        const iv = new Uint8Array(this.base64ToArrayBuffer(payload.iv));
-        const cipher = this.base64ToArrayBuffer(payload.ct);
-        const plainBuffer = await cryptoApi.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, cipher);
-        const dec = new TextDecoder();
-        return dec.decode(plainBuffer);
-    }
+    async decryptString(payload, cryptoApi, cryptoKey) { return cryptoUtil.decryptString(payload, cryptoApi, cryptoKey); }
 
     async encryptAndStoreFinnhubApiKey(cryptoApi = this.getCrypto()) {
         try {
@@ -13023,71 +12818,13 @@ class GammaLedger {
         });
     }
 
-    getWeekEndingFriday(dateInput) {
-        const date = new Date(dateInput);
-        if (isNaN(date.getTime())) {
-            return null;
-        }
+    getWeekEndingFriday(dateInput) { return dates.getWeekEndingFriday(dateInput); }
 
-        const weekEnd = new Date(date);
-        weekEnd.setHours(0, 0, 0, 0);
-        const day = weekEnd.getDay();
+    getWeekKey(dateInput) { return dates.getWeekKey(dateInput); }
 
-        if (day === 5) {
-            return weekEnd;
-        }
+    formatDayLabel(dateInput) { return dates.formatDayLabel(dateInput); }
 
-        if (day === 6) {
-            weekEnd.setDate(weekEnd.getDate() - 1);
-            return weekEnd;
-        }
-
-        if (day === 0) {
-            weekEnd.setDate(weekEnd.getDate() - 2);
-            return weekEnd;
-        }
-
-        weekEnd.setDate(weekEnd.getDate() + (5 - day));
-        return weekEnd;
-    }
-
-    getWeekKey(dateInput) {
-        const date = new Date(dateInput);
-        if (isNaN(date.getTime())) {
-            return '';
-        }
-
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }
-
-    formatDayLabel(dateInput) {
-        const date = new Date(dateInput);
-        if (Number.isNaN(date.getTime())) {
-            return '';
-        }
-
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric'
-        });
-    }
-
-    formatWeekLabel(dateInput) {
-        const date = new Date(dateInput);
-        if (isNaN(date.getTime())) {
-            return '';
-        }
-
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric'
-        });
-    }
+    formatWeekLabel(dateInput) { return dates.formatWeekLabel(dateInput); }
 
     updateStrategyPerformanceChart() {
         const canvas = document.getElementById('strategyChart');
@@ -19385,120 +19122,17 @@ class GammaLedger {
         return false;
     }
 
-    formatNumber(value, options = {}) {
-        const numeric = Number(value);
-        if (!Number.isFinite(numeric)) {
-            return null;
-        }
+    formatNumber(value, options = {}) { return fmt.formatNumber(value, options); }
 
-        const style = options.style || 'number';
-        const fallbackDecimals = style === 'currency' ? 2 : 2;
-        const decimals = Number.isInteger(options.decimals) ? Math.max(0, options.decimals) : fallbackDecimals;
-        const currencyCode = options.currency || 'USD';
-        const groupingDefault = style === 'currency';
-        const useGrouping = typeof options.useGrouping === 'boolean' ? options.useGrouping : groupingDefault;
+    formatPercent(value, fallback = '—', options = {}) { return fmt.formatPercent(value, fallback, options); }
 
-        const formatWithIntl = (num, fractionDigits = decimals) => new Intl.NumberFormat('en-US', {
-            useGrouping,
-            minimumFractionDigits: fractionDigits,
-            maximumFractionDigits: fractionDigits
-        }).format(num);
+    getStrategyDisplayName(strategy = '') { return fmt.getStrategyDisplayName(strategy); }
 
-        if (style === 'currency') {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: currencyCode,
-                useGrouping,
-                minimumFractionDigits: decimals,
-                maximumFractionDigits: decimals
-            }).format(numeric);
-        }
+    escapeHTML(value) { return dom.escapeHTML(value); }
 
-        if (style === 'percent') {
-            const percentDigits = Number.isInteger(options.decimals) ? Math.max(0, options.decimals) : decimals;
-            return `${formatWithIntl(numeric, percentDigits)}%`;
-        }
+    formatCurrency(amount, options = {}) { return fmt.formatCurrency(amount, options); }
 
-        return formatWithIntl(numeric, decimals);
-    }
-
-    formatPercent(value, fallback = '—', options = {}) {
-        const numeric = Number(value);
-        if (numeric === Number.POSITIVE_INFINITY) {
-            return 'Infinite';
-        }
-        if (!Number.isFinite(numeric)) {
-            return fallback;
-        }
-
-        const decimals = Number.isInteger(options.decimals)
-            ? Math.max(0, options.decimals)
-            : 2;
-        const formatted = this.formatNumber(numeric, { decimals, useGrouping: true });
-        return formatted ? `${formatted}%` : `${numeric.toFixed(decimals)}%`;
-    }
-
-    getStrategyDisplayName(strategy = '') {
-        const raw = (strategy || '').toString().trim();
-        if (!raw) {
-            return '';
-        }
-
-        if (raw.toUpperCase() === 'PMCC') {
-            return 'Poor Man\'s Covered Call';
-        }
-
-        return raw;
-    }
-
-    escapeHTML(value) {
-        if (value === null || value === undefined) {
-            return '';
-        }
-
-        return value.toString()
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    formatCurrency(amount, options = {}) {
-        const value = Number(amount);
-        if (!Number.isFinite(value)) {
-            return '—';
-        }
-
-        const currency = options.currency || 'USD';
-        const decimals = Number.isInteger(options.decimals)
-            ? Math.max(0, options.decimals)
-            : 2;
-        const useGrouping = options.useGrouping !== undefined
-            ? Boolean(options.useGrouping)
-            : true;
-
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency,
-            useGrouping,
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        }).format(value);
-    }
-
-    formatDate(dateString) {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) {
-            return '—';
-        }
-
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-    }
+    formatDate(dateString) { return dates.formatDate(dateString); }
 }
 
 class LocalInsightsAgent {
