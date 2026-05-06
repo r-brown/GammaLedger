@@ -1,10 +1,14 @@
 // Safe localStorage wrappers that gracefully handle quota and private-mode errors.
 // Migrated from class GammaLedger (see docs/refactor/phase1-analysis.md §3).
-// Higher-level persistence (saveToStorage / loadFromStorage) remains in
-// legacy/app.js for now and will move to database/persist.js in Wave 11.
 
-export const safeLocalStorage = {
-    getItem: (key) => {
+export interface SafeLocalStorage {
+    getItem(key: string): string | null
+    setItem(key: string, value: string): boolean
+    removeItem(key: string): boolean
+}
+
+export const safeLocalStorage: SafeLocalStorage = {
+    getItem: (key: string): string | null => {
         try {
             return localStorage.getItem(key);
         } catch (error) {
@@ -12,22 +16,21 @@ export const safeLocalStorage = {
             return null;
         }
     },
-    setItem: (key, value) => {
+    setItem: (key: string, value: string): boolean => {
         try {
             localStorage.setItem(key, value);
             return true;
         } catch (error) {
             console.warn(`Failed to write to localStorage (key: ${key}):`, error);
-            // Handle quota exceeded or privacy mode
-            if (error.name === 'QuotaExceededError') {
+            if ((error as DOMException).name === 'QuotaExceededError') {
                 alert('Storage quota exceeded. Please clear some data or use a different browser.');
-            } else if (error.name === 'SecurityError') {
+            } else if ((error as DOMException).name === 'SecurityError') {
                 console.warn('localStorage is disabled in this browser (private mode?)');
             }
             return false;
         }
     },
-    removeItem: (key) => {
+    removeItem: (key: string): boolean => {
         try {
             localStorage.removeItem(key);
             return true;
@@ -37,3 +40,4 @@ export const safeLocalStorage = {
         }
     }
 };
+
