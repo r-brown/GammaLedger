@@ -12,11 +12,11 @@ Reports written to `docs/refactor/phase1-analysis.md` and `phase1-module-map.md`
 
 ### Step 2 — Vite setup ✅
 - `package.json` (`type: "module"`, dev/build/preview scripts)
-- `vite.config.js` (root `.`, outDir `dist`)
+- `vite.config.ts` (root `.`, outDir `dist`, `@` path aliases, `vite-plugin-checker`)
 - `.gitignore` extended with `node_modules/`, `dist/`, `.vite/`
-- Files relocated: `index.html` → repo root, `app.js` → `src/legacy/app.js`,
-  `style.css` → `src/legacy/app.css`, `gammaledger-logo-*.png` → `public/`
-- `index.html` now loads `/src/legacy/app.js` as `type="module"`
+- Files relocated: `index.html` → repo root, `app.js` → `src/legacy/app.js` (now `src/index.js`),
+  `style.css` → `src/legacy/app.css` (now `src/styles/app.css`), `gammaledger-logo-*.png` → `public/`
+- `index.html` loads `/src/index.js` as `type="module"` and `/src/styles/app.css`
 - Dev server (`npm run dev`) and prod build (`npm run build`) both pass
 
 ### Step 3 — Skeleton ✅
@@ -39,7 +39,7 @@ Reports written to `docs/refactor/phase1-analysis.md` and `phase1-module-map.md`
 | 9 — Tables and charts | ✅ done | `ui/tables/highlights.js`, `ui/tables/active-positions.js`, `ui/tables/assigned-positions.js`, `ui/tables/recent-trades.js`, `ui/tables/trades-table.js`, `ui/charts/cumulative-pl.js`, `ui/charts/dashboard-charts.js`, `ui/credit-playbook/data.js`, `ui/credit-playbook/render.js`, `ui/credit-playbook/index.js` |
 | 10 — Share card / dashboard / chat | ✅ done | `ui/share-card.js`, `ui/dashboard.js`, `ai/chat.js` |
 | 11 — Form + database | ✅ done | `trades/leg-form.js`, `database/persist.js` |
-| 12 — Entry point | ⏳ deferred | `src/index.js` — `class GammaLedger` stays in `src/legacy/app.js` for now; dissolving into `src/index.js` deferred to Phase 2 TypeScript migration |
+| 12 — Entry point | ✅ done | `src/legacy/app.js` → `src/index.js`, `src/legacy/app.css` → `src/styles/app.css`, `src/legacy/` deleted, `src/utils/export.js` converted to re-export shim |
 
 ---
 
@@ -47,10 +47,13 @@ Reports written to `docs/refactor/phase1-analysis.md` and `phase1-module-map.md`
 
 | Metric | Before | After |
 | --- | --- | --- |
-| `src/legacy/app.js` lines | 18,546 | 2,912 (84% reduction) |
+| `src/legacy/app.js` lines | 18,546 | **deleted** (promoted to `src/index.js`) |
+| `src/index.js` lines | 2 (placeholder) | 2,912 |
 | Vite modules transformed | 1 | 60 |
 | Bundle size (JS) | 367 kB | 381 kB |
 | Bundle size (gzip) | 94.9 kB | 99.5 kB |
+| TypeScript errors | — | 0 |
+| `src/legacy/` directory | exists | **deleted** |
 
 Small bundle increase (~4%) is expected — module boilerplate, no duplicated logic.
 
@@ -63,8 +66,8 @@ function and the class method becomes a thin delegator:
 // src/utils/dates.js
 export function formatDate(dateString) { /* original body */ }
 
-// src/legacy/app.js (top of file)
-import * as dates from '../utils/dates.js';
+// src/index.js (top of file)
+import * as dates from './utils/dates.js';
 
 class GammaLedger {
   formatDate(dateString) { return dates.formatDate(dateString); }
@@ -84,14 +87,23 @@ export function refreshAssignedPositionsQuotes({ force = false, immediate = fals
 
 ---
 
-## What `src/legacy/app.js` looks like now
+## What `src/index.js` looks like now
 
-- ~2,912 LOC (down from 21,440 original / 18,546 at wave-1 start)
-- Imports at top: 30 module namespace imports
-- Single class `GammaLedger` with 400 methods, almost all now thin delegators
+- 2,912 LOC (promoted from `src/legacy/app.js` with import paths adjusted)
+- Imports at top: 36 module imports
+- Single class `GammaLedger` with ~400 methods, almost all thin delegators
 - `constructor()` and `bindEvents()` remain full implementations (highly stateful)
-- Bootstrap section unchanged (DOMContentLoaded, error handlers, beforeunload)
-- Wave 12 (dissolve `src/legacy/`, promote to `src/index.js`) deferred to Phase 2
+- Bootstrap section: `DOMContentLoaded`, global error handlers, `beforeunload`
+- `src/utils/export.js` is now a re-export shim pointing to `database/persist.js`
+
+---
+
+## Notable deviations from the original module map
+
+- `utils/export.js` — planned for `exportToCSV` etc., but those landed in
+  `database/persist.js` during Wave 11. `utils/export.js` is now a re-export shim.
+- `vite.config.ts` — already converted to TypeScript as part of Phase 2 tooling setup
+  (committed earlier); listed in phase1 plan as a JS file.
 
 ---
 
@@ -112,8 +124,9 @@ Automated scripts under `scripts/` were used for bulk extraction:
 Run after every module conversion:
 
 1. `npm run build` exits 0 ✅
-2. Dev server (`npm run dev`) starts and serves correctly ✅
+2. Dev server (`npm run dev`) starts and serves correctly — HTTP 200 ✅
 3. 60 ES modules resolved and bundled ✅
+4. `npm run typecheck` exits with 0 errors ✅
 
 True UI smoke testing (add trade, view dashboard, run import, etc.) should be
 performed in a real browser before merging — requires DOM interaction.
@@ -123,6 +136,4 @@ performed in a real browser before merging — requires DOM interaction.
 ## Recommended next steps
 
 1. **Browser smoke test** — open `npm run dev` and walk the CLAUDE.md checklist
-2. **Wave 12** — move `class GammaLedger` from `src/legacy/app.js` to `src/index.js`
-   and delete `src/legacy/`
-3. **Phase 2** — TypeScript migration per CLAUDE.md Phase 2 instructions
+2. **Phase 2** — TypeScript migration per CLAUDE.md Phase 2 instructions
