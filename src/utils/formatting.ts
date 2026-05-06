@@ -1,7 +1,38 @@
 // Pure formatting / parsing helpers — no class state required.
 // Migrated from class GammaLedger (see docs/refactor/phase1-analysis.md §10).
 
-export function sanitizeString(value, maxLength = 1000) {
+import type { DollarAmount } from '@types-gl/common'
+
+// ---------------------------------------------------------------------------
+// Option bag interfaces
+// ---------------------------------------------------------------------------
+
+export interface ParseDecimalOptions {
+    allowNegative?: boolean
+}
+
+export interface FormatNumberOptions {
+    style?: 'number' | 'currency' | 'percent'
+    decimals?: number
+    currency?: string
+    useGrouping?: boolean
+}
+
+export interface FormatPercentOptions {
+    decimals?: number
+}
+
+export interface FormatCurrencyOptions {
+    currency?: string
+    decimals?: number
+    useGrouping?: boolean
+}
+
+// ---------------------------------------------------------------------------
+// String helpers
+// ---------------------------------------------------------------------------
+
+export function sanitizeString(value: unknown, maxLength = 1000): string {
     if (value === null || value === undefined) {
         return '';
     }
@@ -10,12 +41,20 @@ export function sanitizeString(value, maxLength = 1000) {
     return str.length > maxLength ? str.substring(0, maxLength) : str;
 }
 
-export function parseDecimal(value, defaultValue = null, { allowNegative = true } = {}) {
+// ---------------------------------------------------------------------------
+// Number parsers
+// ---------------------------------------------------------------------------
+
+export function parseDecimal(
+    value: unknown,
+    defaultValue: number | null = null,
+    { allowNegative = true }: ParseDecimalOptions = {}
+): number | null {
     if (value === null || value === undefined) {
         return defaultValue;
     }
 
-    let normalized = typeof value === 'string' ? value.trim() : value;
+    let normalized: string | number = typeof value === 'string' ? value.trim() : (value as number);
     if (typeof normalized === 'string') {
         if (normalized === '') {
             return defaultValue;
@@ -57,12 +96,16 @@ export function parseDecimal(value, defaultValue = null, { allowNegative = true 
     return parsedValue;
 }
 
-export function parseInteger(value, defaultValue = null, { allowNegative = true } = {}) {
+export function parseInteger(
+    value: unknown,
+    defaultValue: number | null = null,
+    { allowNegative = true }: ParseDecimalOptions = {}
+): number | null {
     if (value === null || value === undefined) {
         return defaultValue;
     }
 
-    const normalized = typeof value === 'string' ? value.trim() : value;
+    const normalized = typeof value === 'string' ? value.trim() : String(value);
     if (normalized === '') {
         return defaultValue;
     }
@@ -79,13 +122,17 @@ export function parseInteger(value, defaultValue = null, { allowNegative = true 
     return parsedValue;
 }
 
-// Helper to properly parse exit price, allowing 0 as valid.
-export function parseExitPrice(exitPriceValue) {
+/** Parse exit price — allows 0 as valid, rejects negatives. */
+export function parseExitPrice(exitPriceValue: unknown): number | null {
     const parsedValue = parseDecimal(exitPriceValue, null, { allowNegative: false });
     return parsedValue === null ? null : parsedValue;
 }
 
-export function formatNumber(value, options = {}) {
+// ---------------------------------------------------------------------------
+// Number formatters
+// ---------------------------------------------------------------------------
+
+export function formatNumber(value: unknown, options: FormatNumberOptions = {}): string | null {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) {
         return null;
@@ -93,16 +140,17 @@ export function formatNumber(value, options = {}) {
 
     const style = options.style || 'number';
     const fallbackDecimals = style === 'currency' ? 2 : 2;
-    const decimals = Number.isInteger(options.decimals) ? Math.max(0, options.decimals) : fallbackDecimals;
+    const decimals = Number.isInteger(options.decimals) ? Math.max(0, options.decimals!) : fallbackDecimals;
     const currencyCode = options.currency || 'USD';
     const groupingDefault = style === 'currency';
     const useGrouping = typeof options.useGrouping === 'boolean' ? options.useGrouping : groupingDefault;
 
-    const formatWithIntl = (num, fractionDigits = decimals) => new Intl.NumberFormat('en-US', {
-        useGrouping,
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits
-    }).format(num);
+    const formatWithIntl = (num: number, fractionDigits = decimals): string =>
+        new Intl.NumberFormat('en-US', {
+            useGrouping,
+            minimumFractionDigits: fractionDigits,
+            maximumFractionDigits: fractionDigits
+        }).format(num);
 
     if (style === 'currency') {
         return new Intl.NumberFormat('en-US', {
@@ -115,14 +163,18 @@ export function formatNumber(value, options = {}) {
     }
 
     if (style === 'percent') {
-        const percentDigits = Number.isInteger(options.decimals) ? Math.max(0, options.decimals) : decimals;
+        const percentDigits = Number.isInteger(options.decimals) ? Math.max(0, options.decimals!) : decimals;
         return `${formatWithIntl(numeric, percentDigits)}%`;
     }
 
     return formatWithIntl(numeric, decimals);
 }
 
-export function formatPercent(value, fallback = '—', options = {}) {
+export function formatPercent(
+    value: unknown,
+    fallback = '—',
+    options: FormatPercentOptions = {}
+): string {
     const numeric = Number(value);
     if (numeric === Number.POSITIVE_INFINITY) {
         return 'Infinite';
@@ -132,26 +184,26 @@ export function formatPercent(value, fallback = '—', options = {}) {
     }
 
     const decimals = Number.isInteger(options.decimals)
-        ? Math.max(0, options.decimals)
+        ? Math.max(0, options.decimals!)
         : 2;
     const formatted = formatNumber(numeric, { decimals, useGrouping: true });
     return formatted ? `${formatted}%` : `${numeric.toFixed(decimals)}%`;
 }
 
-export function getStrategyDisplayName(strategy = '') {
-    const raw = (strategy || '').toString().trim();
+export function getStrategyDisplayName(strategy: string | undefined = ''): string {
+    const raw = String(strategy || '').trim();
     if (!raw) {
         return '';
     }
 
     if (raw.toUpperCase() === 'PMCC') {
-        return 'Poor Man\'s Covered Call';
+        return "Poor Man's Covered Call";
     }
 
     return raw;
 }
 
-export function formatCurrency(amount, options = {}) {
+export function formatCurrency(amount: unknown, options: FormatCurrencyOptions = {}): DollarAmount | string {
     const value = Number(amount);
     if (!Number.isFinite(value)) {
         return '—';
@@ -159,7 +211,7 @@ export function formatCurrency(amount, options = {}) {
 
     const currency = options.currency || 'USD';
     const decimals = Number.isInteger(options.decimals)
-        ? Math.max(0, options.decimals)
+        ? Math.max(0, options.decimals!)
         : 2;
     const useGrouping = options.useGrouping !== undefined
         ? Boolean(options.useGrouping)
@@ -173,3 +225,4 @@ export function formatCurrency(amount, options = {}) {
         maximumFractionDigits: decimals
     }).format(value);
 }
+
