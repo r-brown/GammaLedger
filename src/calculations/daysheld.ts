@@ -1,8 +1,22 @@
-// src/calculations/daysheld.js — Wave 3: Days held and DTE helpers.
+// src/calculations/daysheld.ts — Wave 3: Days held and DTE helpers.
 // Uses the .call(this, …) delegation pattern.
 
-// Fixed days held calculation
-export function calculateDaysHeld(trade) {
+import type { EnrichedTrade } from '@types-gl/trade'
+
+/**
+ * Minimum GammaLedger context surface required by daysheld calculations.
+ * GammaLedger fulfils this interface at runtime via .call(this, …).
+ * TODO Phase 3: replace with typed GammaLedger reference once src/index.ts is converted.
+ */
+interface DaysHeldContext {
+    parseDateValue(value: unknown): Date | null
+    isClosedStatus(status: string | null | undefined): boolean
+    isPmccTrade(trade: EnrichedTrade): boolean
+    readonly currentDate: Date
+}
+
+/** Days between a trade's entry date and its exit date (or today if still open). */
+export function calculateDaysHeld(this: DaysHeldContext, trade: EnrichedTrade | null | undefined): number {
     if (!trade) {
         return 0;
     }
@@ -24,8 +38,12 @@ export function calculateDaysHeld(trade) {
     return Math.max(1, diffDays);
 }
 
-// DTE calculation using current date
-export function calculateDTE(expirationDate, trade) {
+/** Days to expiration from today. Returns 0 if already expired or trade is closed. */
+export function calculateDTE(
+    this: DaysHeldContext,
+    expirationDate: string | null | undefined,
+    trade: EnrichedTrade
+): number {
     let expDate = this.parseDateValue(expirationDate);
 
     if (!expDate && this.isPmccTrade(trade)) {
@@ -51,3 +69,4 @@ export function calculateDTE(expirationDate, trade) {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return Math.max(0, diffDays);
 }
+
