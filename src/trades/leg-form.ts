@@ -2,8 +2,10 @@
 // Uses the .call(this, …) delegation pattern.
 
 interface LegFormContext {
+    currentView: string
     currentEditingId: string | null | undefined
     defaultFeePerContract: number | null
+    finnhub?: { apiKey?: string | null } | null
     normalizeLegType(type: unknown): string
     normalizeUnderlyingType(type: unknown, opts?: { fallback?: string }): string
     normalizeLegOrderType(orderType: unknown): string
@@ -22,7 +24,9 @@ interface LegFormContext {
     renderLegForms(legs?: unknown[]): void
     createClosingLegFromRow(sourceRow: HTMLElement): void
     collectLegsFromForm(): Record<string, unknown>[] | null
-    autoFillUnderlyingPrice(input: HTMLInputElement): void
+    autoFillUnderlyingPrice(input: HTMLInputElement | null): Promise<void>
+    autoFillUnderlyingPricesForLegs(): Promise<void>
+    getCurrentPrice(ticker: string): Promise<{ price?: unknown }>
     getDefaultFeeForQuantity(qty: number): number | null
     parseDecimal(raw: string, defaultVal: number | null, opts?: { allowNegative?: boolean }): number | null
     parseInteger(raw: string, defaultVal: number | null, opts?: { allowNegative?: boolean }): number | null
@@ -213,6 +217,69 @@ export function renderLegForms(
 
     this.updateLegRowNumbers();
     this.applyUnderlyingTypeToLegMultipliers({ force: !Array.isArray(legs) || legs.length === 0 });
+}
+
+export async function autoFillUnderlyingPrice(
+    this: LegFormContext,
+    inputElement: HTMLInputElement | null
+): Promise<void> {
+    if (!inputElement) {
+        return;
+    }
+
+    if (this.currentView !== 'add-trade') {
+        return;
+    }
+
+    const tickerInput = document.getElementById('ticker') as HTMLInputElement | null;
+    const ticker = (tickerInput?.value || '').trim().toUpperCase();
+    if (!ticker || !this.finnhub?.apiKey) {
+        return;
+    }
+
+    try {
+        const quote = await this.getCurrentPrice(ticker);
+        const price = Number(quote?.price);
+        if (Number.isFinite(price) && price > 0 && !inputElement.value) {
+            inputElement.value = String(price);
+        }
+    } catch (_error) {
+        // Price autofill is a convenience; leave manual input uninterrupted.
+    }
+}
+
+export async function autoFillUnderlyingPricesForLegs(this: LegFormContext): Promise<void> {
+    if (this.currentView !== 'add-trade') {
+        return;
+    }
+
+    const tickerInput = document.getElementById('ticker') as HTMLInputElement | null;
+    const ticker = (tickerInput?.value || '').trim().toUpperCase();
+    const container = document.getElementById('add-trade-view') || document;
+    if (!container) {
+        return;
+    }
+
+    const emptyInputs = Array.from(container.querySelectorAll<HTMLInputElement>('[data-leg-field="underlyingPrice"]'))
+        .filter(input => !input.value);
+
+    if (emptyInputs.length === 0) {
+        return;
+    }
+
+    try {
+        const quote = await this.getCurrentPrice(ticker);
+        const price = Number(quote?.price);
+        if (Number.isFinite(price) && price > 0) {
+            emptyInputs.forEach(input => {
+                if (!input.value) {
+                    input.value = String(price);
+                }
+            });
+        }
+    } catch (_error) {
+        // Price autofill is a convenience; leave manual input uninterrupted.
+    }
 }
 
 export function addLegFormRow(
@@ -653,4 +720,3 @@ export function collectLegsFromForm(this: LegFormContext): Record<string, unknow
 
     return legs;
 }
-

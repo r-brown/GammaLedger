@@ -7,8 +7,71 @@ import {
     RUNTIME_TRADE_FIELDS,
     RUNTIME_LEG_FIELDS
 } from '@core/config'
+import { migrateSchema } from '@core/migration'
 
-export function getStorageTrades() {
+type TradeRecord = Record<string, unknown>
+type StorageSnapshot = Record<string, unknown>
+
+interface PickerFileHandle {
+    name: string
+    getFile(): Promise<File>
+    createWritable(): Promise<{ write(data: unknown): Promise<void>; close(): Promise<void> }>
+}
+
+interface PickerWindow {
+    showSaveFilePicker?: (options?: Record<string, unknown>) => Promise<PickerFileHandle>
+    showOpenFilePicker?: (options?: Record<string, unknown>) => Promise<PickerFileHandle[]>
+}
+
+interface CachedQuote {
+    value?: {
+        price?: unknown
+    }
+}
+
+interface PersistContext {
+    trades: TradeRecord[]
+    currentFileHandle: PickerFileHandle | null
+    currentFileName: string | null
+    currentView: string
+    hasUnsavedChanges: boolean
+    supportsFileSystemAccess: boolean
+    importMergeSelection: Set<unknown>
+    importSummary: unknown
+
+    isClosedStatus(status: unknown): boolean
+    getTradeOpenStockShares(trade: TradeRecord): number
+    isPmccTrade(trade: TradeRecord): boolean
+    getNetOpenLongCallContracts(trade: TradeRecord): number
+    getCachedQuote?(ticker: string): CachedQuote | null | undefined
+    enrichTradeData(trade: TradeRecord): TradeRecord
+    buildTradeStorageSnapshot(trade: TradeRecord): StorageSnapshot | null
+    buildLegStorageSnapshot(leg: TradeRecord): StorageSnapshot | null
+    getStorageTrades(): StorageSnapshot[]
+    buildMCPContext(): unknown
+    buildDatabasePayload(): StorageSnapshot
+    saveWithFileSystemAPI(data: unknown): Promise<void>
+    saveWithDownload(data: unknown): void
+    loadWithFileSystemAPI(): Promise<void>
+    loadWithFileInput(): void
+    processLoadedData(data: Record<string, unknown>, metadata?: Record<string, unknown>): void
+    saveToStorage(metadata?: Record<string, unknown>): void
+    showNotification(message: string, variant?: string): void
+    showLoadingIndicator(text?: string): void
+    hideLoadingIndicator(): void
+    updateDashboard(): void
+    updateFileNameDisplay(): void
+    updateTradesList(): void
+    updateUnsavedIndicator(): void
+    initializeAIChat(): void
+    renderImportSummary(): void
+    refreshImportMergeList(): void
+    formatCurrency(value: number): string
+    formatNumber(value: number, options?: { decimals?: number; useGrouping?: boolean }): string
+    getTradeType(trade: TradeRecord): unknown
+}
+
+export function getStorageTrades(this: PersistContext): StorageSnapshot[] {
     if (!Array.isArray(this.trades)) {
         return [];
     }
@@ -18,14 +81,14 @@ export function getStorageTrades() {
     // live API call. Mutates the in-memory trade record (these are persisted,
     // not runtime, fields).
     let snapshotChanged = false;
-    const needsSnapshot = (t) => {
+    const needsSnapshot = (t: TradeRecord): boolean => {
         if (!t || typeof t !== 'object') return false;
         if (this.isClosedStatus(t.status)) return false;
         const heldShares = this.getTradeOpenStockShares(t);
         const heldLeap = this.isPmccTrade(t) ? this.getNetOpenLongCallContracts(t) : 0;
         return heldShares > 0 || heldLeap > 0;
     };
-    this.trades.forEach((trade) => {
+    this.trades.forEach((trade: TradeRecord) => {
         if (!needsSnapshot(trade)) return;
         const ticker = (trade.ticker || '').toString().trim().toUpperCase();
         if (!ticker) return;
@@ -45,11 +108,11 @@ export function getStorageTrades() {
     }
 
     return this.trades
-        .map((trade) => this.buildTradeStorageSnapshot(trade))
-        .filter(Boolean);
+        .map((trade: TradeRecord) => this.buildTradeStorageSnapshot(trade))
+        .filter((trade): trade is StorageSnapshot => Boolean(trade));
 }
 
-export function buildTradeStorageSnapshot(trade: Record<string, unknown>) {
+export function buildTradeStorageSnapshot(this: PersistContext, trade: TradeRecord): StorageSnapshot | null {
     if (!trade || typeof trade !== 'object') {
         return null;
     }
@@ -66,8 +129,12 @@ export function buildTradeStorageSnapshot(trade: Record<string, unknown>) {
                 snapshot.legs = [];
             } else {
                 const legs = value
-                    .map((leg) => this.buildLegStorageSnapshot(leg))
-                    .filter(Boolean);
+                    .map((leg: unknown) => (
+                        leg && typeof leg === 'object'
+                            ? this.buildLegStorageSnapshot(leg as TradeRecord)
+                            : null
+                    ))
+                    .filter((leg): leg is StorageSnapshot => Boolean(leg));
                 snapshot.legs = legs;
             }
             continue;
@@ -102,7 +169,7 @@ export function buildTradeStorageSnapshot(trade: Record<string, unknown>) {
     return snapshot;
 }
 
-export function buildLegStorageSnapshot(leg: Record<string, unknown>) {
+export function buildLegStorageSnapshot(leg: TradeRecord): StorageSnapshot | null {
     if (!leg || typeof leg !== 'object') {
         return null;
     }
@@ -139,7 +206,7 @@ export function buildLegStorageSnapshot(leg: Record<string, unknown>) {
     return snapshot;
 }
 
-export function buildDatabasePayload() {
+export function buildDatabasePayload(this: PersistContext): StorageSnapshot {
     return {
         version: '2.5',
         exportDate: new Date().toISOString(),
@@ -148,7 +215,66 @@ export function buildDatabasePayload() {
     };
 }
 
-export function saveWithDownload(data) {
+export async function saveDatabase(this: PersistContext): Promise<void> {
+    this.showLoadingIndicator('Saving...');
+
+    try {
+        const data = this.buildDatabasePayload();
+
+        if (this.supportsFileSystemAccess) {
+            await this.saveWithFileSystemAPI(data);
+        } else {
+            this.saveWithDownload(data);
+        }
+
+        this.hasUnsavedChanges = false;
+        this.updateUnsavedIndicator();
+        this.showNotification('Database saved successfully!', 'success');
+        this.saveToStorage({ fileName: this.currentFileName });
+    } catch (error) {
+        console.error('Save error:', error);
+        if ((error as { name?: string })?.name !== 'AbortError') {
+            try {
+                const data = this.buildDatabasePayload();
+                this.saveWithDownload(data);
+                this.hasUnsavedChanges = false;
+                this.updateUnsavedIndicator();
+                this.showNotification('Database saved as download!', 'success');
+                this.saveToStorage({ fileName: this.currentFileName });
+            } catch (_fallbackError) {
+                this.showNotification('Failed to save database', 'error');
+            }
+        }
+    }
+
+    this.hideLoadingIndicator();
+}
+
+export async function saveWithFileSystemAPI(this: PersistContext, data: unknown): Promise<void> {
+    const pickerWindow = window as unknown as PickerWindow;
+    if (!pickerWindow.showSaveFilePicker) {
+        throw new Error('File System Access API unavailable');
+    }
+
+    if (!this.currentFileHandle) {
+        this.currentFileHandle = await pickerWindow.showSaveFilePicker({
+            suggestedName: 'gammaledger.json',
+            types: [{
+                description: 'JSON files',
+                accept: { 'application/json': ['.json'] }
+            }]
+        });
+    }
+
+    const writable = await this.currentFileHandle.createWritable();
+    await writable.write(JSON.stringify(data, null, 2));
+    await writable.close();
+
+    this.currentFileName = this.currentFileHandle.name;
+    this.updateFileNameDisplay();
+}
+
+export function saveWithDownload(this: PersistContext, data: unknown): void {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -163,7 +289,48 @@ export function saveWithDownload(data) {
     this.updateFileNameDisplay();
 }
 
-export function loadWithFileInput() {
+export async function loadDatabase(this: PersistContext): Promise<void> {
+    this.showLoadingIndicator('Loading...');
+
+    try {
+        if (this.supportsFileSystemAccess) {
+            await this.loadWithFileSystemAPI();
+        } else {
+            this.loadWithFileInput();
+        }
+    } catch (error) {
+        console.error('Load error:', error);
+        if ((error as { name?: string })?.name !== 'AbortError') {
+            this.loadWithFileInput();
+        }
+    }
+
+    this.hideLoadingIndicator();
+}
+
+export async function loadWithFileSystemAPI(this: PersistContext): Promise<void> {
+    const pickerWindow = window as unknown as PickerWindow;
+    if (!pickerWindow.showOpenFilePicker) {
+        throw new Error('File System Access API unavailable');
+    }
+
+    const [fileHandle] = await pickerWindow.showOpenFilePicker({
+        types: [{
+            description: 'JSON files',
+            accept: { 'application/json': ['.json'] }
+        }]
+    });
+
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    const data = JSON.parse(text);
+
+    this.processLoadedData(data, { fileName: fileHandle.name, source: 'file-open' });
+    this.currentFileHandle = fileHandle;
+    this.showNotification(`Loaded ${this.trades.length} trades successfully!`, 'success');
+}
+
+export function loadWithFileInput(this: PersistContext): void {
     const fileInput = document.getElementById('file-input') as HTMLInputElement | null;
     if (!fileInput) return;
     fileInput.onchange = (e) => {
@@ -190,14 +357,14 @@ export function loadWithFileInput() {
     fileInput.click();
 }
 
-export function exportToCSV() {
+export function exportToCSV(this: PersistContext): void {
     const headers = [
         'Ticker', 'Strategy', 'Trade Type', 'Strike', 'Defined Risk Width', 'Qty', 'Exit Price', 'DTE', 'Days Held',
         'Entry Date', 'Expiration Date', 'Exit Date', 'Max Risk', 'P&L', 'ROI %', 'Weekly ROI %', 'Monthly ROI %', 'Annual ROI %', 'Status',
         'Stock Price at Entry', 'Fees', 'Max Risk Override', 'IV Rank', 'Notes', 'Exit Reason'
     ];
 
-    const escapeCsv = (value) => {
+    const escapeCsv = (value: unknown): string => {
         if (value === null || value === undefined) {
             return '';
         }
@@ -214,14 +381,14 @@ export function exportToCSV() {
         return text;
     };
 
-    const sanitize = (value) => {
+    const sanitize = (value: unknown): string => {
         if (value === null || value === undefined) {
             return '';
         }
-        return value === '—' ? '' : value;
+        return value === '—' ? '' : String(value);
     };
 
-    const formatCurrencyValue = (value) => {
+    const formatCurrencyValue = (value: unknown): string => {
         const numeric = Number(value);
         if (!Number.isFinite(numeric)) {
             return '';
@@ -229,7 +396,7 @@ export function exportToCSV() {
         return sanitize(this.formatCurrency(numeric));
     };
 
-    const formatNumberValue = (value, decimals = 0) => {
+    const formatNumberValue = (value: unknown, decimals = 0): string => {
         const numeric = Number(value);
         if (!Number.isFinite(numeric)) {
             return '';
@@ -237,7 +404,7 @@ export function exportToCSV() {
         return sanitize(this.formatNumber(numeric, { decimals, useGrouping: true }));
     };
 
-    const formatPercentValue = (value) => {
+    const formatPercentValue = (value: unknown): string => {
         const numeric = Number(value);
         if (numeric === Number.POSITIVE_INFINITY) {
             return 'Infinite';
@@ -249,17 +416,17 @@ export function exportToCSV() {
         return formatted ? `${formatted}%` : `${numeric.toFixed(2)}%`;
     };
 
-    const formatOptionalCurrency = (value) => (value === null || value === undefined ? '' : formatCurrencyValue(value));
-    const formatOptionalNumber = (value, decimals = 0) => (value === null || value === undefined ? '' : formatNumberValue(value, decimals));
+    const formatOptionalCurrency = (value: unknown): string => (value === null || value === undefined ? '' : formatCurrencyValue(value));
+    const formatOptionalNumber = (value: unknown, decimals = 0): string => (value === null || value === undefined ? '' : formatNumberValue(value, decimals));
 
-    const rows = this.trades.map(trade => {
+    const rows = this.trades.map((trade: TradeRecord) => {
         const fields = [
             trade.ticker ?? '',
             trade.strategy ?? '',
             this.getTradeType(trade) ?? '',
             formatOptionalCurrency(trade.strikePrice),
             formatOptionalCurrency(trade.definedRiskWidth),
-            formatOptionalNumber(Math.abs(trade.quantity), 0),
+            formatOptionalNumber(Math.abs(Number(trade.quantity)), 0),
             formatOptionalCurrency(trade.exitPrice),
             formatOptionalNumber(trade.dte, 0),
             formatOptionalNumber(trade.daysHeld, 0),
@@ -301,7 +468,11 @@ export function exportToCSV() {
     document.body.removeChild(a);
 }
 
-export function processLoadedData(data: Record<string, unknown>, metadata: Record<string, unknown> = {}) {
+export function processLoadedData(
+    this: PersistContext,
+    data: Record<string, unknown>,
+    metadata: Record<string, unknown> = {}
+): void {
     if (!data || !Array.isArray(data.trades)) {
         throw new Error('Invalid data format');
     }
@@ -315,8 +486,9 @@ export function processLoadedData(data: Record<string, unknown>, metadata: Recor
         return this.enrichTradeData(updatedTrade);
     });
 
-    if (metadata.fileName) {
-        this.currentFileName = metadata.fileName;
+    const metadataFileName = typeof metadata.fileName === 'string' ? metadata.fileName : '';
+    if (metadataFileName) {
+        this.currentFileName = metadataFileName;
     } else if (!this.currentFileName) {
         this.currentFileName = 'Unsaved Database';
     }
@@ -337,7 +509,7 @@ export function processLoadedData(data: Record<string, unknown>, metadata: Recor
     this.refreshImportMergeList();
 }
 
-export function newDatabase() {
+export function newDatabase(this: PersistContext): void {
     if (this.hasUnsavedChanges) {
         if (!confirm('You have unsaved changes. Are you sure you want to create a new database?')) {
             return;
@@ -356,7 +528,7 @@ export function newDatabase() {
     this.initializeAIChat();
 }
 
-export function saveToStorage(metadata: Record<string, unknown> = {}) {
+export function saveToStorage(this: PersistContext, metadata: Record<string, unknown> = {}): void {
     try {
         const payload = {
             version: '2.5',
@@ -374,4 +546,71 @@ export function saveToStorage(metadata: Record<string, unknown> = {}) {
     } catch (e) {
         console.warn('Failed to save to localStorage:', e);
     }
+}
+
+export async function loadFromStorage(this: PersistContext): Promise<boolean> {
+    try {
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (stored) {
+            const raw = JSON.parse(stored);
+            const hasPrimaryTrades = Array.isArray(raw)
+                || (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).trades));
+            if (hasPrimaryTrades) {
+                const parsed = migrateSchema(raw);
+                this.trades = parsed.trades.map(trade => {
+                    const normalized: Record<string, unknown> = { ...trade };
+                    if (normalized.tradeReasoning && !normalized.notes) {
+                        normalized.notes = normalized.tradeReasoning;
+                    }
+                    delete normalized.tradeReasoning;
+                    return this.enrichTradeData(normalized);
+                });
+                const metadata = parsed as unknown as Record<string, unknown>;
+                if (metadata.fileName) {
+                    this.currentFileName = String(metadata.fileName);
+                }
+                this.currentFileHandle = null;
+                this.hasUnsavedChanges = false;
+                this.updateUnsavedIndicator();
+                this.updateFileNameDisplay();
+                this.updateDashboard();
+                return true;
+            }
+        }
+
+        for (const key of LEGACY_STORAGE_KEYS) {
+            if (!key || key === LOCAL_STORAGE_KEY) {
+                continue;
+            }
+
+            const legacy = localStorage.getItem(key);
+            if (!legacy) {
+                continue;
+            }
+
+            const parsedTrades = JSON.parse(legacy);
+            if (Array.isArray(parsedTrades)) {
+                const migrated = migrateSchema(parsedTrades);
+                this.trades = migrated.trades.map(trade => {
+                    const normalized: Record<string, unknown> = { ...trade };
+                    if (normalized.tradeReasoning && !normalized.notes) {
+                        normalized.notes = normalized.tradeReasoning;
+                    }
+                    delete normalized.tradeReasoning;
+                    return this.enrichTradeData(normalized);
+                });
+                this.currentFileName = 'Unsaved Database';
+                this.hasUnsavedChanges = false;
+                this.updateUnsavedIndicator();
+                this.saveToStorage({ fileName: this.currentFileName });
+                this.updateFileNameDisplay();
+                this.updateDashboard();
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn('Failed to load from localStorage:', e);
+    }
+
+    return false;
 }

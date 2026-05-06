@@ -163,3 +163,28 @@ export function buildPriceRange({ strikeValues = [], spot = Number.NaN } = {}) {
 
     return { minPrice, maxPrice };
 }
+
+export async function getUnderlyingPriceForPayoff(trade: Record<string, unknown> = {}) {
+    const ticker = ((trade?.ticker as string) || '').toString().trim().toUpperCase();
+
+    if (ticker) {
+        const cached = this.getCachedQuote(ticker);
+        if (cached?.value && Number.isFinite(Number(cached.value.price))) {
+            return Number(cached.value.price);
+        }
+
+        if (this.finnhub.apiKey) {
+            try {
+                const quote = await this.getCurrentPrice(ticker);
+                const livePrice = Number(quote?.price);
+                if (Number.isFinite(livePrice) && livePrice > 0) {
+                    return livePrice;
+                }
+            } catch (error) {
+                console.warn('Live price lookup failed for payoff chart:', error);
+            }
+        }
+    }
+
+    return this.getFallbackUnderlyingPrice(trade);
+}

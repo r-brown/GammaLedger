@@ -1,9 +1,7 @@
 // src/ui/sidebar.ts — Wave 8: Sidebar toggle and state persistence.
 // Uses the .call(this, …) delegation pattern.
 
-// NOTE: SIDEBAR_COLLAPSED_STORAGE_KEY is declared in the host class scope;
-// referenced here via .call(this, …) delegation.
-declare const SIDEBAR_COLLAPSED_STORAGE_KEY: string;
+import { SIDEBAR_COLLAPSED_STORAGE_KEY } from '@core/config'
 
 interface SidebarState {
   container: Element | null
@@ -147,4 +145,3 @@ export function setSidebarCollapsed(
         this.setSidebarCollapsedPreference(requestedCollapsed);
     }
 }
-

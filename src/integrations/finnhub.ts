@@ -267,6 +267,138 @@ export function getFinnhubSecretStorageKey() {
     return 'GammaLedgerFinnhubSecret';
 }
 
+export async function loadFinnhubConfigFromStorage() {
+    try {
+        const raw = localStorage.getItem(this.getFinnhubStorageKey());
+        if (!raw) {
+            return;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed) {
+            return;
+        }
+
+        if (parsed.enc && parsed.payload) {
+            const cryptoApi = this.getCrypto();
+            if (!cryptoApi?.subtle) {
+                console.warn('Encrypted Finnhub API key stored but Web Crypto unavailable.');
+                this.updateFinnhubStatus('Stored Finnhub key is encrypted, but this browser cannot decrypt it.', 'error', 7000);
+                return;
+            }
+
+            try {
+                const key = await this.ensureFinnhubEncryptionKey(cryptoApi);
+                if (!key) {
+                    throw new Error('Encryption key unavailable');
+                }
+                const decrypted = await this.decryptString(parsed.payload, cryptoApi, key);
+                if (decrypted) {
+                    this.finnhub.apiKey = decrypted;
+                }
+            } catch (error) {
+                console.warn('Failed to decrypt stored Finnhub API key:', error);
+                this.updateFinnhubStatus('Failed to decrypt stored Finnhub API key.', 'error', 6000);
+            }
+            return;
+        }
+
+        if (typeof parsed.apiKey === 'string') {
+            this.finnhub.apiKey = parsed.apiKey;
+        }
+    } catch (error) {
+        console.warn('Failed to load Finnhub configuration:', error);
+    }
+}
+
+export async function ensureFinnhubEncryptionKey(cryptoApi = this.getCrypto()) {
+    if (!cryptoApi?.subtle) {
+        return null;
+    }
+
+    if (this.finnhub.encryptionKey) {
+        return this.finnhub.encryptionKey;
+    }
+
+    let rawKeyB64 = localStorage.getItem(this.getFinnhubSecretStorageKey());
+    if (!rawKeyB64) {
+        const raw = cryptoApi.getRandomValues(new Uint8Array(32));
+        rawKeyB64 = this.arrayBufferToBase64(raw.buffer);
+        localStorage.setItem(this.getFinnhubSecretStorageKey(), rawKeyB64);
+    }
+
+    const rawKey = new Uint8Array(this.base64ToArrayBuffer(rawKeyB64));
+    const cryptoKey = await cryptoApi.subtle.importKey('raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    this.finnhub.encryptionKey = cryptoKey;
+    return cryptoKey;
+}
+
+export async function encryptAndStoreFinnhubApiKey(cryptoApi = this.getCrypto()) {
+    try {
+        if (!cryptoApi?.subtle) {
+            throw new Error('Web Crypto API unavailable');
+        }
+        const apiKey = this.finnhub.apiKey || '';
+        if (!apiKey) {
+            this.removeFinnhubConfigFromStorage();
+            return true;
+        }
+
+        const key = await this.ensureFinnhubEncryptionKey(cryptoApi);
+        if (!key) {
+            throw new Error('Failed to prepare encryption key');
+        }
+
+        const payload = await this.encryptString(apiKey, cryptoApi, key);
+        localStorage.setItem(this.getFinnhubStorageKey(), JSON.stringify({ enc: true, payload }));
+        return true;
+    } catch (error) {
+        console.warn('Failed to encrypt Finnhub API key:', error);
+        return false;
+    }
+}
+
+export async function getCurrentPrice(ticker, { forceRefresh = false } = {}) {
+    const symbol = (ticker || '').toString().trim().toUpperCase();
+    if (!symbol) {
+        throw new Error('Invalid symbol');
+    }
+
+    if (forceRefresh) {
+        this.finnhub.cache.delete(symbol);
+    } else {
+        const cached = this.getCachedQuote(symbol);
+        if (cached) {
+            return cached.value;
+        }
+    }
+
+    if (!this.finnhub.apiKey) {
+        throw new Error('Finnhub API key missing');
+    }
+
+    const existing = this.finnhub.outstandingRequests.get(symbol);
+    if (existing) {
+        return existing;
+    }
+
+    const request = this.enqueueFinnhubRequest(symbol)
+        .then(result => {
+            this.setCachedQuote(symbol, result);
+            return result;
+        })
+        .catch(error => {
+            this.updateFinnhubStatus(error.message || 'Failed to load quote.', 'error', 7000);
+            throw error;
+        })
+        .finally(() => {
+            this.finnhub.outstandingRequests.delete(symbol);
+        });
+
+    this.finnhub.outstandingRequests.set(symbol, request);
+
+    return request;
+}
+
 export function getQuoteEntryKey(trade) {
     if (!trade || typeof trade !== 'object') {
         return 'unknown';
@@ -831,4 +963,85 @@ export function enqueueFinnhubRequest(symbol) {
         .catch(() => undefined);
 
     return chain;
+}
+
+export async function performFinnhubFetch(symbol) {
+    await this.enforceFinnhubRateLimit();
+
+    const url = new URL('https://finnhub.io/api/v1/quote');
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('token', this.finnhub.apiKey);
+
+    let response;
+    try {
+        response = await fetch(url.toString(), { cache: 'no-store' });
+    } catch (error) {
+        throw new Error('Network error fetching price');
+    }
+
+    if (!response.ok) {
+        throw new Error(response.status === 429 ? 'Finnhub rate limit exceeded. Please wait.' : 'Finnhub API error');
+    }
+
+    let payload;
+    try {
+        payload = await response.json();
+    } catch (error) {
+        throw new Error('Invalid response from Finnhub');
+    }
+
+    if (payload && typeof payload.error === 'string') {
+        throw new Error(payload.error);
+    }
+
+    const price = Number(payload?.c);
+    if (!Number.isFinite(price)) {
+        throw new Error('Price unavailable for symbol');
+    }
+
+    const change = Number(payload?.d);
+    const changePercent = Number(payload?.dp);
+    const previousClose = Number(payload?.pc);
+    const openPrice = Number(payload?.o);
+    const high = Number(payload?.h);
+    const low = Number(payload?.l);
+
+    return {
+        symbol,
+        price,
+        change: Number.isFinite(change) ? change : null,
+        changePercent: Number.isFinite(changePercent) ? changePercent : null,
+        previousClose: Number.isFinite(previousClose) ? previousClose : null,
+        open: Number.isFinite(openPrice) ? openPrice : null,
+        high: Number.isFinite(high) ? high : null,
+        low: Number.isFinite(low) ? low : null,
+        fetchedAt: new Date().toISOString(),
+        currency: 'USD'
+    };
+}
+
+export async function enforceFinnhubRateLimit() {
+    const windowMs = 60_000;
+    const timestamps = this.finnhub.timestamps;
+    const maxRequests = this.finnhub.maxRequestsPerMinute;
+    const now = Date.now();
+
+    // Clean up old timestamps outside the rate limit window
+    while (timestamps.length > 0 && now - timestamps[0] >= windowMs) {
+        timestamps.shift();
+    }
+
+    // Enforce rate limit (requests per minute) using sliding window
+    if (timestamps.length >= maxRequests) {
+        const waitTime = windowMs - (now - timestamps[0]) + 50;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        // Re-clean after waiting
+        const afterWait = Date.now();
+        while (timestamps.length > 0 && afterWait - timestamps[0] >= windowMs) {
+            timestamps.shift();
+        }
+    }
+
+    // Record this request timestamp
+    timestamps.push(Date.now());
 }

@@ -494,8 +494,8 @@ export function calculateAssignmentStats(this: StatsContext, assignedTrades: Enr
             ? pmccLongCallLegs.reduce((latest, current) => {
                 const latestExp = this.parseDateValue(latest?.leg?.expirationDate) || this.parseDateValue(latest?.leg?.expiration) || null;
                 const currentExp = this.parseDateValue(current?.leg?.expirationDate) || this.parseDateValue(current?.leg?.expiration) || null;
-                if (!latestExp && currentExp) {
-                    return current;
+                if (!latestExp) {
+                    return currentExp ? current : latest;
                 }
                 if (!currentExp) {
                     return latest;
@@ -760,4 +760,3 @@ export function calculateTickerPerformance(
         maxMagnitude
     };
 }
-

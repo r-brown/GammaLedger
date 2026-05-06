@@ -27,6 +27,8 @@ interface AIChatContext {
     calculateAdvancedStats(): Record<string, unknown>
     hasAICoachConsent(): boolean
     promptAICoachConsent(callback: () => void): void
+    handleAIChatSubmit(): Promise<void>
+    handleAIQuickPrompt(prompt: string, options?: { promptType?: string | null; [key: string]: unknown }): Promise<void>
     toggleAIChat(forceOpen?: boolean | null): void
     getGeminiChatDisplayName(): string
     renderMarkdownToHTML(text: string): string
@@ -191,6 +193,107 @@ export function toggleAIChat(this: AIChatContext, forceOpen: boolean | null = nu
     }
 }
 
+export async function handleAIChatSubmit(this: AIChatContext): Promise<void> {
+    if (this.aiChatPendingRequest) {
+        return;
+    }
+
+    const input = document.getElementById('ai-chat-input') as HTMLInputElement | null;
+    if (!input) {
+        return;
+    }
+
+    const query = input.value.trim();
+    if (!query) {
+        return;
+    }
+
+    if (!this.hasAICoachConsent()) {
+        this.promptAICoachConsent(() => {
+            if (!input.value.trim()) {
+                input.value = query;
+            }
+            this.handleAIChatSubmit();
+        });
+        return;
+    }
+
+    this.appendAIChatMessage('user', query);
+    input.value = '';
+
+    const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
+    const historySnapshot = this.aiChatMessages
+        .filter(message => message.id !== placeholderId)
+        .slice(-10)
+        .map(message => ({ ...message }));
+
+    this.aiChatPendingRequest = true;
+
+    try {
+        const response = this.aiAgent
+            ? await this.aiAgent.generateResponse(query, { history: historySnapshot })
+            : 'AI assistant is unavailable at the moment.';
+        this.appendAIChatMessage('ai', response, { replaceId: placeholderId, pending: false });
+    } catch (error) {
+        const message = error?.message || 'Unknown error';
+        const fallback = 'Sorry, I could not reach Gemini right now. Please try again soon.';
+        this.appendAIChatMessage('ai', `${fallback} (${message})`, { replaceId: placeholderId, pending: false });
+    } finally {
+        this.aiChatPendingRequest = false;
+        if (input) {
+            input.focus();
+        }
+    }
+}
+
+export async function handleAIQuickPrompt(
+    this: AIChatContext,
+    prompt: string,
+    options: { promptType?: string | null; [key: string]: unknown } = {}
+): Promise<void> {
+    if (this.aiChatPendingRequest || !prompt) {
+        return;
+    }
+
+    if (!this.hasAICoachConsent()) {
+        this.promptAICoachConsent(() => this.handleAIQuickPrompt(prompt, options));
+        return;
+    }
+
+    this.toggleAIChat(true);
+
+    const input = document.getElementById('ai-chat-input') as HTMLInputElement | null;
+    if (input) {
+        input.value = '';
+    }
+
+    this.appendAIChatMessage('user', prompt);
+
+    const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
+    const historySnapshot = this.aiChatMessages
+        .filter(message => message.id !== placeholderId)
+        .slice(-10)
+        .map(message => ({ ...message }));
+
+    this.aiChatPendingRequest = true;
+
+    try {
+        const response = this.aiAgent
+            ? await this.aiAgent.generateResponse(prompt, { history: historySnapshot, promptType: options.promptType || null })
+            : 'AI assistant is unavailable at the moment.';
+        this.appendAIChatMessage('ai', response, { replaceId: placeholderId, pending: false });
+    } catch (error) {
+        const message = error?.message || 'Unknown error';
+        const fallback = 'Sorry, I could not reach Gemini right now. Please try again soon.';
+        this.appendAIChatMessage('ai', `${fallback} (${message})`, { replaceId: placeholderId, pending: false });
+    } finally {
+        this.aiChatPendingRequest = false;
+        if (input) {
+            input.focus();
+        }
+    }
+}
+
 export function appendAIChatMessage(
     this: AIChatContext,
     sender: string,
@@ -324,4 +427,3 @@ export function updateAIChatHeader(this: AIChatContext): void {
         subtitleEl.textContent = 'Ask about your portfolio for AI-guided insights.';
     }
 }
-

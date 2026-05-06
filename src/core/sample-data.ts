@@ -4,8 +4,8 @@ export const BUILTIN_SAMPLE_DATA = (() => {
     const reference = new Date();
     reference.setUTCHours(0, 0, 0, 0);
 
-    const toIso = (date) => date.toISOString().slice(0, 10);
-    const offset = (days) => {
+    const toIso = (date: Date): string => date.toISOString().slice(0, 10);
+    const offset = (days: number): string => {
         const date = new Date(reference);
         date.setUTCDate(date.getUTCDate() + days);
         return toIso(date);

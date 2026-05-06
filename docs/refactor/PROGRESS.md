@@ -3,8 +3,10 @@
 > Single reference document covering all completed work, in-progress tasks, and open TODOs.
 > Companion to `phase1-analysis.md`, `phase1-module-map.md`, `phase1-progress.md`,
 > `phase2-analysis.md`, `phase2-domain-objects.md`, and `tech-stack.md`.
+> Migration log: `phase2-migrations.md`.
+> Phase 2 closeout: `phase2-summary.md`.
 >
-> Last updated: 2026-05-06 (Phase F complete — all 60 modules TypeScript)
+> Last updated: 2026-05-06 (Post-Step 8 parity review — additional mapped bodies extracted)
 
 ---
 
@@ -13,7 +15,7 @@
 | Phase | Goal | Status |
 |---|---|---|
 | **Phase 1** | JS module migration (monolith → ES modules, Vite) | ✅ **Complete** |
-| **Phase 2** | TypeScript migration (type safety) | 🔄 **In Progress — Steps 4 complete, Steps 5–8 remaining** |
+| **Phase 2** | TypeScript migration (type safety) | ✅ **Complete — Steps 1–8 complete; manual smoke follow-ups remain** |
 | **Phase 3** | Vue 3 component migration | ⏳ Not started |
 
 ---
@@ -95,6 +97,8 @@ Two analysis reports written before any TypeScript work:
 | `docs/refactor/phase2-analysis.md` | 16 sections; type-unsafe hotspots, date inconsistencies, untyped object bags, localStorage parsing risks, magic-string enums, DOM typing gaps |
 | `docs/refactor/phase2-domain-objects.md` | 25 domain object shapes catalogued with full field tables, creation sites, consumer sites, persistence status |
 | `docs/refactor/tech-stack.md` | UI layer audit + recommendations for ECharts, Zod, AG Grid, native `<dialog>`, Sonner, `marked`+DOMPurify, Vue 3 (Phase 3) |
+| `docs/refactor/phase2-migrations.md` | Runtime schema migration log; created in Step 6 |
+| `docs/refactor/phase2-summary.md` | Phase 2 closeout summary; type library, strict coverage, localStorage migration, build validation, gaps, Phase 3 recommendations |
 
 Key findings:
 - **Top risk**: `loadFromStorage` at `app.js:18985` — no per-field validation; malformed data from legacy imports can corrupt the DB silently on next save.
@@ -113,7 +117,7 @@ Key findings:
 | `tsconfig.json` created | ✅ | Permissive baseline; `strict: false`, `allowJs: true`, `checkJs: false` |
 | Path aliases configured | ✅ | `@core`, `@trades`, `@calculations`, `@ui`, `@utils`, `@types-gl` |
 | `vite.config.js` → `vite.config.ts` | ✅ | With `checker({ typescript: true })` overlay |
-| `package.json` scripts updated | ✅ | `build: tsc --noEmit && vite build`, `typecheck: tsc --noEmit` |
+| `package.json` scripts updated | ✅ | `build: npm run typecheck && vite build`, `typecheck: tsc --noEmit && npm run typecheck:strict` |
 
 ---
 
@@ -284,137 +288,257 @@ Key fixes applied during conversion:
 
 ---
 
-### Step 5 — Enable strict mode per module ❌ Not started
+### Step 5 — Enable strict mode per module ✅ Complete (planned directories)
 
-Per-directory `tsconfig.json` overrides with `strict: true` have not been created.
-The global `tsconfig.json` has `strict: false`.
+Per-directory `tsconfig.json` overrides with `strict: true`, `strictNullChecks: true`,
+and `noImplicitAny: true` have been created for the five directories named in the
+CLAUDE.md Step 5 rollout plan. The global `tsconfig.json` intentionally remains
+permissive (`strict: false`) until the remaining non-planned directories are ready.
 
-Planned order (per CLAUDE.md):
-1. `src/calculations/` — highest value, P&L bugs are silent
-2. `src/core/` — storage parsing and state management
-3. `src/trades/` — domain logic
-4. `src/utils/` — low risk
-5. `src/ui/` — DOM types are noisy; do last
+| Directory | Strict config | Status |
+|---|---|---|
+| `src/calculations/` | `src/calculations/tsconfig.json` | ✅ Strict-clean |
+| `src/core/` | `src/core/tsconfig.json` | ✅ Strict-clean |
+| `src/trades/` | `src/trades/tsconfig.json` | ✅ Strict-clean |
+| `src/utils/` | `src/utils/tsconfig.json` | ✅ Strict-clean |
+| `src/ui/` | `src/ui/tsconfig.json` | ✅ Strict-clean |
+
+`npm run typecheck` now runs the permissive root check first, then the strict
+subproject checks via `npm run typecheck:strict`.
+
+Key fixes applied during strict activation:
+- `src/calculations/stats.ts`: replaced a nullable Date comparison path with an
+  explicit `currentExp ? current : latest` guard.
+- `src/core/sample-data.ts`: typed sample-data date helpers (`Date` and `number`
+  parameters, string return).
+- `src/trades/spreads.ts`: replaced an unsafe nullable number cast with a real
+  `typeof currentStrike === 'number'` guard.
+- `src/database/persist.ts`: added a typed persistence context because
+  `src/utils/export.ts` re-exports persistence helpers and is part of the utils
+  strict subproject.
+
+Residual strict-mode scope note:
+- A one-off full-project strict run still reports many implicit `this` /
+  implicit parameter errors in directories outside the Step 5 planned list,
+  especially `src/imports/`, `src/integrations/`, and `src/payoff/`.
+  These are not wired into the strict subproject chain yet.
 
 ---
 
-### Step 6 — localStorage migration guard ❌ Not started
+### Step 6 — localStorage migration guard ✅ Complete
 
-`src/core/migration.ts` has not been created.
-`loadFromStorage()` in `src/core/storage.ts` does not yet call `migrateSchema()`.
+`src/core/migration.ts` has been created and `GammaLedger.loadFromStorage()`
+now calls `migrateSchema()` before hydrating trades from both the primary
+database key and legacy trade-array keys.
 
-Required:
-- Create `src/core/migration.ts` with `migrateSchema(raw: unknown): StorageSchema` and `emptySchema(): StorageSchema`
-- Implement version 0 → 1 migration: ensure all trades have an `id` field
-- Wire `migrateSchema()` into `loadFromStorage()` before returning data
-- Write `docs/refactor/phase2-migrations.md` to log migration steps
+Implemented:
+- `migrateSchema(raw: unknown): StorageSchema`
+- `emptySchema(): StorageSchema`
+- Legacy array wrapping for old localStorage keys.
+- Missing/blank trade IDs filled as `legacy-${index}`.
+- Missing/blank leg IDs filled as `legacy-${tradeIndex}-leg-${legIndex}`.
+- Missing `exportDate` filled from legacy `timestamp` or the current timestamp.
+- Missing, numeric, or otherwise non-string `version` rewritten to the live string
+  version `'2.5'`.
+- Migration details logged in `docs/refactor/phase2-migrations.md`.
+
+Notes:
+- The active persisted schema version remains the documented string `'2.5'`;
+  no numeric schema-version rewrite was introduced.
+- User JSON file imports still enter through `processLoadedData()` and remain a
+  separate validation boundary.
 
 ---
 
-### Step 7 — Production build validation ⚠️ Partially confirmed
+### Step 7 — Production build validation ✅ Complete
 
 Status of the three required commands:
 
 | Command | Status |
 |---|---|
-| `npm run typecheck` (tsc --noEmit, 0 errors) | ✅ 0 errors — confirmed 2026-05-06 (Phase F) |
-| `npm run build` (clean dist/) | ✅ Clean — 372.21 kB JS / 96.85 kB gzip — confirmed 2026-05-06 (Phase F) |
-| `npm run preview` (production build check) | ⚠️ Not yet verified (needs browser smoke test) |
+| `npm run typecheck` (root tsc + strict subprojects, 0 errors) | ✅ 0 errors — confirmed 2026-05-06 (Step 7) |
+| `npm run build` (clean dist/) | ✅ Clean — 373.01 kB JS / 97.04 kB gzip — confirmed 2026-05-06 (Step 7) |
+| `npm run preview` (production build check) | ✅ Served at `http://127.0.0.1:4173/` and browser-smoked — confirmed 2026-05-06 |
 
-Build metrics after Phase F completion:
+Build metrics after Step 7 validation:
 
 | Metric | Value |
 |---|---|
-| JS bundle (uncompressed) | 372.21 kB |
-| JS bundle (gzip) | 96.85 kB |
+| JS bundle (uncompressed) | 373.01 kB |
+| JS bundle (gzip) | 97.04 kB |
 | CSS bundle | 86.64 kB / 13.92 kB gzip |
-| Modules transformed | 56 |
-| TypeScript errors | 0 |
+| Modules transformed | 57 |
+| TypeScript errors | 0 via `npm run typecheck` |
 | Remaining `.js` files in `src/` | **0** |
+
+Browser smoke results:
+- Production preview loaded with the expected GammaLedger title.
+- Current production asset `/assets/index-BlN0xYq3.js` reported 0 warnings/errors in the browser log.
+- Dashboard rendered populated sample/localStorage data:
+  - Realized P&L: `$3,089.75`
+  - Unrealized P&L: `$1,520.85`
+  - Active Positions: `7`
+  - Win Rate: `93.3%`
+  - Dashboard canvas count: `8`
+  - Active-position rows: `7`
+  - Recent-trade rows: `10`
+- Reload smoke confirmed the localStorage load path remains stable:
+  - Realized P&L stayed `$3,089.75`
+  - Active Positions stayed `7`
+  - Current production asset still had 0 warnings/errors after reload.
+- Legacy migration guard smoke confirmed array payloads get `legacy-*` trade/leg IDs
+  and version `'2.5'`.
+
+Runtime fixes found during Step 7:
+- `src/ui/modals/ai-coach-consent.ts`: replaced host-scope `declare const`
+  storage key with an actual `@core/config` import.
+- `src/ui/modals/disclaimer.ts`: replaced host-scope `declare const` storage key
+  with an actual `@core/config` import.
+- `src/ui/sidebar.ts`: replaced host-scope `declare const` storage key with an
+  actual `@core/config` import.
+- `src/ui/share-card.ts`: replaced host-scope `declare const` config constants
+  with actual `@core/config` imports.
+
+Automation note:
+- The in-app browser automation timed out when clicking the All Trades navigation
+  item, so deeper interactive workflows remain in the smoke checklist below for
+  a manual/browser follow-up. The app did not report current-bundle console
+  warnings/errors during the validated dashboard and reload paths.
 
 ---
 
-### Step 8 — `docs/refactor/phase2-summary.md` ❌ Not created
+### Step 8 — `docs/refactor/phase2-summary.md` ✅ Complete
 
-Post-migration summary document has not been written.
+Post-migration summary document has been written.
+
+Captured:
+- All type files and key fields/concepts.
+- Strict-mode coverage and remaining global strict gaps.
+- `@ts-ignore` / `@ts-expect-error` / explicit `any` scan results.
+- localStorage migration guard behavior and remaining validation boundary.
+- Production build validation and Phase 1 vs. Phase 2 bundle comparison.
+- Remaining type/data correctness gaps.
+- Recommended Phase 3 entry criteria and sequencing.
+
+---
+
+### Post-Step 8 — Legacy parity review ✅ Complete
+
+A follow-up migration review compared the current public class surface against
+the legacy `main:src/app.js` source of truth and finished several Phase 1 module
+ownership gaps.
+
+Review results:
+- Legacy public method parity check: no missing `GammaLedger`,
+  `LocalInsightsAgent`, or `GeminiInsightsAgent` methods.
+- Delegator audit: no one-line module wrappers with dropped arguments.
+- Fixed payoff regression: `calculateSpreadBreakeven()` now forwards its
+  argument object to the extracted payoff helper.
+- Replaced `src/ui/charts/destroy.ts` placeholder with the extracted
+  `destroyChart()` helper.
+
+Additional bodies moved out of `src/index.ts` into their owner modules:
+- `src/ai/chat.ts`: `handleAIChatSubmit()`, `handleAIQuickPrompt()`.
+- `src/trades/leg-form.ts`: `autoFillUnderlyingPrice()`,
+  `autoFillUnderlyingPricesForLegs()`.
+- `src/ui/share-card.ts`: `waitForShareCardChartRender()`,
+  `downloadShareCard()`.
+- `src/integrations/finnhub.ts`: `getCurrentPrice()`,
+  `performFinnhubFetch()`, `enforceFinnhubRateLimit()`,
+  `loadFinnhubConfigFromStorage()`, `ensureFinnhubEncryptionKey()`,
+  `encryptAndStoreFinnhubApiKey()`.
+- `src/integrations/gemini.ts`: `loadGeminiConfigFromStorage()`,
+  `ensureGeminiEncryptionKey()`, `encryptAndStoreGeminiApiKey()`.
+- `src/payoff/render.ts`: `renderTradePayoffChart()`.
+- `src/payoff/pricing.ts`: `getUnderlyingPriceForPayoff()`.
+- `src/database/persist.ts`: `saveDatabase()`, `saveWithFileSystemAPI()`,
+  `loadDatabase()`, `loadWithFileSystemAPI()`, `loadFromStorage()`.
+- `src/imports/controls.ts`: OFX and Robinhood file import wrappers.
+
+Post-review validation:
+- `npm run typecheck` ✅ 0 errors.
+- `npm run build` ✅ clean; final JS bundle `374.59 kB / 96.89 kB gzip`,
+  CSS `86.64 kB / 13.92 kB gzip`, 58 modules transformed.
+- Production preview HTTP smoke ✅ `http://127.0.0.1:4173/` returned the app
+  shell and current asset `/assets/index-BpuDMIcK.js`.
 
 ---
 
 ## Open TODOs
 
-### Critical — blockers for Phase 2 completion
+### Critical — post-Phase 2 follow-up
 
-1. **Create `src/core/migration.ts`** — the localStorage migration guard is a critical
-   safety net. Without it, corrupt or legacy-format data can silently produce NaN
-   cascades on load (see `phase2-analysis.md §5`).
-
-3. **Enable strict mode** — `strict: false` globally means many type errors are
-   masked. Start with `src/calculations/` (per-directory `tsconfig.json`).
-
-4. **Run browser smoke test against production build** — `npm run preview` not yet
-   verified after Phase F conversion. All 56 modules build cleanly; runtime correctness
-   still needs a manual pass through the UI.
+1. **Finish full manual workflow smoke coverage** — Step 7 validated the production
+   build, dashboard render, and reload/localStorage path. The remaining manual
+   checklist items below should still be run before Phase 3 implementation work.
 
 ### Important — data integrity and correctness
 
-6. **Resolve `tradeReasoning` in `RUNTIME_TRADE_FIELDS`** — this user-entered free-text
+2. **Resolve `tradeReasoning` in `RUNTIME_TRADE_FIELDS`** — this user-entered free-text
    field is currently stripped before every `localStorage` save. If intentional, document
    it; if a bug, remove it from the runtime set. See `phase2-analysis.md §16.1`.
 
-7. **Resolve `externalId`/`importGroupId`/`importSource` stripped from legs on save** —
+3. **Resolve `externalId`/`importGroupId`/`importSource` stripped from legs on save** —
    without persisted import provenance, re-running the same OFX or Robinhood import will
    create duplicate legs. See `phase2-analysis.md §16.2`.
 
-8. **Pick canonical field names** — three aliased pairs exist in the trade shape:
+4. **Pick canonical field names** — three aliased pairs exist in the trade shape:
    - `entryDate` ↔ `openedDate` (both set by `enrichTradeData`, both read by consumers)
    - `exitDate` ↔ `closedDate` (same)
    - `orderType` ↔ `tradeType` ↔ `order` (leg field, three names for same concept)
    See `phase2-analysis.md §16.3 / §16.4`.
 
-9. **`StorageSchema.version` type** — live code uses `'2.5'` (string literal); 
+5. **`StorageSchema.version` type** — live code uses `'2.5'` (string literal);
    Phase 2 specs assume `number`. Either update the constant or change the type.
    See `phase2-domain-objects.md §11`.
 
 ### Medium priority — type quality improvements
 
-10. **Add runtime validation (`isValidSchema`) to `loadFromStorage`** — the `JSON.parse`
-    of the primary DB key has no per-field validation today. A minimal type predicate
-    or Zod schema should gate every load. See `phase2-analysis.md §5`.
+6. **Extend strict subprojects beyond the original Step 5 plan** — full-project
+    `tsc --strict` still reports implicit `this` / implicit parameter errors in
+    `src/imports/`, `src/integrations/`, and `src/payoff/`. The planned strict
+    directories are enforced, but these remaining modules should be tightened before
+    global `strict: true`.
 
-11. **Validate Finnhub API response shape** — `{ c, h, l, o, pc, t }` is assumed but
+7. **Extend schema validation beyond the Step 6 localStorage guard** — primary and
+    legacy localStorage loads now pass through `migrateSchema()`, but user JSON file
+    imports still trust `processLoadedData(data, ...)`. Full per-field validation or
+    a Zod schema should gate that import boundary too. See `phase2-analysis.md §5`.
+
+8. **Validate Finnhub API response shape** — `{ c, h, l, o, pc, t }` is assumed but
     never checked. A breaking Finnhub API change silently produces NaN quotes across all
     active positions.
 
-12. **`LifecycleMeta.matchedPairs` initialized as `false` (boolean) then overwritten
+9. **`LifecycleMeta.matchedPairs` initialized as `false` (boolean) then overwritten
     with a number** — change the initial value to `0` so the type is consistently
     `number`. See `phase2-domain-objects.md §6`.
 
-13. **`hasCashSettlementEvent` and `activityAfterExpiration` in `LifecycleMeta` are
+10. **`hasCashSettlementEvent` and `activityAfterExpiration` in `LifecycleMeta` are
     conditionally added** — they should be declared as required (`boolean`) with
     default `false` at initialization. See `phase2-domain-objects.md §6`.
 
-14. **`multiplier || 1` in `summarizeLegs`** — a zero multiplier (invalid data) silently
+11. **`multiplier || 1` in `summarizeLegs`** — a zero multiplier (invalid data) silently
     becomes `1` at `app.js:691, 964`. TypeScript types won't prevent this, but a
     runtime assertion would. See `phase2-analysis.md §6.2`.
 
 ### Low priority — Phase 3 prep
 
-15. **Chart.js is loaded via unversioned CDN** (`cdn.jsdelivr.net/npm/chart.js`).
+12. **Chart.js is loaded via unversioned CDN** (`cdn.jsdelivr.net/npm/chart.js`).
     No npm package, no `@types/chart.js`. Consider migrating to
     **Apache ECharts** (npm, built-in TS types, no destroy-recreate pattern) — see
     `tech-stack.md Priority 1`.
 
-16. **All trade tables do full DOM rebuild** on every data change — no virtual
+13. **All trade tables do full DOM rebuild** on every data change — no virtual
     scrolling. At 2,000+ trades, visible paint pauses occur. **AG Grid Community**
     is the recommended replacement — see `tech-stack.md Priority 3`.
 
-17. **AI chat uses a 250-line custom Markdown renderer** — replace with
+14. **AI chat uses a 250-line custom Markdown renderer** — replace with
     `marked` + `DOMPurify` — see `tech-stack.md Priority 6`.
 
-18. **Modals use `is-hidden` class-toggle** with manual focus trapping — replace
+15. **Modals use `is-hidden` class-toggle** with manual focus trapping — replace
     with native `<dialog>` element — see `tech-stack.md Priority 4`.
 
-19. **`Infinity` as a sentinel in P&L/risk** — typed as `number` in TS (valid
+16. **`Infinity` as a sentinel in P&L/risk** — typed as `number` in TS (valid
     at runtime), but not explicitly signaled. Consider a tagged union
     `{ kind: 'unlimited' } | { kind: 'finite'; value: number }` for Phase 3.
     See `phase2-analysis.md §16.7`.
@@ -428,7 +552,7 @@ Post-migration summary document has not been written.
 ```
 src/types/             ← all 17 type files
 src/utils/             ← all 6 utils (dates, dom, formatting, crypto, import-csv, export)
-src/core/              ← all 4 core files (config, storage, state, sample-data)
+src/core/              ← all 5 core files (config, migration, storage, state, sample-data)
 src/calculations/      ← all 4 calculation files (pnl, daysheld, stats, monte-carlo)
 src/trades/            ← all 7 trade files (legs, positions, wheel, pmcc, spreads, risk, leg-form)
 src/ai/                ← all 3 AI files (local-agent, gemini-agent, chat)
@@ -439,7 +563,17 @@ src/imports/           ← all 6 import files (position-keys, log, robinhood, of
 src/database/          ← persist.ts
 src/integrations/      ← finnhub.ts, gemini.ts, mcp.ts
 src/payoff/            ← pricing.ts, render.ts, series.ts, summary.ts
-src/index.ts           ← entry point (2,975 lines — Phase F complete)
+src/index.ts           ← entry point (1,711 lines — post-Step 8 parity review)
+```
+
+### Strict subproject configs
+
+```
+src/calculations/tsconfig.json
+src/core/tsconfig.json
+src/trades/tsconfig.json
+src/utils/tsconfig.json
+src/ui/tsconfig.json
 ```
 
 ### JavaScript files remaining
@@ -452,10 +586,10 @@ src/index.ts           ← entry point (2,975 lines — Phase F complete)
 
 Run after every module conversion and strict-mode activation:
 
-- [ ] `npm run typecheck` exits with 0 errors for all converted files
-- [ ] `npm run build` exits 0 with a clean `dist/`
-- [ ] App loads in browser without console errors
-- [ ] Dashboard renders with existing `localStorage` data
+- [x] `npm run typecheck` exits with 0 errors for all converted files
+- [x] `npm run build` exits 0 with a clean `dist/`
+- [x] App loads in browser without console errors
+- [x] Dashboard renders with existing `localStorage` data
 - [ ] Add a new trade — it persists after reload
 - [ ] Wheel tracker shows open positions correctly
 - [ ] PMCC tracker links legs correctly
@@ -463,9 +597,9 @@ Run after every module conversion and strict-mode activation:
 - [ ] Date fields display correctly (no epoch timestamps, no `Invalid Date`)
 - [ ] CSV export produces a valid file with correct column types
 - [ ] CSV import (Robinhood, OFX) reads back correctly and all fields are typed
-- [ ] Charts render without errors
+- [x] Charts render without errors
 - [ ] All modals open and close correctly
-- [ ] Existing `localStorage` data survives a page reload
+- [x] Existing `localStorage` data survives a page reload
 
 ---
 
@@ -482,4 +616,3 @@ Not started. Recommended prerequisites (from `tech-stack.md`):
 The single `class GammaLedger` (with ~400 methods) is the main target for decomposition
 into Vue 3 composables and single-file components. Each feature domain identified in
 `phase1-analysis.md §10` maps to one or more composables.
-

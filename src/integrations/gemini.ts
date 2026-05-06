@@ -359,6 +359,97 @@ export function setGeminiModel(value) {
     }
 }
 
+export async function loadGeminiConfigFromStorage() {
+    let loadedApiKey = '';
+    let pendingStatus = null;
+
+    try {
+        const raw = this.safeLocalStorage.getItem(GEMINI_STORAGE_KEY);
+        if (!raw) {
+            this.setGeminiApiKey('', { persist: false, updateUI: false });
+            this.gemini.pendingStatus = null;
+            this.syncGeminiControlsFromState({ preserveStatus: true });
+            return false;
+        }
+
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object') {
+            this.setGeminiApiKey('', { persist: false, updateUI: false });
+            this.gemini.pendingStatus = null;
+            this.syncGeminiControlsFromState({ preserveStatus: true });
+            return false;
+        }
+
+        if (typeof parsed.model === 'string' && parsed.model.trim()) {
+            this.setGeminiModel(parsed.model.trim());
+        }
+
+        if (parsed.enc && parsed.payload) {
+            const cryptoApi = this.getCrypto();
+            if (!cryptoApi?.subtle) {
+                console.warn('Encrypted Gemini API key stored but Web Crypto unavailable.');
+                pendingStatus = {
+                    message: 'Stored Gemini API key is encrypted, but this browser cannot decrypt it. Please re-enter it in Settings.',
+                    variant: 'error',
+                    autoClearMs: 9000
+                };
+            } else {
+                try {
+                    const key = await this.ensureGeminiEncryptionKey(cryptoApi);
+                    if (!key) {
+                        throw new Error('Encryption key unavailable');
+                    }
+                    const decrypted = await this.decryptString(parsed.payload, cryptoApi, key);
+                    if (typeof decrypted === 'string') {
+                        loadedApiKey = decrypted.trim();
+                    }
+                } catch (error) {
+                    console.warn('Failed to decrypt stored Gemini API key:', error);
+                    pendingStatus = {
+                        message: 'Failed to decrypt stored Gemini API key. Please re-enter it in Settings.',
+                        variant: 'error',
+                        autoClearMs: 9000
+                    };
+                }
+            }
+        }
+
+        if (!loadedApiKey && typeof parsed.apiKey === 'string') {
+            loadedApiKey = parsed.apiKey.trim();
+        }
+
+        if (!loadedApiKey && typeof parsed.fallback === 'string' && parsed.fallback.trim()) {
+            try {
+                loadedApiKey = atob(parsed.fallback.trim()).trim();
+            } catch (decodeError) {
+                console.warn('Failed to decode Gemini API key fallback:', decodeError);
+            }
+        }
+
+        if (loadedApiKey && pendingStatus) {
+            pendingStatus = {
+                message: 'Gemini API key loaded from local backup. Save it again to refresh secure storage when possible.',
+                variant: 'neutral',
+                autoClearMs: 9000
+            };
+        }
+    } catch (error) {
+        console.warn('Failed to load Gemini configuration:', error);
+        if (!pendingStatus) {
+            pendingStatus = {
+                message: 'Failed to load Gemini configuration. Please verify your stored Gemini API key.',
+                variant: 'error',
+                autoClearMs: 9000
+            };
+        }
+    }
+
+    this.setGeminiApiKey(loadedApiKey, { persist: false, updateUI: false });
+    this.gemini.pendingStatus = pendingStatus;
+    this.syncGeminiControlsFromState({ preserveStatus: Boolean(pendingStatus) });
+    return Boolean(loadedApiKey);
+}
+
 export function saveGeminiConfigToStorage({ includeApiKey = false, encryptedPayload = null } = {}) {
     try {
         const payload: Record<string, unknown> = {
@@ -412,6 +503,54 @@ export function removeGeminiEncryptionKey() {
         this.gemini.encryptionKey = null;
     } catch (error) {
         console.warn('Failed to remove Gemini encryption key:', error);
+    }
+}
+
+export async function ensureGeminiEncryptionKey(cryptoApi = this.getCrypto()) {
+    if (!cryptoApi?.subtle) {
+        return null;
+    }
+
+    if (this.gemini.encryptionKey) {
+        return this.gemini.encryptionKey;
+    }
+
+    let rawKeyB64 = this.safeLocalStorage.getItem(GEMINI_SECRET_STORAGE_KEY);
+    if (!rawKeyB64) {
+        const raw = cryptoApi.getRandomValues(new Uint8Array(32));
+        rawKeyB64 = this.arrayBufferToBase64(raw.buffer);
+        this.safeLocalStorage.setItem(GEMINI_SECRET_STORAGE_KEY, rawKeyB64);
+    }
+
+    const rawKey = new Uint8Array(this.base64ToArrayBuffer(rawKeyB64));
+    const cryptoKey = await cryptoApi.subtle.importKey('raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    this.gemini.encryptionKey = cryptoKey;
+    return cryptoKey;
+}
+
+export async function encryptAndStoreGeminiApiKey(cryptoApi = this.getCrypto()) {
+    try {
+        if (!cryptoApi?.subtle) {
+            throw new Error('Web Crypto API unavailable');
+        }
+
+        const apiKey = this.gemini.apiKey || '';
+        if (!apiKey) {
+            this.saveGeminiConfigToStorage();
+            return true;
+        }
+
+        const key = await this.ensureGeminiEncryptionKey(cryptoApi);
+        if (!key) {
+            throw new Error('Failed to prepare encryption key');
+        }
+
+        const payload = await this.encryptString(apiKey, cryptoApi, key);
+        this.saveGeminiConfigToStorage({ encryptedPayload: payload });
+        return true;
+    } catch (error) {
+        console.warn('Failed to encrypt Gemini API key:', error);
+        return false;
     }
 }
 

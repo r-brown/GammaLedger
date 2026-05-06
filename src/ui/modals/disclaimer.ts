@@ -1,8 +1,7 @@
 // src/ui/modals/disclaimer.ts — Wave 8: Disclaimer banner modal.
 // Uses the .call(this, …) delegation pattern.
 
-// NOTE: DISCLAIMER_STORAGE_KEY is declared in the host class scope.
-declare const DISCLAIMER_STORAGE_KEY: string;
+import { DISCLAIMER_STORAGE_KEY } from '@core/config'
 
 interface DisclaimerBannerState {
   element: HTMLElement | null
@@ -133,4 +132,3 @@ export function setDisclaimerAcceptance(value: string | null): void {
         console.warn('Failed to persist disclaimer acceptance:', error);
     }
 }
-

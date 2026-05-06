@@ -1,8 +1,7 @@
 // src/ui/modals/ai-coach-consent.ts — Wave 8: AI Coach consent modal.
 // Uses the .call(this, …) delegation pattern.
 
-// NOTE: AI_COACH_CONSENT_STORAGE_KEY is declared in the host class scope.
-declare const AI_COACH_CONSENT_STORAGE_KEY: string;
+import { AI_COACH_CONSENT_STORAGE_KEY } from '@core/config'
 
 interface AICoachConsentState {
   element: HTMLElement | null
@@ -226,4 +225,3 @@ export function setAICoachConsent(value: string | null): void {
         console.warn('Failed to persist AI Coach consent:', error);
     }
 }
-

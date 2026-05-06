@@ -10,9 +10,15 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && npm run typecheck:strict",
+    "typecheck:strict": "npm run typecheck:strict:calculations && npm run typecheck:strict:core && npm run typecheck:strict:trades && npm run typecheck:strict:utils && npm run typecheck:strict:ui",
+    "typecheck:strict:calculations": "tsc -p src/calculations/tsconfig.json",
+    "typecheck:strict:core": "tsc -p src/core/tsconfig.json",
+    "typecheck:strict:trades": "tsc -p src/trades/tsconfig.json",
+    "typecheck:strict:utils": "tsc -p src/utils/tsconfig.json",
+    "typecheck:strict:ui": "tsc -p src/ui/tsconfig.json"
   },
   "repository": {
     "type": "git",

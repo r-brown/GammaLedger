@@ -1,12 +1,13 @@
 // src/ui/share-card.ts — Wave 10: Share card generation and cumulative P&L series.
 // Uses the .call(this, …) delegation pattern.
 
-// NOTE: CUMULATIVE_PL_RANGES and SHARE_CARD_* constants are declared in the host class scope.
-declare const CUMULATIVE_PL_RANGES: string[];
-declare const SHARE_CARD_EXPORT_SIZE: number;
-declare const SHARE_CARD_CHART_WIDTH_RATIO: number;
-declare const SHARE_CARD_CHART_HEIGHT_RATIO: number;
-declare const SHARE_CARD_CHART_MIN_HEIGHT: number;
+import {
+    CUMULATIVE_PL_RANGES,
+    SHARE_CARD_CHART_HEIGHT_RATIO,
+    SHARE_CARD_CHART_MIN_HEIGHT,
+    SHARE_CARD_CHART_WIDTH_RATIO,
+    SHARE_CARD_EXPORT_SIZE
+} from '@core/config'
 
 // Chart is loaded from CDN; declared in vendor.d.ts or the host app scope.
 declare const Chart: { new(ctx: CanvasRenderingContext2D, config: Record<string, unknown>): { destroy(): void } };
@@ -68,9 +69,15 @@ interface ShareCardContext {
   updateShareCard(stats: DashboardStats): void
   updateShareCardRangeLabel(range?: string): void
   refreshShareCardChart(): void
+  waitForShareCardChartRender(): Promise<void>
   calculateAdvancedStats(): DashboardStats
   downloadShareCard(): Promise<void>
   syncCumulativePLControls(): void
+  showNotification(message: string, variant?: string): void
+}
+
+interface Html2CanvasWindow {
+  html2canvas?: (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>
 }
 
 export function normalizeCumulativePLRange(range: unknown): string {
@@ -529,4 +536,132 @@ export function refreshShareCardChart(this: ShareCardContext): void {
     } as Record<string, unknown>);
 }
 
+export async function waitForShareCardChartRender(): Promise<void> {
+    const raf = typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame
+        : null;
 
+    if (!raf) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        return;
+    }
+
+    await new Promise<void>(resolve => {
+        raf(() => {
+            raf(() => resolve());
+        });
+    });
+}
+
+export async function downloadShareCard(this: ShareCardContext): Promise<void> {
+    const button = this.shareCard?.button;
+    const root = this.shareCard?.root;
+    const card = this.shareCard?.card;
+
+    if (!button || !root || !card) {
+        this.showNotification('Sharing is unavailable right now.', 'error');
+        return;
+    }
+
+    const html2canvas = (window as unknown as Html2CanvasWindow).html2canvas;
+    if (typeof html2canvas !== 'function') {
+        this.showNotification('Image export library failed to load. Please refresh and try again.', 'error');
+        return;
+    }
+
+    const exportSize = Number(this.shareCard?.exportSize) || SHARE_CARD_EXPORT_SIZE;
+
+    const btn = button as HTMLButtonElement;
+    const previousDisabled = btn.disabled;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.blur();
+
+    const previousExportFlag = card.dataset.exportMode;
+    const previousWidth = card.style.width;
+    const previousHeight = card.style.height;
+    const previousMaxWidth = card.style.maxWidth;
+    const previousMaxHeight = card.style.maxHeight;
+
+    // Force the card into a deterministic square frame for export.
+    card.dataset.exportMode = 'true';
+    card.style.width = `${exportSize}px`;
+    card.style.height = `${exportSize}px`;
+    card.style.maxWidth = `${exportSize}px`;
+    card.style.maxHeight = `${exportSize}px`;
+
+    this.updateShareCard(this.latestStats || this.calculateAdvancedStats());
+    root.classList.add('is-active');
+    root.setAttribute('aria-hidden', 'false');
+
+    await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+            this.refreshShareCardChart();
+            setTimeout(resolve, 220);
+        });
+    });
+
+    await this.waitForShareCardChartRender();
+
+    let canvas: HTMLCanvasElement | null = null;
+    try {
+        const scale = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
+        canvas = await html2canvas(card, {
+            width: exportSize,
+            height: exportSize,
+            scale,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#050b1a'
+        });
+    } catch (error) {
+        console.error('Failed to capture share card:', error);
+        this.showNotification('Unable to prepare the share card image. Please try again.', 'error');
+    }
+
+    root.classList.remove('is-active');
+    root.setAttribute('aria-hidden', 'true');
+    btn.removeAttribute('aria-busy');
+    btn.disabled = previousDisabled;
+
+    if (previousExportFlag) {
+        card.dataset.exportMode = previousExportFlag;
+    } else {
+        delete card.dataset.exportMode;
+    }
+
+    // Restore the card's natural sizing after capture.
+    card.style.width = previousWidth;
+    card.style.height = previousHeight;
+    card.style.maxWidth = previousMaxWidth;
+    card.style.maxHeight = previousMaxHeight;
+
+    if (this.shareCard.chart) {
+        this.shareCard.chart.destroy();
+        this.shareCard.chart = null;
+    }
+
+    if (this.shareCard.chartCanvas) {
+        this.shareCard.chartCanvas.style.removeProperty('min-height');
+    }
+
+    if (!canvas) {
+        return;
+    }
+
+    try {
+        const dataUrl = canvas.toDataURL('image/png');
+        const today = new Date();
+        const stamp = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('');
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `gammaledger-portfolio-${stamp}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        this.showNotification('Portfolio snapshot saved as an image.', 'success');
+    } catch (error) {
+        console.error('Failed to download image:', error);
+        this.showNotification('Image download failed. Please try again.', 'error');
+    }
+}

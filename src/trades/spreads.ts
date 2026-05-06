@@ -387,7 +387,9 @@ export function extractRolledPositionAcrossStrikes(
         }
     });
 
-    const strike = Number.isFinite(currentStrike) ? (currentStrike as number) : Number(allLegs[0]?.strike);
+    const strike = typeof currentStrike === 'number' && Number.isFinite(currentStrike)
+        ? currentStrike
+        : Number(allLegs[0]?.strike);
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
     const hasExpired = expirationDate && expirationDate < now;
     const hasOpenLegs = allLegs.some(leg => this.getLegSide(leg) === 'OPEN');
@@ -589,4 +591,3 @@ export function extractSingleLegPair(
         isAssigned: this.isAssignedStatus(trade.status), capital
     });
 }
-

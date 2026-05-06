@@ -103,6 +103,71 @@ export function setupImportControls() {
     this.importControlsInitialized = true;
 }
 
+export async function handleOfxFileSelection(event) {
+    const input = event?.target;
+    if (!input || !input.files || input.files.length === 0) {
+        return;
+    }
+
+    const [file] = input.files;
+    input.value = '';
+
+    if (!file) {
+        return;
+    }
+
+    try {
+        this.showLoadingIndicator('Importing OFX...');
+        await this.importOfxFile(file, { fileName: file.name || 'OFX import' });
+    } catch (error) {
+        console.error('OFX import error:', error);
+        const message = error?.message || 'Unknown error';
+        this.showNotification(`Failed to import OFX: ${message}`, 'error');
+        this.appendImportLog({
+            type: 'error',
+            message: `Failed to import ${file.name || 'OFX file'}: ${message}`,
+            timestamp: new Date()
+        });
+    } finally {
+        this.hideLoadingIndicator();
+    }
+}
+
+export async function importOfxFile(file, context = {}) {
+    if (!file) {
+        throw new Error('No file selected.');
+    }
+
+    const text = await file.text();
+    await this.importOfxContent(text, { ...context, fileSize: file.size || 0 });
+}
+
+export async function importOfxContent(raw: string, context: Record<string, unknown> = {}) {
+    const batchId = (context.batchId as string) || `OFX-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const importContext = { ...context, batchId };
+    const parsed = this.parseOfx(raw);
+    const importResult = this.buildOfxImportPayload(parsed, importContext);
+    this.applyOfxImportResult(importResult, importContext);
+}
+
+export async function importRobinhoodCsvFile(file, context = {}) {
+    if (!file) {
+        throw new Error('No file selected.');
+    }
+
+    this.showLoadingIndicator('Importing Robinhood CSV...');
+    const text = await file.text();
+    await this.importRobinhoodCsvContent(text, { ...context, fileSize: file.size || 0 });
+}
+
+export async function importRobinhoodCsvContent(raw: string, context: Record<string, unknown> = {}) {
+    const batchId = (context.batchId as string) || `RH-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    const importContext = { ...context, batchId };
+    const parsed = this.parseRobinhoodCsv(raw);
+    const importResult = this.buildRobinhoodImportPayload(parsed, importContext);
+    this.applyRobinhoodImportResult(importResult, importContext);
+}
+
 export function setupTradesMergeControls() {
     const panel = document.getElementById('trades-merge-panel');
     if (!panel) {
