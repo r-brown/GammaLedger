@@ -1,8 +1,36 @@
-// src/calculations/monte-carlo.js — Wave 3: Monte Carlo simulation helpers.
+// src/calculations/monte-carlo.ts — Wave 3: Monte Carlo simulation helpers.
 // generateMonteCarloProjection is pure (no this refs).
 // ensureMonteCarloBaseline operates on a Chart.js chart object (no class state).
 
-export function generateMonteCarloProjection(dailyReturns = [], { periods = 60, simulations = 400 } = {}) {
+export interface MonteCarloOptions {
+    periods?: number
+    simulations?: number
+}
+
+export interface MonteCarloPercentiles {
+    p10: number[]
+    p25: number[]
+    p50: number[]
+    p75: number[]
+    p90: number[]
+}
+
+export interface MonteCarloResult {
+    labels: string[]
+    percentiles: MonteCarloPercentiles
+}
+
+/** Chart.js-compatible chart object surface used by ensureMonteCarloBaseline. */
+interface ChartLike {
+    ctx: CanvasRenderingContext2D | null
+    scales?: { y?: { getPixelForValue(value: number): number } }
+    chartArea?: { left: number; right: number; top: number; bottom: number }
+}
+
+export function generateMonteCarloProjection(
+    dailyReturns: number[] = [],
+    { periods = 60, simulations = 400 }: MonteCarloOptions = {}
+): MonteCarloResult | null {
     if (!Array.isArray(dailyReturns) || dailyReturns.length === 0) {
         return null;
     }
@@ -12,7 +40,7 @@ export function generateMonteCarloProjection(dailyReturns = [], { periods = 60, 
         return null;
     }
 
-    const trajectory = Array.from({ length: periods }, () => []);
+    const trajectory: number[][] = Array.from({ length: periods }, () => []);
 
     for (let sim = 0; sim < simulations; sim += 1) {
         let equity = 1;
@@ -29,8 +57,8 @@ export function generateMonteCarloProjection(dailyReturns = [], { periods = 60, 
         }
     }
 
-    const percentilesList = [0.1, 0.25, 0.5, 0.75, 0.9];
-    const percentileSeries = percentilesList.map(() => []);
+    const percentilesList = [0.1, 0.25, 0.5, 0.75, 0.9] as const;
+    const percentileSeries: number[][] = percentilesList.map(() => []);
 
     trajectory.forEach(stepValues => {
         if (!stepValues.length) {
@@ -67,7 +95,7 @@ export function generateMonteCarloProjection(dailyReturns = [], { periods = 60, 
     };
 }
 
-export function ensureMonteCarloBaseline(chart) {
+export function ensureMonteCarloBaseline(chart: ChartLike | null | undefined): void {
     if (!chart) {
         return;
     }
@@ -94,3 +122,4 @@ export function ensureMonteCarloBaseline(chart) {
     ctx.stroke();
     ctx.restore();
 }
+
