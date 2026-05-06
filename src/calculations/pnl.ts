@@ -1,8 +1,31 @@
-// src/calculations/pnl.js — Wave 3: P&L calculation helpers.
+// src/calculations/pnl.ts — Wave 3: P&L calculation helpers.
 // Uses the .call(this, …) delegation pattern.
 
-// Realized P&L derived from leg cash flows
-export function calculatePL(trade) {
+import type { DollarAmount } from '@types-gl/common'
+import type { EnrichedTrade } from '@types-gl/trade'
+import type { NormalizedLeg } from '@types-gl/leg'
+import type { LegSummary } from '@types-gl/leg-summary'
+
+/**
+ * Minimum GammaLedger context surface required by P&L calculations.
+ * GammaLedger fulfils this interface at runtime via .call(this, …).
+ * TODO Phase 3: replace with typed GammaLedger reference once src/index.ts is converted.
+ */
+interface PnlContext {
+    summarizeLegs(legs: NormalizedLeg[]): LegSummary
+    computeMaxRiskUsingFormula(trade: EnrichedTrade, summary: LegSummary): number
+    getCapitalAtRisk(trade: EnrichedTrade): number
+    calculatePL(trade: EnrichedTrade): DollarAmount
+    calculateROI(trade: EnrichedTrade): number
+    calculateDaysHeld(trade: EnrichedTrade): number
+    isClosedStatus(status: string | null | undefined): boolean
+    parseDateValue(value: unknown): Date | null
+    isPmccTrade(trade: EnrichedTrade): boolean
+    readonly currentDate: Date
+}
+
+/** Realized P&L derived from leg cash flows. */
+export function calculatePL(this: PnlContext, trade: EnrichedTrade | null | undefined): DollarAmount {
     if (!trade) {
         return 0;
     }
@@ -16,8 +39,8 @@ export function calculatePL(trade) {
     return parseFloat(cashFlowValue.toFixed(2));
 }
 
-// Fixed ROI calculation
-export function calculateROI(trade) {
+/** Return on investment as a percentage (e.g. 15.5 = 15.5%). */
+export function calculateROI(this: PnlContext, trade: EnrichedTrade): number {
     const pl = this.calculatePL(trade);
     const capital = this.getCapitalAtRisk(trade);
 
@@ -33,8 +56,8 @@ export function calculateROI(trade) {
     return parseFloat(roiPercent.toFixed(2));
 }
 
-// Enhanced Max Risk calculation
-export function calculateMaxRisk(trade) {
+/** Maximum capital at risk in dollars (or Infinity for unlimited-risk strategies). */
+export function calculateMaxRisk(this: PnlContext, trade: EnrichedTrade | null | undefined): DollarAmount {
     if (!trade) {
         return 0;
     }
@@ -72,7 +95,8 @@ export function calculateMaxRisk(trade) {
     return 0;
 }
 
-export function getCapitalAtRisk(trade) {
+/** Effective capital at risk — mirrors calculateMaxRisk with identical fallback logic. */
+export function getCapitalAtRisk(this: PnlContext, trade: EnrichedTrade | null | undefined): DollarAmount {
     if (!trade) {
         return 0;
     }
@@ -110,8 +134,8 @@ export function getCapitalAtRisk(trade) {
     return 0;
 }
 
-// VERIFIED: Annualized ROI calculation
-export function calculateAnnualizedROI(trade) {
+/** Annualized ROI as a percentage (annualized over 365 days). */
+export function calculateAnnualizedROI(this: PnlContext, trade: EnrichedTrade | null | undefined): number {
     if (!trade || !this.isClosedStatus(trade.status)) {
         return 0;
     }
@@ -132,8 +156,8 @@ export function calculateAnnualizedROI(trade) {
     return parseFloat(annualizedROI.toFixed(2));
 }
 
-// Weekly ROI calculation: (premium_received / collateral_used) × (7 / days_held)
-export function calculateWeeklyROI(trade) {
+/** ROI normalized to a 7-day period. */
+export function calculateWeeklyROI(this: PnlContext, trade: EnrichedTrade | null | undefined): number {
     if (!trade || !this.isClosedStatus(trade.status)) {
         return 0;
     }
@@ -154,8 +178,8 @@ export function calculateWeeklyROI(trade) {
     return parseFloat(weeklyROI.toFixed(2));
 }
 
-// Monthly ROI calculation: (premium_received / collateral_used) × (30 / days_held)
-export function calculateMonthlyROI(trade) {
+/** ROI normalized to a 30-day period. */
+export function calculateMonthlyROI(this: PnlContext, trade: EnrichedTrade | null | undefined): number {
     if (!trade || !this.isClosedStatus(trade.status)) {
         return 0;
     }
@@ -176,7 +200,12 @@ export function calculateMonthlyROI(trade) {
     return parseFloat(monthlyROI.toFixed(2));
 }
 
-export function calculateDTE(expirationDate, trade) {
+/** Days to expiration from today. Returns 0 if already expired or trade is closed. */
+export function calculateDTE(
+    this: PnlContext,
+    expirationDate: string | null | undefined,
+    trade: EnrichedTrade
+): number {
     let expDate = this.parseDateValue(expirationDate);
 
     if (!expDate && this.isPmccTrade(trade)) {
@@ -203,7 +232,8 @@ export function calculateDTE(expirationDate, trade) {
     return Math.max(0, diffDays);
 }
 
-export function calculateDaysHeld(trade) {
+/** Days between a trade's entry date and its exit date (or today if still open). */
+export function calculateDaysHeld(this: PnlContext, trade: EnrichedTrade | null | undefined): number {
     if (!trade) {
         return 0;
     }
@@ -224,3 +254,4 @@ export function calculateDaysHeld(trade) {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return Math.max(1, diffDays);
 }
+
