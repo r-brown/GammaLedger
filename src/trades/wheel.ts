@@ -1,17 +1,36 @@
-// src/trades/wheel.js — Wave 3: Wheel and PMCC strategy helpers.
+// src/trades/wheel.ts — Wave 3: Wheel and PMCC strategy helpers.
 // Uses the .call(this, …) delegation pattern.
 
-export function isWheelPut(trade = {}) {
-    const strategy = (trade.strategy || '').toLowerCase();
+interface WheelContext {
+  isWheelTrade(trade: Record<string, unknown>): boolean
+  isPmccTrade(trade: Record<string, unknown>): boolean
+  isCashSettledTrade(trade: Record<string, unknown>): boolean
+  isAssignedStatus(status: unknown): boolean
+  isAssignmentTrade(trade: Record<string, unknown>): boolean
+  getNetOpenLongCallContracts(trade: Record<string, unknown>): number
+  getTradeOpenStockShares(trade: Record<string, unknown>): number
+  getNetOpenShortCalls(legs: Record<string, unknown>[]): { contracts: number; details: unknown[] }
+  getLegAction(leg: Record<string, unknown>): string
+  getLegSide(leg: Record<string, unknown>): string
+  getLegMultiplier(leg: Record<string, unknown>): number
+  calculateLegCashFlow(leg: Record<string, unknown>): number
+  inferTradeDirection(trade: Record<string, unknown>): string
+  // Self-referential
+  isWheelOrPmccTrade(trade: Record<string, unknown>): boolean
+  getTradeWheelCoverage(trade: Record<string, unknown>): string
+}
+
+export function isWheelPut(this: WheelContext, trade: Record<string, unknown> = {}): boolean {
+    const strategy = ((trade.strategy as string) || '').toLowerCase();
     return strategy.includes('cash-secured put');
 }
 
-export function isWheelTrade(trade = {}) {
-    const strategy = (trade.strategy || '').toString().trim().toLowerCase();
+export function isWheelTrade(this: WheelContext, trade: Record<string, unknown> = {}): boolean {
+    const strategy = ((trade.strategy as string) || '').toString().trim().toLowerCase();
     return strategy.includes('wheel');
 }
 
-export function isWheelOrPmccTrade(trade = {}) {
+export function isWheelOrPmccTrade(this: WheelContext, trade: Record<string, unknown> = {}): boolean {
     if (this.isWheelTrade(trade) || this.isPmccTrade(trade)) {
         return true;
     }
@@ -31,8 +50,8 @@ export function isWheelOrPmccTrade(trade = {}) {
     return false;
 }
 
-export function isCoveredCall(trade = {}) {
-    const strategy = (trade.strategy || '').toLowerCase();
+export function isCoveredCall(this: WheelContext, trade: Record<string, unknown> = {}): boolean {
+    const strategy = ((trade.strategy as string) || '').toLowerCase();
     return strategy.includes('covered call');
 }
 
@@ -40,7 +59,10 @@ export function isCoveredCall(trade = {}) {
  * Coverage status for a wheel/PMCC position.
  * Returns 'covered' | 'partial' | 'uncovered' | 'n/a'.
  */
-export function getTradeWheelCoverage(trade = {}) {
+export function getTradeWheelCoverage(
+    this: WheelContext,
+    trade: Record<string, unknown> = {}
+): string {
     const isWheelPmcc = this.isWheelOrPmccTrade(trade) || this.isAssignmentTrade(trade);
     if (!isWheelPmcc) return 'n/a';
 
@@ -50,7 +72,7 @@ export function getTradeWheelCoverage(trade = {}) {
         : this.getTradeOpenStockShares(trade);
     if (baseShares <= 0) return 'n/a';
 
-    const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+    const legs = Array.isArray(trade?.legs) ? (trade.legs as Record<string, unknown>[]) : [];
     const shortInfo = this.getNetOpenShortCalls(legs);
     const coveredShares = (Number(shortInfo?.contracts) || 0) * 100;
     if (coveredShares >= baseShares) return 'covered';
@@ -61,7 +83,7 @@ export function getTradeWheelCoverage(trade = {}) {
 /**
  * True when a wheel/PMCC trade is assigned (shares held) but coverage is not full.
  */
-export function isAwaitingCoverage(trade = {}) {
+export function isAwaitingCoverage(this: WheelContext, trade: Record<string, unknown> = {}): boolean {
     const cov = this.getTradeWheelCoverage(trade);
     return cov === 'uncovered' || cov === 'partial';
 }
@@ -69,8 +91,11 @@ export function isAwaitingCoverage(trade = {}) {
 /**
  * Lightweight per-trade cost-basis math for wheel/PMCC awaiting-coverage positions.
  */
-export function computeWheelEffectiveCostBasis(trade = {}) {
-    const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+export function computeWheelEffectiveCostBasis(
+    this: WheelContext,
+    trade: Record<string, unknown> = {}
+): { shares: number; assignmentCostBasis: number; effectiveCostBasis: number } {
+    const legs = Array.isArray(trade?.legs) ? (trade.legs as Record<string, unknown>[]) : [];
     const isPmcc = this.isPmccTrade(trade);
 
     let stockShares = 0;
@@ -81,7 +106,7 @@ export function computeWheelEffectiveCostBasis(trade = {}) {
     let longCallShares = 0;
 
     legs.forEach((leg) => {
-        const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+        const type = ((leg.type as string) || (leg.optionType as string) || '').toString().trim().toUpperCase();
         const action = this.getLegAction(leg);
         const side = this.getLegSide(leg);
         const qty = Math.abs(Number(leg.quantity) || 0);
@@ -134,7 +159,10 @@ export function computeWheelEffectiveCostBasis(trade = {}) {
     };
 }
 
-export function calculateOptionPremium(trade = {}) {
+export function calculateOptionPremium(
+    this: WheelContext,
+    trade: Record<string, unknown> = {}
+): number {
     const quantity = Math.abs(Number(trade.quantity) || 0);
     if (!quantity) {
         return 0;
@@ -143,9 +171,11 @@ export function calculateOptionPremium(trade = {}) {
     const exitPrice = Number(trade.exitPrice) || 0;
     const fees = Number(trade.fees) || 0;
     const gross = (entryPrice - exitPrice) * quantity * 100;
-    const direction = trade.tradeDirection || this.inferTradeDirection(trade);
+    const direction = (trade.tradeDirection as string) || this.inferTradeDirection(trade);
     if (direction === 'short') {
         return gross - fees;
     }
     return (exitPrice - entryPrice) * quantity * 100 - fees;
 }
+
+

@@ -1,8 +1,81 @@
-// src/trades/risk.js — Wave 3: Risk formula context, max-risk computation, and tooltip helpers.
+// src/trades/risk.ts — Wave 3: Risk formula context, max-risk computation, and tooltip helpers.
 // Uses the .call(this, …) delegation pattern.
 
-export function buildRiskFormulaContext(trade = {}, details = null) {
-    const summary = details || this.summarizeLegs(trade?.legs || []);
+interface RiskFormulaContext {
+    trade: Record<string, unknown>
+    details: Record<string, unknown>
+    referenceStrike: number | null
+    contracts: number
+    multiplier: number
+    contractValue: number
+    netPremium: number
+    netCredit: number
+    netDebit: number
+    premiumPaid: number
+    premiumReceived: number
+    totalFeesPerShare: number
+    strikes: number[]
+    K: number | null
+    K1: number | null
+    K2: number | null
+    K3: number | null
+    K4: number | null
+    lowerWidth: number | null
+    middleWidth: number | null
+    upperWidth: number | null
+    minStrikeDiff: number | null
+    maxStrikeDiff: number | null
+    maxWingWidth: number | null
+    defaultWidth: number | null
+    shortCallStrike: number | null
+    shortCallStrikeHigh: number | null
+    longCallStrike: number | null
+    longCallStrikeLow: number | null
+    shortPutStrike: number | null
+    shortPutStrikeLow: number | null
+    longPutStrike: number | null
+    longPutStrikeLow: number | null
+    verticalSpreadWidth: number | null
+    S: number | null
+    hasStockExposure: boolean
+    toNotional: (perShare: number | null | undefined) => number | undefined
+    contractCount: number
+    multiplierValue: number
+}
+
+interface RiskContext {
+    summarizeLegs(legs: unknown[]): Record<string, unknown>
+    getLegSide(leg: Record<string, unknown>): string
+    getLegAction(leg: Record<string, unknown>): string
+    getLegMultiplier(leg: Record<string, unknown>): number
+    derivePrimaryStrike(summary: Record<string, unknown>): number | null
+    buildRiskFormulaContext(trade: Record<string, unknown>, details: Record<string, unknown>): RiskFormulaContext | null
+    getStrategyRiskHandlers(): Record<string, (ctx: RiskFormulaContext) => number | undefined>
+    evaluateStrategyMaxRisk(strategyName: string, context: RiskFormulaContext): number | undefined
+    computeDefaultMaxRisk(context: RiskFormulaContext): number
+    computeMaxRiskUsingFormula(trade: Record<string, unknown>, summary: Record<string, unknown> | null): number
+    assessRisk(trade: Record<string, unknown>, summary: Record<string, unknown>): { maxRiskValue: number; maxRiskLabel: string; unlimited: boolean }
+    buildFormulaTooltipContent(trade: Record<string, unknown>, metricType: string): string | null
+    buildMaxRiskTooltip(strategyName: string, strategyInfo: Record<string, string>, context: RiskFormulaContext | null, trade: Record<string, unknown>): string
+    buildPLTooltip(trade: Record<string, unknown>, details: Record<string, unknown>, context: RiskFormulaContext | null): string
+    buildVariablesWithExplanations(context: RiskFormulaContext, formulaData: Record<string, unknown>, trade: Record<string, unknown>): Array<{ displayName: string; value: string }>
+    buildPLVariables(trade: Record<string, unknown>, details: Record<string, unknown>): Array<{ displayName: string; value: string }>
+    getFormulaData(): Record<string, unknown>
+    positionFormulaTooltip(wrapper: HTMLElement, tooltip: HTMLElement): void
+    getStrategyDisplayName(name: string): string
+    formatCurrency(value: number): string
+    isClosedStatus(status: unknown): boolean
+    escapeHtml(text: string): string
+    strategyRiskHandlersCache: Record<string, (ctx: RiskFormulaContext) => number | undefined> | null
+    formulaDataCache: Record<string, unknown> | null
+}
+
+export function buildRiskFormulaContext(
+    this: RiskContext,
+    trade: Record<string, unknown> = {},
+    details: Record<string, unknown> | null = null
+): RiskFormulaContext | null {
+    const summary = details || this.summarizeLegs((trade?.legs as unknown[]) || []);
     if (!summary) {
         return null;
     }
@@ -15,13 +88,13 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
         }
     }
     if (!(Number.isFinite(referenceStrike) && referenceStrike > 0)) {
-        const primaryStrike = Number(summary?.primaryLeg?.strike);
+        const primaryStrike = Number((summary?.primaryLeg as Record<string, unknown>)?.strike);
         if (Number.isFinite(primaryStrike) && primaryStrike > 0) {
             referenceStrike = primaryStrike;
         } else {
             const derivedStrike = this.derivePrimaryStrike(summary);
-            if (Number.isFinite(derivedStrike) && derivedStrike > 0) {
-                referenceStrike = derivedStrike;
+            if (Number.isFinite(derivedStrike) && (derivedStrike as number) > 0) {
+                referenceStrike = derivedStrike as number;
             }
         }
     }
@@ -34,7 +107,7 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
         }
     }
     if (!(contracts > 0)) {
-        const primaryQuantity = Number(summary?.primaryLeg?.quantity);
+        const primaryQuantity = Number((summary?.primaryLeg as Record<string, unknown>)?.quantity);
         if (Number.isFinite(primaryQuantity) && primaryQuantity !== 0) {
             contracts = Math.abs(primaryQuantity);
         }
@@ -45,26 +118,26 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
 
     let multiplier = Math.abs(Number(trade?.multiplier)) || 0;
     if (!(multiplier > 0) && summary?.primaryLeg) {
-        const primaryMultiplier = this.getLegMultiplier(summary.primaryLeg);
+        const primaryMultiplier = this.getLegMultiplier(summary.primaryLeg as Record<string, unknown>);
         if (Number.isFinite(primaryMultiplier) && primaryMultiplier > 0) {
             multiplier = primaryMultiplier;
         }
     }
     if (!(multiplier > 0) && Array.isArray(summary?.legs)) {
-        const legWithMultiplier = summary.legs.find((leg) => Number.isFinite(Number(leg?.multiplier)) && Number(leg.multiplier) > 0);
+        const legWithMultiplier = (summary.legs as Record<string, unknown>[]).find((leg) => Number.isFinite(Number(leg?.multiplier)) && Number(leg.multiplier) > 0);
         if (legWithMultiplier) {
             multiplier = Math.abs(Number(this.getLegMultiplier(legWithMultiplier)));
         }
     }
 
     const openLegsForRisk = Array.isArray(summary?.legs)
-        ? summary.legs.filter((leg) => leg && this.getLegSide(leg) === 'OPEN')
+        ? (summary.legs as Record<string, unknown>[]).filter((leg) => leg && this.getLegSide(leg) === 'OPEN')
         : [];
     const stockLegsForRisk = openLegsForRisk.filter((leg) => leg.type === 'STOCK');
 
     if (stockLegsForRisk.length > 0) {
         const totalStockShares = stockLegsForRisk.reduce((sum, leg) => {
-            const quantity = leg.quantity * this.getLegMultiplier(leg);
+            const quantity = (leg.quantity as number) * this.getLegMultiplier(leg);
             return sum + (this.getLegAction(leg) === 'BUY' ? quantity : -quantity);
         }, 0);
         const absStockShares = Math.abs(Math.round(totalStockShares));
@@ -94,16 +167,16 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
     const netDebitPerShare = Math.max(-netPremiumPerShare, 0);
     const totalFeesPerShare = contractValue > 0 ? feesDollars / contractValue : 0;
 
-    const activeLegs = Array.isArray(summary?.activeOpenLegs) && summary.activeOpenLegs.length > 0 && summary.hasClosedOutOpenLegs
-        ? summary.activeOpenLegs
+    const activeLegs = Array.isArray(summary?.activeOpenLegs) && (summary.activeOpenLegs as unknown[]).length > 0 && summary.hasClosedOutOpenLegs
+        ? (summary.activeOpenLegs as Record<string, unknown>[])
         : null;
     const allOpenLegs = Array.isArray(summary?.legs)
-        ? summary.legs.filter((leg) => leg && this.getLegSide(leg) === 'OPEN')
+        ? (summary.legs as Record<string, unknown>[]).filter((leg) => leg && this.getLegSide(leg) === 'OPEN')
         : [];
     const openLegs = activeLegs
-        ? [...activeLegs, ...allOpenLegs.filter(leg => !['CALL', 'PUT'].includes((leg.type || '').toUpperCase()))]
+        ? [...activeLegs, ...allOpenLegs.filter(leg => !['CALL', 'PUT'].includes(((leg.type as string) || '').toUpperCase()))]
         : allOpenLegs;
-    const optionLegs = openLegs.filter((leg) => ['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike)));
+    const optionLegs = openLegs.filter((leg) => ['CALL', 'PUT'].includes(leg.type as string) && Number.isFinite(Number(leg.strike)));
 
     const strikeValues = optionLegs.map((leg) => Number(leg.strike)).filter((value) => Number.isFinite(value));
     const uniqueStrikes = Array.from(new Set(strikeValues)).sort((a, b) => a - b);
@@ -112,7 +185,7 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
     const K3 = uniqueStrikes[2] ?? null;
     const K4 = uniqueStrikes[3] ?? null;
 
-    const strikeDiffs = [];
+    const strikeDiffs: number[] = [];
     for (let i = 1; i < uniqueStrikes.length; i += 1) {
         const diff = uniqueStrikes[i] - uniqueStrikes[i - 1];
         if (Number.isFinite(diff) && diff > 0) strikeDiffs.push(diff);
@@ -120,7 +193,7 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
     const minStrikeDiff = strikeDiffs.length ? Math.min(...strikeDiffs) : null;
     const maxStrikeDiff = strikeDiffs.length ? Math.max(...strikeDiffs) : null;
 
-    const selectStrikes = (predicate) => optionLegs
+    const selectStrikes = (predicate: (leg: Record<string, unknown>) => boolean) => optionLegs
         .filter(predicate)
         .map((leg) => Number(leg.strike))
         .filter((value) => Number.isFinite(value))
@@ -140,25 +213,25 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
     const longPutStrikeLow = longPuts.length ? longPuts[0] : null;
     const longPutStrike = longPuts.length ? longPuts[longPuts.length - 1] : null;
 
-    const lowerWidth = Number.isFinite(K1) && Number.isFinite(K2) ? Math.max(K2 - K1, 0) : null;
-    const middleWidth = Number.isFinite(K2) && Number.isFinite(K3) ? Math.max(K3 - K2, 0) : null;
-    const upperWidth = Number.isFinite(K3) && Number.isFinite(K4) ? Math.max(K4 - K3, 0) : null;
+    const lowerWidth = Number.isFinite(K1) && Number.isFinite(K2) ? Math.max((K2 as number) - (K1 as number), 0) : null;
+    const middleWidth = Number.isFinite(K2) && Number.isFinite(K3) ? Math.max((K3 as number) - (K2 as number), 0) : null;
+    const upperWidth = Number.isFinite(K3) && Number.isFinite(K4) ? Math.max((K4 as number) - (K3 as number), 0) : null;
     const maxWingWidth = Math.max(
-        Number.isFinite(lowerWidth) ? lowerWidth : 0,
-        Number.isFinite(upperWidth) ? upperWidth : 0
+        Number.isFinite(lowerWidth) ? (lowerWidth as number) : 0,
+        Number.isFinite(upperWidth) ? (upperWidth as number) : 0
     ) || null;
-    const defaultWidth = Number.isFinite(maxWingWidth) && maxWingWidth > 0
+    const defaultWidth = Number.isFinite(maxWingWidth) && (maxWingWidth as number) > 0
         ? maxWingWidth
-        : Number.isFinite(middleWidth) && middleWidth > 0
+        : Number.isFinite(middleWidth) && (middleWidth as number) > 0
             ? middleWidth
-            : Number.isFinite(minStrikeDiff) && minStrikeDiff > 0
+            : Number.isFinite(minStrikeDiff) && (minStrikeDiff as number) > 0
                 ? minStrikeDiff
                 : null;
 
     const stockLegs = openLegs.filter((leg) => leg.type === 'STOCK');
 
-    const underlyingCandidates = [];
-    const addCandidate = (value) => {
+    const underlyingCandidates: number[] = [];
+    const addCandidate = (value: unknown) => {
         const numeric = Number(value);
         if (Number.isFinite(numeric) && numeric > 0) underlyingCandidates.push(numeric);
     };
@@ -175,18 +248,18 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
             .forEach((value) => underlyingCandidates.push(value));
     }
 
-    let S = null;
+    let S: number | null = null;
     if (underlyingCandidates.length) {
         const total = underlyingCandidates.reduce((sum, value) => sum + value, 0);
         const average = total / underlyingCandidates.length;
         if (Number.isFinite(average) && average > 0) S = average;
     }
 
-    const effectiveStrike = Number.isFinite(referenceStrike) && referenceStrike > 0
+    const effectiveStrike: number | null = Number.isFinite(referenceStrike) && referenceStrike > 0
         ? referenceStrike
         : (shortCallStrike ?? shortPutStrike ?? K1 ?? null);
 
-    const toNotional = (perShare) => {
+    const toNotional = (perShare: number | null | undefined): number | undefined => {
         if (perShare === null || perShare === undefined) return undefined;
         if (perShare === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
         const numeric = Number(perShare);
@@ -194,8 +267,8 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
         return Math.max(numeric, 0) * contractValue;
     };
 
-    const verticalSpreadWidth = Number.isFinite(summary?.verticalSpread?.width) && summary.verticalSpread.width > 0
-        ? summary.verticalSpread.width
+    const verticalSpreadWidth = Number.isFinite((summary?.verticalSpread as Record<string, unknown>)?.width) && (summary?.verticalSpread as Record<string, unknown>)?.width as number > 0
+        ? (summary?.verticalSpread as Record<string, unknown>)?.width as number
         : null;
 
     return {
@@ -213,62 +286,70 @@ export function buildRiskFormulaContext(trade = {}, details = null) {
     };
 }
 
-export function computeDefaultMaxRisk(context) {
+export function computeDefaultMaxRisk(
+    this: RiskContext,
+    context: RiskFormulaContext
+): number {
     if (!context || !(context.contractValue > 0)) return 0;
     const netDebitPerShare = Number(context.netDebit);
     if (Number.isFinite(netDebitPerShare) && netDebitPerShare > 0) {
         const value = context.toNotional(netDebitPerShare);
-        return Number.isFinite(value) ? value : 0;
+        return Number.isFinite(value) ? (value as number) : 0;
     }
     return 0;
 }
 
-export function getStrategyRiskHandlers() {
+export function getStrategyRiskHandlers(
+    this: RiskContext
+): Record<string, (ctx: RiskFormulaContext) => number | undefined> {
     if (!this.strategyRiskHandlersCache) {
-        const width = (lower, upper) => {
+        const width = (lower: number | null, upper: number | null) => {
             if (!Number.isFinite(lower) || !Number.isFinite(upper)) return null;
-            return Math.max(upper - lower, 0);
+            return Math.max((upper as number) - (lower as number), 0);
         };
-        const pickStrike = (...values) => {
+        const pickStrike = (...values: (number | null | undefined)[]) => {
             for (const value of values) {
                 const numeric = Number(value);
                 if (Number.isFinite(numeric) && numeric > 0) return numeric;
             }
             return null;
         };
-        const handlers = {};
-        const register = (name, fn) => { if (name) handlers[name] = fn; return fn; };
+        const handlers: Record<string, (ctx: RiskFormulaContext) => number | undefined> = {};
+        const register = (name: string, fn: (ctx: RiskFormulaContext) => number | undefined) => {
+            if (name) handlers[name] = fn;
+            return fn;
+        };
 
-        const debitRisk = (ctx) => {
+        const debitRisk = (ctx: RiskFormulaContext) => {
             const debit = Number(ctx.netDebit);
             if (Number.isFinite(debit) && debit > 0) return ctx.toNotional(debit);
             const paid = Number(ctx.premiumPaid);
             if (Number.isFinite(paid) && paid > 0) return ctx.toNotional(paid);
             return undefined;
         };
-        const spreadWidthRisk = (ctx, diff) => {
-            const widthValue = Number.isFinite(ctx.verticalSpreadWidth) && ctx.verticalSpreadWidth > 0
-                ? ctx.verticalSpreadWidth : diff;
-            if (!Number.isFinite(widthValue) || widthValue <= 0) return undefined;
-            if (ctx.netCredit > 0) return ctx.toNotional(widthValue - ctx.netCredit);
-            if (ctx.netDebit > 0) return ctx.toNotional(widthValue + ctx.netDebit);
-            return ctx.toNotional(widthValue);
+        const spreadWidthRisk = (ctx: RiskFormulaContext, diff: number | null) => {
+            const widthValue = Number.isFinite(ctx.verticalSpreadWidth) && (ctx.verticalSpreadWidth as number) > 0
+                ? ctx.verticalSpreadWidth as number : diff;
+            if (!Number.isFinite(widthValue) || (widthValue as number) <= 0) return undefined;
+            if (ctx.netCredit > 0) return ctx.toNotional((widthValue as number) - ctx.netCredit);
+            if (ctx.netDebit > 0) return ctx.toNotional((widthValue as number) + ctx.netDebit);
+            return ctx.toNotional(widthValue as number);
         };
-        const creditWidthRisk = (ctx, lower, upper) => {
+        const creditWidthRisk = (ctx: RiskFormulaContext, lower: number | null, upper: number | null) => {
             const diff = width(lower, upper);
             if (diff === null) return undefined;
             return spreadWidthRisk(ctx, diff);
         };
-        const widthMinusDebit = (ctx, lower, upper) => {
+        const widthMinusDebit = (ctx: RiskFormulaContext, lower: number | null, upper: number | null) => {
             const diff = width(lower, upper);
             if (diff === null) return undefined;
             return ctx.toNotional(diff - ctx.netDebit);
         };
-        const condorWidthRisk = (ctx) => {
-            const diff = Number.isFinite(ctx.defaultWidth) && ctx.defaultWidth > 0
-                ? ctx.defaultWidth : width(ctx.K1, ctx.K2);
-            if (!Number.isFinite(diff) || diff <= 0) return undefined;
-            return spreadWidthRisk(ctx, diff);
+        const condorWidthRisk = (ctx: RiskFormulaContext) => {
+            const diff = Number.isFinite(ctx.defaultWidth) && (ctx.defaultWidth as number) > 0
+                ? ctx.defaultWidth as number : width(ctx.K1, ctx.K2);
+            if (!Number.isFinite(diff) || (diff as number) <= 0) return undefined;
+            return spreadWidthRisk(ctx, diff as number);
         };
 
         register('Bear Call Ladder', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
@@ -289,7 +370,7 @@ export function getStrategyRiskHandlers() {
         register('Call Ratio Spread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
         register('Cash-Secured Put', (ctx) => {
             const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K, ctx.K1);
-            return Number.isFinite(strike) ? ctx.toNotional(strike - ctx.netCredit) : undefined;
+            return Number.isFinite(strike) ? ctx.toNotional((strike as number) - ctx.netCredit) : undefined;
         });
         register('Collar', (ctx) => {
             const underlying = pickStrike(ctx.S, ctx.referenceStrike);
@@ -316,7 +397,7 @@ export function getStrategyRiskHandlers() {
         register('Iron Condor', condorWidthRisk);
         register('Jade Lizard', (ctx) => {
             const callStrike = pickStrike(ctx.shortCallStrike, ctx.shortCallStrikeHigh, ctx.K2, ctx.K3);
-            return Number.isFinite(callStrike) ? ctx.toNotional(callStrike - ctx.netCredit) : undefined;
+            return Number.isFinite(callStrike) ? ctx.toNotional((callStrike as number) - ctx.netCredit) : undefined;
         });
         register('Long Call', debitRisk);
         register('Long Call Butterfly', debitRisk);
@@ -326,7 +407,7 @@ export function getStrategyRiskHandlers() {
         register('Long Put Condor', debitRisk);
         register('Long Straddle', debitRisk);
         register('Long Strangle', debitRisk);
-        register('Poor Man\'s Covered Call', debitRisk);
+        register("Poor Man's Covered Call", debitRisk);
         register('Protective Put', (ctx) => {
             const underlying = pickStrike(ctx.S, ctx.referenceStrike);
             const putStrike = pickStrike(ctx.longPutStrike, ctx.longPutStrikeLow, ctx.K1);
@@ -337,7 +418,7 @@ export function getStrategyRiskHandlers() {
         register('Put Ratio Spread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
         register('Reverse Jade Lizard', (ctx) => {
             const putStrike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K1);
-            return Number.isFinite(putStrike) ? ctx.toNotional(putStrike - ctx.netCredit) : undefined;
+            return Number.isFinite(putStrike) ? ctx.toNotional((putStrike as number) - ctx.netCredit) : undefined;
         });
         register('Short Call', () => Number.POSITIVE_INFINITY);
         register('Short Call Butterfly', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
@@ -345,7 +426,7 @@ export function getStrategyRiskHandlers() {
         register('Short Guts', () => Number.POSITIVE_INFINITY);
         register('Short Put', (ctx) => {
             const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K, ctx.K1);
-            return Number.isFinite(strike) ? ctx.toNotional(strike - ctx.netCredit) : undefined;
+            return Number.isFinite(strike) ? ctx.toNotional((strike as number) - ctx.netCredit) : undefined;
         });
         register('Short Put Butterfly', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
         register('Short Put Condor', condorWidthRisk);
@@ -358,7 +439,7 @@ export function getStrategyRiskHandlers() {
         register('Synthetic Put', () => Number.POSITIVE_INFINITY);
         register('Wheel', (ctx) => {
             const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K1);
-            return Number.isFinite(strike) ? ctx.toNotional(strike - ctx.netCredit) : undefined;
+            return Number.isFinite(strike) ? ctx.toNotional((strike as number) - ctx.netCredit) : undefined;
         });
 
         if (handlers['Calendar Call Spread']) register('Calendar Spread', handlers['Calendar Call Spread']);
@@ -369,14 +450,18 @@ export function getStrategyRiskHandlers() {
         if (handlers['Put Broken Wing']) register('Put Broken Wing Butterfly', handlers['Put Broken Wing']);
         if (handlers['Wheel']) register('Wheel Strategy', handlers['Wheel']);
         if (handlers['Cash-Secured Put']) register('Cash Secured Put', handlers['Cash-Secured Put']);
-        if (handlers['Poor Man\'s Covered Call']) register('Poor Mans Covered Call', handlers['Poor Man\'s Covered Call']);
+        if (handlers["Poor Man's Covered Call"]) register('Poor Mans Covered Call', handlers["Poor Man's Covered Call"]);
 
         this.strategyRiskHandlersCache = handlers;
     }
-    return this.strategyRiskHandlersCache;
+    return this.strategyRiskHandlersCache as Record<string, (ctx: RiskFormulaContext) => number | undefined>;
 }
 
-export function evaluateStrategyMaxRisk(strategyName, context) {
+export function evaluateStrategyMaxRisk(
+    this: RiskContext,
+    strategyName: string,
+    context: RiskFormulaContext
+): number | undefined {
     if (!context) return undefined;
     const handlers = this.getStrategyRiskHandlers();
     const key = (strategyName || '').toString().trim();
@@ -386,39 +471,47 @@ export function evaluateStrategyMaxRisk(strategyName, context) {
     return handler(context);
 }
 
-export function computeMaxRiskUsingFormula(trade = {}, summary = null) {
-    const details = summary || this.summarizeLegs(trade?.legs || []);
+export function computeMaxRiskUsingFormula(
+    this: RiskContext,
+    trade: Record<string, unknown> = {},
+    summary: Record<string, unknown> | null = null
+): number {
+    const details = summary || this.summarizeLegs((trade?.legs as unknown[]) || []);
     if (!details) return 0;
     const context = this.buildRiskFormulaContext(trade, details);
     if (!context) return 0;
-    const strategyName = this.getStrategyDisplayName(trade?.strategy || '');
-    let maxRisk = strategyName ? this.evaluateStrategyMaxRisk(strategyName, context) : undefined;
+    const strategyName = this.getStrategyDisplayName((trade?.strategy as string) || '');
+    let maxRisk: number | undefined = strategyName ? this.evaluateStrategyMaxRisk(strategyName, context) : undefined;
     if (maxRisk === undefined) maxRisk = this.computeDefaultMaxRisk(context);
     if (maxRisk === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
     if (!Number.isFinite(maxRisk) || maxRisk <= 0) return 0;
     return parseFloat(maxRisk.toFixed(2));
 }
 
-export function assessRisk(trade, summary) {
-    const details = summary || this.summarizeLegs(trade?.legs || []);
+export function assessRisk(
+    this: RiskContext,
+    trade: Record<string, unknown>,
+    summary: Record<string, unknown>
+): { maxRiskValue: number; maxRiskLabel: string; unlimited: boolean } {
+    const details = summary || this.summarizeLegs((trade?.legs as unknown[]) || []);
     const maxRisk = this.computeMaxRiskUsingFormula(trade, details);
     const result = { maxRiskValue: 0, maxRiskLabel: '$0.00', unlimited: false };
     if (maxRisk === Number.POSITIVE_INFINITY) {
         result.maxRiskValue = Number.POSITIVE_INFINITY;
         result.maxRiskLabel = 'Unlimited';
         result.unlimited = true;
-        details.capitalAtRisk = Number.POSITIVE_INFINITY;
+        (details as Record<string, unknown>).capitalAtRisk = Number.POSITIVE_INFINITY;
         return result;
     }
     if (Number.isFinite(maxRisk) && maxRisk > 0) {
         result.maxRiskValue = maxRisk;
         result.maxRiskLabel = this.formatCurrency(maxRisk);
     }
-    details.capitalAtRisk = result.maxRiskValue;
+    (details as Record<string, unknown>).capitalAtRisk = result.maxRiskValue;
     return result;
 }
 
-export function getFormulaData() {
+export function getFormulaData(this: RiskContext): Record<string, unknown> {
     if (!this.formulaDataCache) {
         this.formulaDataCache = {
             "variableExplanations": {
@@ -497,43 +590,60 @@ export function getFormulaData() {
             }
         };
     }
-    return this.formulaDataCache;
+    return this.formulaDataCache as Record<string, unknown>;
 }
 
-export function buildFormulaTooltipContent(trade, metricType) {
+export function buildFormulaTooltipContent(
+    this: RiskContext,
+    trade: Record<string, unknown>,
+    metricType: string
+): string | null {
     if (!trade || !metricType) return null;
-    const strategyName = this.getStrategyDisplayName(trade.strategy || '');
+    const strategyName = this.getStrategyDisplayName((trade.strategy as string) || '');
     const formulaData = this.getFormulaData();
-    const strategyInfo = formulaData.strategies[strategyName];
+    const strategyInfo = (formulaData.strategies as Record<string, Record<string, string>>)[strategyName];
     if (!strategyInfo) return null;
-    const details = this.summarizeLegs(trade.legs || []);
+    const details = this.summarizeLegs((trade.legs as unknown[]) || []);
     const context = this.buildRiskFormulaContext(trade, details);
     if (metricType === 'maxRisk') return this.buildMaxRiskTooltip(strategyName, strategyInfo, context, trade);
     if (metricType === 'pl') return this.buildPLTooltip(trade, details, context);
     return null;
 }
 
-export function buildMaxRiskTooltip(strategyName, strategyInfo, context, trade) {
-    const html = [];
+export function buildMaxRiskTooltip(
+    this: RiskContext,
+    strategyName: string,
+    strategyInfo: Record<string, string>,
+    context: RiskFormulaContext | null,
+    trade: Record<string, unknown>
+): string {
+    const html: string[] = [];
     const formulaData = this.getFormulaData();
     html.push(`<div class="formula-tooltip__title"><span class="formula-tooltip__strategy">${this.escapeHtml(strategyName)}</span>Max Risk</div>`);
     if (strategyInfo.explanation) {
         html.push(`<div class="formula-tooltip__section"><div class="formula-tooltip__explanation">${this.escapeHtml(strategyInfo.explanation)}</div></div>`);
     }
     html.push(`<div class="formula-tooltip__section"><div class="formula-tooltip__label">Formula</div><div class="formula-tooltip__formula">${this.escapeHtml(strategyInfo.maxRiskFormula)}</div></div>`);
-    const variables = this.buildVariablesWithExplanations(context, formulaData, trade);
-    if (variables.length > 0) {
-        html.push(`<div class="formula-tooltip__section"><div class="formula-tooltip__label">Calculation</div><div class="formula-tooltip__variables">`);
-        variables.forEach(v => {
-            html.push(`<div class="formula-tooltip__variable"><span class="formula-tooltip__variable-name">${this.escapeHtml(v.displayName)}</span><span class="formula-tooltip__variable-value">${this.escapeHtml(v.value)}</span></div>`);
-        });
-        html.push(`</div></div>`);
+    if (context) {
+        const variables = this.buildVariablesWithExplanations(context, formulaData, trade);
+        if (variables.length > 0) {
+            html.push(`<div class="formula-tooltip__section"><div class="formula-tooltip__label">Calculation</div><div class="formula-tooltip__variables">`);
+            variables.forEach(v => {
+                html.push(`<div class="formula-tooltip__variable"><span class="formula-tooltip__variable-name">${this.escapeHtml(v.displayName)}</span><span class="formula-tooltip__variable-value">${this.escapeHtml(v.value)}</span></div>`);
+            });
+            html.push(`</div></div>`);
+        }
     }
     return html.join('');
 }
 
-export function buildPLTooltip(trade, details, context) {
-    const html = [];
+export function buildPLTooltip(
+    this: RiskContext,
+    trade: Record<string, unknown>,
+    details: Record<string, unknown>,
+    context: RiskFormulaContext | null
+): string {
+    const html: string[] = [];
     html.push(`<div class="formula-tooltip__title">P&L Calculation</div>`);
     if (!this.isClosedStatus(trade.status)) {
         html.push(`<div class="formula-tooltip__section"><div class="formula-tooltip__explanation">This position is currently open. P&L shown is unrealized.</div></div>`);
@@ -550,9 +660,14 @@ export function buildPLTooltip(trade, details, context) {
     return html.join('');
 }
 
-export function buildVariablesWithExplanations(context, formulaData, trade) {
-    const variables = [];
-    const explanations = formulaData.variableExplanations;
+export function buildVariablesWithExplanations(
+    this: RiskContext,
+    context: RiskFormulaContext,
+    formulaData: Record<string, unknown>,
+    trade: Record<string, unknown>
+): Array<{ displayName: string; value: string }> {
+    const variables: Array<{ displayName: string; value: string }> = [];
+    const explanations = formulaData.variableExplanations as Record<string, string>;
     const maxRiskValue = Number(trade.maxRisk);
 
     if (context.S) {
@@ -570,7 +685,7 @@ export function buildVariablesWithExplanations(context, formulaData, trade) {
     ];
 
     strikeMapping.forEach(mapping => {
-        const value = context[mapping.contextKey];
+        const value = (context as unknown as Record<string, unknown>)[mapping.contextKey] as number;
         if (value && Number.isFinite(value)) {
             const shouldShow = mapping.shouldShow ? mapping.shouldShow() : true;
             if (shouldShow && !variables.some(v => v.displayName.includes(mapping.formulaKey))) {
@@ -604,17 +719,25 @@ export function buildVariablesWithExplanations(context, formulaData, trade) {
     return variables;
 }
 
-export function buildPLVariables(trade, details) {
-    const variables = [];
-    if (details && Number.isFinite(details.totalCredit)) variables.push({ displayName: 'Total Credits', value: `$${details.totalCredit.toFixed(2)}` });
-    if (details && Number.isFinite(details.totalDebit)) variables.push({ displayName: 'Total Debits', value: `$${details.totalDebit.toFixed(2)}` });
-    if (details && Number.isFinite(details.totalFees)) variables.push({ displayName: 'Fees', value: `$${details.totalFees.toFixed(2)}` });
+export function buildPLVariables(
+    this: RiskContext,
+    trade: Record<string, unknown>,
+    details: Record<string, unknown>
+): Array<{ displayName: string; value: string }> {
+    const variables: Array<{ displayName: string; value: string }> = [];
+    if (details && Number.isFinite(details.totalCredit as number)) variables.push({ displayName: 'Total Credits', value: `$${(details.totalCredit as number).toFixed(2)}` });
+    if (details && Number.isFinite(details.totalDebit as number)) variables.push({ displayName: 'Total Debits', value: `$${(details.totalDebit as number).toFixed(2)}` });
+    if (details && Number.isFinite(details.totalFees as number)) variables.push({ displayName: 'Fees', value: `$${(details.totalFees as number).toFixed(2)}` });
     const plValue = Number(trade.pl);
     if (Number.isFinite(plValue)) variables.push({ displayName: 'P&L (Result)', value: `$${plValue.toFixed(2)}` });
     return variables;
 }
 
-export function createFormulaIcon(trade, metricType) {
+export function createFormulaIcon(
+    this: RiskContext,
+    trade: Record<string, unknown>,
+    metricType: string
+): HTMLElement | null {
     const wrapper = document.createElement('span');
     wrapper.className = 'formula-value-wrapper';
     const icon = document.createElement('span');
@@ -638,7 +761,11 @@ export function createFormulaIcon(trade, metricType) {
     return null;
 }
 
-export function positionFormulaTooltip(wrapper, tooltip) {
+export function positionFormulaTooltip(
+    this: RiskContext,
+    wrapper: HTMLElement,
+    tooltip: HTMLElement
+): void {
     if (!wrapper || !tooltip) return;
     const iconRect = wrapper.getBoundingClientRect();
     const tooltipRect = tooltip.getBoundingClientRect();
@@ -652,37 +779,43 @@ export function positionFormulaTooltip(wrapper, tooltip) {
     tooltip.style.left = `${left}px`;
 }
 
-export function formatStrikeValue(value) {
+export function formatStrikeValue(value: unknown): string {
     const strike = Number(value);
     if (!Number.isFinite(strike)) return '—';
     if (Math.abs(strike) >= 1000) return strike.toFixed(0);
     return Number.isInteger(strike) ? strike.toString() : strike.toFixed(2).replace(/\.00$/, '');
 }
 
-export function derivePrimaryStrike(summary) {
+export function derivePrimaryStrike(
+    this: RiskContext,
+    summary: Record<string, unknown>
+): number | null {
     if (!summary || !Array.isArray(summary.legs)) return null;
-    const activeLegs = Array.isArray(summary?.activeOpenLegs) && summary.activeOpenLegs.length > 0 && summary.hasClosedOutOpenLegs
-        ? summary.activeOpenLegs : null;
-    const openLegs = activeLegs || summary.legs.filter(leg => this.getLegSide(leg) === 'OPEN');
-    const relevantLegs = openLegs.length ? openLegs : summary.legs;
+    const activeLegs = Array.isArray(summary?.activeOpenLegs) && (summary.activeOpenLegs as unknown[]).length > 0 && summary.hasClosedOutOpenLegs
+        ? (summary.activeOpenLegs as Record<string, unknown>[]) : null;
+    const openLegs = activeLegs || (summary.legs as Record<string, unknown>[]).filter(leg => this.getLegSide(leg) === 'OPEN');
+    const relevantLegs = openLegs.length ? openLegs : (summary.legs as Record<string, unknown>[]);
     const shortOption = relevantLegs.find(leg => this.getLegAction(leg) === 'SELL' && Number.isFinite(Number(leg.strike)));
     if (shortOption) return Number(shortOption.strike);
     const anyOption = relevantLegs.find(leg => Number.isFinite(Number(leg.strike)));
     return anyOption ? Number(anyOption.strike) : null;
 }
 
-export function getActiveStrikeForDisplay(summary) {
-    if (!summary || !Array.isArray(summary.legs) || summary.legs.length === 0) return null;
-    const legsWithStrike = summary.legs.filter((leg) => Number.isFinite(Number(leg?.strike)));
+export function getActiveStrikeForDisplay(
+    this: RiskContext,
+    summary: Record<string, unknown>
+): number | null {
+    if (!summary || !Array.isArray(summary.legs) || (summary.legs as unknown[]).length === 0) return null;
+    const legsWithStrike = (summary.legs as Record<string, unknown>[]).filter((leg) => Number.isFinite(Number(leg?.strike)));
     if (legsWithStrike.length === 0) return null;
-    const optionLegs = legsWithStrike.filter((leg) => ['CALL', 'PUT'].includes((leg.type || '').toUpperCase()));
+    const optionLegs = legsWithStrike.filter((leg) => ['CALL', 'PUT'].includes(((leg.type as string) || '').toUpperCase()));
     const openOptionLegs = optionLegs.filter((leg) => this.getLegSide(leg) === 'OPEN');
     const openLegs = legsWithStrike.filter((leg) => this.getLegSide(leg) === 'OPEN');
-    let candidates = openOptionLegs.length ? openOptionLegs : optionLegs.length ? optionLegs : openLegs.length ? openLegs : legsWithStrike;
+    const candidates = openOptionLegs.length ? openOptionLegs : optionLegs.length ? optionLegs : openLegs.length ? openLegs : legsWithStrike;
 
-    let chosenLeg = null, chosenTimestamp = Number.NEGATIVE_INFINITY, chosenPriority = Number.NEGATIVE_INFINITY, chosenIndex = -1;
+    let chosenLeg: Record<string, unknown> | null = null, chosenTimestamp = Number.NEGATIVE_INFINITY, chosenPriority = Number.NEGATIVE_INFINITY, chosenIndex = -1;
     candidates.forEach((leg, index) => {
-        const executionDate = leg.executionDate ? new Date(leg.executionDate) : null;
+        const executionDate = leg.executionDate ? new Date(leg.executionDate as string) : null;
         const timestamp = executionDate && !Number.isNaN(executionDate.getTime()) ? executionDate.getTime() : Number.NEGATIVE_INFINITY;
         const actionPriority = this.getLegAction(leg) === 'SELL' ? 1 : 0;
         if (timestamp > chosenTimestamp || (timestamp === chosenTimestamp && actionPriority > chosenPriority) ||
@@ -690,28 +823,32 @@ export function getActiveStrikeForDisplay(summary) {
             chosenLeg = leg; chosenTimestamp = timestamp; chosenPriority = actionPriority; chosenIndex = index;
         }
     });
-    return chosenLeg ? Number(chosenLeg.strike) : null;
+    return chosenLeg ? Number((chosenLeg as Record<string, unknown>).strike) : null;
 }
 
-export function buildStrikeDisplay(trade, summary = null) {
-    const legSummary = summary || this.summarizeLegs(trade?.legs || []);
-    const legs = legSummary?.legs || [];
+export function buildStrikeDisplay(
+    this: RiskContext,
+    trade: Record<string, unknown>,
+    summary: Record<string, unknown> | null = null
+): string {
+    const legSummary = summary || this.summarizeLegs((trade?.legs as unknown[]) || []);
+    const legs = (legSummary?.legs as Record<string, unknown>[]) || [];
     if (legs.length === 0) return '—';
-    const activeLegs = Array.isArray(legSummary?.activeOpenLegs) && legSummary.activeOpenLegs.length > 0 && legSummary.hasClosedOutOpenLegs
-        ? legSummary.activeOpenLegs : null;
+    const activeLegs = Array.isArray(legSummary?.activeOpenLegs) && (legSummary.activeOpenLegs as unknown[]).length > 0 && legSummary.hasClosedOutOpenLegs
+        ? (legSummary.activeOpenLegs as Record<string, unknown>[]) : null;
     const openLegs = activeLegs || legs.filter(leg => this.getLegSide(leg) === 'OPEN');
     const relevantLegs = openLegs.length ? openLegs : legs;
-    const optionLegs = relevantLegs.filter(leg => ['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike)));
+    const optionLegs = relevantLegs.filter(leg => ['CALL', 'PUT'].includes(leg.type as string) && Number.isFinite(Number(leg.strike)));
 
     if (optionLegs.length > 0) {
-        const grouped = optionLegs.reduce((acc, leg) => {
+        const grouped = optionLegs.reduce((acc: Record<string, Set<number>>, leg) => {
             const key = leg.type === 'CALL' ? 'C' : 'P';
             if (!acc[key]) acc[key] = new Set();
             acc[key].add(Number(leg.strike));
             return acc;
         }, {});
         const segments = Object.entries(grouped)
-            .map(([label, strikes]) => `${label}${Array.from(strikes).sort((a, b) => a - b).map(s => this.formatStrikeValue(s)).join('/')}`)
+            .map(([label, strikes]) => `${label}${Array.from(strikes as Set<number>).sort((a, b) => a - b).map(s => formatStrikeValue(s)).join('/')}`)
             .sort();
         return segments.join(' · ') || '—';
     }
@@ -719,7 +856,7 @@ export function buildStrikeDisplay(trade, summary = null) {
     const stockLegs = relevantLegs.filter(leg => leg.type === 'STOCK');
     if (stockLegs.length > 0) {
         const shares = stockLegs.reduce((sum, leg) => {
-            const quantity = leg.quantity * this.getLegMultiplier(leg);
+            const quantity = (leg.quantity as number) * this.getLegMultiplier(leg);
             return sum + (this.getLegAction(leg) === 'BUY' ? quantity : -quantity);
         }, 0);
         const totalShares = Math.abs(Math.round(shares));
@@ -727,3 +864,5 @@ export function buildStrikeDisplay(trade, summary = null) {
     }
     return '—';
 }
+
+

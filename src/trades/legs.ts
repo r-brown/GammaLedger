@@ -1,12 +1,90 @@
-// src/trades/legs.js — Wave 3: Leg normalisation and analysis helpers.
-// All functions use the `.call(this, …)` delegation pattern: when invoked
-// from a GammaLedger class method via `legsModule.fn.call(this, …)` the
-// function body's `this.xxx` references resolve to the class instance, so
-// cross-module calls (e.g. this.normalizeUnderlyingType, this.parseDateValue)
-// continue to work without any signature changes.
+// src/trades/legs.ts — Wave 3: Leg normalisation and analysis helpers.
+// All functions use the `.call(this, …)` delegation pattern.
 
-export function normalizeLegOrderType(orderType) {
-    const value = (orderType || '').toString().trim().toUpperCase();
+import type { NormalizedLeg } from '@types-gl/leg'
+import type { LegSummary } from '@types-gl/leg-summary'
+import type { LegLifecycleResult } from '@types-gl/lifecycle'
+import type { ExitReason } from '@types-gl/common'
+
+interface VerticalSpreadInfo {
+    width: number
+    multiplier: number
+    contracts: number
+}
+
+interface OpenOptionGroupEntry {
+    leg: NormalizedLeg
+    action: string
+    side: string
+}
+
+/** All this.* dependencies required by legs.ts functions */
+interface LegsContext {
+    // Leg order / action helpers (self-referential)
+    normalizeLegOrderType(orderType: unknown): string
+    mapOrderTypeToActionSide(orderType: string): { action: string; side: string }
+    getLegOrderDescriptor(leg: Record<string, unknown>): { action: string; side: string }
+    getLegAction(leg: Record<string, unknown>): string
+    getLegSide(leg: Record<string, unknown>): string
+    deriveOrderTypeFromActionSide(action: unknown, side: unknown): string
+    normalizeLegAction(action: unknown): string
+    normalizeLegSide(side: unknown): string
+    normalizeLegType(type: unknown): string
+    getLegMultiplier(leg: Record<string, unknown>): number
+    normalizeLeg(leg: Record<string, unknown>, index?: number): NormalizedLeg
+    calculateLegCashFlow(leg: Record<string, unknown>): number
+    summarizeLegs(legs: unknown[]): LegSummary
+    buildLegLifecycleKey(leg: Record<string, unknown>): string
+    getNormalizedLegOrderType(leg: Record<string, unknown>): string
+    determineTradeLifecycleStatus(trade: Record<string, unknown>, summary: LegSummary): LegLifecycleResult
+    enrichTradeData(trade: Record<string, unknown>): Record<string, unknown>
+    getPrimaryLeg(trade: Record<string, unknown>): Record<string, unknown> | null
+    deriveTradeTypeFromLeg(leg: Record<string, unknown> | null): string
+    deriveTradeDirectionFromLeg(leg: Record<string, unknown> | null): string
+    getTradeType(trade: Record<string, unknown>): string
+    inferTradeDirection(trade: Record<string, unknown>): string
+    hasNetOpenOptionLegs(trade: Record<string, unknown>): boolean
+    hasNonExpiredOpenShortOptions(trade: Record<string, unknown>): boolean
+    getNetOpenOptionContracts(legs: unknown[]): number
+    getNetOpenShortCalls(legs: unknown[]): { contracts: number; details: unknown[] }
+    // External helpers
+    normalizeUnderlyingType(type: unknown, opts?: { fallback?: string }): string
+    getDefaultMultiplierForLegType(type: string, underlyingType: string): number
+    computeMaxRiskUsingFormula(trade: Record<string, unknown>, summary: LegSummary): number
+    parseDateValue(value: unknown): Date | null
+    normalizeStatus(status: unknown): string
+    isAssignmentTrade(trade: Record<string, unknown>): boolean
+    normalizeTradeStatusInput(input: unknown): string
+    isClosedStatus(status: unknown): boolean
+    isWheelOrPmccTrade(trade: Record<string, unknown>): boolean
+    isPmccTrade(trade: Record<string, unknown>): boolean
+    getTradeWheelCoverage(trade: Record<string, unknown>): string
+    getTradeOpenStockShares(trade: Record<string, unknown>): number
+    getNetOpenLongCallContracts(trade: Record<string, unknown>): number
+    computeWheelEffectiveCostBasis(trade: Record<string, unknown>): { shares: number; assignmentCostBasis: number; effectiveCostBasis: number }
+    assessRisk(trade: Record<string, unknown>, summary: LegSummary): { maxRiskValue: number; maxRiskLabel: string; unlimited: boolean }
+    getStrategyDisplayName(name: string): string
+    derivePrimaryStrike(summary: LegSummary): number | null
+    buildStrikeDisplay(trade: Record<string, unknown>, summary?: LegSummary | null): string
+    getActiveStrikeForDisplay(summary: LegSummary): number | null
+    formatCurrency(value: number): string
+    calculatePL(trade: Record<string, unknown>): number
+    calculateROI(trade: Record<string, unknown>): number
+    calculateMaxRisk(trade: Record<string, unknown>): number
+    calculateDaysHeld(trade: Record<string, unknown>): number
+    calculateDTE(expirationDate: string, trade: Record<string, unknown>): number
+    calculateWeeklyROI(trade: Record<string, unknown>): number
+    calculateMonthlyROI(trade: Record<string, unknown>): number
+    calculateAnnualizedROI(trade: Record<string, unknown>): number
+    // Optional external helpers
+    getCachedQuote?: (ticker: string) => { value?: { price?: number } } | null
+    // Properties
+    currentDate: Date | unknown
+    _wheelPriceFallbackWarned?: boolean
+}
+
+export function normalizeLegOrderType(orderType: unknown): string {
+    const value = ((orderType as string) || '').toString().trim().toUpperCase();
     if (['BTO', 'STO', 'BTC', 'STC'].includes(value)) {
         return value;
     }
@@ -27,7 +105,10 @@ export function normalizeLegOrderType(orderType) {
     return 'BTO';
 }
 
-export function mapOrderTypeToActionSide(orderType) {
+export function mapOrderTypeToActionSide(
+    this: LegsContext,
+    orderType: unknown
+): { action: string; side: string } {
     switch (this.normalizeLegOrderType(orderType)) {
         case 'BTO':
             return { action: 'BUY', side: 'OPEN' };
@@ -42,8 +123,13 @@ export function mapOrderTypeToActionSide(orderType) {
     }
 }
 
-export function getLegOrderDescriptor(leg = {}) {
-    const normalizedOrderType = this.normalizeLegOrderType(leg?.orderType || leg?.order || leg?.tradeType);
+export function getLegOrderDescriptor(
+    this: LegsContext,
+    leg: Record<string, unknown> = {}
+): { action: string; side: string } {
+    const normalizedOrderType = this.normalizeLegOrderType(
+        (leg?.orderType as string) || (leg?.order as string) || (leg?.tradeType as string)
+    );
     if (normalizedOrderType) {
         return this.mapOrderTypeToActionSide(normalizedOrderType);
     }
@@ -57,15 +143,25 @@ export function getLegOrderDescriptor(leg = {}) {
     return { action: 'BUY', side: 'OPEN' };
 }
 
-export function getLegAction(leg = {}) {
+export function getLegAction(
+    this: LegsContext,
+    leg: Record<string, unknown> = {}
+): string {
     return this.getLegOrderDescriptor(leg).action;
 }
 
-export function getLegSide(leg = {}) {
+export function getLegSide(
+    this: LegsContext,
+    leg: Record<string, unknown> = {}
+): string {
     return this.getLegOrderDescriptor(leg).side;
 }
 
-export function deriveOrderTypeFromActionSide(action, side) {
+export function deriveOrderTypeFromActionSide(
+    this: LegsContext,
+    action: unknown,
+    side: unknown
+): string {
     const normalizedAction = this.normalizeLegAction(action);
     const normalizedSide = this.normalizeLegSide(side);
     if (normalizedSide === 'ROLL') {
@@ -78,26 +174,26 @@ export function deriveOrderTypeFromActionSide(action, side) {
     return 'BTO';
 }
 
-export function normalizeLegAction(action) {
-    const value = (action || '').toString().trim().toUpperCase();
+export function normalizeLegAction(action: unknown): string {
+    const value = ((action as string) || '').toString().trim().toUpperCase();
     if (['SELL', 'SHORT', 'STO', 'STC'].includes(value)) {
         return 'SELL';
     }
     return 'BUY';
 }
 
-export function normalizeLegSide(side) {
-    const value = (side || '').toString().trim().toUpperCase();
+export function normalizeLegSide(side: unknown): string {
+    const value = ((side as string) || '').toString().trim().toUpperCase();
     if (value.startsWith('ROL')) return 'ROLL';
-    if (["CALL", "PUT", "STOCK"].includes(value)) return 'CLOSE';
+    if (['CALL', 'PUT', 'STOCK'].includes(value)) return 'CLOSE';
     if (['CASH', 'FUTURE', 'ETF', 'SHARES', 'STK'].includes(value)) return 'STOCK';
     if (['BTO', 'STO'].includes(value)) return 'OPEN';
     if (['BTC', 'STC'].includes(value)) return 'CLOSE';
     return 'OPEN';
 }
 
-export function normalizeLegType(type) {
-    const value = (type || '').toString().trim().toUpperCase();
+export function normalizeLegType(type: unknown): string {
+    const value = ((type as string) || '').toString().trim().toUpperCase();
     if (['CALL', 'PUT', 'STOCK', 'CASH', 'FUTURE', 'ETF'].includes(value)) {
         return value;
     }
@@ -105,7 +201,10 @@ export function normalizeLegType(type) {
     return value || 'UNKNOWN';
 }
 
-export function getLegMultiplier(leg) {
+export function getLegMultiplier(
+    this: LegsContext,
+    leg: Record<string, unknown>
+): number {
     const provided = Number(leg?.multiplier);
     if (Number.isFinite(provided) && provided > 0) {
         return provided;
@@ -118,24 +217,28 @@ export function getLegMultiplier(leg) {
     return this.getDefaultMultiplierForLegType(type, underlyingType);
 }
 
-export function normalizeLeg(leg, index = 0) {
+export function normalizeLeg(
+    this: LegsContext,
+    leg: Record<string, unknown>,
+    index = 0
+): NormalizedLeg {
     const quantityRaw = Number(leg?.quantity);
     const normalizedQuantity = Number.isFinite(quantityRaw) ? quantityRaw : 0;
 
-    const executionDate = leg?.executionDate ? new Date(leg.executionDate) : null;
+    const executionDate = leg?.executionDate ? new Date(leg.executionDate as string) : null;
     const executionDateIso = executionDate && !Number.isNaN(executionDate.getTime())
         ? executionDate.toISOString().slice(0, 10)
         : '';
 
-    const expirationDate = leg?.expirationDate ? new Date(leg.expirationDate) : null;
+    const expirationDate = leg?.expirationDate ? new Date(leg.expirationDate as string) : null;
     const expirationDateIso = expirationDate && !Number.isNaN(expirationDate.getTime())
         ? expirationDate.toISOString().slice(0, 10)
         : '';
 
     const inferredOrderType = this.normalizeLegOrderType(
-        leg?.orderType ||
-        leg?.tradeType ||
-        leg?.order ||
+        (leg?.orderType as string) ||
+        (leg?.tradeType as string) ||
+        (leg?.order as string) ||
         this.deriveOrderTypeFromActionSide(leg?.action, leg?.side)
     );
     const externalIdValue = leg?.externalId;
@@ -143,25 +246,28 @@ export function normalizeLeg(leg, index = 0) {
     const importSourceValue = leg?.importSource;
 
     return {
-        id: leg?.id || `LEG-${Date.now()}-${index}`,
-        orderType: inferredOrderType,
-        type: this.normalizeLegType(leg?.type),
+        id: (leg?.id as string) || `LEG-${Date.now()}-${index}`,
+        orderType: inferredOrderType as NormalizedLeg['orderType'],
+        type: this.normalizeLegType(leg?.type) as NormalizedLeg['type'],
         quantity: normalizedQuantity,
         multiplier: this.getLegMultiplier(leg),
         executionDate: executionDateIso,
         expirationDate: expirationDateIso,
-        strike: Number.isFinite(Number(leg?.strike)) ? Number(leg.strike) : null,
-        premium: Number.isFinite(Number(leg?.premium)) ? Number(leg.premium) : 0,
-        fees: Number.isFinite(Number(leg?.fees)) ? Number(leg.fees) : 0,
-        underlyingPrice: Number.isFinite(Number(leg?.underlyingPrice)) ? Number(leg.underlyingPrice) : null,
-        underlyingType: this.normalizeUnderlyingType(leg?.underlyingType, { fallback: 'Stock' }),
-        externalId: externalIdValue === undefined || externalIdValue === null ? null : externalIdValue.toString().trim() || null,
-        importGroupId: importGroupIdValue === undefined || importGroupIdValue === null ? null : importGroupIdValue.toString().trim() || null,
-        importSource: importSourceValue === undefined || importSourceValue === null ? null : importSourceValue.toString().trim() || null
+        strike: Number.isFinite(Number(leg?.strike)) ? Number(leg!.strike) : null,
+        premium: Number.isFinite(Number(leg?.premium)) ? Number(leg!.premium) : 0,
+        fees: Number.isFinite(Number(leg?.fees)) ? Number(leg!.fees) : 0,
+        underlyingPrice: Number.isFinite(Number(leg?.underlyingPrice)) ? Number(leg!.underlyingPrice) : null,
+        underlyingType: this.normalizeUnderlyingType(leg?.underlyingType, { fallback: 'Stock' }) as NormalizedLeg['underlyingType'],
+        externalId: externalIdValue === undefined || externalIdValue === null ? null : (externalIdValue as string).toString().trim() || null,
+        importGroupId: importGroupIdValue === undefined || importGroupIdValue === null ? null : (importGroupIdValue as string).toString().trim() || null,
+        importSource: importSourceValue === undefined || importSourceValue === null ? null : (importSourceValue as string).toString().trim() || null
     };
 }
 
-export function calculateLegCashFlow(leg) {
+export function calculateLegCashFlow(
+    this: LegsContext,
+    leg: Record<string, unknown>
+): number {
     if (!leg) return 0;
     const quantity = Math.abs(Number(leg.quantity) || 0);
     if (!quantity) return -(Number(leg.fees) || 0);
@@ -176,8 +282,11 @@ export function calculateLegCashFlow(leg) {
     return direction * premium * multiplier * quantity - fees;
 }
 
-export function summarizeLegs(legs = []) {
-    const summary = {
+export function summarizeLegs(
+    this: LegsContext,
+    legs: unknown[] = []
+): LegSummary {
+    const summary: LegSummary = {
         legs: [],
         legsCount: 0,
         openLegs: 0,
@@ -205,30 +314,32 @@ export function summarizeLegs(legs = []) {
         openBaseContracts: 0,
         verticalSpread: null,
         nearestShortCallExpiration: null,
-        nextShortCallExpiration: null
+        nextShortCallExpiration: null,
+        activeOpenLegs: [],
+        hasClosedOutOpenLegs: false
     };
 
     if (!Array.isArray(legs) || legs.length === 0) {
         return summary;
     }
 
-    const normalizedLegs = legs.map((leg, index) => this.normalizeLeg(leg, index));
+    const normalizedLegs = (legs as Record<string, unknown>[]).map((leg, index) => this.normalizeLeg(leg, index));
     summary.legs = normalizedLegs;
     summary.legsCount = normalizedLegs.length;
-    const openOptionGroups = new Map();
+    const openOptionGroups = new Map<string, OpenOptionGroupEntry[]>();
     const now = this.currentDate instanceof Date ? this.currentDate : new Date();
-    const shortCallPositions = new Map();
-    const openBaseContractsByKey = new Map();
+    const shortCallPositions = new Map<string, number>();
+    const openBaseContractsByKey = new Map<string, number>();
 
     normalizedLegs.forEach((leg, index) => {
-        const originalLeg = Array.isArray(legs) ? legs[index] : null;
-        const derivedAction = this.getLegAction(leg);
-        const derivedSide = this.getLegSide(leg);
+        const originalLeg = Array.isArray(legs) ? legs[index] as Record<string, unknown> : null;
+        const derivedAction = this.getLegAction(leg as unknown as Record<string, unknown>);
+        const derivedSide = this.getLegSide(leg as unknown as Record<string, unknown>);
         const originalAction = this.normalizeLegAction(originalLeg?.action);
         const originalSide = this.normalizeLegSide(originalLeg?.side);
         const action = derivedAction || originalAction;
         const side = originalSide === 'ROLL' ? 'ROLL' : derivedSide;
-        const cashFlow = this.calculateLegCashFlow(leg);
+        const cashFlow = this.calculateLegCashFlow(leg as unknown as Record<string, unknown>);
         summary.cashFlow += cashFlow;
         summary.totalFees += Number(leg.fees) || 0;
 
@@ -239,7 +350,7 @@ export function summarizeLegs(legs = []) {
                 summary.openContracts += quantity;
                 summary.openCashFlow += cashFlow;
 
-                const multiplier = this.getLegMultiplier(leg) || 1;
+                const multiplier = this.getLegMultiplier(leg as unknown as Record<string, unknown>) || 1;
                 const grossPremium = Math.abs(Number(leg.premium) || 0) * multiplier * quantity;
                 if (action === 'SELL') {
                     summary.openCreditGross += grossPremium;
@@ -247,13 +358,13 @@ export function summarizeLegs(legs = []) {
                     summary.openDebitGross += grossPremium;
                 }
                 summary.openFees += Number(leg.fees) || 0;
-                const openLifecycleKey = this.buildLegLifecycleKey(leg);
+                const openLifecycleKey = this.buildLegLifecycleKey(leg as unknown as Record<string, unknown>);
                 openBaseContractsByKey.set(openLifecycleKey, (openBaseContractsByKey.get(openLifecycleKey) || 0) + quantity);
 
                 if (['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike))) {
                     const key = `${leg.type}|${leg.expirationDate || ''}`;
                     if (!openOptionGroups.has(key)) openOptionGroups.set(key, []);
-                    openOptionGroups.get(key).push({ leg, action, side });
+                    openOptionGroups.get(key)!.push({ leg, action, side });
                 }
             } else if (side === 'CLOSE') {
                 summary.closeLegs += 1;
@@ -316,7 +427,7 @@ export function summarizeLegs(legs = []) {
         const expWithMarketClose = new Date(Date.UTC(
             exp.getUTCFullYear(), exp.getUTCMonth(), exp.getUTCDate(), 21, 0, 0
         ));
-        if (expWithMarketClose >= now) {
+        if (expWithMarketClose >= (now as Date)) {
             if (!summary.nextShortCallExpiration || exp < summary.nextShortCallExpiration) {
                 summary.nextShortCallExpiration = exp;
             }
@@ -327,21 +438,21 @@ export function summarizeLegs(legs = []) {
         if (qty > summary.openBaseContracts) summary.openBaseContracts = qty;
     });
 
-    const netPositionMap = new Map();
+    const netPositionMap = new Map<string, { openQty: number; closeQty: number; openLegs: NormalizedLeg[] }>();
     normalizedLegs.forEach((leg) => {
         const type = (leg.type || '').toUpperCase();
         if (!['CALL', 'PUT'].includes(type)) return;
         const quantity = Math.abs(Number(leg.quantity) || 0);
         if (!quantity) return;
-        const key = this.buildLegLifecycleKey(leg);
-        const side = this.getLegSide(leg);
+        const key = this.buildLegLifecycleKey(leg as unknown as Record<string, unknown>);
+        const side = this.getLegSide(leg as unknown as Record<string, unknown>);
         if (!netPositionMap.has(key)) netPositionMap.set(key, { openQty: 0, closeQty: 0, openLegs: [] });
-        const entry = netPositionMap.get(key);
+        const entry = netPositionMap.get(key)!;
         if (side === 'OPEN') { entry.openQty += quantity; entry.openLegs.push(leg); }
         else if (side === 'CLOSE') { entry.closeQty += quantity; }
     });
 
-    const activeOpenLegs = [];
+    const activeOpenLegs: NormalizedLeg[] = [];
     let hasClosedOutOpenLegs = false;
     netPositionMap.forEach((entry) => {
         const net = entry.openQty - entry.closeQty;
@@ -367,7 +478,7 @@ export function summarizeLegs(legs = []) {
     summary.hasClosedOutOpenLegs = hasClosedOutOpenLegs;
 
     if (hasClosedOutOpenLegs && activeOpenLegs.length > 0) {
-        const activeOptionGroups = new Map();
+        const activeOptionGroups = new Map<string, OpenOptionGroupEntry[]>();
         let activeBaseContracts = 0;
         let activeCreditGross = 0;
         let activeDebitGross = 0;
@@ -375,12 +486,12 @@ export function summarizeLegs(legs = []) {
         let activeOpenCashFlow = 0;
 
         activeOpenLegs.forEach((leg) => {
-            const action = this.getLegAction(leg);
+            const action = this.getLegAction(leg as unknown as Record<string, unknown>);
             const quantity = Math.abs(Number(leg.quantity) || 0);
-            const multiplier = this.getLegMultiplier(leg) || 1;
+            const multiplier = this.getLegMultiplier(leg as unknown as Record<string, unknown>) || 1;
             const premium = Number(leg.premium) || 0;
             const fees = Number(leg.fees) || 0;
-            const cashFlow = this.calculateLegCashFlow(leg);
+            const cashFlow = this.calculateLegCashFlow(leg as unknown as Record<string, unknown>);
             activeOpenCashFlow += cashFlow;
             activeFees += fees;
             const grossPremium = Math.abs(premium) * multiplier * quantity;
@@ -389,15 +500,15 @@ export function summarizeLegs(legs = []) {
             if (['CALL', 'PUT'].includes(leg.type) && Number.isFinite(Number(leg.strike))) {
                 const key = `${leg.type}|${leg.expirationDate || ''}`;
                 if (!activeOptionGroups.has(key)) activeOptionGroups.set(key, []);
-                activeOptionGroups.get(key).push({ leg, action, side: 'OPEN' });
+                activeOptionGroups.get(key)!.push({ leg, action, side: 'OPEN' });
             }
         });
 
-        const activeStrikeQty = new Map();
+        const activeStrikeQty = new Map<string, number>();
         activeOpenLegs.forEach((leg) => {
             const quantity = Math.abs(Number(leg.quantity) || 0);
             if (!quantity) return;
-            const key = this.buildLegLifecycleKey(leg);
+            const key = this.buildLegLifecycleKey(leg as unknown as Record<string, unknown>);
             activeStrikeQty.set(key, (activeStrikeQty.get(key) || 0) + quantity);
         });
         activeStrikeQty.forEach((qty) => {
@@ -411,7 +522,7 @@ export function summarizeLegs(legs = []) {
         summary.openCashFlow = activeOpenCashFlow;
 
         const activePrimaryLeg = activeOpenLegs.find(
-            leg => this.getLegAction(leg) === 'SELL' && Number.isFinite(Number(leg.strike))
+            leg => this.getLegAction(leg as unknown as Record<string, unknown>) === 'SELL' && Number.isFinite(Number(leg.strike))
         );
         if (activePrimaryLeg) summary.primaryLeg = activePrimaryLeg;
         else if (activeOpenLegs.length > 0) summary.primaryLeg = activeOpenLegs[0];
@@ -420,7 +531,7 @@ export function summarizeLegs(legs = []) {
         activeOptionGroups.forEach((value, key) => openOptionGroups.set(key, value));
     }
 
-    let verticalSpreadInfo = null;
+    let verticalSpreadInfo: VerticalSpreadInfo | null = null;
     for (const legsGroup of openOptionGroups.values()) {
         if (!Array.isArray(legsGroup) || legsGroup.length < 2) continue;
         const hasBuy = legsGroup.some(({ action }) => action === 'BUY');
@@ -430,7 +541,7 @@ export function summarizeLegs(legs = []) {
         if (strikes.length < 2) continue;
         const spreadWidth = Math.abs(Math.max(...strikes) - Math.min(...strikes));
         if (!(spreadWidth > 0)) continue;
-        const multiplier = this.getLegMultiplier(legsGroup[0]?.leg) || 1;
+        const multiplier = this.getLegMultiplier(legsGroup[0]?.leg as unknown as Record<string, unknown>) || 1;
         const buyQty = legsGroup.filter(({ action }) => action === 'BUY').reduce((sum, { leg }) => sum + Math.abs(Number(leg.quantity) || 0), 0);
         const sellQty = legsGroup.filter(({ action }) => action === 'SELL').reduce((sum, { leg }) => sum + Math.abs(Number(leg.quantity) || 0), 0);
         const contracts = Math.min(buyQty || 1, sellQty || 1);
@@ -439,7 +550,7 @@ export function summarizeLegs(legs = []) {
     }
     summary.verticalSpread = verticalSpreadInfo;
 
-    const primaryMultiplier = this.getLegMultiplier(summary.primaryLeg) || 1;
+    const primaryMultiplier = this.getLegMultiplier(summary.primaryLeg as unknown as Record<string, unknown>) || 1;
     const contractsForEntryRaw = summary.openContracts || Math.abs(Number(summary.primaryLeg?.quantity) || 0);
     const fallbackContracts = contractsForEntryRaw || 1;
     const effectiveContractsForEntry = verticalSpreadInfo?.contracts || summary.openBaseContracts || fallbackContracts;
@@ -456,26 +567,29 @@ export function summarizeLegs(legs = []) {
         summary.exitPrice = Math.abs(summary.closeCashFlow) / (contractsForExit * primaryMultiplier);
     }
 
-    summary.capitalAtRisk = this.computeMaxRiskUsingFormula({ legs: normalizedLegs }, summary);
+    summary.capitalAtRisk = this.computeMaxRiskUsingFormula({ legs: normalizedLegs } as unknown as Record<string, unknown>, summary);
 
     return summary;
 }
 
-export function hasNetOpenOptionLegs(trade = {}) {
-    const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+export function hasNetOpenOptionLegs(
+    this: LegsContext,
+    trade: Record<string, unknown> = {}
+): boolean {
+    const legs = Array.isArray(trade?.legs) ? trade.legs as unknown[] : [];
     if (!legs.length) return false;
 
     const summary = this.summarizeLegs(legs);
     const normalizedLegs = Array.isArray(summary?.legs) ? summary.legs : [];
     if (!normalizedLegs.length) return false;
 
-    const optionNet = new Map();
+    const optionNet = new Map<string, number>();
     normalizedLegs.forEach((leg) => {
         if (!leg || !['CALL', 'PUT'].includes((leg.type || '').toUpperCase())) return;
         const quantity = Math.abs(Number(leg.quantity) || 0);
         if (!quantity) return;
         const key = `${leg.type}|${leg.strike ?? ''}|${leg.expirationDate ?? ''}`;
-        const side = this.getLegSide(leg);
+        const side = this.getLegSide(leg as unknown as Record<string, unknown>);
         if (side === 'OPEN') optionNet.set(key, (optionNet.get(key) || 0) + quantity);
         else if (side === 'CLOSE') optionNet.set(key, (optionNet.get(key) || 0) - quantity);
     });
@@ -484,8 +598,11 @@ export function hasNetOpenOptionLegs(trade = {}) {
     return Array.from(optionNet.values()).some(count => count > 0);
 }
 
-export function hasNonExpiredOpenShortOptions(trade = {}) {
-    const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+export function hasNonExpiredOpenShortOptions(
+    this: LegsContext,
+    trade: Record<string, unknown> = {}
+): boolean {
+    const legs = Array.isArray(trade?.legs) ? trade.legs as unknown[] : [];
     if (!legs.length) return false;
 
     const summary = this.summarizeLegs(legs);
@@ -493,17 +610,17 @@ export function hasNonExpiredOpenShortOptions(trade = {}) {
     if (!normalizedLegs.length) return false;
 
     const now = this.currentDate instanceof Date ? this.currentDate : new Date();
-    const shortNet = new Map();
+    const shortNet = new Map<string, { net: number; expiration: string }>();
 
     normalizedLegs.forEach((leg) => {
         if (!leg || !['CALL', 'PUT'].includes((leg.type || '').toUpperCase())) return;
         const quantity = Math.abs(Number(leg.quantity) || 0);
         if (!quantity) return;
-        const orderType = this.getNormalizedLegOrderType(leg);
+        const orderType = this.getNormalizedLegOrderType(leg as unknown as Record<string, unknown>);
         if (orderType !== 'STO' && orderType !== 'BTC') return;
         const key = `${leg.type}|${leg.strike ?? ''}|${leg.expirationDate ?? ''}`;
         if (!shortNet.has(key)) shortNet.set(key, { net: 0, expiration: leg.expirationDate || '' });
-        const entry = shortNet.get(key);
+        const entry = shortNet.get(key)!;
         if (orderType === 'STO') entry.net += quantity;
         else if (orderType === 'BTC') entry.net -= quantity;
     });
@@ -518,18 +635,21 @@ export function hasNonExpiredOpenShortOptions(trade = {}) {
         const expWithMarketClose = new Date(Date.UTC(
             expDate.getUTCFullYear(), expDate.getUTCMonth(), expDate.getUTCDate(), 21, 0, 0
         ));
-        if (now.getTime() <= expWithMarketClose.getTime()) return true;
+        if ((now as Date).getTime() <= expWithMarketClose.getTime()) return true;
     }
     return false;
 }
 
-export function getNetOpenOptionContracts(legs = []) {
-    const normalizedLegs = Array.isArray(legs) ? legs : [];
+export function getNetOpenOptionContracts(
+    this: LegsContext,
+    legs: unknown[] = []
+): number {
+    const normalizedLegs = Array.isArray(legs) ? legs as Record<string, unknown>[] : [];
     if (!normalizedLegs.length) return 0;
 
-    const optionNet = new Map();
+    const optionNet = new Map<string, number>();
     normalizedLegs.forEach((leg) => {
-        if (!leg || !['CALL', 'PUT'].includes((leg.type || '').toUpperCase())) return;
+        if (!leg || !['CALL', 'PUT'].includes(((leg.type as string) || '').toUpperCase())) return;
         const quantity = Math.abs(Number(leg.quantity) || 0);
         if (!quantity) return;
         const key = `${leg.type}|${leg.strike ?? ''}|${leg.expirationDate ?? ''}`;
@@ -542,37 +662,40 @@ export function getNetOpenOptionContracts(legs = []) {
     return Array.from(optionNet.values()).reduce((sum, count) => sum + Math.max(0, Number(count) || 0), 0);
 }
 
-export function getNetOpenShortCalls(legs = []) {
-    const normalizedLegs = Array.isArray(legs) ? legs : [];
+export function getNetOpenShortCalls(
+    this: LegsContext,
+    legs: unknown[] = []
+): { contracts: number; details: Array<{ strike: unknown; expiration: string; contracts: number }> } {
+    const normalizedLegs = Array.isArray(legs) ? legs as Record<string, unknown>[] : [];
     if (!normalizedLegs.length) return { contracts: 0, details: [] };
 
     const now = this.currentDate instanceof Date ? this.currentDate : new Date();
-    const shortCallNet = new Map();
+    const shortCallNet = new Map<string, { net: number; strike: unknown; expiration: string }>();
 
     normalizedLegs.forEach((leg) => {
-        const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+        const type = ((leg.type as string) || (leg.optionType as string) || '').toString().trim().toUpperCase();
         if (type !== 'CALL') return;
         const quantity = Math.abs(Number(leg.quantity) || 0);
         if (!quantity) return;
         const action = this.getLegAction(leg);
         const side = this.getLegSide(leg);
         const strike = leg.strike ?? '';
-        const expiration = leg.expirationDate ?? '';
+        const expiration = (leg.expirationDate as string) ?? '';
         const key = `${strike}|${expiration}`;
 
         if (action === 'SELL' && (side === 'OPEN' || side === 'ROLL')) {
             if (!shortCallNet.has(key)) shortCallNet.set(key, { net: 0, strike, expiration });
-            shortCallNet.get(key).net += quantity;
+            shortCallNet.get(key)!.net += quantity;
         } else if (action === 'BUY' && side === 'CLOSE') {
             if (!shortCallNet.has(key)) shortCallNet.set(key, { net: 0, strike, expiration });
-            shortCallNet.get(key).net -= quantity;
+            shortCallNet.get(key)!.net -= quantity;
         } else if (action === 'SELL' && side === 'CLOSE') {
             if (!shortCallNet.has(key)) shortCallNet.set(key, { net: 0, strike, expiration });
-            shortCallNet.get(key).net -= quantity;
+            shortCallNet.get(key)!.net -= quantity;
         }
     });
 
-    const openPositions = [];
+    const openPositions: Array<{ strike: unknown; expiration: string; contracts: number }> = [];
     let totalContracts = 0;
 
     shortCallNet.forEach((data) => {
@@ -582,7 +705,7 @@ export function getNetOpenShortCalls(legs = []) {
             if (expDate) {
                 const expWithMarketClose = new Date(expDate);
                 expWithMarketClose.setUTCHours(21, 0, 0, 0);
-                if (expWithMarketClose < now) return;
+                if (expWithMarketClose < (now as Date)) return;
             }
         }
         totalContracts += data.net;
@@ -592,48 +715,60 @@ export function getNetOpenShortCalls(legs = []) {
     return { contracts: totalContracts, details: openPositions };
 }
 
-export function buildLegLifecycleKey(leg = {}) {
+export function buildLegLifecycleKey(
+    this: LegsContext,
+    leg: Record<string, unknown> = {}
+): string {
     const type = this.normalizeLegType(leg.type);
     const strikeValue = Number(leg.strike);
     const strike = Number.isFinite(strikeValue) ? strikeValue.toFixed(4) : 'NA';
-    const expiration = (leg.expirationDate || '').toString();
+    const expiration = ((leg.expirationDate as string) || '').toString();
     const multiplier = this.getLegMultiplier(leg) || 1;
     return `${type}|${strike}|${expiration}|${multiplier}`;
 }
 
-export function getNormalizedLegOrderType(leg = {}) {
-    const rawOrder = leg.orderType || leg.tradeType || leg.order;
+export function getNormalizedLegOrderType(
+    this: LegsContext,
+    leg: Record<string, unknown> = {}
+): string {
+    const rawOrder = (leg.orderType as string) || (leg.tradeType as string) || (leg.order as string);
     const normalizedOrder = this.normalizeLegOrderType(rawOrder);
     if (normalizedOrder) return normalizedOrder;
     const { action, side } = this.getLegOrderDescriptor(leg);
     return this.normalizeLegOrderType(this.deriveOrderTypeFromActionSide(action, side));
 }
 
-export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
+export function determineTradeLifecycleStatus(
+    this: LegsContext,
+    trade: Record<string, unknown> = {},
+    summary: LegSummary = {} as LegSummary
+): LegLifecycleResult {
     const legs = Array.isArray(summary?.legs) ? summary.legs : [];
-    const result = {
+    const result: LegLifecycleResult = {
         status: 'Open',
         exitReason: null,
         effectiveClosedDate: null,
         openContractsOverride: undefined,
         meta: {
-            matchedPairs: false,
+            matchedPairs: 0 as unknown as number,
             unmatchedExposure: 0,
             expirationPassed: false,
             hasRollLegs: false,
             hasCloseActivity: false,
             hasAssignmentEvent: false,
             hasExpirationEvent: false,
-            hasOpenStockPosition: false
+            hasOpenStockPosition: false,
+            hasCashSettlementEvent: false,
+            activityAfterExpiration: false
         }
     };
 
     if (legs.length === 0) {
-        result.meta.matchedPairs = true;
+        result.meta.matchedPairs = true as unknown as number;
         return result;
     }
 
-    const pairMap = new Map();
+    const pairMap = new Map<string, { longOpen: number; longClose: number; shortOpen: number; shortClose: number }>();
     let hasRollLegs = false;
     let hasCloseActivity = false;
     let hasAssignmentEvent = false;
@@ -644,7 +779,7 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
     let stockBought = 0;
     let stockSold = 0;
     // Track assignment strikes from BTO STOCK legs (strike = assignment price)
-    const assignmentStrikes = new Map(); // strike → total shares
+    const assignmentStrikes = new Map<number, number>(); // strike → total shares
 
     legs.forEach((leg) => {
         const quantity = Math.abs(Number(leg.quantity) || 0);
@@ -652,17 +787,11 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
             return;
         }
 
-        const orderType = this.getNormalizedLegOrderType(leg);
+        const orderType = this.getNormalizedLegOrderType(leg as unknown as Record<string, unknown>);
         const legType = this.normalizeLegType(leg.type);
 
         // Track stock positions separately — do not add to pairMap.
-        // Stock buy/sell prices naturally differ so using strike in the
-        // lifecycle key would create mismatched entries.
         if (legType === 'STOCK') {
-            // Stock legs store quantity as contracts (e.g. 1) with a separate
-            // multiplier (e.g. 100).  We need actual share counts here so that
-            // the later `shares / multiplier` arithmetic produces the correct
-            // contract count (100 shares / 100 = 1 contract, not 1/100 = 0).
             const stockMultiplier = Math.abs(Number(leg.multiplier) || 100);
             const shares = quantity * stockMultiplier;
             if (orderType === 'BTO') {
@@ -675,30 +804,19 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
                 stockSold += shares;
                 hasCloseActivity = true;
             }
-            // Skip adding STOCK legs to pairMap
-            const rawOrder = (leg.orderType || leg.tradeType || leg.order || '').toString().toUpperCase();
-            if (rawOrder.includes('ROLL')) {
-                hasRollLegs = true;
-            }
-            if (rawOrder.includes('ASSIGN') || leg.isAssignment) {
-                hasAssignmentEvent = true;
-            }
-            if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY')) {
-                hasExpirationEvent = true;
-            }
+            const rawOrder = (((leg as unknown as Record<string, unknown>).orderType as string) || ((leg as unknown as Record<string, unknown>).tradeType as string) || ((leg as unknown as Record<string, unknown>).order as string) || '').toString().toUpperCase();
+            if (rawOrder.includes('ROLL')) hasRollLegs = true;
+            if (rawOrder.includes('ASSIGN') || (leg as unknown as Record<string, unknown>).isAssignment) hasAssignmentEvent = true;
+            if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY')) hasExpirationEvent = true;
             return;
         }
 
-        // Cash settlement legs — used for cash-settled options (VIX, SPX, NDX, etc.).
-        // BTC = settlement payment on a short ITM option (debit).
-        // STC = settlement receipt on a long ITM option (credit).
+        // Cash settlement legs
         if (legType === 'CASH' && (orderType === 'BTC' || orderType === 'STC')) {
             hasCashSettlementEvent = true;
             hasAssignmentEvent = true;
             hasCloseActivity = true;
 
-            // Credit the matching open option legs in pairMap so that
-            // unmatchedExposure collapses to 0 (resolves the position).
             const cashStrike = Number(leg.strike);
             const hasStrike = Number.isFinite(cashStrike) && cashStrike > 0;
 
@@ -706,16 +824,14 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
                 const parts = key.split('|');
                 const keyStrike = parseFloat(parts[1]);
                 if (hasStrike && Number.isFinite(keyStrike) && Math.abs(keyStrike - cashStrike) > 0.01) {
-                    return; // Strike mismatch — skip
+                    return;
                 }
-                // Credit unmatched short open (BTC = closing short positions)
                 if (orderType === 'BTC') {
                     const unmatched = bucket.shortOpen - bucket.shortClose;
                     if (unmatched > 0) {
                         bucket.shortClose += Math.min(unmatched, quantity);
                     }
                 }
-                // Credit unmatched long open (STC = closing long positions)
                 if (orderType === 'STC') {
                     const unmatched = bucket.longOpen - bucket.longClose;
                     if (unmatched > 0) {
@@ -726,88 +842,42 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
             return;
         }
 
-        const key = this.buildLegLifecycleKey(leg);
+        const key = this.buildLegLifecycleKey(leg as unknown as Record<string, unknown>);
         if (!pairMap.has(key)) {
-            pairMap.set(key, {
-                longOpen: 0,
-                longClose: 0,
-                shortOpen: 0,
-                shortClose: 0
-            });
+            pairMap.set(key, { longOpen: 0, longClose: 0, shortOpen: 0, shortClose: 0 });
         }
 
-        const bucket = pairMap.get(key);
+        const bucket = pairMap.get(key)!;
 
         switch (orderType) {
-            case 'BTO':
-                bucket.longOpen += quantity;
-                break;
-            case 'STC':
-                bucket.longClose += quantity;
-                hasCloseActivity = true;
-                break;
-            case 'STO':
-                bucket.shortOpen += quantity;
-                break;
-            case 'BTC':
-                bucket.shortClose += quantity;
-                hasCloseActivity = true;
-                break;
-            default:
-                break;
+            case 'BTO': bucket.longOpen += quantity; break;
+            case 'STC': bucket.longClose += quantity; hasCloseActivity = true; break;
+            case 'STO': bucket.shortOpen += quantity; break;
+            case 'BTC': bucket.shortClose += quantity; hasCloseActivity = true; break;
+            default: break;
         }
 
-        const rawOrder = (leg.orderType || leg.tradeType || leg.order || '').toString().toUpperCase();
-        if (rawOrder.includes('ROLL')) {
-            hasRollLegs = true;
-        }
-        if (rawOrder.includes('ASSIGN') || leg.isAssignment) {
-            hasAssignmentEvent = true;
-        }
-        if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY')) {
-            hasExpirationEvent = true;
-        }
+        const rawOrder = (((leg as unknown as Record<string, unknown>).orderType as string) || ((leg as unknown as Record<string, unknown>).tradeType as string) || ((leg as unknown as Record<string, unknown>).order as string) || '').toString().toUpperCase();
+        if (rawOrder.includes('ROLL')) hasRollLegs = true;
+        if (rawOrder.includes('ASSIGN') || (leg as unknown as Record<string, unknown>).isAssignment) hasAssignmentEvent = true;
+        if (rawOrder.includes('EXPIRE') || rawOrder.includes('EXPIRY')) hasExpirationEvent = true;
     });
-    
-    // Check if there's an open stock position (stock bought but not sold)
+
     const hasOpenStockPosition = stockBought > stockSold;
 
-    // When stock was assigned (BTO STOCK), the short puts at the assignment
-    // strike are implicitly closed by the exchange.  Credit their close count
-    // so that the lifecycle can detect a fully-closed position.
-    //
-    // If the BTO STOCK leg has no strike recorded (common when brokers don't
-    // stamp a strike on the stock transaction), we still mark hasAssignmentEvent
-    // true and fall back to crediting unmatched short options proportionally by
-    // shares / multiplier.  Without this fallback, a "assign then immediately sell"
-    // trade is incorrectly classified as Expired because hasAssignmentEvent stays
-    // false and the option expiration date drives the status.
     if (stockBought > 0) {
         hasAssignmentEvent = true;
 
         if (assignmentStrikes.size > 0) {
-            // Preferred path: precise per-strike matching.
             assignmentStrikes.forEach((shares, strike) => {
-                // Find pairMap entries for short puts at this strike
                 pairMap.forEach((bucket, key) => {
-                    // Key format: "TYPE|STRIKE|EXPIRATION|MULTIPLIER"
-                    if (!key.startsWith('PUT|')) {
-                        return;
-                    }
+                    if (!key.startsWith('PUT|')) return;
                     const parts = key.split('|');
                     const keyStrike = parseFloat(parts[1]);
                     const multiplier = parseInt(parts[3], 10) || 100;
-
-                    if (!Number.isFinite(keyStrike) || Math.abs(keyStrike - strike) > 0.01) {
-                        return;
-                    }
-
-                    // How many contracts does this stock assignment cover?
+                    if (!Number.isFinite(keyStrike) || Math.abs(keyStrike - strike) > 0.01) return;
                     const unmatched = bucket.shortOpen - bucket.shortClose;
-                    if (unmatched <= 0) {
-                        return;
-                    }
-
+                    if (unmatched <= 0) return;
                     const assignedContracts = Math.min(unmatched, Math.floor(shares / multiplier));
                     if (assignedContracts > 0) {
                         bucket.shortClose += assignedContracts;
@@ -816,9 +886,6 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
                 });
             });
         } else {
-            // Fallback: no strike info on the BTO STOCK leg.
-            // Credit unmatched short put contracts first (put assignment is most
-            // common), then short call contracts (covered call assignment).
             let sharesRemaining = stockBought;
             for (const prefix of ['PUT|', 'CALL|']) {
                 if (sharesRemaining <= 0) break;
@@ -839,14 +906,6 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
         }
     }
 
-    // When all assigned stock has been sold (STC STOCK leg present and
-    // stockSold >= stockBought), any remaining unmatched short CALLs in pairMap
-    // are implicitly closed — the shares backing those covered calls are gone.
-    // This covers scenario 6b (shares called away at CC strike — no explicit BTC
-    // leg) and 6a (voluntary stock sale while a CC had already expired OTM).
-    //
-    // Guard: stockBought > 0 keeps this unreachable for pure-option strategies
-    // (Iron Condor, Spreads, PMCC, etc.) where stockBought is always zero.
     if (stockBought > 0 && stockSold >= stockBought) {
         let sharesRemaining = stockSold;
         pairMap.forEach((bucket, key) => {
@@ -870,38 +929,28 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
     pairMap.forEach((bucket) => {
         const longDiff = Math.abs(bucket.longOpen - bucket.longClose);
         const shortDiff = Math.abs(bucket.shortOpen - bucket.shortClose);
-        if (longDiff > 0 || shortDiff > 0) {
-            matchedPairs = false;
-        }
+        if (longDiff > 0 || shortDiff > 0) matchedPairs = false;
         unmatchedExposure += longDiff + shortDiff;
     });
 
-    const expirationDate = this.parseDateValue(trade.expirationDate || summary.latestExpiration);
+    const expirationDate = this.parseDateValue((trade.expirationDate as string) || summary.latestExpiration);
     const now = this.currentDate instanceof Date ? this.currentDate : new Date();
-    // Options expire at 4 PM ET (market close), not midnight. 
-    // Create expiration timestamp at 4 PM ET (16:00) plus 5 hours for UTC offset (21:00 UTC).
-    // This ensures positions show as active on expiration day until after market close.
-    const expirationWithMarketClose = expirationDate 
+    const expirationWithMarketClose = expirationDate
         ? new Date(Date.UTC(
-            expirationDate.getUTCFullYear(),
-            expirationDate.getUTCMonth(),
-            expirationDate.getUTCDate(),
-            21, // 21:00 UTC = 16:00 ET (4 PM Eastern)
-            0,
-            0
+            expirationDate.getUTCFullYear(), expirationDate.getUTCMonth(), expirationDate.getUTCDate(), 21, 0, 0
           ))
         : null;
-    const expirationPassed = expirationWithMarketClose ? now.getTime() > expirationWithMarketClose.getTime() : false;
+    const expirationPassed = expirationWithMarketClose ? (now as Date).getTime() > expirationWithMarketClose.getTime() : false;
 
     const lastActivityDate = summary.closedDate instanceof Date
         ? summary.closedDate
-        : this.parseDateValue(trade.closedDate || trade.exitDate);
+        : this.parseDateValue((trade.closedDate as string) || (trade.exitDate as string));
     const activityAfterExpiration = expirationPassed && lastActivityDate && expirationDate
         ? lastActivityDate.getTime() >= expirationDate.getTime()
         : false;
 
     result.meta = {
-        matchedPairs,
+        matchedPairs: matchedPairs as unknown as number,
         unmatchedExposure,
         expirationPassed,
         hasRollLegs,
@@ -909,7 +958,7 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
         hasAssignmentEvent,
         hasExpirationEvent,
         hasCashSettlementEvent,
-        activityAfterExpiration,
+        activityAfterExpiration: Boolean(activityAfterExpiration),
         hasOpenStockPosition
     };
 
@@ -918,11 +967,9 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
         hasAssignmentEvent = true;
     }
 
-    // Cash-settled assignment (VIX, SPX, etc.): no stock position will ever
-    // follow, so the trade is always fully Closed after settlement.
     if (hasCashSettlementEvent) {
         result.status = 'Closed';
-        result.exitReason = trade.exitReason || 'Cash Settlement';
+        result.exitReason = ((trade.exitReason as string) || 'Cash Settlement') as ExitReason;
         result.openContractsOverride = 0;
         if (!result.effectiveClosedDate && lastActivityDate) {
             result.effectiveClosedDate = lastActivityDate.toISOString().slice(0, 10);
@@ -930,13 +977,9 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
         return result;
     }
 
-    // For Wheel trades: if stock position is still open, don't mark as Assigned/closed
-    // The stock keeps the trade open even after option assignment
-
-    // Assignment happened, stock was sold, all positions matched → fully Closed
     if (hasAssignmentEvent && !hasOpenStockPosition && stockBought > 0 && stockSold >= stockBought && (matchedPairs || unmatchedExposure === 0)) {
         result.status = 'Closed';
-        result.exitReason = trade.exitReason || 'Assignment resolved';
+        result.exitReason = ((trade.exitReason as string) || 'Assignment resolved') as ExitReason;
         result.openContractsOverride = 0;
         if (!result.effectiveClosedDate && lastActivityDate) {
             result.effectiveClosedDate = lastActivityDate.toISOString().slice(0, 10);
@@ -944,27 +987,23 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
         return result;
     }
 
-    // Assignment happened, no open stock, but some option legs still unmatched
     if (hasAssignmentEvent && !hasOpenStockPosition) {
         result.status = 'Assigned';
-        result.exitReason = trade.exitReason || 'Assigned';
+        result.exitReason = ((trade.exitReason as string) || 'Assigned') as ExitReason;
         result.openContractsOverride = 0;
         if (!result.effectiveClosedDate && lastActivityDate) {
             result.effectiveClosedDate = lastActivityDate.toISOString().slice(0, 10);
         }
         return result;
     }
-    
-    // Wheel trade with open stock position - stays Open for continued Wheel strategy
+
     if (hasAssignmentEvent && hasOpenStockPosition) {
         result.status = 'Open';
         result.exitReason = null;
-        // Don't set openContractsOverride - position is still active
         return result;
     }
 
     if (matchedPairs || unmatchedExposure === 0) {
-        // Even if all options matched, if stock is still held, position is Open (Wheel)
         if (hasOpenStockPosition) {
             result.status = 'Open';
             return result;
@@ -980,8 +1019,6 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
         return result;
     }
 
-    // For Wheel trades with open stock, option expiration doesn't close the position
-    // The stock is still held and can have new covered calls written
     if (expirationPassed && !hasAssignmentEvent && !hasOpenStockPosition) {
         result.status = 'Expired';
         if (!trade.exitReason) {
@@ -1011,8 +1048,6 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
         return result;
     }
 
-    // Wheel trades with open stock: even if status was explicitly set to expired, 
-    // stock position keeps the trade open
     if (normalizedStatus === 'expired' && expirationDate && !hasOpenStockPosition) {
         result.status = 'Expired';
         result.openContractsOverride = 0;
@@ -1029,16 +1064,19 @@ export function determineTradeLifecycleStatus(trade = {}, summary = {}) {
     return result;
 }
 
-export function enrichTradeData(trade) {
-    const enriched = { ...trade };
+export function enrichTradeData(
+    this: LegsContext,
+    trade: Record<string, unknown>
+): Record<string, unknown> {
+    const enriched: Record<string, unknown> = { ...trade };
     delete enriched.optionType;
 
-    const rawStrategy = (enriched.strategy || '').toString().trim();
+    const rawStrategy = ((enriched.strategy as string) || '').toString().trim();
     enriched.strategy = this.getStrategyDisplayName(rawStrategy);
 
     enriched.underlyingType = this.normalizeUnderlyingType(trade.underlyingType, { fallback: 'Stock' });
 
-    const legSummary = this.summarizeLegs(enriched.legs);
+    const legSummary = this.summarizeLegs((enriched.legs as unknown[]) || []);
     enriched.legs = legSummary.legs;
     enriched.legsCount = legSummary.legsCount;
     enriched.openContracts = Math.max(0, legSummary.openContracts - legSummary.closeContracts);
@@ -1064,84 +1102,78 @@ export function enrichTradeData(trade) {
     }
 
     const primaryLeg = legSummary.primaryLeg;
-    enriched.tradeType = this.deriveTradeTypeFromLeg(primaryLeg);
-    enriched.tradeDirection = this.deriveTradeDirectionFromLeg(primaryLeg);
+    enriched.tradeType = this.deriveTradeTypeFromLeg(primaryLeg as unknown as Record<string, unknown>);
+    enriched.tradeDirection = this.deriveTradeDirectionFromLeg(primaryLeg as unknown as Record<string, unknown>);
 
     // For trades with stock assignments, use total stock shares as quantity
-    const openLegsForStock = legSummary.legs.filter(leg => this.getLegSide(leg) === 'OPEN');
+    const openLegsForStock = legSummary.legs.filter(leg => this.getLegSide(leg as unknown as Record<string, unknown>) === 'OPEN');
     const stockLegs = openLegsForStock.filter(leg => leg.type === 'STOCK');
-    
+
     if (stockLegs.length > 0) {
-        // Sum only OPEN stock shares (currently held)
         const totalShares = stockLegs.reduce((sum, leg) => {
-            const quantity = leg.quantity * this.getLegMultiplier(leg);
-            return sum + (this.getLegAction(leg) === 'BUY' ? quantity : -quantity);
+            const quantity = leg.quantity * this.getLegMultiplier(leg as unknown as Record<string, unknown>);
+            return sum + (this.getLegAction(leg as unknown as Record<string, unknown>) === 'BUY' ? quantity : -quantity);
         }, 0);
         const absShares = Math.abs(Math.round(totalShares));
-        // Only use stock quantity if there are actually shares held
         if (absShares > 0) {
             enriched.quantity = absShares;
         } else {
-            // Fall back to primary leg for closed stock trades
             const normalizedQuantity = primaryLeg ? Math.abs(Number(primaryLeg.quantity) || 0) : 0;
             enriched.quantity = enriched.tradeDirection === 'short' ? -normalizedQuantity : normalizedQuantity;
         }
     } else {
-        // Sum quantities from all opening legs of the same type as primary leg
-        // This handles split orders that were filled in multiple parts
-        const primaryType = (primaryLeg?.type || '').toUpperCase();
+        const primaryType = ((primaryLeg?.type as string) || '').toUpperCase();
         const primaryStrike = Number(primaryLeg?.strike) || 0;
-        const primaryExpiration = primaryLeg?.expirationDate || '';
-        
+        const primaryExpiration = (primaryLeg?.expirationDate as string) || '';
+
         const matchingOpenLegs = openLegsForStock.filter(leg => {
             const type = (leg.type || '').toUpperCase();
             const strike = Number(leg.strike) || 0;
-            const expiration = leg.expirationDate || '';
+            const expiration = (leg.expirationDate as string) || '';
             return type === primaryType && strike === primaryStrike && expiration === primaryExpiration;
         });
-        
+
         let totalQuantity = 0;
         if (matchingOpenLegs.length > 0) {
             totalQuantity = matchingOpenLegs.reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0);
         } else {
-            // Fall back to primary leg quantity
             totalQuantity = primaryLeg ? Math.abs(Number(primaryLeg.quantity) || 0) : 0;
         }
-        
+
         enriched.quantity = enriched.tradeDirection === 'short' ? -totalQuantity : totalQuantity;
     }
-    
+
     enriched.strikePrice = this.derivePrimaryStrike(legSummary);
-    enriched.multiplier = this.getLegMultiplier(primaryLeg);
+    enriched.multiplier = this.getLegMultiplier(primaryLeg as unknown as Record<string, unknown>);
     enriched.displayStrike = this.buildStrikeDisplay(enriched, legSummary);
 
     const activeStrike = this.getActiveStrikeForDisplay(legSummary);
-    enriched.activeStrikePrice = Number.isFinite(activeStrike) ? Number(activeStrike) : null;
+    enriched.activeStrikePrice = Number.isFinite(activeStrike as number) ? Number(activeStrike) : null;
 
     const entryPrice = legSummary.entryPrice;
     const exitPrice = legSummary.exitPrice;
-    enriched.entryPrice = Number.isFinite(entryPrice) ? Number(entryPrice.toFixed(4)) : null;
-    enriched.exitPrice = Number.isFinite(exitPrice) ? Number(exitPrice.toFixed(4)) : null;
+    enriched.entryPrice = Number.isFinite(entryPrice as number) ? Number((entryPrice as number).toFixed(4)) : null;
+    enriched.exitPrice = Number.isFinite(exitPrice as number) ? Number((exitPrice as number).toFixed(4)) : null;
 
     const riskInfo = this.assessRisk(enriched, legSummary);
     if (enriched.maxRiskOverride) {
-        riskInfo.maxRiskValue = enriched.maxRiskOverride;
-        riskInfo.maxRiskLabel = this.formatCurrency(enriched.maxRiskOverride);
+        riskInfo.maxRiskValue = enriched.maxRiskOverride as number;
+        riskInfo.maxRiskLabel = this.formatCurrency(enriched.maxRiskOverride as number);
         riskInfo.unlimited = false;
-        legSummary.capitalAtRisk = enriched.maxRiskOverride;
+        legSummary.capitalAtRisk = enriched.maxRiskOverride as number;
     }
 
     enriched.capitalAtRisk = riskInfo.maxRiskValue;
-    if (Number.isFinite(enriched.capitalAtRisk)) {
-        enriched.capitalAtRisk = Number(enriched.capitalAtRisk.toFixed(2));
+    if (Number.isFinite(enriched.capitalAtRisk as number)) {
+        enriched.capitalAtRisk = Number((enriched.capitalAtRisk as number).toFixed(2));
     }
     enriched.maxRiskLabel = riskInfo.maxRiskLabel;
     enriched.riskIsUnlimited = riskInfo.unlimited;
 
-    const openedDate = this.parseDateValue(enriched.openedDate || enriched.entryDate || legSummary.openedDate);
-    const closedDate = this.parseDateValue(enriched.closedDate || enriched.exitDate || (legSummary.closeLegs > 0 ? legSummary.closedDate : null));
+    const openedDate = this.parseDateValue((enriched.openedDate as string) || (enriched.entryDate as string) || legSummary.openedDate);
+    const closedDate = this.parseDateValue((enriched.closedDate as string) || (enriched.exitDate as string) || (legSummary.closeLegs > 0 ? legSummary.closedDate : null));
 
-    let expirationDate = this.parseDateValue(enriched.expirationDate);
+    let expirationDate = this.parseDateValue(enriched.expirationDate as string);
     if (!expirationDate && legSummary.latestExpiration) {
         expirationDate = legSummary.latestExpiration;
     }
@@ -1171,8 +1203,8 @@ export function enrichTradeData(trade) {
     enriched.roi = this.calculateROI(enriched);
     enriched.maxRisk = this.calculateMaxRisk(enriched);
     if (!enriched.maxRiskLabel) {
-        enriched.maxRiskLabel = Number.isFinite(enriched.maxRisk)
-            ? this.formatCurrency(enriched.maxRisk)
+        enriched.maxRiskLabel = Number.isFinite(enriched.maxRisk as number)
+            ? this.formatCurrency(enriched.maxRisk as number)
             : enriched.maxRisk === Number.POSITIVE_INFINITY
                 ? 'Unlimited'
                 : '—';
@@ -1182,23 +1214,12 @@ export function enrichTradeData(trade) {
     enriched.lifecycleMeta = lifecycle.meta;
     enriched.lifecycleStatus = lifecycle.status;
 
-    // Wheel/PMCC coverage tag — independent descriptive field.
     enriched.wheelCoverage = this.getTradeWheelCoverage(enriched);
 
-    // Awaiting-coverage flag: assigned wheel/PMCC with shares held and NO
-    // active short call. Surfaced only in the Wheel/PMCC tracker, not Active
-    // Trades. Partially-covered trades (≥1 active short call) keep their
-    // normal lifecycle so the active CC remains visible in Active Trades.
     if (enriched.wheelCoverage === 'uncovered') {
         enriched.lifecycleStatus = 'awaiting_coverage';
     }
 
-    // Mark-to-market unrealized P&L for any open wheel/PMCC trade with held
-    // exposure (stock shares, or LEAP for PMCC). Without this, raw cashflow
-    // includes the stock purchase cost and shows a phantom loss equal to the
-    // share value. Applies to all coverage states (covered / partial /
-    // uncovered) and to status='Assigned'. Closed trades are skipped — their
-    // pl is the realized cashflow which is already correct.
     const heldStockShares = this.getTradeOpenStockShares(enriched);
     const heldLongCallContracts = this.isPmccTrade(enriched)
         ? this.getNetOpenLongCallContracts(enriched)
@@ -1213,16 +1234,10 @@ export function enrichTradeData(trade) {
             ? Number(cb.effectiveCostBasis.toFixed(2))
             : null;
 
-        // Resolve a current price for MTM. Priority:
-        //  1. persisted marketPriceSnapshot (last save)
-        //  2. live Finnhub quote cache (if available in memory)
-        //  3. fallback: assignment cost-per-share (≈ entry strike) — conservative,
-        //     pretends stock hasn't moved. Triggers a one-time warning so the
-        //     user knows the number is a placeholder until a real quote loads.
         let resolvedPrice = Number(trade.marketPriceSnapshot);
         let priceSource = 'snapshot';
         if (!Number.isFinite(resolvedPrice) || resolvedPrice <= 0) {
-            const ticker = (trade.ticker || '').toString().trim().toUpperCase();
+            const ticker = ((trade.ticker as string) || '').toString().trim().toUpperCase();
             const cachedQuote = this.getCachedQuote ? this.getCachedQuote(ticker) : null;
             const livePrice = Number(cachedQuote?.value?.price);
             if (Number.isFinite(livePrice) && livePrice > 0) {
@@ -1238,28 +1253,24 @@ export function enrichTradeData(trade) {
             }
         }
 
-        if (Number.isFinite(resolvedPrice) && resolvedPrice > 0 && cb.shares > 0 && Number.isFinite(cb.effectiveCostBasis)) {
+        if (Number.isFinite(resolvedPrice) && resolvedPrice > 0 && cb.shares > 0 && Number.isFinite(cb.effectiveCostBasis as number)) {
             const marketValue = resolvedPrice * cb.shares;
-            const unrealizedPL = marketValue - cb.effectiveCostBasis;
+            const unrealizedPL = marketValue - (cb.effectiveCostBasis as number);
             enriched.marketValue = Number(marketValue.toFixed(2));
             enriched.unrealizedPL = Number(unrealizedPL.toFixed(2));
             enriched.marketPriceSource = priceSource;
-            // Override raw cashflow-based pl so dashboards & MCP report the
-            // mark-to-market figure for held-stock positions.
             enriched.pl = enriched.unrealizedPL;
             enriched.roi = cb.effectiveCostBasis !== 0
-                ? Number(((unrealizedPL / cb.effectiveCostBasis) * 100).toFixed(2))
+                ? Number(((unrealizedPL / (cb.effectiveCostBasis as number)) * 100).toFixed(2))
                 : 0;
         } else {
             enriched.marketValue = null;
             enriched.unrealizedPL = null;
             enriched.marketPriceSource = null;
             if (enriched.lifecycleStatus === 'awaiting_coverage') {
-                // Keep historical behavior: hide phantom cashflow loss.
                 enriched.pl = 0;
                 enriched.roi = 0;
             }
-            // For covered/assigned without any price hint, leave pl as cashFlow.
         }
     } else {
         enriched.shares = null;
@@ -1297,7 +1308,7 @@ export function enrichTradeData(trade) {
     }
 
     enriched.daysHeld = this.calculateDaysHeld(enriched);
-    enriched.dte = this.calculateDTE(enriched.expirationDate, enriched);
+    enriched.dte = this.calculateDTE(enriched.expirationDate as string, enriched);
     enriched.weeklyROI = this.calculateWeeklyROI(enriched);
     enriched.monthlyROI = this.calculateMonthlyROI(enriched);
     enriched.annualizedROI = this.calculateAnnualizedROI(enriched);
@@ -1305,57 +1316,63 @@ export function enrichTradeData(trade) {
     return enriched;
 }
 
-export function getPrimaryLeg(trade = {}) {
-    if (trade.primaryLeg && trade.primaryLeg.id) {
-        return this.normalizeLeg(trade.primaryLeg);
+export function getPrimaryLeg(
+    this: LegsContext,
+    trade: Record<string, unknown> = {}
+): Record<string, unknown> | null {
+    if (trade.primaryLeg && (trade.primaryLeg as Record<string, unknown>).id) {
+        return this.normalizeLeg(trade.primaryLeg as Record<string, unknown>) as unknown as Record<string, unknown>;
     }
     if (Array.isArray(trade.legs) && trade.legs.length > 0) {
-        const candidates = trade.legs.map((leg, index) => this.normalizeLeg(leg, index));
-        const firstOpen = candidates.find(leg => this.getLegSide(leg) === 'OPEN') || candidates[0];
-        return firstOpen;
+        const candidates = (trade.legs as Record<string, unknown>[]).map((leg, index) => this.normalizeLeg(leg, index));
+        const firstOpen = candidates.find(leg => this.getLegSide(leg as unknown as Record<string, unknown>) === 'OPEN') || candidates[0];
+        return firstOpen as unknown as Record<string, unknown>;
     }
     return null;
 }
 
-export function deriveTradeTypeFromLeg(leg) {
-    if (!leg) {
-        return 'BTO';
-    }
+export function deriveTradeTypeFromLeg(
+    this: LegsContext,
+    leg: Record<string, unknown> | null
+): string {
+    if (!leg) return 'BTO';
     const action = this.getLegAction(leg);
     const side = this.getLegSide(leg);
-    if (action === 'BUY' && side === 'OPEN') {
-        return 'BTO';
-    }
-    if (action === 'SELL' && side === 'OPEN') {
-        return 'STO';
-    }
-    if (action === 'SELL' && side === 'CLOSE') {
-        return 'STC';
-    }
-    if (action === 'BUY' && side === 'CLOSE') {
-        return 'BTC';
-    }
+    if (action === 'BUY' && side === 'OPEN') return 'BTO';
+    if (action === 'SELL' && side === 'OPEN') return 'STO';
+    if (action === 'SELL' && side === 'CLOSE') return 'STC';
+    if (action === 'BUY' && side === 'CLOSE') return 'BTC';
     // ROLL legs inherit previous action semantics
     return action === 'SELL' ? 'STO' : 'BTO';
 }
 
-export function deriveTradeDirectionFromLeg(leg) {
-    if (!leg) {
-        return 'long';
-    }
+export function deriveTradeDirectionFromLeg(
+    this: LegsContext,
+    leg: Record<string, unknown> | null
+): string {
+    if (!leg) return 'long';
     const action = this.getLegAction(leg);
-    if (action === 'SELL') {
-        return 'short';
-    }
+    if (action === 'SELL') return 'short';
     return 'long';
 }
 
-export function getTradeType(trade) {
+export function getTradeType(
+    this: LegsContext,
+    trade: Record<string, unknown>
+): string {
     const primaryLeg = this.getPrimaryLeg(trade);
     return this.deriveTradeTypeFromLeg(primaryLeg);
 }
 
-export function inferTradeDirection(trade) {
+export function inferTradeDirection(
+    this: LegsContext,
+    trade: Record<string, unknown>
+): string {
     const primaryLeg = this.getPrimaryLeg(trade);
     return this.deriveTradeDirectionFromLeg(primaryLeg);
 }
+
+
+
+
+

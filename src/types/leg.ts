@@ -164,4 +164,3 @@ export interface NormalizedLeg {
   /** @deprecated Legacy field kept for backward compatibility with import pipeline. */
   tickerSymbol?: string | null
 }
-

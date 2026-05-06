@@ -1,19 +1,58 @@
-// src/trades/positions.js — Wave 3: Trade position helpers and status normalization.
+// src/trades/positions.ts — Wave 3: Trade position helpers and status normalization.
 // Uses the .call(this, …) delegation pattern.
 
-export function getPrimaryLeg(trade = {}) {
-    if (trade.primaryLeg && trade.primaryLeg.id) {
-        return this.normalizeLeg(trade.primaryLeg);
+interface PositionsContext {
+  normalizeLeg(leg: Record<string, unknown>, index?: number): Record<string, unknown>
+  getLegSide(leg: Record<string, unknown>): string
+  getLegAction(leg: Record<string, unknown>): string
+  getLegMultiplier(leg: Record<string, unknown>): number
+  normalizeLegType(type: unknown): string
+  getNormalizedLegOrderType(leg: Record<string, unknown>): string
+  isPmccTrade(trade: Record<string, unknown>): boolean
+  isPmccBaseLeg(trade: Record<string, unknown>): boolean
+  isPmccShortCall(trade: Record<string, unknown>): boolean
+  getTradeOpenStockShares(trade: Record<string, unknown>): number
+  getNetOpenLongCallContracts(trade: Record<string, unknown>): number
+  getNetOpenShortCalls(legs: Record<string, unknown>[]): { contracts: number; details: unknown[] }
+  isWheelTrade(trade: Record<string, unknown>): boolean
+  isWheelOrPmccTrade(trade: Record<string, unknown>): boolean
+  isCashSettledTrade(trade: Record<string, unknown>): boolean
+  isAssignedStatus(status: unknown): boolean
+  normalizeStatus(status: unknown): string
+  isAssignmentReason(reason: unknown): boolean
+  inferTradeDirection(trade: Record<string, unknown>): string
+  getTradeType(trade: Record<string, unknown>): string
+  isWheelPut(trade: Record<string, unknown>): boolean
+  isCoveredCall(trade: Record<string, unknown>): boolean
+  isAwaitingCoverage(trade: Record<string, unknown>): boolean
+  // Self-referential
+  getPrimaryLeg(trade: Record<string, unknown>): Record<string, unknown> | null
+  deriveTradeTypeFromLeg(leg: Record<string, unknown> | null): string
+  deriveTradeDirectionFromLeg(leg: Record<string, unknown> | null): string
+  isAssignmentTrade(trade: Record<string, unknown>): boolean
+  getTradeWheelCoverage(trade: Record<string, unknown>): string
+  calculateLegCashFlow(leg: Record<string, unknown>): number
+}
+
+export function getPrimaryLeg(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): Record<string, unknown> | null {
+    if (trade.primaryLeg && (trade.primaryLeg as Record<string, unknown>).id) {
+        return this.normalizeLeg(trade.primaryLeg as Record<string, unknown>);
     }
     if (Array.isArray(trade.legs) && trade.legs.length > 0) {
-        const candidates = trade.legs.map((leg, index) => this.normalizeLeg(leg, index));
+        const candidates = (trade.legs as Record<string, unknown>[]).map((leg, index) => this.normalizeLeg(leg, index));
         const firstOpen = candidates.find(leg => this.getLegSide(leg) === 'OPEN') || candidates[0];
         return firstOpen;
     }
     return null;
 }
 
-export function deriveTradeTypeFromLeg(leg) {
+export function deriveTradeTypeFromLeg(
+    this: PositionsContext,
+    leg: Record<string, unknown> | null
+): string {
     if (!leg) {
         return 'BTO';
     }
@@ -27,7 +66,10 @@ export function deriveTradeTypeFromLeg(leg) {
     return action === 'SELL' ? 'STO' : 'BTO';
 }
 
-export function deriveTradeDirectionFromLeg(leg) {
+export function deriveTradeDirectionFromLeg(
+    this: PositionsContext,
+    leg: Record<string, unknown> | null
+): string {
     if (!leg) {
         return 'long';
     }
@@ -38,22 +80,28 @@ export function deriveTradeDirectionFromLeg(leg) {
     return 'long';
 }
 
-export function getTradeType(trade) {
+export function getTradeType(
+    this: PositionsContext,
+    trade: Record<string, unknown>
+): string {
     const primaryLeg = this.getPrimaryLeg(trade);
     return this.deriveTradeTypeFromLeg(primaryLeg);
 }
 
-export function inferTradeDirection(trade) {
+export function inferTradeDirection(
+    this: PositionsContext,
+    trade: Record<string, unknown>
+): string {
     const primaryLeg = this.getPrimaryLeg(trade);
     return this.deriveTradeDirectionFromLeg(primaryLeg);
 }
 
-export function normalizeStatus(status) {
-    return (status || '').toString().trim().toLowerCase();
+export function normalizeStatus(status: unknown): string {
+    return ((status as string) || '').toString().trim().toLowerCase();
 }
 
-export function normalizeTradeStatusInput(status) {
-    const normalized = (status || '').toString().trim().toLowerCase();
+export function normalizeTradeStatusInput(status: unknown): string {
+    const normalized = ((status as string) || '').toString().trim().toLowerCase();
     if (!normalized) return '';
     if (normalized === 'open') return 'Open';
     if (normalized === 'closed') return 'Closed';
@@ -63,23 +111,32 @@ export function normalizeTradeStatusInput(status) {
     return '';
 }
 
-export function isClosedStatus(status) {
+export function isClosedStatus(
+    this: PositionsContext,
+    status: unknown
+): boolean {
     const normalized = this.normalizeStatus(status);
     return normalized === 'closed' || normalized === 'expired';
 }
 
-export function isAssignedStatus(status) {
+export function isAssignedStatus(
+    this: PositionsContext,
+    status: unknown
+): boolean {
     const normalized = this.normalizeStatus(status);
     return normalized === 'assigned';
 }
 
-export function isActiveStatus(status) {
+export function isActiveStatus(
+    this: PositionsContext,
+    status: unknown
+): boolean {
     const normalized = this.normalizeStatus(status);
     return normalized === 'open' || normalized === 'rolling';
 }
 
-export function isAssignmentReason(reason) {
-    const normalized = (reason || '').toString().trim().toLowerCase();
+export function isAssignmentReason(reason: unknown): boolean {
+    const normalized = ((reason as string) || '').toString().trim().toLowerCase();
     return normalized.includes('assign') || normalized.includes('cash settlement');
 }
 
@@ -87,20 +144,23 @@ export function isAssignmentReason(reason) {
  * Returns true when the exit reason specifically describes a cash settlement
  * (as opposed to a physical-delivery assignment).
  */
-export function isCashSettlementReason(reason) {
-    const normalized = (reason || '').toString().trim().toLowerCase();
+export function isCashSettlementReason(reason: unknown): boolean {
+    const normalized = ((reason as string) || '').toString().trim().toLowerCase();
     return normalized.includes('cash settlement');
 }
 
 /**
  * Returns true when the trade contains one or more CASH settlement legs.
  */
-export function isCashSettledTrade(trade = {}) {
+export function isCashSettledTrade(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): boolean {
     const legs = trade?.legs;
     if (!Array.isArray(legs)) {
         return false;
     }
-    return legs.some((leg) => {
+    return (legs as Record<string, unknown>[]).some((leg) => {
         if (this.normalizeLegType(leg?.type) !== 'CASH') {
             return false;
         }
@@ -109,12 +169,15 @@ export function isCashSettledTrade(trade = {}) {
     });
 }
 
-export function getDisplayStatus(trade) {
+export function getDisplayStatus(
+    this: PositionsContext,
+    trade: Record<string, unknown> | null
+): string {
     if (!trade) {
         return 'Unknown';
     }
 
-    const rawStatus = (trade.status || 'Unknown').toString().trim();
+    const rawStatus = ((trade.status as string) || 'Unknown').toString().trim();
     if (!rawStatus) {
         return 'Unknown';
     }
@@ -136,15 +199,21 @@ export function getDisplayStatus(trade) {
     return rawStatus;
 }
 
-export function normalizeUnderlyingType(type, { fallback = 'Stock' } = {}) {
-    const normalized = (type || '').toString().trim().toLowerCase();
+export function normalizeUnderlyingType(
+    type: unknown,
+    { fallback = 'Stock' }: { fallback?: string } = {}
+): string {
+    const normalized = ((type as string) || '').toString().trim().toLowerCase();
     if (['stock', 'etf', 'index', 'future'].includes(normalized)) {
         return normalized.charAt(0).toUpperCase() + normalized.slice(1);
     }
     return fallback;
 }
 
-export function isAssignmentTrade(trade = {}) {
+export function isAssignmentTrade(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): boolean {
     const status = this.normalizeStatus(trade.status);
     if (status === 'assigned') {
         return true;
@@ -155,12 +224,15 @@ export function isAssignmentTrade(trade = {}) {
 /**
  * Total open stock shares currently held in a trade (BUY-OPEN minus SELL legs).
  */
-export function getTradeOpenStockShares(trade = {}) {
-    const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+export function getTradeOpenStockShares(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): number {
+    const legs = Array.isArray(trade?.legs) ? (trade.legs as Record<string, unknown>[]) : [];
     if (!legs.length) return 0;
     let shares = 0;
     legs.forEach((leg) => {
-        const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+        const type = ((leg.type as string) || (leg.optionType as string) || '').toString().trim().toUpperCase();
         if (type !== 'STOCK') return;
         const qty = Math.abs(Number(leg.quantity) || 0) * (this.getLegMultiplier(leg) || 1);
         if (!qty) return;
@@ -178,11 +250,14 @@ export function getTradeOpenStockShares(trade = {}) {
 /**
  * Net-open long call contracts (BTO open minus STC close).
  */
-export function getNetOpenLongCallContracts(trade = {}) {
-    const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+export function getNetOpenLongCallContracts(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): number {
+    const legs = Array.isArray(trade?.legs) ? (trade.legs as Record<string, unknown>[]) : [];
     let net = 0;
     legs.forEach((leg) => {
-        const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+        const type = ((leg.type as string) || (leg.optionType as string) || '').toString().trim().toUpperCase();
         if (type !== 'CALL') return;
         const qty = Math.abs(Number(leg.quantity) || 0);
         if (!qty) return;
@@ -194,17 +269,20 @@ export function getNetOpenLongCallContracts(trade = {}) {
     return Math.max(0, net);
 }
 
-export function isWheelPut(trade = {}) {
-    const strategy = (trade.strategy || '').toLowerCase();
+export function isWheelPut(trade: Record<string, unknown> = {}): boolean {
+    const strategy = ((trade.strategy as string) || '').toLowerCase();
     return strategy.includes('cash-secured put');
 }
 
-export function isWheelTrade(trade = {}) {
-    const strategy = (trade.strategy || '').toString().trim().toLowerCase();
+export function isWheelTrade(trade: Record<string, unknown> = {}): boolean {
+    const strategy = ((trade.strategy as string) || '').toString().trim().toLowerCase();
     return strategy.includes('wheel');
 }
 
-export function isWheelOrPmccTrade(trade = {}) {
+export function isWheelOrPmccTrade(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): boolean {
     if (this.isWheelTrade(trade) || this.isPmccTrade(trade)) {
         return true;
     }
@@ -221,35 +299,44 @@ export function isWheelOrPmccTrade(trade = {}) {
     if (this.isAssignedStatus(trade.status)) {
         return true;
     }
-    
+
     return false;
 }
 
-export function isCoveredCall(trade = {}) {
-    const strategy = (trade.strategy || '').toLowerCase();
+export function isCoveredCall(trade: Record<string, unknown> = {}): boolean {
+    const strategy = ((trade.strategy as string) || '').toLowerCase();
     return strategy.includes('covered call');
 }
 
-export function isPmccBaseLeg(trade = {}) {
-    const strategy = (trade.strategy || '').toLowerCase();
-    const direction = trade.tradeDirection || this.inferTradeDirection(trade);
+export function isPmccBaseLeg(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): boolean {
+    const strategy = ((trade.strategy as string) || '').toLowerCase();
+    const direction = (trade.tradeDirection as string) || this.inferTradeDirection(trade);
     const tradeType = this.getTradeType(trade);
     return strategy.includes('poor man') && (direction === 'long' || tradeType === 'BTO');
 }
 
-export function isPmccShortCall(trade = {}) {
-    const strategy = (trade.strategy || '').toLowerCase();
-    const direction = trade.tradeDirection || this.inferTradeDirection(trade);
+export function isPmccShortCall(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): boolean {
+    const strategy = ((trade.strategy as string) || '').toLowerCase();
+    const direction = (trade.tradeDirection as string) || this.inferTradeDirection(trade);
     const tradeType = this.getTradeType(trade);
     return strategy.includes('poor man') && (direction === 'short' || tradeType === 'STO');
 }
 
-export function isPmccTrade(trade = {}) {
+export function isPmccTrade(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): boolean {
     if (!trade) {
         return false;
     }
 
-    const strategy = (trade.strategy || '').toLowerCase();
+    const strategy = ((trade.strategy as string) || '').toLowerCase();
     if (strategy.includes('poor man') || strategy.includes('pmcc')) {
         return true;
     }
@@ -257,7 +344,10 @@ export function isPmccTrade(trade = {}) {
     return this.isPmccBaseLeg(trade) || this.isPmccShortCall(trade);
 }
 
-export function getTradeWheelCoverage(trade = {}) {
+export function getTradeWheelCoverage(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): string {
     const isWheelPmcc = this.isWheelOrPmccTrade(trade) || this.isAssignmentTrade(trade);
     if (!isWheelPmcc) return 'n/a';
 
@@ -267,7 +357,7 @@ export function getTradeWheelCoverage(trade = {}) {
         : this.getTradeOpenStockShares(trade);
     if (baseShares <= 0) return 'n/a';
 
-    const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+    const legs = Array.isArray(trade?.legs) ? (trade.legs as Record<string, unknown>[]) : [];
     const shortInfo = this.getNetOpenShortCalls(legs);
     const coveredShares = (Number(shortInfo?.contracts) || 0) * 100;
     if (coveredShares >= baseShares) return 'covered';
@@ -275,13 +365,19 @@ export function getTradeWheelCoverage(trade = {}) {
     return 'uncovered';
 }
 
-export function isAwaitingCoverage(trade = {}) {
+export function isAwaitingCoverage(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): boolean {
     const cov = this.getTradeWheelCoverage(trade);
     return cov === 'uncovered' || cov === 'partial';
 }
 
-export function computeWheelEffectiveCostBasis(trade = {}) {
-    const legs = Array.isArray(trade?.legs) ? trade.legs : [];
+export function computeWheelEffectiveCostBasis(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): { shares: number; assignmentCostBasis: number; effectiveCostBasis: number } {
+    const legs = Array.isArray(trade?.legs) ? (trade.legs as Record<string, unknown>[]) : [];
     const isPmcc = this.isPmccTrade(trade);
 
     let stockShares = 0;
@@ -292,12 +388,12 @@ export function computeWheelEffectiveCostBasis(trade = {}) {
     let longCallShares = 0;
 
     legs.forEach((leg) => {
-        const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
+        const type = ((leg.type as string) || (leg.optionType as string) || '').toString().trim().toUpperCase();
         const action = this.getLegAction(leg);
         const side = this.getLegSide(leg);
         const qty = Math.abs(Number(leg.quantity) || 0);
         const mult = this.getLegMultiplier(leg) || 1;
-        const cashFlow = Number(this.calculateLegCashFlow(leg)) || 0;
+        const cashFlow = Number((this as unknown as { calculateLegCashFlow: (leg: Record<string, unknown>) => number }).calculateLegCashFlow(leg)) || 0;
 
         if (type === 'STOCK') {
             if (action === 'BUY' && side === 'OPEN') {
@@ -345,7 +441,10 @@ export function computeWheelEffectiveCostBasis(trade = {}) {
     };
 }
 
-export function calculateOptionPremium(trade = {}) {
+export function calculateOptionPremium(
+    this: PositionsContext,
+    trade: Record<string, unknown> = {}
+): number {
     const quantity = Math.abs(Number(trade.quantity) || 0);
     if (!quantity) {
         return 0;
@@ -354,9 +453,11 @@ export function calculateOptionPremium(trade = {}) {
     const exitPrice = Number(trade.exitPrice) || 0;
     const fees = Number(trade.fees) || 0;
     const gross = (entryPrice - exitPrice) * quantity * 100;
-    const direction = trade.tradeDirection || this.inferTradeDirection(trade);
+    const direction = (trade.tradeDirection as string) || this.inferTradeDirection(trade);
     if (direction === 'short') {
         return gross - fees;
     }
     return (exitPrice - entryPrice) * quantity * 100 - fees;
 }
+
+

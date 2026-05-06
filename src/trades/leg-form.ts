@@ -1,30 +1,65 @@
-// src/trades/leg-form.js — Wave 11: Leg form UI helpers.
+// src/trades/leg-form.ts — Wave 11: Leg form UI helpers.
 // Uses the .call(this, …) delegation pattern.
 
-export function getLegsContainer() {
+interface LegFormContext {
+    currentEditingId: string | null | undefined
+    defaultFeePerContract: number | null
+    normalizeLegType(type: unknown): string
+    normalizeUnderlyingType(type: unknown, opts?: { fallback?: string }): string
+    normalizeLegOrderType(orderType: unknown): string
+    deriveOrderTypeFromActionSide(action: unknown, side: unknown): string
+    getSelectedUnderlyingType(opts?: { fallback?: string }): string
+    getDefaultMultiplierForLegType(legType: string, underlyingType?: string): number
+    syncLegMultiplierVisibility(row: HTMLElement, opts?: { defaultMultiplier?: number | null }): void
+    syncLegTypeFieldVisibility(row: HTMLElement): void
+    applyUnderlyingTypeToLegMultipliers(opts?: { row?: HTMLElement | null; force?: boolean }): void
+    getLegsContainer(): HTMLElement | null
+    addLegFormRow(leg?: Record<string, unknown> | null): HTMLElement | null
+    removeLegFormRow(row: HTMLElement): void
+    clearLegFormRows(): void
+    updateLegRowNumbers(): void
+    generateLegId(index?: number): string
+    renderLegForms(legs?: unknown[]): void
+    createClosingLegFromRow(sourceRow: HTMLElement): void
+    collectLegsFromForm(): Record<string, unknown>[] | null
+    autoFillUnderlyingPrice(input: HTMLInputElement): void
+    getDefaultFeeForQuantity(qty: number): number | null
+    parseDecimal(raw: string, defaultVal: number | null, opts?: { allowNegative?: boolean }): number | null
+    parseInteger(raw: string, defaultVal: number | null, opts?: { allowNegative?: boolean }): number | null
+    showNotification(msg: string, type: string): void
+}
+
+export function getLegsContainer(this: LegFormContext): HTMLElement | null {
     return document.getElementById('trade-legs-container');
 }
 
-export function generateLegId(index = 0) {
+export function generateLegId(this: LegFormContext, index = 0): string {
     const base = this.currentEditingId || 'NEW';
     const timestamp = Date.now().toString(36);
     const random = Math.random().toString(36).slice(2, 6);
     return `${base}-LEG-${timestamp}-${index}-${random}`;
 }
 
-export function clearLegFormRows() {
+export function clearLegFormRows(this: LegFormContext): void {
     const container = this.getLegsContainer();
     if (container) {
         container.innerHTML = '';
     }
 }
 
-export function getSelectedUnderlyingType({ fallback = 'Stock' } = {}) {
-    const select = document.getElementById('underlyingType');
+export function getSelectedUnderlyingType(
+    this: LegFormContext,
+    { fallback = 'Stock' }: { fallback?: string } = {}
+): string {
+    const select = document.getElementById('underlyingType') as HTMLSelectElement | null;
     return this.normalizeUnderlyingType(select?.value, { fallback });
 }
 
-export function getDefaultMultiplierForLegType(legType, underlyingType = 'Stock') {
+export function getDefaultMultiplierForLegType(
+    this: LegFormContext,
+    legType: string,
+    underlyingType = 'Stock'
+): number {
     const normalizedLegType = this.normalizeLegType(legType || 'CALL');
     if (normalizedLegType === 'STOCK') {
         return 1;
@@ -43,15 +78,19 @@ export function getDefaultMultiplierForLegType(legType, underlyingType = 'Stock'
     return 100;
 }
 
-export function syncLegMultiplierVisibility(row, { defaultMultiplier = null } = {}) {
+export function syncLegMultiplierVisibility(
+    this: LegFormContext,
+    row: HTMLElement,
+    { defaultMultiplier = null }: { defaultMultiplier?: number | null } = {}
+): void {
     if (!row) {
         return;
     }
 
-    const multiplierGroup = row.querySelector('[data-leg-group="multiplier"]');
-    const multiplierInput = row.querySelector('[data-leg-field="multiplier"]');
-    const toggleButton = row.querySelector('.trade-leg__multiplier-toggle');
-    const typeSelect = row.querySelector('[data-leg-field="type"]');
+    const multiplierGroup = row.querySelector('[data-leg-group="multiplier"]') as HTMLElement | null;
+    const multiplierInput = row.querySelector('[data-leg-field="multiplier"]') as HTMLInputElement | null;
+    const toggleButton = row.querySelector('.trade-leg__multiplier-toggle') as HTMLElement | null;
+    const typeSelect = row.querySelector('[data-leg-field="type"]') as HTMLSelectElement | null;
 
     if (!multiplierGroup || !multiplierInput || !toggleButton || !typeSelect) {
         return;
@@ -59,8 +98,8 @@ export function syncLegMultiplierVisibility(row, { defaultMultiplier = null } = 
 
     const underlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
     const normalizedLegType = this.normalizeLegType(typeSelect.value || 'CALL');
-    const fallbackMultiplier = Number.isFinite(defaultMultiplier)
-        ? defaultMultiplier
+    const fallbackMultiplier = Number.isFinite(defaultMultiplier as number)
+        ? (defaultMultiplier as number)
         : this.getDefaultMultiplierForLegType(normalizedLegType, underlyingType);
 
     const value = Number(multiplierInput.value);
@@ -77,11 +116,14 @@ export function syncLegMultiplierVisibility(row, { defaultMultiplier = null } = 
     toggleButton.textContent = hasCustomValue ? 'Hide multiplier' : 'Override multiplier';
 }
 
-export function syncLegTypeFieldVisibility(row) {
+export function syncLegTypeFieldVisibility(
+    this: LegFormContext,
+    row: HTMLElement
+): void {
     if (!row) {
         return;
     }
-    const typeSelect = row.querySelector('[data-leg-field="type"]');
+    const typeSelect = row.querySelector('[data-leg-field="type"]') as HTMLSelectElement | null;
     if (!typeSelect) {
         return;
     }
@@ -90,19 +132,19 @@ export function syncLegTypeFieldVisibility(row) {
     const isStock = legType === 'STOCK';
 
     // Strike: hide for CASH and STOCK types
-    const strikeGroup = row.querySelector('[data-leg-group="strike-group"]');
+    const strikeGroup = row.querySelector('[data-leg-group="strike-group"]') as HTMLElement | null;
     if (strikeGroup) {
         strikeGroup.classList.toggle('is-hidden', isCash || isStock);
     }
 
     // Expiration: hide for CASH and STOCK types
-    const expirationGroup = row.querySelector('[data-leg-group="expiration-group"]');
+    const expirationGroup = row.querySelector('[data-leg-group="expiration-group"]') as HTMLElement | null;
     if (expirationGroup) {
         expirationGroup.classList.toggle('is-hidden', isCash || isStock);
     }
 
     // Premium label: clarify for CASH settlement legs
-    const premiumLabel = row.querySelector('[data-leg-label="premium"]');
+    const premiumLabel = row.querySelector('[data-leg-label="premium"]') as HTMLElement | null;
     if (premiumLabel) {
         if (isCash) {
             premiumLabel.textContent = 'Settlement Amount (per point)';
@@ -112,13 +154,16 @@ export function syncLegTypeFieldVisibility(row) {
     }
 }
 
-export function applyUnderlyingTypeToLegMultipliers({ row = null, force = false } = {}) {
+export function applyUnderlyingTypeToLegMultipliers(
+    this: LegFormContext,
+    { row = null, force = false }: { row?: HTMLElement | null; force?: boolean } = {}
+): void {
     const container = this.getLegsContainer();
     if (!container) {
         return;
     }
 
-    const rows = row ? [row] : Array.from(container.querySelectorAll('.trade-leg'));
+    const rows = row ? [row] : Array.from(container.querySelectorAll('.trade-leg')) as HTMLElement[];
     if (!rows.length) {
         return;
     }
@@ -126,8 +171,8 @@ export function applyUnderlyingTypeToLegMultipliers({ row = null, force = false 
     const underlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
 
     rows.forEach((legRow) => {
-        const typeSelect = legRow.querySelector('[data-leg-field="type"]');
-        const multiplierInput = legRow.querySelector('[data-leg-field="multiplier"]');
+        const typeSelect = legRow.querySelector('[data-leg-field="type"]') as HTMLSelectElement | null;
+        const multiplierInput = legRow.querySelector('[data-leg-field="multiplier"]') as HTMLInputElement | null;
         if (!typeSelect || !multiplierInput) {
             return;
         }
@@ -137,11 +182,11 @@ export function applyUnderlyingTypeToLegMultipliers({ row = null, force = false 
         const isOpen = legRow.classList.contains('trade-leg--multiplier-open');
 
         if (force || !Number.isFinite(currentValue) || currentValue <= 0) {
-            multiplierInput.value = defaultMultiplier;
+            multiplierInput.value = String(defaultMultiplier);
         } else if (!isOpen) {
             const shouldReset = currentValue === 0;
             if (shouldReset) {
-                multiplierInput.value = defaultMultiplier;
+                multiplierInput.value = String(defaultMultiplier);
             }
         }
 
@@ -149,7 +194,10 @@ export function applyUnderlyingTypeToLegMultipliers({ row = null, force = false 
     });
 }
 
-export function renderLegForms(legs = []) {
+export function renderLegForms(
+    this: LegFormContext,
+    legs: unknown[] = []
+): void {
     const container = this.getLegsContainer();
     if (!container) {
         return;
@@ -158,7 +206,7 @@ export function renderLegForms(legs = []) {
     this.clearLegFormRows();
 
     if (Array.isArray(legs) && legs.length > 0) {
-        legs.forEach(leg => this.addLegFormRow(leg));
+        (legs as Record<string, unknown>[]).forEach(leg => this.addLegFormRow(leg));
     } else {
         this.addLegFormRow();
     }
@@ -167,7 +215,10 @@ export function renderLegForms(legs = []) {
     this.applyUnderlyingTypeToLegMultipliers({ force: !Array.isArray(legs) || legs.length === 0 });
 }
 
-export function addLegFormRow(leg = null) {
+export function addLegFormRow(
+    this: LegFormContext,
+    leg: Record<string, unknown> | null = null
+): HTMLElement | null {
     const container = this.getLegsContainer();
     if (!container) {
         return null;
@@ -177,7 +228,7 @@ export function addLegFormRow(leg = null) {
     row.className = 'trade-leg';
 
     const existingRows = container.querySelectorAll('.trade-leg').length;
-    const legId = leg?.id || this.generateLegId(existingRows);
+    const legId = (leg?.id as string) || this.generateLegId(existingRows);
     row.dataset.legId = legId;
 
     row.innerHTML = `
@@ -259,19 +310,19 @@ export function addLegFormRow(leg = null) {
         </div>
     `;
 
-    const orderTypeSelect = row.querySelector('[data-leg-field="orderType"]');
+    const orderTypeSelect = row.querySelector('[data-leg-field="orderType"]') as HTMLSelectElement | null;
     const normalizedOrderType = this.normalizeLegOrderType(
-        leg?.orderType ||
-        leg?.tradeType ||
-        leg?.order ||
+        (leg?.orderType as string) ||
+        (leg?.tradeType as string) ||
+        (leg?.order as string) ||
         this.deriveOrderTypeFromActionSide(leg?.action, leg?.side)
     );
     if (orderTypeSelect) {
         orderTypeSelect.value = normalizedOrderType;
     }
 
-    const typeSelect = row.querySelector('[data-leg-field="type"]');
-    const normalizedType = this.normalizeLegType(leg?.type || 'CALL');
+    const typeSelect = row.querySelector('[data-leg-field="type"]') as HTMLSelectElement | null;
+    const normalizedType = this.normalizeLegType((leg?.type as string) || 'CALL');
     if (typeSelect) {
         typeSelect.value = normalizedType;
         typeSelect.addEventListener('change', () => {
@@ -283,45 +334,45 @@ export function addLegFormRow(leg = null) {
     const baseUnderlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
     const legUnderlyingType = this.normalizeUnderlyingType(leg?.underlyingType, { fallback: baseUnderlyingType });
 
-    const quantityInput = row.querySelector('[data-leg-field="quantity"]');
+    const quantityInput = row.querySelector('[data-leg-field="quantity"]') as HTMLInputElement | null;
     if (quantityInput) {
         if (leg && Number.isFinite(Number(leg.quantity))) {
-            quantityInput.value = Math.abs(Number(leg.quantity));
+            quantityInput.value = String(Math.abs(Number(leg.quantity)));
         } else {
-            quantityInput.value = 1;
+            quantityInput.value = '1';
         }
     }
 
-    const executionInput = row.querySelector('[data-leg-field="executionDate"]');
+    const executionInput = row.querySelector('[data-leg-field="executionDate"]') as HTMLInputElement | null;
     if (executionInput) {
-        executionInput.value = leg?.executionDate || '';
+        executionInput.value = (leg?.executionDate as string) || '';
     }
 
-    const expirationInput = row.querySelector('[data-leg-field="expirationDate"]');
+    const expirationInput = row.querySelector('[data-leg-field="expirationDate"]') as HTMLInputElement | null;
     if (expirationInput) {
-        expirationInput.value = leg?.expirationDate || '';
+        expirationInput.value = (leg?.expirationDate as string) || '';
     }
 
-    const strikeInput = row.querySelector('[data-leg-field="strike"]');
+    const strikeInput = row.querySelector('[data-leg-field="strike"]') as HTMLInputElement | null;
     if (strikeInput) {
-        strikeInput.value = Number.isFinite(Number(leg?.strike)) ? Number(leg.strike) : '';
+        strikeInput.value = Number.isFinite(Number(leg?.strike)) ? String(Number(leg!.strike)) : '';
     }
 
-    const premiumInput = row.querySelector('[data-leg-field="premium"]');
+    const premiumInput = row.querySelector('[data-leg-field="premium"]') as HTMLInputElement | null;
     if (premiumInput) {
-        premiumInput.value = Number.isFinite(Number(leg?.premium)) ? Number(leg.premium) : '';
+        premiumInput.value = Number.isFinite(Number(leg?.premium)) ? String(Number(leg!.premium)) : '';
     }
 
-    const feesInput = row.querySelector('[data-leg-field="fees"]');
+    const feesInput = row.querySelector('[data-leg-field="fees"]') as HTMLInputElement | null;
     if (feesInput) {
         if (Number.isFinite(Number(leg?.fees))) {
             // Existing leg has a fee value
-            feesInput.value = Number(leg.fees);
+            feesInput.value = String(Number(leg!.fees));
         } else if (!leg && this.defaultFeePerContract !== null) {
             // New leg - apply default fee based on quantity (default quantity is 1)
             const defaultFee = this.getDefaultFeeForQuantity(1);
             if (defaultFee !== null) {
-                feesInput.value = defaultFee;
+                feesInput.value = String(defaultFee);
             }
         } else {
             feesInput.value = '';
@@ -331,20 +382,20 @@ export function addLegFormRow(leg = null) {
     // Update fees when quantity changes (only for new legs with default fee set)
     if (!leg && this.defaultFeePerContract !== null) {
         quantityInput?.addEventListener('change', () => {
-            const qty = Math.abs(Number(quantityInput.value) || 1);
+            const qty = Math.abs(Number(quantityInput!.value) || 1);
             const defaultFee = this.getDefaultFeeForQuantity(qty);
             if (defaultFee !== null && feesInput) {
-                feesInput.value = defaultFee;
+                feesInput.value = String(defaultFee);
             }
         });
     }
 
-    const multiplierInput = row.querySelector('[data-leg-field="multiplier"]');
+    const multiplierInput = row.querySelector('[data-leg-field="multiplier"]') as HTMLInputElement | null;
     if (multiplierInput) {
-        const providedMultiplier = Number.isFinite(Number(leg?.multiplier)) && Number(leg.multiplier) > 0
-            ? Number(leg.multiplier)
+        const providedMultiplier = Number.isFinite(Number(leg?.multiplier)) && Number(leg!.multiplier) > 0
+            ? Number(leg!.multiplier)
             : this.getDefaultMultiplierForLegType(normalizedType, legUnderlyingType);
-        multiplierInput.value = providedMultiplier;
+        multiplierInput.value = String(providedMultiplier);
         ['change', 'input'].forEach((eventName) => {
             multiplierInput.addEventListener(eventName, () => {
                 this.syncLegMultiplierVisibility(row);
@@ -352,7 +403,7 @@ export function addLegFormRow(leg = null) {
         });
     }
 
-    const multiplierToggle = row.querySelector('.trade-leg__multiplier-toggle');
+    const multiplierToggle = row.querySelector('.trade-leg__multiplier-toggle') as HTMLButtonElement | null;
     if (multiplierToggle) {
         multiplierToggle.addEventListener('click', (event) => {
             event.preventDefault();
@@ -364,18 +415,18 @@ export function addLegFormRow(leg = null) {
         });
     }
 
-    const underlyingInput = row.querySelector('[data-leg-field="underlyingPrice"]');
+    const underlyingInput = row.querySelector('[data-leg-field="underlyingPrice"]') as HTMLInputElement | null;
     const shouldAutoFillPrice = underlyingInput && !Number.isFinite(Number(leg?.underlyingPrice));
-    
+
     if (underlyingInput) {
         if (Number.isFinite(Number(leg?.underlyingPrice))) {
             // Use provided underlying price (e.g., when editing existing leg)
-            underlyingInput.value = Number(leg.underlyingPrice);
+            underlyingInput.value = String(Number(leg!.underlyingPrice));
         }
         // Auto-fill will happen after row is appended to DOM
     }
 
-    const removeButton = row.querySelector('.trade-leg__remove');
+    const removeButton = row.querySelector('.trade-leg__remove') as HTMLButtonElement | null;
     if (removeButton) {
         removeButton.addEventListener('click', () => {
             this.removeLegFormRow(row);
@@ -383,7 +434,7 @@ export function addLegFormRow(leg = null) {
     }
 
     // Close Leg button - creates a closing leg with inverted action
-    const closeButton = row.querySelector('.trade-leg__close');
+    const closeButton = row.querySelector('.trade-leg__close') as HTMLButtonElement | null;
     if (closeButton) {
         closeButton.addEventListener('click', () => {
             this.createClosingLegFromRow(row);
@@ -395,16 +446,19 @@ export function addLegFormRow(leg = null) {
     this.syncLegMultiplierVisibility(row);
     this.syncLegTypeFieldVisibility(row);
     this.updateLegRowNumbers();
-    
+
     // Auto-fill underlying price AFTER row is in the DOM
-    if (shouldAutoFillPrice) {
+    if (shouldAutoFillPrice && underlyingInput) {
         this.autoFillUnderlyingPrice(underlyingInput);
     }
-    
+
     return row;
 }
 
-export function removeLegFormRow(row) {
+export function removeLegFormRow(
+    this: LegFormContext,
+    row: HTMLElement
+): void {
     const container = this.getLegsContainer();
     if (!container || !row) {
         return;
@@ -420,23 +474,26 @@ export function removeLegFormRow(row) {
     }
 }
 
-export function createClosingLegFromRow(sourceRow) {
+export function createClosingLegFromRow(
+    this: LegFormContext,
+    sourceRow: HTMLElement
+): void {
     if (!sourceRow) {
         return;
     }
 
     // Extract values from the source leg
-    const orderTypeSelect = sourceRow.querySelector('[data-leg-field="orderType"]');
-    const typeSelect = sourceRow.querySelector('[data-leg-field="type"]');
-    const quantityInput = sourceRow.querySelector('[data-leg-field="quantity"]');
-    const executionInput = sourceRow.querySelector('[data-leg-field="executionDate"]');
-    const expirationInput = sourceRow.querySelector('[data-leg-field="expirationDate"]');
-    const strikeInput = sourceRow.querySelector('[data-leg-field="strike"]');
-    const multiplierInput = sourceRow.querySelector('[data-leg-field="multiplier"]');
+    const orderTypeSelect = sourceRow.querySelector('[data-leg-field="orderType"]') as HTMLSelectElement | null;
+    const typeSelect = sourceRow.querySelector('[data-leg-field="type"]') as HTMLSelectElement | null;
+    const quantityInput = sourceRow.querySelector('[data-leg-field="quantity"]') as HTMLInputElement | null;
+    const executionInput = sourceRow.querySelector('[data-leg-field="executionDate"]') as HTMLInputElement | null;
+    const expirationInput = sourceRow.querySelector('[data-leg-field="expirationDate"]') as HTMLInputElement | null;
+    const strikeInput = sourceRow.querySelector('[data-leg-field="strike"]') as HTMLInputElement | null;
+    const multiplierInput = sourceRow.querySelector('[data-leg-field="multiplier"]') as HTMLInputElement | null;
 
     const orderType = orderTypeSelect?.value || 'BTO';
     const instrumentType = typeSelect?.value || 'CALL';
-    const quantity = quantityInput?.value || 1;
+    const quantity = quantityInput?.value || '1';
     const executionDate = executionInput?.value || '';
     const expirationDate = expirationInput?.value || '';
     const strike = strikeInput?.value || '';
@@ -447,7 +504,7 @@ export function createClosingLegFromRow(sourceRow) {
     // STO -> BTC (sold to open, buy to close)
     // BTC -> already a close, don't create another
     // STC -> already a close, don't create another
-    let closingOrderType;
+    let closingOrderType: string;
     if (orderType === 'BTO') {
         closingOrderType = 'STC';
     } else if (orderType === 'STO') {
@@ -466,7 +523,7 @@ export function createClosingLegFromRow(sourceRow) {
     const defaultFee = this.getDefaultFeeForQuantity(qty);
 
     // Build the closing leg data
-    const closingLeg = {
+    const closingLeg: Record<string, unknown> = {
         orderType: closingOrderType,
         type: instrumentType,
         quantity: qty,
@@ -485,10 +542,10 @@ export function createClosingLegFromRow(sourceRow) {
     if (newRow) {
         newRow.classList.add('trade-leg--highlight');
         newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
+
         // Focus on the premium field since that's what the user needs to enter
         setTimeout(() => {
-            const premiumInput = newRow.querySelector('[data-leg-field="premium"]');
+            const premiumInput = newRow.querySelector('[data-leg-field="premium"]') as HTMLInputElement | null;
             if (premiumInput) {
                 premiumInput.focus();
             }
@@ -500,43 +557,43 @@ export function createClosingLegFromRow(sourceRow) {
     }
 }
 
-export function updateLegRowNumbers() {
+export function updateLegRowNumbers(this: LegFormContext): void {
     const container = this.getLegsContainer();
     if (!container) {
         return;
     }
 
     Array.from(container.querySelectorAll('.trade-leg')).forEach((row, index) => {
-        const label = row.querySelector('[data-leg-label]');
+        const label = row.querySelector('[data-leg-label]') as HTMLElement | null;
         if (label) {
             label.textContent = `Leg ${index + 1}`;
         }
 
-        const removeButton = row.querySelector('.trade-leg__remove');
+        const removeButton = row.querySelector('.trade-leg__remove') as HTMLButtonElement | null;
         if (removeButton) {
             removeButton.disabled = container.children.length === 1;
         }
     });
 }
 
-export function collectLegsFromForm() {
+export function collectLegsFromForm(this: LegFormContext): Record<string, unknown>[] | null {
     const container = this.getLegsContainer();
     if (!container) {
         return [];
     }
 
-    const rows = Array.from(container.querySelectorAll('.trade-leg'));
+    const rows = Array.from(container.querySelectorAll('.trade-leg')) as HTMLElement[];
     if (rows.length === 0) {
         return [];
     }
 
-    const legs = [];
-    const errors = [];
+    const legs: Record<string, unknown>[] = [];
+    const errors: string[] = [];
     const tradeUnderlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
 
     rows.forEach((row, index) => {
-        const getFieldValue = (name) => {
-            const field = row.querySelector(`[data-leg-field="${name}"]`);
+        const getFieldValue = (name: string): string => {
+            const field = row.querySelector(`[data-leg-field="${name}"]`) as HTMLInputElement | HTMLSelectElement | null;
             return field ? field.value : '';
         };
 
@@ -545,15 +602,15 @@ export function collectLegsFromForm() {
 
         const quantityRaw = getFieldValue('quantity');
         const quantityParsed = this.parseInteger(quantityRaw, null, { allowNegative: false });
-        if (!Number.isFinite(quantityParsed) || quantityParsed <= 0) {
+        if (!Number.isFinite(quantityParsed) || (quantityParsed as number) <= 0) {
             errors.push(`Leg ${index + 1} must have a quantity greater than 0.`);
             return;
         }
 
         const multiplierRaw = getFieldValue('multiplier');
         const multiplierParsed = this.parseInteger(multiplierRaw, null, { allowNegative: false });
-        const multiplier = Number.isFinite(multiplierParsed) && multiplierParsed > 0
-            ? multiplierParsed
+        const multiplier = Number.isFinite(multiplierParsed) && (multiplierParsed as number) > 0
+            ? multiplierParsed as number
             : this.getDefaultMultiplierForLegType(type, tradeUnderlyingType);
 
         const strikeRaw = getFieldValue('strike');
@@ -571,8 +628,8 @@ export function collectLegsFromForm() {
         const executionDate = getFieldValue('executionDate') || '';
         const expirationDate = getFieldValue('expirationDate') || '';
 
-        const legData = {
-            id: row.dataset.legId || this.generateLegId(index),
+        const legData: Record<string, unknown> = {
+            id: (row as HTMLElement & { dataset: DOMStringMap }).dataset.legId || this.generateLegId(index),
             orderType,
             type,
             quantity: quantityParsed,
@@ -596,3 +653,4 @@ export function collectLegsFromForm() {
 
     return legs;
 }
+

@@ -61,13 +61,12 @@ export type LifecycleStatus =
   | 'Rolling'
   | 'awaiting_coverage'
 
-/** Reason a position was closed */
-export type ExitReason =
-  | 'cash_settlement'
-  | 'assignment'
-  | 'expiration'
-  | 'roll'
-  | null
+/**
+ * Reason a position was closed.
+ * Stored as free-text in legacy data; typed as string to allow the real
+ * display strings used in determineTradeLifecycleStatus.
+ */
+export type ExitReason = string | null
 
 /**
  * Wheel-coverage state for wheel/PMCC trades.
