@@ -12,12 +12,15 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "outDir": "dist",
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
     "paths": {
       "@core/*":         ["./src/core/*"],
       "@trades/*":       ["./src/trades/*"],
       "@calculations/*": ["./src/calculations/*"],
       "@ui/*":           ["./src/ui/*"],
       "@utils/*":        ["./src/utils/*"],
+      "@types-gl":       ["./src/types/index"],
       "@types-gl/*":     ["./src/types/*"]
     }
   },

@@ -1,8 +1,10 @@
 // Pure date helpers — no class state required. Migrated from
 // class GammaLedger (see docs/refactor/phase1-analysis.md §10).
 
-export function formatDate(dateString) {
-    const date = new Date(dateString);
+import type { ISODate } from '@types-gl/common'
+
+export function formatDate(dateString: string | null | undefined): string {
+    const date = new Date(dateString ?? '');
     if (isNaN(date.getTime())) {
         return '—';
     }
@@ -14,7 +16,7 @@ export function formatDate(dateString) {
     });
 }
 
-export function formatDateForInput(dateString) {
+export function formatDateForInput(dateString: string | null | undefined): string {
     if (!dateString) return '';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
@@ -25,14 +27,14 @@ export function formatDateForInput(dateString) {
     return `${year}-${month}-${day}`;
 }
 
-export function calculateDaysBetween(date1, date2) {
+export function calculateDaysBetween(date1: string | Date, date2: string | Date): number {
     const d1 = new Date(date1);
     const d2 = new Date(date2);
     const timeDiff = Math.abs(d2.getTime() - d1.getTime());
     return Math.ceil(timeDiff / (1000 * 3600 * 24));
 }
 
-export function parseDateValue(value) {
+export function parseDateValue(value: unknown): Date | null {
     if (!value) {
         return null;
     }
@@ -41,7 +43,7 @@ export function parseDateValue(value) {
         return Number.isNaN(value.getTime()) ? null : value;
     }
 
-    const normalized = value.toString().trim();
+    const normalized = String(value).trim();
     if (!normalized) {
         return null;
     }
@@ -54,7 +56,7 @@ export function parseDateValue(value) {
     return parsed;
 }
 
-export function getWeekEndingFriday(dateInput) {
+export function getWeekEndingFriday(dateInput: string | Date): Date | null {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) {
         return null;
@@ -82,7 +84,7 @@ export function getWeekEndingFriday(dateInput) {
     return weekEnd;
 }
 
-export function getWeekKey(dateInput) {
+export function getWeekKey(dateInput: string | Date): ISODate {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) {
         return '';
@@ -94,7 +96,7 @@ export function getWeekKey(dateInput) {
     return `${year}-${month}-${day}`;
 }
 
-export function formatDayLabel(dateInput) {
+export function formatDayLabel(dateInput: string | Date): string {
     const date = new Date(dateInput);
     if (Number.isNaN(date.getTime())) {
         return '';
@@ -107,7 +109,7 @@ export function formatDayLabel(dateInput) {
     });
 }
 
-export function formatWeekLabel(dateInput) {
+export function formatWeekLabel(dateInput: string | Date): string {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) {
         return '';
@@ -119,3 +121,7 @@ export function formatWeekLabel(dateInput) {
         year: 'numeric'
     });
 }
+
+
+
+
