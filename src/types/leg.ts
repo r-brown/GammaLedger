@@ -146,5 +146,22 @@ export interface NormalizedLeg {
    * Populated by the import pipeline; stripped before save.
    */
   importSource: string | null
+
+  // ---------------------------------------------------------------------------
+  // Legacy / alias fields — present in real data from older schema versions.
+  // Not written by current code; accessed only as read fallbacks.
+  // ---------------------------------------------------------------------------
+
+  /** @deprecated Legacy alias for `expirationDate` from pre-v2.5 data. */
+  expiration?: ISODate | ''
+
+  /** @deprecated Legacy alias for `type` from pre-v2.5 data. */
+  optionType?: string
+
+  /** @deprecated Legacy field kept for backward compatibility with import pipeline. */
+  importBatchId?: string | null
+
+  /** @deprecated Legacy field kept for backward compatibility with import pipeline. */
+  tickerSymbol?: string | null
 }
 

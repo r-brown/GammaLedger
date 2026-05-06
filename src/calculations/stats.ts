@@ -1,7 +1,66 @@
-// src/calculations/stats.js additions from app.js
+// src/calculations/stats.ts — Wave 3: Advanced stats, assignment and ticker performance.
 // Uses the .call(this, …) delegation pattern.
 
-export function calculateAdvancedStats() {
+import type { DollarAmount } from '@types-gl/common'
+import type { EnrichedTrade } from '@types-gl/trade'
+import type { NormalizedLeg } from '@types-gl/leg'
+import type { TickerPerformance, TickerPerformanceItem } from '@types-gl/stats'
+
+/**
+ * Minimum GammaLedger context surface required by stats calculations.
+ * GammaLedger fulfils this interface at runtime via .call(this, …).
+ * TODO Phase 3: replace with typed GammaLedger reference once src/index.ts is converted.
+ *
+ * NOTE: Several return types below use `unknown` for intermediate values
+ * (e.g. leg wrappers) where the full type is defined in other modules that
+ * would create circular imports at this stage.
+ */
+interface StatsContext {
+    trades: EnrichedTrade[]
+
+    // Status helpers
+    isClosedStatus(status: string | null | undefined): boolean
+    isAssignedStatus(status: string | null | undefined): boolean
+    isActiveStatus(status: string | null | undefined): boolean
+
+    // Trade-shape predicates
+    isWheelOrPmccTrade(trade: EnrichedTrade): boolean
+    isPmccTrade(trade: EnrichedTrade): boolean
+    isAssignedStatus(status: string | null | undefined): boolean
+
+    // Open-leg helpers
+    hasNetOpenOptionLegs(trade: EnrichedTrade): boolean
+    getNetOpenShortCalls(legs: NormalizedLeg[]): { contracts: number; details: unknown[] }
+
+    // P&L helpers — implemented in pnl.ts, also present on this
+    getCapitalAtRisk(trade: EnrichedTrade): DollarAmount
+
+    // Self-references (class methods delegate to these module functions)
+    calculateAssignmentStats(trades: EnrichedTrade[]): ReturnType<typeof calculateAssignmentStats>
+    calculateTickerPerformance(trades: EnrichedTrade[]): TickerPerformance
+
+    // Leg helpers
+    getLegAction(leg: NormalizedLeg): string
+    getLegSide(leg: NormalizedLeg): string
+    getLegMultiplier(leg: NormalizedLeg): number
+    calculateLegCashFlow(leg: NormalizedLeg): number
+
+    // Date / format helpers
+    parseDateValue(value: unknown): Date | null
+    formatDate(dateString: string): string
+}
+
+// ---------------------------------------------------------------------------
+// calculateAdvancedStats
+// NOTE: The Stats interface in src/types/stats.ts has minor mismatches with
+// the actual return shape:
+//   - sharpeRatio / sortinoRatio may be null (typed as number in Stats)
+//   - feeShareOfGross / grossExposure are returned but not in Stats
+//   - assignedTradesList is AssignmentRecord[], not EnrichedTrade[]
+// These are acceptable in permissive mode (strictNullChecks: false).
+// TODO Phase 5 strict: align Stats type with actual return.
+// ---------------------------------------------------------------------------
+export function calculateAdvancedStats(this: StatsContext) {
     const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
     const assignedTrades = this.trades.filter(trade => this.isAssignedStatus(trade.status));
     // Awaiting-coverage trades (uncovered/partial wheel/PMCC) live only in the
@@ -27,7 +86,7 @@ export function calculateAdvancedStats() {
         && this.hasNetOpenOptionLegs(trade)
     );
     if (assignedWithActiveOptions.length) {
-        const openTradeMap = new Map();
+        const openTradeMap = new Map<string, EnrichedTrade>();
         openTrades.forEach(trade => {
             if (trade) {
                 const key = String(trade.id ?? `${trade.ticker || 'trade'}-${trade.openedDate || ''}`);
@@ -42,7 +101,7 @@ export function calculateAdvancedStats() {
         });
         openTrades = Array.from(openTradeMap.values());
     }
-    
+
     // Exclude assigned trades from P&L calculations as they're transitions to stock positions
     const winningTrades = closedTrades.filter(trade => trade.pl > 0);
     const losingTrades = closedTrades.filter(trade => trade.pl < 0);
@@ -83,7 +142,7 @@ export function calculateAdvancedStats() {
     let peak = 0;
     let cumulativePL = 0;
 
-    const sortedTrades = [...closedTrades].sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate));
+    const sortedTrades = [...closedTrades].sort((a, b) => new Date(a.exitDate).getTime() - new Date(b.exitDate).getTime());
     sortedTrades.forEach(trade => {
         cumulativePL += trade.pl;
         if (cumulativePL > peak) {
@@ -101,22 +160,22 @@ export function calculateAdvancedStats() {
     // where trade_weight = collateral_used × days_held (capital-days at risk)
     let totalWeight = 0;
     let weightedAnnualizedROISum = 0;
-    
+
     closedTrades.forEach(trade => {
         const collateral = this.getCapitalAtRisk(trade);
         const daysHeld = Math.max(1, Number(trade.daysHeld) || 0);
         const tradeAnnualizedROI = Number(trade.annualizedROI) || 0;
-        
+
         if (Number.isFinite(collateral) && collateral > 0 && Number.isFinite(tradeAnnualizedROI)) {
             const tradeWeight = collateral * daysHeld;
             totalWeight += tradeWeight;
             weightedAnnualizedROISum += tradeAnnualizedROI * tradeWeight;
         }
     });
-    
+
     // Total ROI is now the weighted average annualized ROI
     const totalROI = totalWeight > 0 ? weightedAnnualizedROISum / totalWeight : 0;
-    
+
     // Keep avgDaysHeld for reference/other uses, annualizedROI is now same as totalROI
     const avgDaysHeld = closedTrades.length > 0 ? closedTrades.reduce((sum, trade) => sum + trade.daysHeld, 0) / closedTrades.length : 0;
     const annualizedROI = totalROI;
@@ -133,7 +192,7 @@ export function calculateAdvancedStats() {
     const grossExposure = totalFees + totalWins + totalLosses;
     const feeShareOfGross = grossExposure > 0 ? (totalFees / grossExposure) * 100 : 0;
 
-    const dailyReturns = closedTrades
+    const dailyReturns: number[] = closedTrades
         .map(trade => {
             const roiPercent = Number(trade.roi);
             const daysHeldValue = Math.max(1, Number(trade.daysHeld) || 0);
@@ -161,7 +220,7 @@ export function calculateAdvancedStats() {
             }
             return (derivedRoi / 100) / daysHeldValue;
         })
-        .filter(value => Number.isFinite(value));
+        .filter((value): value is number => Number.isFinite(value as number));
 
     const meanDailyReturn = dailyReturns.length
         ? dailyReturns.reduce((sum, value) => sum + value, 0) / dailyReturns.length
@@ -178,8 +237,10 @@ export function calculateAdvancedStats() {
         ? Math.sqrt(downsideReturns.reduce((sum, value) => sum + value * value, 0) / downsideReturns.length)
         : 0;
 
-    const sharpeRatio = dailyStdDev > 0 ? (meanDailyReturn / dailyStdDev) * Math.sqrt(252) : null;
-    const sortinoRatio = downsideDeviation > 0
+    // sharpeRatio / sortinoRatio may be null — Stats interface types these as number,
+    // acceptable under strictNullChecks: false (Phase 2 permissive mode).
+    const sharpeRatio: number | null = dailyStdDev > 0 ? (meanDailyReturn / dailyStdDev) * Math.sqrt(252) : null;
+    const sortinoRatio: number | null = downsideDeviation > 0
         ? (meanDailyReturn / downsideDeviation) * Math.sqrt(252)
         : (downsideReturns.length === 0 && meanDailyReturn > 0 ? Number.POSITIVE_INFINITY : null);
 
@@ -215,17 +276,17 @@ export function calculateAdvancedStats() {
     }, 0);
 
     // Calculate average win and average loss
-    const avgWin = winningTrades.length > 0 
-        ? winningTrades.reduce((sum, trade) => sum + trade.pl, 0) / winningTrades.length 
+    const avgWin: DollarAmount = winningTrades.length > 0
+        ? winningTrades.reduce((sum, trade) => sum + trade.pl, 0) / winningTrades.length
         : 0;
-    const avgLoss = losingTrades.length > 0 
-        ? Math.abs(losingTrades.reduce((sum, trade) => sum + trade.pl, 0) / losingTrades.length) 
+    const avgLoss: DollarAmount = losingTrades.length > 0
+        ? Math.abs(losingTrades.reduce((sum, trade) => sum + trade.pl, 0) / losingTrades.length)
         : 0;
-    
+
     // Calculate expectancy: (Win Rate × Avg Win) - (Loss Rate × Avg Loss)
     const winRateDecimal = closedTrades.length > 0 ? winningTrades.length / closedTrades.length : 0;
     const lossRateDecimal = closedTrades.length > 0 ? losingTrades.length / closedTrades.length : 0;
-    const expectancy = (winRateDecimal * avgWin) - (lossRateDecimal * avgLoss);
+    const expectancy: DollarAmount = (winRateDecimal * avgWin) - (lossRateDecimal * avgLoss);
 
     // Calculate assignment statistics
     const assignmentStats = this.calculateAssignmentStats(wheelPmccTrades);
@@ -258,6 +319,7 @@ export function calculateAdvancedStats() {
         sortinoRatio,
         avgWinnerDays,
         avgLoserDays,
+        avgDaysHeld,
         tickerPerformance,
         collateralAtRisk,
         realizedPL,
@@ -269,11 +331,16 @@ export function calculateAdvancedStats() {
     };
 }
 
-export function calculateAssignmentStats(assignedTrades) {
+// ---------------------------------------------------------------------------
+// calculateAssignmentStats
+// NOTE: Return type is inferred — richer than AssignmentStats in types library.
+// TODO Phase 5 strict: reconcile with src/types/stats.ts AssignmentStats.
+// ---------------------------------------------------------------------------
+export function calculateAssignmentStats(this: StatsContext, assignedTrades: EnrichedTrade[]) {
     const assignments = assignedTrades
         .map(trade => {
         const legs = Array.isArray(trade.legs) ? trade.legs : [];
-        let positionType = 'other';
+        let positionType: string = 'other';
         const isPmcc = this.isPmccTrade(trade);
         if (isPmcc) {
             positionType = 'pmcc';
@@ -305,7 +372,7 @@ export function calculateAssignmentStats(assignedTrades) {
         // Find ALL stock legs (not just the first one)
         const stockLegs = normalizedLegs.filter(item => item.type === 'STOCK' && item.action === 'BUY' && item.side === 'OPEN');
         const stockLegInfo = stockLegs[0]; // Keep first for compatibility with strike/date logic
-        
+
         if (positionType === 'other' && stockLegs.length > 0) {
             positionType = 'wheel';
         }
@@ -317,7 +384,6 @@ export function calculateAssignmentStats(assignedTrades) {
             positionType = 'wheel';
         }
         const stockDate = stockLegInfo?.executionDate || null;
-
 
         let shares = 100;
         if (stockLegs.length > 0) {
@@ -339,40 +405,40 @@ export function calculateAssignmentStats(assignedTrades) {
             }
         }
 
-        let assignmentStrike = Number(trade.strikePrice) || 0;
+        let assignmentStrike: number = Number(trade.strikePrice) || 0;
         if (stockLegs.length > 0) {
             // Calculate weighted average assignment strike from all stock legs
             let totalCost = 0;
             let totalShares = 0;
-            
+
             stockLegs.forEach(item => {
                 const legShares = (item.quantity || 0) * (item.multiplier || 1);
                 const premiumPerShare = Number(item.leg.premium);
                 const strikeFromLeg = Number(item.leg.strike);
-                
+
                 let pricePerShare = 0;
                 if (Number.isFinite(strikeFromLeg) && strikeFromLeg > 0) {
                     pricePerShare = strikeFromLeg;
                 } else if (Number.isFinite(premiumPerShare) && premiumPerShare > 0) {
                     pricePerShare = premiumPerShare;
                 }
-                
+
                 if (pricePerShare > 0 && legShares > 0) {
                     totalCost += pricePerShare * legShares;
                     totalShares += legShares;
                 }
             });
-            
+
             if (totalShares > 0) {
                 assignmentStrike = totalCost / totalShares; // Weighted average
             }
         }
 
-        const premiumHistory = [];
-        const addPremiumEvent = (item, amount, category) => {
-            const rawDate = item.leg.executionDate || (item.executionDate ? item.executionDate.toISOString().slice(0, 10) : '');
+        const premiumHistory: Array<{ date: string; amount: DollarAmount; label: string; category: string }> = [];
+        const addPremiumEvent = (item: typeof normalizedLegs[number], amount: number, category: string): void => {
+            const rawDate: string = item.leg.executionDate || (item.executionDate ? item.executionDate.toISOString().slice(0, 10) : '');
             const formattedDate = this.formatDate(rawDate);
-            const actionParts = [];
+            const actionParts: string[] = [];
             if (item.action === 'SELL') {
                 actionParts.push('Sell');
             } else if (item.action === 'BUY') {
@@ -438,7 +504,7 @@ export function calculateAssignmentStats(assignedTrades) {
             })
             : null;
 
-        let assignmentDateValue = trade.exitDate || trade.closedDate || null;
+        let assignmentDateValue: string | null = trade.exitDate || trade.closedDate || null;
         if (positionType === 'pmcc') {
             const longCallExecution = primaryLongCall?.executionDate;
             if (longCallExecution instanceof Date) {
@@ -548,12 +614,12 @@ export function calculateAssignmentStats(assignedTrades) {
             }
         }
 
-        let totalPremiumCollected;
+        let totalPremiumCollected: DollarAmount;
         let perSharePutCredit = 0;
         let perShareCallCredit = 0;
-        let costBasisPerShare = 0;
-        let effectiveCostBasis = 0;
-        let assignmentCostBasis = 0;
+        let costBasisPerShare: DollarAmount = 0;
+        let effectiveCostBasis: DollarAmount = 0;
+        let assignmentCostBasis: DollarAmount = 0;
 
         if (positionType === 'pmcc') {
             totalPremiumCollected = shortCallNet;
@@ -587,16 +653,16 @@ export function calculateAssignmentStats(assignedTrades) {
 
         // Calculate coverage: how many shares are covered by active short calls
         const rawLegs = Array.isArray(trade.legs) ? trade.legs : [];
-        const shortCallInfo = this.getNetOpenShortCalls(rawLegs);
+        const shortCallInfo = this.getNetOpenShortCalls(rawLegs as NormalizedLeg[]);
         const activeShortCalls = shortCallInfo.contracts;
-        
+
         // Standard contract = 100 shares per contract
         const multiplier = 100;
         const coveredShares = activeShortCalls * multiplier;
         const uncoveredShares = Math.max(0, shares - coveredShares);
-        
+
         // Coverage status: 'full', 'partial', 'none'
-        let coverageStatus = 'none';
+        let coverageStatus: 'full' | 'partial' | 'none' = 'none';
         if (coveredShares >= shares && shares > 0) {
             coverageStatus = 'full';
         } else if (coveredShares > 0 && coveredShares < shares) {
@@ -628,11 +694,11 @@ export function calculateAssignmentStats(assignedTrades) {
     })
         .filter(Boolean);
 
-    const totalAssignments = assignments.filter(assignment => !this.isClosedStatus(assignment.trade.status)).length;
+    const totalAssignments = assignments.filter(assignment => !this.isClosedStatus(assignment!.trade.status)).length;
 
-    const totalPremiumCollectedNet = assignments.reduce((sum, assignment) => sum + assignment.premiumCollected, 0);
+    const totalPremiumCollectedNet = assignments.reduce((sum, assignment) => sum + assignment!.premiumCollected, 0);
     const avgPremiumPerAssignment = totalAssignments > 0 ? totalPremiumCollectedNet / totalAssignments : 0;
-    const totalCoveredCalls = assignments.reduce((sum, assignment) => sum + assignment.coveredCallCount, 0);
+    const totalCoveredCalls = assignments.reduce((sum, assignment) => sum + assignment!.coveredCallCount, 0);
 
     return {
         totalAssignments,
@@ -643,8 +709,12 @@ export function calculateAssignmentStats(assignedTrades) {
     };
 }
 
-export function calculateTickerPerformance(trades = []) {
-    const map = new Map();
+/** Per-ticker P&L performance summary over a list of closed trades. */
+export function calculateTickerPerformance(
+    this: StatsContext,
+    trades: EnrichedTrade[] = []
+): TickerPerformance {
+    const map = new Map<string, TickerPerformanceItem>();
 
     trades.forEach(trade => {
         const ticker = (trade.ticker || 'Unknown').toString().trim().toUpperCase() || 'UNKNOWN';
@@ -654,11 +724,13 @@ export function calculateTickerPerformance(trades = []) {
                 totalPL: 0,
                 tradeCount: 0,
                 wins: 0,
-                losses: 0
+                losses: 0,
+                avgPL: 0,
+                winRate: 0
             });
         }
 
-        const entry = map.get(ticker);
+        const entry = map.get(ticker)!;
         const plValue = Number(trade.pl) || 0;
         entry.totalPL += plValue;
         entry.tradeCount += 1;
@@ -669,7 +741,7 @@ export function calculateTickerPerformance(trades = []) {
         }
     });
 
-    const items = Array.from(map.values())
+    const items: TickerPerformanceItem[] = Array.from(map.values())
         .map(entry => {
             const winRate = entry.tradeCount > 0 ? (entry.wins / entry.tradeCount) * 100 : 0;
             const avgPL = entry.tradeCount > 0 ? entry.totalPL / entry.tradeCount : 0;
@@ -681,10 +753,11 @@ export function calculateTickerPerformance(trades = []) {
         })
         .sort((a, b) => Math.abs(b.totalPL) - Math.abs(a.totalPL));
 
-    const maxMagnitude = items.length ? Math.max(...items.map(item => Math.abs(item.totalPL))) : 0;
+    const maxMagnitude: DollarAmount = items.length ? Math.max(...items.map(item => Math.abs(item.totalPL))) : 0;
 
     return {
         items,
         maxMagnitude
     };
 }
+
