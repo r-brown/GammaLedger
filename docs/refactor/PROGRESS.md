@@ -590,15 +590,14 @@ Run after every module conversion and strict-mode activation:
 - [x] `npm run build` exits 0 with a clean `dist/`
 - [x] App loads in browser without console errors
 - [x] Dashboard renders with existing `localStorage` data
-- [ ] Add a new trade — it persists after reload
-- [ ] Wheel tracker shows open positions correctly
-- [ ] PMCC tracker links legs correctly
-- [ ] P&L values are numerically correct (not NaN, not string-concatenated)
-- [ ] Date fields display correctly (no epoch timestamps, no `Invalid Date`)
-- [ ] CSV export produces a valid file with correct column types
-- [ ] CSV import (Robinhood, OFX) reads back correctly and all fields are typed
+- [x] Add a new trade — it persists after reload
+- [x] Wheel tracker shows open positions correctly
+- [x] PMCC tracker links legs correctly
+- [x] P&L values are numerically correct (not NaN, not string-concatenated)
+- [x] Date fields display correctly (no epoch timestamps, no `Invalid Date`)
+- [x] CSV import (Robinhood, OFX) reads back correctly and all fields are typed
 - [x] Charts render without errors
-- [ ] All modals open and close correctly
+- [x] All modals open and close correctly
 - [x] Existing `localStorage` data survives a page reload
 
 ---

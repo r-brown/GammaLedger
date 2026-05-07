@@ -121,7 +121,3 @@ export function formatWeekLabel(dateInput: string | Date): string {
         year: 'numeric'
     });
 }
-
-
-
-

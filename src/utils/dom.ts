@@ -298,4 +298,3 @@ export function sanitizeMarkdownUrl(url = ''): string {
         return '#';
     }
 }
-

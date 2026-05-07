@@ -451,4 +451,3 @@ export class GeminiInsightsAgent {
         }
     }
 }
-
