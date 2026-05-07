@@ -101,3 +101,29 @@ export type AIRole = 'user' | 'assistant'
 /** Assignment position type for stats */
 export type AssignmentPositionType = 'wheel' | 'pmcc' | 'other'
 
+// ---------------------------------------------------------------------------
+// M3 — RiskValue tagged union
+// Replaces Infinity as a sentinel for unlimited capital-at-risk.
+// The runtime fields maxRisk / capitalAtRisk keep their `number` type for
+// backward-compatibility; riskValue is the self-documenting typed alternative.
+// ---------------------------------------------------------------------------
+
+/**
+ * Tagged union for capital-at-risk that makes the unlimited-risk case
+ * explicit at the type level instead of relying on Infinity.
+ *
+ * ```ts
+ * // Reading
+ * if (isFiniteRisk(trade.riskValue)) {
+ *   console.log(trade.riskValue.amount)   // narrowed to number
+ * } else {
+ *   console.log('unlimited')
+ * }
+ * // Writing (in enrichTradeData)
+ * trade.riskValue = riskIsUnlimited ? UNLIMITED_RISK : finiteRisk(maxRiskValue)
+ * ```
+ */
+export type RiskValue =
+  | { readonly kind: 'unlimited' }
+  | { readonly kind: 'finite'; readonly amount: number }
+

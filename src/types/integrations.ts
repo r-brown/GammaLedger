@@ -92,3 +92,108 @@ export interface GeminiState {
   elements: Record<string, HTMLElement>
 }
 
+// ---------------------------------------------------------------------------
+// M2 — Gemini API response types and runtime type guards
+// The API response shape follows the generateContent REST contract.
+// ---------------------------------------------------------------------------
+
+/** A single text part returned by Gemini. */
+export interface GeminiApiPart {
+  text: string
+}
+
+/** The content object inside a candidate. */
+export interface GeminiApiContent {
+  parts: GeminiApiPart[]
+  role?: string
+}
+
+/** A generation candidate from the Gemini response. */
+export interface GeminiApiCandidate {
+  content: GeminiApiContent
+  finishReason?: string
+  index?: number
+}
+
+/** Prompt-feedback block (present when the request is blocked). */
+export interface GeminiPromptFeedback {
+  blockReason?: string
+}
+
+/** Error object returned by the Gemini API on 4xx/5xx responses. */
+export interface GeminiApiError {
+  code?: number
+  message?: string
+  status?: string
+}
+
+/**
+ * Top-level response shape from POST .../generateContent.
+ * Both `candidates` and `error` are optional because only one is present.
+ */
+export interface GeminiApiResponse {
+  candidates?: GeminiApiCandidate[]
+  promptFeedback?: GeminiPromptFeedback
+  error?: GeminiApiError
+}
+
+// ---------------------------------------------------------------------------
+// Runtime type guards
+// ---------------------------------------------------------------------------
+
+/** Asserts the value is an object (non-null, non-array). */
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+/**
+ * Narrows an unknown JSON payload to `GeminiApiResponse`.
+ * Accepts the response whether it represents success, a block, or an error.
+ */
+export function isGeminiApiResponse(v: unknown): v is GeminiApiResponse {
+  if (!isObject(v)) return false
+  // At least one of these top-level keys must be present to be a Gemini response
+  return (
+    'candidates' in v ||
+    'promptFeedback' in v ||
+    'error' in v
+  )
+}
+
+/**
+ * Narrows a candidate object to `GeminiApiCandidate`.
+ * Validates that `content.parts` exists and is an array.
+ */
+export function isGeminiApiCandidate(v: unknown): v is GeminiApiCandidate {
+  if (!isObject(v)) return false
+  const { content } = v
+  if (!isObject(content)) return false
+  return Array.isArray((content as Record<string, unknown>).parts)
+}
+
+/**
+ * Extracts the concatenated text from a validated Gemini response.
+ * Returns an empty string if no text is present.
+ */
+export function extractGeminiText(response: GeminiApiResponse): string {
+  const candidate = response.candidates?.[0]
+  if (!candidate || !isGeminiApiCandidate(candidate)) return ''
+  return candidate.content.parts
+    .filter((p): p is GeminiApiPart => typeof p?.text === 'string')
+    .map(p => p.text)
+    .join('')
+    .trim()
+}
+
+/**
+ * Extracts an error message from a Gemini API error response.
+ * Returns null if no recognisable error is present.
+ */
+export function extractGeminiError(response: GeminiApiResponse, httpStatus: number): string | null {
+  const errMessage = response.error?.message
+  if (typeof errMessage === 'string' && errMessage) return errMessage
+  const blockReason = response.promptFeedback?.blockReason
+  if (typeof blockReason === 'string' && blockReason) return `Request blocked (${blockReason})`
+  if (!httpStatus || httpStatus < 400) return null
+  return `HTTP ${httpStatus}`
+}

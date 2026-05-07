@@ -9,6 +9,11 @@ import {
     DEFAULT_GEMINI_MAX_TOKENS
 } from '../core/config.js';
 import { LocalInsightsAgent } from './local-agent.js';
+import {
+    isGeminiApiResponse,
+    extractGeminiText,
+    extractGeminiError,
+} from '../types/integrations.js';
 
 type SnapshotValue = string | number | boolean | null | SnapshotValue[] | { [key: string]: SnapshotValue }
 
@@ -409,7 +414,7 @@ export class GeminiInsightsAgent {
         const timeoutId = controller ? setTimeout(() => controller.abort(), 120_000) : null;
 
         try {
-            const response = await fetch(url, {
+            const httpResponse = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -419,31 +424,24 @@ export class GeminiInsightsAgent {
                 signal: controller?.signal
             });
 
-            const data = await response.json().catch(() => ({})) as Record<string, unknown>;
+            // Parse response body — fall back to an empty object so shape guards
+            // always receive a value they can inspect.
+            const rawData: unknown = await httpResponse.json().catch(() => ({}));
 
-            if (!response.ok) {
-                const errorMessage = (data?.error as Record<string, unknown>)?.message
-                    || data?.message
-                    || `HTTP ${response.status}`;
-                throw new Error(String(errorMessage));
-            }
-
-            if ((data?.promptFeedback as Record<string, unknown>)?.blockReason) {
-                throw new Error(`Request blocked (${(data.promptFeedback as Record<string, unknown>).blockReason})`);
-            }
-
-            const parts = (data?.candidates as Array<Record<string, unknown>>)?.[0]?.content as Record<string, unknown>;
-            const textParts = parts?.parts as Array<Record<string, unknown>>;
-            if (!Array.isArray(textParts) || !textParts.length) {
+            if (!isGeminiApiResponse(rawData)) {
+                if (!httpResponse.ok) {
+                    throw new Error(`HTTP ${httpResponse.status}`);
+                }
                 return '';
             }
 
-            const text = textParts
-                .map(part => (part && typeof part.text === 'string') ? part.text : '')
-                .join('')
-                .trim();
+            // Surface any API-level error raised by Gemini
+            const errorMsg = extractGeminiError(rawData, httpResponse.status);
+            if (errorMsg || !httpResponse.ok) {
+                throw new Error(errorMsg ?? `HTTP ${httpResponse.status}`);
+            }
 
-            return text;
+            return extractGeminiText(rawData);
         } finally {
             if (timeoutId) {
                 clearTimeout(timeoutId);

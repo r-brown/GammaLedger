@@ -14,7 +14,7 @@
 | Phase | Goal | Status |
 |---|---|---|
 | **Phase 1** | JS module migration (21K-line monolith → 60 ES modules, Vite) | ✅ Complete |
-| **Phase 2** | TypeScript migration (type safety across all modules) | ✅ Complete — manual smoke follow-ups remain |
+| **Phase 2** | TypeScript migration (type safety across all modules) | ✅ Complete — M1/M2/M3 resolved; M4 smoke test pending |
 | **Phase 3** | Vue 3 component migration | ⏳ Not started |
 
 ---
@@ -195,21 +195,24 @@ The following risks were identified across all source files before any TypeScrip
 | 6 | `localStorage` migration guard (`src/core/migration.ts`) | ✅ |
 | 7 | Production build validation | ✅ |
 | 8 | Phase 2 summary + post-parity review (function bodies moved to owner modules) | ✅ |
+| 9 | M1 — strict configs wired for `imports/`, `integrations/`, `payoff/` | ✅ |
+| 10 | M2 — Gemini response types + runtime guards (`src/types/integrations.ts`) | ✅ |
+| 11 | M3 — `RiskValue` tagged union + `toRiskValue` + `EnrichedTrade.riskValue` | ✅ |
 
 ### Type library (`src/types/`)
 
 | File | Types defined |
 |---|---|
-| `common.ts` | `ISODateString`, `DollarAmount`, `ContractCount`, `StrikePrice`, `OptionType`, `OrderType`, `LegType`, `LegAction`, `LegSide`, `TradeDirection`, `LifecycleStatus`, `StrategyType`, `WheelCoverage`, `CumulativePLRange`, `ToastVariant`, `QuoteState`, `UnderlyingType` |
+| `common.ts` | `ISODateString`, `DollarAmount`, `ContractCount`, `StrikePrice`, `OptionType`, `OrderType`, `LegType`, `LegAction`, `LegSide`, `TradeDirection`, `LifecycleStatus`, `StrategyType`, `WheelCoverage`, `CumulativePLRange`, `ToastVariant`, `QuoteState`, `UnderlyingType`, **`RiskValue` (M3)** |
 | `leg.ts` | `PersistedLeg`, `NormalizedLeg` |
-| `trade.ts` | `Trade` (persisted), `EnrichedTrade` (runtime) |
+| `trade.ts` | `Trade` (persisted), `EnrichedTrade` (runtime) — **includes `riskValue: RiskValue` (M3)** |
 | `leg-summary.ts` | `LegSummary` (31 fields), `VerticalSpreadShape` |
 | `lifecycle.ts` | `LegLifecycleResult`, `LifecycleMeta`, `ExitReason` |
 | `stats.ts` | `Stats`, `TickerPerformance`, `TickerPerformanceItem`, `AssignmentStats`, `AssignmentRecord` |
 | `storage.ts` | `StorageSchema`, `MCPContext`, `StoragePlRange` |
 | `state.ts` | `AppState`, `CurrentSort`, `FinnhubState`, `GeminiState`, `ShareCardState`, `ShareCardMetrics`, `AIChatState`, `ImportState` |
 | `ui.ts` | `FilterState`, `ToastOptions`, `QuoteEntry`, `PositionHighlightConfig`, `StatusMessage` |
-| `integrations.ts` | `FinnhubQuote`, `GeminiResponse`, `GeminiCandidate`, `GeminiRequestPayload` |
+| `integrations.ts` | `FinnhubQuote`, `GeminiState`, **`GeminiApiPart`, `GeminiApiContent`, `GeminiApiCandidate`, `GeminiPromptFeedback`, `GeminiApiError`, `GeminiApiResponse`, `isGeminiApiResponse()`, `isGeminiApiCandidate()`, `extractGeminiText()`, `extractGeminiError()` (M2)** |
 | `wheel.ts` | `WheelCoverage`, `PMCCLegs` |
 | `spreads.ts` | `SpreadPair`, `SpreadPairVariant` |
 | `credit-playbook.ts` | `CreditPlaybookEntry`, `CreditPlaybookFilters`, `CreditPlaybookSort` |
@@ -254,7 +257,7 @@ Function bodies moved out of `src/index.ts` into their owner modules:
 ### Strict mode coverage
 
 Root `tsconfig.json` remains `strict: false` (backward-compatibility layer).
-Five strict subprojects enforced via `npm run typecheck:strict`:
+Eight strict subprojects enforced via `npm run typecheck:strict`:
 
 | Directory | Status | Key strict fix |
 |---|---|---|
@@ -263,6 +266,9 @@ Five strict subprojects enforced via `npm run typecheck:strict`:
 | `src/trades/` | ✅ `strict: true`, clean | `typeof currentStrike === 'number'` guard in `spreads.ts` |
 | `src/utils/` | ✅ `strict: true`, clean | Typed persistence context for `export.ts` re-export |
 | `src/ui/` | ✅ `strict: true`, clean | DOM element narrowing throughout |
+| `src/imports/` | ✅ `strict: true`, clean | M1 — `Record<string, unknown>` options bags |
+| `src/integrations/` | ✅ `strict: true`, clean | M1 — `HTMLInputElement \| HTMLSelectElement \| null` casts |
+| `src/payoff/` | ✅ `strict: true`, clean | M1 — `canvas as HTMLCanvasElement \| null` |
 
 ### localStorage migration guard (`src/core/migration.ts`)
 
@@ -340,6 +346,9 @@ src/core/tsconfig.json
 src/trades/tsconfig.json
 src/utils/tsconfig.json
 src/ui/tsconfig.json
+src/imports/tsconfig.json       ← M1
+src/integrations/tsconfig.json  ← M1
+src/payoff/tsconfig.json        ← M1
 ```
 
 ---
@@ -352,25 +361,17 @@ No blocking issues.
 
 ---
 
-### 🟡 Medium priority — type quality hardening
+### 🟡 Medium priority
 
-**M1 — Strict coverage gaps in `imports/`, `integrations/`, `payoff/`**
-These directories have TypeScript subproject configs and pass `npm run typecheck:strict`,
-but residual implicit-`this` and implicit-parameter errors would appear on a full-project
-`strict: true`. Address before enabling `"strict": true` in the root `tsconfig.json`.
-
-**M2 — Schema validation for external API responses**
-Only Finnhub response fields are runtime-validated. Gemini API responses use basic shape
-checks only. Add Zod (or Valibot) schemas for full validation coverage — eliminates the
-silent-corrupt-data risk identified in the pre-migration analysis.
-
-**M3 — `Infinity` as a financial sentinel**
-P&L and risk calculations use `Infinity` for "unlimited risk/reward". Currently typed as
-`number` (valid at runtime, but not self-documenting). For complete type safety:
-```ts
-type RiskValue = { kind: 'unlimited' } | { kind: 'finite'; value: number }
-```
-Deferred from Phase 2 to avoid business logic changes.
+**M4 — Manual smoke checklist items still pending**
+Browser automation timed out before completing deeper interactive workflows. Unverified:
+- [ ] Add a new trade and confirm it persists after reload
+- [ ] Wheel tracker shows open positions correctly
+- [ ] PMCC tracker links legs correctly
+- [ ] CSV export produces a valid file with correct column types
+- [ ] CSV import (Robinhood, OFX) reads back correctly with all fields typed
+- [ ] All modals open and close correctly (disclaimer, AI consent, trade detail)
+- [ ] All Trades table renders, sorts, and filters correctly
 
 ---
 

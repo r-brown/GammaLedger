@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-GammaLedger is a **privacy-first, local-first options trading journal and analytics dashboard**. It is a single-page web application (SPA) built with **pure vanilla JavaScript, HTML, and CSS** — no frameworks, no build system, no npm.
+GammaLedger is a **privacy-first, local-first options trading journal and analytics dashboard**.
+It is a single-page web application (SPA) built with **TypeScript + Vite**, compiled from
+~60 ES modules into a single JS bundle served from `dist/`. No server-side component.
 
 - **Live app**: https://gammaledger.com
 - **GitHub**: https://github.com/r-brown/GammaLedger
@@ -10,43 +12,414 @@ GammaLedger is a **privacy-first, local-first options trading journal and analyt
 
 ## Running the App
 
-No build step. Open `src/index.html` directly in a browser:
-
 ```bash
-# Chrome / Edge / Firefox — just open the file
-open src/index.html
+npm install         # first time only
+npm run dev         # Vite dev-server at http://localhost:5173
+npm run build       # typecheck + Vite production bundle → dist/
+npm run preview     # serve the production build locally
+npm run typecheck   # tsc --noEmit + all 8 strict subproject checks
 ```
 
-Supported browsers: Chrome, Edge, Firefox (modern versions). Chrome/Edge required for the File System Access API (save/load `.json` database files directly).
+Supported browsers: Chrome, Edge, Firefox (modern versions). Chrome/Edge required for the
+File System Access API (save/load `.json` database files directly).
 
 ## Repository Structure
 
 ```
 src/
-  app.js        # ~21 000 lines — all application logic (single file)
-  index.html    # ~1 000 lines — SPA shell; all views defined here
-  style.css     # ~4 700 lines — full design system with light/dark tokens
-mcp/            # GammaLedger MCP server (Python, uv-managed)
+  index.ts           # 1,711 lines — GammaLedger class + bootstrap; entry point
+  styles/app.css     # ~4,700 lines — full design system with light/dark tokens
+  core/              # config, migration, sample-data, state, storage
+  utils/             # crypto, dates, dom, export, formatting, import-csv
+  trades/            # leg-form, legs, pmcc, positions, risk, spreads, wheel
+  calculations/      # daysheld, monte-carlo, pnl, stats
+  ai/                # chat, gemini-agent, local-agent
+  ui/
+    charts/          # cumulative-pl, dashboard-charts, destroy
+    tables/          # active-positions, assigned-positions, highlights, recent-trades, trades-table
+    modals/          # ai-coach-consent, disclaimer
+    credit-playbook/ # data, index, render
+    dashboard.ts, filters.ts, notifications.ts, share-card.ts, sidebar.ts, views.ts
+  imports/           # controls, log, merge, ofx, position-keys, robinhood
+  database/          # persist
+  integrations/      # finnhub, gemini, mcp
+  payoff/            # pricing, render, series, summary
+  settings/          # default-fee
+  types/             # 17 domain type files, re-exported via @types-gl
+index.html           # SPA shell; all views defined here
+tsconfig.json        # root: strict: false (broad compat layer)
+vite.config.ts
+package.json
+mcp/                 # GammaLedger MCP server (Python, uv-managed)
   pyproject.toml
-  src/
-    gammaledger_mcp/
-      server.py   # FastMCP server — tools, resources, prompts
-      database.py # Lazy JSON DB reader with mtime auto-reload
-      prompts/    # Registered MCP prompt templates
+  src/gammaledger_mcp/  server.py, database.py, prompts/
   tests/
-assets/
-  img/          # Marketing and screenshot images
-blog/           # Blog content
-CONTRIBUTING.md
-README.md
+tests/               # Reference JSON fixtures for manual smoke testing
+docs/refactor/
+  MIGRATION_PROGRESS.md  # Phase 1/2/3 log — authoritative open-items tracker
 ```
 
-### MCP server (`mcp/`)
+## Architecture
 
-The `mcp/` subdirectory contains a standalone Python package (`gammaledger-mcp`) that exposes the GammaLedger database as an MCP server for AI clients (Claude Desktop, Claude Code, etc.).
+### Delegation Pattern — Not Pure ES Modules
+
+All 59 feature modules export plain functions that use the **`.call(this, …)` delegation
+pattern**. The `GammaLedger` class in `src/index.ts` imports every module and wires its
+methods as thin delegators:
+
+```ts
+// src/utils/dates.ts
+export function formatDate(dateString: string): string { /* … */ }
+
+// src/index.ts — GammaLedger delegates to the module function
+import * as dates from './utils/dates.js'
+class GammaLedger {
+  formatDate(d: string) { return dates.formatDate.call(this, d) }
+}
+```
+
+**Consequence for all new code:** Feature modules still receive the full `GammaLedger`
+instance as `this`. Every module's exported functions declare a `this: SomeContext`
+interface (structural typing) covering only the subset of `GammaLedger` they need.
+There is **no module-level state** — all mutable state lives on the class instance.
+
+### Key Classes
+
+| Class | File | Purpose |
+|---|---|---|
+| `GammaLedger` | `src/index.ts` | Main class — instantiated as `window.tracker`; owns all state |
+| `LocalInsightsAgent` | `src/ai/local-agent.ts` | Offline rule-based AI coach |
+| `GeminiInsightsAgent` | `src/ai/gemini-agent.ts` | Gemini AI integration; falls back to `LocalInsightsAgent` |
+
+### Path Aliases (`tsconfig.json` + `vite.config.ts`)
+
+| Alias | Resolves to |
+|---|---|
+| `@core/*` | `src/core/*` |
+| `@trades/*` | `src/trades/*` |
+| `@calculations/*` | `src/calculations/*` |
+| `@ui/*` | `src/ui/*` |
+| `@utils/*` | `src/utils/*` |
+| `@types-gl` | `src/types/index.ts` (barrel export) |
+| `@types-gl/*` | `src/types/*` |
+
+### Application Constants (`src/core/config.ts`)
+
+All constants are exported from here and re-imported in `src/index.ts`. Key ones:
+
+- `APP_CONFIG` — frozen object with `GEMINI`, `STORAGE`, `SHARE_CARD`, `PL_RANGES` sub-objects
+- `RUNTIME_TRADE_FIELDS` — `Set<string>` of fields computed at runtime; never read back from raw storage as canonical values (but written into persisted JSON for the MCP server via `mcpContext`)
+- `RUNTIME_LEG_FIELDS` — `Set<string>` of leg-level OFX-excluded fields
+- `CURRENT_STORAGE_VERSION` — string `'2.5'`
+- All `localStorage` key constants (e.g. `LOCAL_STORAGE_KEY`, `GEMINI_STORAGE_KEY`)
+
+### TypeScript Configuration
+
+Root `tsconfig.json` is `strict: false` (broad compatibility layer). Eight subdirectories
+have their own `tsconfig.json` with `strict: true`, checked via `npm run typecheck:strict`:
+
+```
+src/calculations/tsconfig.json   strict: true
+src/core/tsconfig.json           strict: true
+src/trades/tsconfig.json         strict: true
+src/utils/tsconfig.json          strict: true
+src/ui/tsconfig.json             strict: true
+src/imports/tsconfig.json        strict: true
+src/integrations/tsconfig.json   strict: true
+src/payoff/tsconfig.json         strict: true
+```
+
+## Data Storage
+
+| Storage | Key / Mechanism | Contents |
+|---|---|---|
+| `localStorage` | `GammaLedgerLocalDatabase` | Full trade database (JSON string) |
+| `localStorage` | `GammaLedgerGeminiConfig` | Gemini model/endpoint config |
+| `localStorage` | `GammaLedgerGeminiSecret` | Encrypted Gemini API key |
+| `localStorage` | `GammaLedgerGeminiMaxTokens` | Gemini max output tokens |
+| `localStorage` | `GammaLedgerDisclaimerAcceptedAt` | Disclaimer acceptance timestamp |
+| `localStorage` | `GammaLedgerSidebarCollapsed` | Sidebar UI preference |
+| `localStorage` | `GammaLedgerDefaultFeePerContract` | Default commission fee |
+| `localStorage` | `GammaLedgerFinnhubRateLimit` | Finnhub API rate limit setting |
+| `localStorage` | `GammaLedgerAICoachConsentAt` | AI coach consent timestamp |
+| File System | JSON file via File System Access API | Portable database backup |
+
+Always use `safeLocalStorage` from `src/core/storage.ts` — never access `localStorage`
+directly. The wrapper handles quota errors, private-mode failures, and logs warnings.
+
+## Views / Navigation
+
+Views are `<div class="view …">` elements in `index.html`. Only one is active at a time.
+Navigation is handled by `showView(viewName)` → `src/ui/views.ts`:
+
+| `data-view` | Description |
+|---|---|
+| `dashboard` | Portfolio overview, charts, stats tables |
+| `trades-list` | All trades with filtering and sorting |
+| `credit-playbook` | Credit strategy tracker |
+| `add-trade` | Multi-leg trade entry and editing form |
+| `import` | OFX / Robinhood CSV / JSON import wizard |
+| `settings` | API keys, fees, preferences |
+
+## External Dependencies
+
+### CDN (loaded in `index.html`, NOT bundled — no npm equivalent)
+
+- **Chart.js** — `cdn.jsdelivr.net/npm/chart.js` (unversioned pin — L1 in MIGRATION_PROGRESS.md)
+- **html2canvas 1.4.1** — `cdn.jsdelivr.net/npm/html2canvas@1.4.1/…` — Share Card PNG export
+
+Guard CDN globals before use: `typeof Chart !== 'undefined'`, `window.html2canvas`.
+
+### npm (build-time devDependencies only — no runtime npm deps)
+
+- `typescript ^6.0.3` — type checking
+- `vite ^8.0.10` — bundler and dev server
+- `vite-plugin-checker ^0.13.0` — inline TS error overlay in dev
+- `@types/node ^25.6.0` — Node type declarations for vite config
+
+## Core Data Model
+
+### Trade Object
+
+```ts
+// Minimal persisted shape: src/types/trade.ts — interface Trade
+{
+  id: string               // 'TRD-XXXX'
+  ticker: string           // e.g. 'SPY'
+  strategy: string         // one of 62 supported strategy names
+  status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolling'
+  underlyingType: 'Stock' | 'ETF' | 'Index' | 'Future'
+  openedDate: ISODate | ''
+  closedDate: ISODate | ''
+  expirationDate: ISODate | ''
+  exitReason: string
+  notes: string            // markdown supported
+  legs: PersistedLeg[]
+}
+
+// Runtime-enriched shape: src/types/trade.ts — interface EnrichedTrade
+// All fields below are in RUNTIME_TRADE_FIELDS and computed by enrichTradeData()
+{
+  …Trade,
+  pl, roi, weeklyROI, monthlyROI, annualizedROI,
+  tradeType, tradeDirection, lifecycleStatus, lifecycleMeta,
+  capitalAtRisk, maxRisk, maxRiskLabel, riskIsUnlimited,
+  riskValue: RiskValue,    // tagged union — see below
+  totalFees, totalCredit, totalDebit, cashFlow,
+  entryPrice, exitPrice, daysHeld, dte,
+  strikePrice, displayStrike, activeStrikePrice, quantity, multiplier,
+  primaryLeg, legsCount, openContracts, closeContracts, openLegs, rollLegs,
+  partialClose, rolledForward, autoExpired,
+  pmccShortExpiration, longExpirationDate,
+  wheelCoverage, shares, effectiveCostBasis,
+  marketValue, unrealizedPL, marketPriceSource
+}
+```
+
+### Leg Object
+
+```ts
+// src/types/leg.ts — interface PersistedLeg
+{
+  id: string                       // 'TRD-XXXX-L1'
+  orderType: 'BTO' | 'STO' | 'BTC' | 'STC'
+  type: 'CALL' | 'PUT' | 'STOCK' | 'CASH'
+  quantity: number
+  multiplier: number               // 100 for standard equity options
+  strike: number
+  premium: number
+  fees: number
+  executionDate: ISODate
+  expirationDate: ISODate
+}
+```
+
+### RiskValue Tagged Union
+
+`maxRisk` / `capitalAtRisk` can be `Infinity` for unlimited-risk strategies.
+Prefer the typed `riskValue` field in new code:
+
+```ts
+import { isFiniteRisk } from '@trades/risk'
+
+if (isFiniteRisk(trade.riskValue)) {
+  display(trade.riskValue.amount)  // narrowed to number — no Infinity check
+} else {
+  display('Unlimited')
+}
+
+// Helpers exported from src/trades/risk.ts:
+// UNLIMITED_RISK, finiteRisk(amount), toRiskValue(maxRisk), isFiniteRisk(v)
+```
+
+### Storage Schema
+
+`localStorage` compound document under `GammaLedgerLocalDatabase`:
+```ts
+{ version: '2.5', trades: Trade[], exportDate: ISOTimestamp, mcpContext?: MCPContext }
+```
+
+`src/core/migration.ts` → `migrateSchema(raw)` is the mandatory guard that validates and
+normalises any payload (including legacy formats) before it reaches the application.
+Called by both `loadFromStorage()` and `parseStorageSchema()` (user JSON import).
+
+## Type Library (`src/types/`)
+
+Import with `import type { Trade, EnrichedTrade } from '@types-gl'`.
+Sub-module imports: `import type { RiskValue } from '@types-gl/common'`.
+
+| File | Key types |
+|---|---|
+| `common.ts` | `ISODate`, `DollarAmount`, `StrikePrice`, `LegType`, `OrderType`, `LifecycleStatus`, `RiskValue`, `GeminiModel`, `ToastVariant`, etc. |
+| `leg.ts` | `PersistedLeg`, `NormalizedLeg` |
+| `trade.ts` | `Trade` (persisted), `EnrichedTrade` (runtime) |
+| `leg-summary.ts` | `LegSummary` (31 fields), `VerticalSpreadShape` |
+| `lifecycle.ts` | `LegLifecycleResult`, `LifecycleMeta`, `ExitReason` |
+| `stats.ts` | `Stats`, `TickerPerformance`, `AssignmentStats` |
+| `storage.ts` | `StorageSchema`, `MCPContext` |
+| `state.ts` | `AppState`, `FinnhubState`, `GeminiState`, `AIChatState`, `ImportState` |
+| `integrations.ts` | `FinnhubQuote`, `GeminiApiResponse` + runtime guards `isGeminiApiResponse()`, `extractGeminiText()`, `extractGeminiError()` |
+| `imports.ts` | `OFXImportPayload`, `RobinhoodImportPayload`, `ImportLogEntry` |
+| `ai.ts` | `AIAgentContext`, `Message`, `AIChatSession` |
+| `index.ts` | Barrel — re-exports everything |
+
+## Key Methods Reference
+
+### `GammaLedger` class (`src/index.ts`)
+
+| Method | Delegated to | Description |
+|---|---|---|
+| `init()` | — | Bootstrap: load storage, bind events, render dashboard |
+| `updateDashboard()` | `ui/dashboard.ts` | Recompute stats, re-render all dashboard widgets |
+| `calculateAdvancedStats()` | `calculations/stats.ts` | Core analytics — P&L, win rate, Sharpe, drawdown |
+| `enrichTradeData(trade)` | `trades/legs.ts` | Compute all `RUNTIME_TRADE_FIELDS` for one trade |
+| `calculatePL(trade)` | `calculations/pnl.ts` | Realized/unrealized P&L from leg cash flows |
+| `summarizeLegs(legs)` | `trades/legs.ts` | Aggregate leg-level data (cash flow, contracts) |
+| `normalizeLeg(leg, i)` | `trades/legs.ts` | Normalize raw leg (order type, action, side) |
+| `assessRisk(trade, sum)` | `trades/risk.ts` | Compute maxRisk, maxRiskLabel, unlimited flag |
+| `showView(name)` | `ui/views.ts` | Switch active view, update page title |
+| `buildMCPContext()` | `integrations/mcp.ts` | Build `mcpContext` block written to saved JSON |
+| `saveDatabase()` | `database/persist.ts` | Persist to localStorage + optional File System API |
+| `loadFromStorage()` | `database/persist.ts` | Load trades via migration guard |
+| `sanitizeString(v, n)` | inline | Input sanitization for all user text |
+| `validateNumber(v, opts)` | inline | Numeric input validation (finite, range-bounded) |
+
+### Module-level helpers (import directly in new feature modules)
+
+| Function | Import from | Description |
+|---|---|---|
+| `safeLocalStorage` | `@core/storage` | Safe localStorage — don't use raw `localStorage` |
+| `migrateSchema(raw)` | `@core/migration` | Validate + normalise storage payload |
+| `toRiskValue(n)` | `@trades/risk` | Convert `number \| Infinity` → `RiskValue` |
+| `isFiniteRisk(v)` | `@trades/risk` | Type guard — narrows `RiskValue` to finite |
+| `isGeminiApiResponse(v)` | `@types-gl/integrations` | Runtime guard for Gemini API JSON |
+| `extractGeminiText(r)` | `@types-gl/integrations` | Text extractor for validated Gemini response |
+
+## Charts (Chart.js via CDN)
+
+All charts are `<canvas>` elements managed by `this.charts` Map.
+
+| Chart key | Canvas ID | Type | Description |
+|---|---|---|---|
+| `monthlyPL` | `monthlyPLChart` | Bar | Monthly P&L |
+| `cumulativePL` | `cumulativePLChart` | Line+fill | Cumulative P&L (range-filtered) |
+| `strategy` | `strategyChart` | Horiz. bar | P&L by strategy |
+| `winRate` | `winRateChart` | Doughnut | Win rate by strategy |
+| `commissionImpact` | `commissionImpactChart` | Bar | Commission drag vs gross P&L |
+| `timeInTrade` | `timeInTradeChart` | Bar | Avg days held by strategy |
+| `monteCarlo` | `monteCarloChart` | Multi-path line | 60-day Monte Carlo |
+| `sharpeGauge` | `sharpeGaugeChart` | Doughnut gauge | Sharpe ratio |
+| `sortinoGauge` | `sortinoGaugeChart` | Doughnut gauge | Sortino ratio |
+| `tickerHeatmap` | `tickerHeatmap` | DOM grid | Ticker heatmap (NOT Chart.js) |
+
+Always call `this.destroyChart(chart)` before recreating a chart instance.
+
+## Import/Export
+
+- **Import OFX**: `src/imports/ofx.ts` — broker OFX files
+- **Import Robinhood CSV**: `src/imports/robinhood.ts`
+- **Import JSON**: full database restore, validated by `migrateSchema()`
+- **Export JSON**: full backup (trades + settings + mcpContext) → `src/database/persist.ts`
+- **Export CSV**: `src/utils/export.ts`
+- **Share Card**: 1080×1080px PNG → `src/ui/share-card.ts` (requires `window.html2canvas`)
+
+## AI Features
+
+### Gemini AI Coach (`src/ai/gemini-agent.ts`)
+- User-provided API key stored encrypted in `localStorage`
+- Allowed models: `gemini-2.5-flash-lite`, `gemini-2.5-flash` (default), `gemini-2.5-pro`
+- Sends `mcpContext` snapshot + query to the Gemini generateContent endpoint
+- Response shape validated with `isGeminiApiResponse()` before any field access
+- Falls back to `LocalInsightsAgent` on any network/API failure
+- Requires `AI_COACH_CONSENT_STORAGE_KEY` flag — gated behind explicit consent modal
+
+### Local AI Coach (`src/ai/local-agent.ts`)
+- Rule-based, fully offline
+- Analyses open positions for risk, P&L summary, streak patterns, recommendations
+
+## CSS Design System (`src/styles/app.css`)
+
+CSS custom properties in layers:
+1. **Primitive tokens** — `--color-teal-500`, `--color-red-400`, etc.
+2. **Brand tokens** — `--color-brand-purple` and variants
+3. **Semantic tokens** — `--color-background`, `--color-text`, `--color-primary`, etc.
+4. **Dark mode** — `@media (prefers-color-scheme: dark)` or `.dark-mode` class overrides
+
+Font: **Inter** (Google Fonts CDN). All sizing in `rem`. Layout: CSS Grid + Flexbox.
+
+## Security Practices
+
+- **Input sanitization**: all user input passes through `sanitizeString()` before use
+- **Numeric validation**: `validateNumber()` enforces finite, range-bounded values
+- **API key encryption**: keys encrypted with Web Crypto API before `localStorage` write
+- **Typed API responses**: Gemini responses validated with `isGeminiApiResponse()` — no `as` casts on external JSON
+- **CSP**: `Content-Security-Policy` meta tag in `index.html` — commented out for dev; enable for production
+- **Security headers**: `X-Content-Type-Options`, `X-XSS-Protection` set in `<head>`
+- **No eval / innerHTML with user data**: user-facing strings always via `textContent`
+- **Referrer policy**: `strict-origin-when-cross-origin`
+
+## Development Guidelines
+
+### Adding a new feature
+
+1. Create or extend the feature module in the relevant `src/` subdirectory
+2. Export functions with `this: SomeContext` interface (structural — only what it needs)
+3. Add a thin delegator in `GammaLedger` (`src/index.ts`)
+4. Import types from `@types-gl`; new shared types go in `src/types/`
+5. Use `safeLocalStorage` — never raw `localStorage`
+6. Run `npm run typecheck` before committing
+
+### Rules
+
+- Do NOT use React, Vue, or any UI framework (Phase 3 plan — see MIGRATION_PROGRESS.md)
+- Do NOT add new CDN `<script>` tags without documenting them here
+- Do NOT store `Infinity` as a financial sentinel in new code — use `RiskValue` tagged union
+- Do NOT skip `enrichTradeData()` — always enrich before any analytics or display
+- Do NOT read `RUNTIME_TRADE_FIELDS` from raw storage — they must be recomputed
+- Do NOT access `localStorage` directly — use `safeLocalStorage`
+
+### Backward-compatibility
+
+- New `localStorage` keys → add to `STORAGE` in `APP_CONFIG` and handle in `migrateSchema()`
+- `LEGACY_STORAGE_KEYS` keys must remain readable until fully migrated
+- `trade.status` can be `'Rolling'` — never assume only 4 statuses
+
+## Common Gotchas
+
+- `RUNTIME_TRADE_FIELDS` stripped before `localStorage` write but included in saved JSON for MCP server
+- `this.currentDate` is a **getter** — always returns live date, not a stored property
+- Chart instances must be destroyed before recreation — call `this.destroyChart(key)` first
+- File System Access API is Chrome/Edge only — app falls back to `<a download>` gracefully
+- Gemini calls require `AI_COACH_CONSENT_STORAGE_KEY` flag check before sending
+- Share Card requires `window.html2canvas` (CDN) — check before calling
+- `index.html` references `/src/index.js` — Vite resolves this to `src/index.ts`; do not rename the HTML reference
+- `trade.status` can be `'Rolling'` (lifecycle-computed) in addition to Open/Closed/Expired/Assigned
+
+## MCP Server (`mcp/`)
+
+Standalone Python package exposing the GammaLedger database as an MCP server for AI clients.
 
 - **Language**: Python ≥ 3.10, managed with `uv`
-- **Build backend**: `setuptools` + `setuptools-scm` (VCS versioning); `package_dir` maps `src/` → `gammaledger_mcp` in the wheel
 - **Entry point**: `gammaledger_mcp.server:main` (console script `gammaledger-mcp`)
 - **Dev workflow** (run from `mcp/`):
   ```bash
@@ -55,276 +428,30 @@ The `mcp/` subdirectory contains a standalone Python package (`gammaledger-mcp`)
   uv run python -m ruff check src tests
   uv run mcp dev src/gammaledger_mcp/server.py
   ```
-- Do **not** edit files under `mcp/src/` directly above the `gammaledger_mcp/` package directory.
-- The `mcp/` folder retains its own git history (nested repo); treat it accordingly when committing.
+- `mcp/` has its own git history (nested repo) — commit separately
 
-#### MCP Tools
+### MCP Tools
 
 | Tool | Description |
 |---|---|
-| `gammaledger_database_info` | Metadata: file path, schema version, export date, trade count, mcpContext presence |
-| `gammaledger_portfolio_summary` | Full portfolio snapshot — counts, P&L, Sharpe/Sortino, drawdown, streaks |
+| `gammaledger_database_info` | File path, schema version, export date, trade count |
+| `gammaledger_portfolio_summary` | Full snapshot — counts, P&L, Sharpe/Sortino, drawdown, streaks |
 | `gammaledger_pl_breakdown` | Time-windowed P&L: total, realized, unrealized, YTD, MTD, 7d/30d/90d/1y |
 | `gammaledger_open_positions` | Active positions with filters (ticker, strategy, dte_max, underwater_only) |
-| `gammaledger_position` | Full leg-level detail for a single trade by ID |
-| `gammaledger_wheel_pmcc_positions` | Wheel/PMCC tracker: cost basis, premium history, coverage status |
-| `gammaledger_recent_closed_trades` | Most recently closed trades (sorted by close date) |
+| `gammaledger_position` | Full leg-level detail for one trade by ID |
+| `gammaledger_wheel_pmcc_positions` | Wheel/PMCC tracker: cost basis, premium history, coverage |
+| `gammaledger_recent_closed_trades` | Most recently closed trades (by close date) |
 | `gammaledger_strategy_breakdown` | Per-strategy stats: counts, wins, P&L, win rate |
 | `gammaledger_ticker_exposure` | Per-ticker performance sorted by absolute P&L |
-| `gammaledger_underlying_breakdown` | Breakdown by instrument type (Stock/ETF/Index/Future) |
-| `gammaledger_concentration_risk` | Top positions by capital at risk and share of total collateral |
+| `gammaledger_concentration_risk` | Top positions by capital at risk and collateral share |
 | `gammaledger_expiring_positions` | Positions expiring within N days, sorted by DTE |
-| `gammaledger_audit_risk` | Comprehensive risk audit: concentration, drawdown, expiring, underwater, Wheel/PMCC gaps |
-| `gammaledger_audit_wheel_pmcc` | Wheel/PMCC audit: coverage gaps, cost-basis vs strike, premium effectiveness |
-| `gammaledger_search_trades` | Search all trades (open, closed, expired, assigned) with filters |
+| `gammaledger_audit_risk` | Concentration, drawdown, expiring, underwater, Wheel/PMCC gaps |
+| `gammaledger_audit_wheel_pmcc` | Coverage gaps, cost-basis vs strike, premium effectiveness |
+| `gammaledger_search_trades` | Search all trades with filters |
 
-#### MCP Resources
+### mcpContext
 
-| URI | Description |
-|---|---|
-| `gammaledger://portfolio/summary` | Current portfolio metrics snapshot |
-| `gammaledger://positions/active` | Current active positions |
-| `gammaledger://positions/wheel-pmcc` | Wheel and PMCC tracker positions |
-| `gammaledger://database/info` | Loaded database file metadata |
-
-#### MCP Prompts
-
-| Prompt | Description |
-|---|---|
-| `analyze_portfolio` | Comprehensive portfolio review — performance, risk, exposure |
-| `risk_audit` | Risk-focused audit — concentration, drawdown, expiring, uncovered |
-| `wheel_pmcc_review` | Deep-dive on Wheel/PMCC positions — premium, coverage, cost basis |
-| `weekly_review` | Short weekly check-in — P&L delta, closures, expiring positions |
-| `position_inspect` | Deep dive on one specific position by trade ID |
-
-#### mcpContext
-
-The app builds and writes `mcpContext` into the JSON database on every save (via `buildMCPContext()`). This pre-computed section is the authoritative data surface for the MCP server and includes: `portfolio`, `activePositions`, `wheelPmccPositions`, `recentClosedTrades`, `strategyBreakdown`, `tickerExposure`, `underlyingBreakdown`, `concentration`, `asOfDate`, `generatedAt`.
-
-## Architecture
-
-### Single-File JavaScript Design
-
-The entire application lives in `src/app.js`. There is no module system, no bundler, and no transpilation. Everything is written in modern ES2020+ and loaded directly in the browser.
-
-### Key Classes
-
-| Class | Location | Purpose |
-|---|---|---|
-| `GammaLedger` | `app.js` line ~1299 | Main application class — instantiated as `window.app` |
-| `LocalInsightsAgent` | `app.js` line ~20574 | Offline rule-based AI coach |
-| `GeminiInsightsAgent` | `app.js` line ~20785 | Gemini AI integration; falls back to `LocalInsightsAgent` |
-
-### Application Constants
-
-Defined at the top of `app.js` in `APP_CONFIG` (frozen object) with backward-compatible standalone `const` aliases:
-
-- `APP_CONFIG.GEMINI` — model names, endpoint, default temperature
-- `APP_CONFIG.STORAGE` — all `localStorage` key names
-- `APP_CONFIG.SHARE_CARD` — export image dimensions
-- `APP_CONFIG.PL_RANGES` — time-range buttons (`['7D', 'MTD', '1M', '3M', 'YTD', '1Y', 'ALL']`)
-
-Other top-level constants:
-- `RUNTIME_TRADE_FIELDS` — `Set` of field names computed at runtime; never persisted to raw storage (but written into the saved JSON for MCP use)
-- `RUNTIME_LEG_FIELDS` — `Set` of leg-level fields excluded from OFX serialisation
-- `BUILTIN_SAMPLE_DATA` — IIFE that generates date-relative demo trades for first-run experience
-
-### Data Storage
-
-| Storage | Key / Mechanism | Contents |
-|---|---|---|
-| `localStorage` | `GammaLedgerLocalDatabase` | Full trade database (JSON string) |
-| `localStorage` | `GammaLedgerGeminiConfig` | Gemini model/endpoint config |
-| `localStorage` | `GammaLedgerGeminiSecret` | Encrypted Gemini API key |
-| `localStorage` | `GammaLedgerGeminiMaxTokens` | Gemini max output tokens setting |
-| `localStorage` | `GammaLedgerDisclaimerAcceptedAt` | Timestamp of disclaimer acceptance |
-| `localStorage` | `GammaLedgerSidebarCollapsed` | Sidebar UI preference |
-| `localStorage` | `GammaLedgerDefaultFeePerContract` | Default commission fee setting |
-| `localStorage` | `GammaLedgerFinnhubRateLimit` | Finnhub API rate limit setting |
-| `localStorage` | `GammaLedgerAICoachConsentAt` | AI coach consent timestamp |
-| File System | JSON file via File System Access API | Portable database backup |
-
-All data stays on the user's device. Nothing is sent to any server except optional AI (Gemini) and quote (Finnhub) API calls.
-
-### Views / Navigation
-
-Views are `<div class="view ...">` elements in `index.html`. Only one is active at a time. Navigation is handled by `showView(viewName)`:
-
-| `data-view` | View Class | Description |
-|---|---|---|
-| `dashboard` | `dashboard-view` | Portfolio overview, charts, tables |
-| `trades-list` | `trades-list-view` | All trades with filtering/sorting |
-| `credit-playbook` | `credit-playbook-view` | Credit strategy tracker |
-| `add-trade` | `add-trade-view` | Multi-leg trade entry form |
-| `import` | `import-view` | OFX / JSON import wizard |
-| `settings` | `settings-view` | API keys, fees, preferences |
-
-### External Dependencies (CDN only)
-
-- **Chart.js** — `https://cdn.jsdelivr.net/npm/chart.js` — all dashboard charts
-- **html2canvas** — `https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js` — Share Card PNG export
-- **Google Fonts** — Inter typeface
-- **Finnhub API** — optional live stock/option quotes (requires API key in Settings)
-- **Google Gemini API** — optional AI coach (requires API key in Settings)
-
-## Core Data Model
-
-### Trade Object
-
-```js
-{
-  id: 'TRD-XXXX',           // unique identifier
-  ticker: 'SPY',
-  strategy: 'Iron Condor',   // one of 62 supported strategy names
-  status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolling',
-  underlyingType: 'Stock' | 'ETF' | 'Index' | 'Future',
-  openedDate: 'YYYY-MM-DD',  // derived from earliest leg executionDate
-  closedDate: 'YYYY-MM-DD',  // derived from latest closing leg
-  expirationDate: 'YYYY-MM-DD',
-  exitReason: '',
-  notes: '',                 // markdown supported
-  legs: [ /* Leg[] */ ]
-}
-```
-
-### Leg Object
-
-```js
-{
-  id: 'TRD-XXXX-L1',
-  orderType: 'BTO' | 'STO' | 'BTC' | 'STC',  // or action+side equivalent
-  type: 'CALL' | 'PUT' | 'STOCK' | 'CASH',
-  quantity: 1,
-  multiplier: 100,           // 100 for standard equity options
-  strike: 450,
-  premium: 3.50,
-  fees: 0.35,
-  executionDate: 'YYYY-MM-DD',
-  expirationDate: 'YYYY-MM-DD'
-}
-```
-
-### Runtime Computed Fields
-
-`enrichTradeData(trade)` computes and attaches these fields before any trade is used in analytics. All are listed in `RUNTIME_TRADE_FIELDS`:
-
-- `pl`, `roi`, `weeklyROI`, `monthlyROI`, `annualizedROI`
-- `tradeType`, `tradeDirection`, `lifecycleStatus`, `lifecycleMeta`
-- `capitalAtRisk`, `maxRisk`, `maxRiskLabel`, `riskIsUnlimited`
-- `totalFees`, `totalCredit`, `totalDebit`, `cashFlow`, `fees`
-- `entryPrice`, `exitPrice`, `entryDate`, `exitDate`, `daysHeld`, `dte`
-- `strikePrice`, `displayStrike`, `activeStrikePrice`, `quantity`, `multiplier`
-- `primaryLeg`, `legsCount`, `openContracts`, `closeContracts`, `openLegs`, `rollLegs`
-- `partialClose`, `rolledForward`, `autoExpired`
-- `pmccShortExpiration`, `longExpirationDate`
-- `tradeReasoning`, `wheelCoverage`, `shares`, `effectiveCostBasis`
-- `marketValue`, `unrealizedPL`, `marketPriceSource`
-
-Fields in `RUNTIME_TRADE_FIELDS` are recomputed on every load and written into the persisted JSON on save (to populate `mcpContext` for the MCP server). They must not be read back from raw storage as canonical values.
-
-`RUNTIME_LEG_FIELDS` covers leg-level import metadata (`externalId`, `importGroupId`, `importSource`, `importBatchId`, `tickerSymbol`) that is excluded from OFX serialisation.
-
-## Key Methods Reference
-
-| Method | Description |
-|---|---|
-| `init()` | Bootstrap: load storage, set up event listeners, render dashboard |
-| `updateDashboard()` | Recompute all stats and re-render all dashboard widgets |
-| `calculateAdvancedStats()` | Core analytics engine — P&L, win rate, Sharpe, drawdown, etc. |
-| `enrichTradeData(trade)` | Compute all runtime fields for a single trade |
-| `calculatePL(trade)` | Compute realized/unrealized P&L from leg cash flows |
-| `summarizeLegs(legs)` | Aggregate leg-level data (cash flow, contracts open/close) |
-| `normalizeLeg(leg, index)` | Normalize raw leg data (order type, action, side) |
-| `showView(viewName)` | Switch active view and update page title |
-| `buildMCPContext()` | Build the `mcpContext` payload written to the saved JSON database |
-| `sanitizeString(value, maxLength)` | Input sanitization for all user text |
-| `validateNumber(value, options)` | Input validation for numeric fields |
-| `validateDate(dateString)` | Input validation for date fields |
-| `safeLocalStorage.getItem/setItem` | Safe localStorage wrappers with error handling |
-
-## Strategies Supported
-
-62 strategies including: Iron Condor, Iron Butterfly, Wheel, Poor Man's Covered Call (PMCC), Cash-Secured Put, Covered Call, Bull/Bear Put/Call Spreads, Straddle, Strangle, Collar, Diagonal Spread, Calendar Spread, Jade Lizard, Reverse Jade Lizard, and more. Full list in `this.creditPlaybookStrategyOptions` in the `GammaLedger` constructor.
-
-## Import/Export
-
-- **Import OFX**: Parses broker OFX files — extracts legs, dates, strikes, premiums, commissions
-- **Import JSON**: Full database restore from GammaLedger backup file
-- **Export JSON**: Full database backup (trades + settings + mcpContext)
-- **Export OFX**: Standard OFX format for external tools
-- **Share Card**: Renders a 1080×1080px PNG of the portfolio snapshot for social media (requires html2canvas CDN)
-
-## AI Features
-
-### Gemini AI Coach (optional)
-- Requires user-provided Google Gemini API key (stored encrypted in `localStorage`)
-- Default model: `gemini-2.5-flash`; allowed: `gemini-2.5-flash-lite`, `gemini-2.5-flash`, `gemini-2.5-pro`
-- Configurable max output tokens (default 65536, stored in `GammaLedgerGeminiMaxTokens`)
-- Sends portfolio snapshot + user query to `https://generativelanguage.googleapis.com/v1beta/models`
-- Gated behind an explicit AI consent modal; API key never leaves the device
-
-### Local AI Coach (fallback)
-- Rule-based, works fully offline
-- Analyses open positions for risk, P&L summary, and simple recommendations
-
-## Charts (Chart.js)
-
-All charts are `<canvas>` elements managed by `this.charts` map:
-
-| Chart key | Canvas ID | Type | Description |
-|---|---|---|---|
-| `monthlyPL` | `monthlyPLChart` | Bar | Monthly P&L performance |
-| `cumulativePL` | `cumulativePLChart` | Line | Cumulative P&L growth (range-filtered) |
-| `strategy` | (inline) | Bar | P&L by strategy |
-| `winRate` | (inline) | Bar/Doughnut | Win rate by strategy |
-| `commissionImpact` | `commissionImpactChart` | Bar | Commission drag vs. gross P&L |
-| `timeInTrade` | `timeInTradeChart` | Bar | Average days held by strategy |
-| `monteCarlo` | `monteCarloChart` | Line | Monte Carlo 60-day projection |
-| `sharpeGauge` | `sharpeGaugeChart` | Doughnut gauge | Sharpe ratio gauge |
-| `sortinoGauge` | `sortinoGaugeChart` | Doughnut gauge | Sortino ratio gauge |
-| `tickerHeatmap` | `tickerHeatmap` | DOM grid | Ticker performance heatmap (not a Chart.js canvas) |
-
-Use `this.destroyChart(chart)` before recreating any chart instance to avoid Chart.js memory leaks.
-
-## CSS Design System
-
-`style.css` uses CSS custom properties organized in layers:
-
-1. **Primitive tokens** — raw color values (`--color-teal-500`, `--color-red-400`, etc.)
-2. **Brand tokens** — `--color-brand-purple` and variants
-3. **Semantic tokens** — `--color-background`, `--color-text`, `--color-primary`, etc.
-4. **Dark mode** — `@media (prefers-color-scheme: dark)` or `.dark-mode` class overrides semantic tokens
-
-Font: **Inter** (Google Fonts). All sizing uses `rem`. Layout uses CSS Grid and Flexbox.
-
-## Security Practices
-
-- **Input sanitization**: all user input passes through `sanitizeString()` before use
-- **Numeric validation**: `validateNumber()` enforces finite, range-bounded values
-- **API key encryption**: Finnhub and Gemini API keys are encrypted with Web Crypto API before storage
-- **CSP**: `Content-Security-Policy` meta tag is present (commented out in dev; enable for production)
-- **Security headers**: `X-Content-Type-Options: nosniff`, `X-XSS-Protection: 1; mode=block`
-- **No eval / innerHTML with user data**: user-facing strings are set via `textContent`
-- **Referrer policy**: `strict-origin-when-cross-origin`
-
-## Development Guidelines
-
-- **No build system** — edit files directly, refresh browser
-- **No frameworks** — vanilla JS only; do not introduce React, Vue, etc.
-- **No npm** — do not add `package.json` or node_modules
-- **Single-file JS** — all logic stays in `app.js`; do not split into modules unless the project explicitly adopts ES modules
-- **Test in Chrome, Firefox, and Edge** before submitting changes
-- **Preserve backward compatibility** — legacy `localStorage` keys must continue to be migrated (see `LEGACY_STORAGE_KEYS`)
-- **Follow existing code patterns** — class methods on `GammaLedger`, frozen constants at top of file
-- **Disclaimer**: The app shows a disclaimer modal on first load (stored in `localStorage`). Do not remove it.
-
-## Common Gotchas
-
-- `RUNTIME_TRADE_FIELDS` are recomputed on load and written into the persisted JSON on save — the saved file intentionally contains them so the MCP server can read pre-computed values via `mcpContext`.
-- `this.currentDate` is a **getter** (not a property) so it always returns the live current date
-- Chart instances must be destroyed before recreation to avoid canvas reuse errors
-- The File System Access API is only available in Chrome/Edge; the app falls back gracefully
-- Gemini API calls require explicit user consent via the `AI_COACH_CONSENT_STORAGE_KEY` flag
-- `safeLocalStorage` wrappers must be used instead of `localStorage` directly to handle quota and privacy-mode errors
-- Trade `status` can be `Rolling` (in addition to Open/Closed/Expired/Assigned) — this is a lifecycle-computed value set by `enrichTradeData`
-- The Share Card PNG export depends on the `html2canvas` CDN script; check for `window.html2canvas` before using
+Built by `buildMCPContext()` (`src/integrations/mcp.ts`) and written into every saved JSON.
+Contains: `portfolio`, `activePositions`, `wheelPmccPositions`, `recentClosedTrades`,
+`strategyBreakdown`, `tickerExposure`, `underlyingBreakdown`, `concentration`,
+`asOfDate`, `generatedAt`.

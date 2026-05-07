@@ -6,6 +6,7 @@ import type {
   MarketPriceSource,
   LifecycleStatus,
   UnderlyingType,
+  RiskValue,
 } from './common'
 import type { PersistedLeg, NormalizedLeg } from './leg'
 import type { LifecycleMeta } from './lifecycle'
@@ -216,6 +217,19 @@ export interface EnrichedTrade extends Trade {
 
   /** True when maxRisk is Infinity. */
   riskIsUnlimited: boolean
+
+  /**
+   * Self-documenting tagged-union form of maxRisk.
+   * Prefer this over `maxRisk === Infinity` checks in new code.
+   *
+   * ```ts
+   * import { isFiniteRisk } from '@trades/risk'
+   * if (isFiniteRisk(trade.riskValue)) {
+   *   display(trade.riskValue.amount)
+   * }
+   * ```
+   */
+  riskValue: RiskValue
 
   // ---- Lifecycle metadata ----
 

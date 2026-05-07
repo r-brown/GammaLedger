@@ -5,6 +5,7 @@ import type { NormalizedLeg } from '@types-gl/leg'
 import type { LegSummary } from '@types-gl/leg-summary'
 import type { LegLifecycleResult } from '@types-gl/lifecycle'
 import type { ExitReason } from '@types-gl/common'
+import { toRiskValue } from './risk'
 
 interface VerticalSpreadInfo {
     width: number
@@ -1180,6 +1181,8 @@ export function enrichTradeData(
     }
     enriched.maxRiskLabel = riskInfo.maxRiskLabel;
     enriched.riskIsUnlimited = riskInfo.unlimited;
+    // M3 — typed RiskValue alongside the legacy number sentinel
+    enriched.riskValue = toRiskValue(riskInfo.maxRiskValue);
 
     const legacyEntryDate = (enriched as Record<string, unknown>).entryDate as string;
     const legacyExitDate = (enriched as Record<string, unknown>).exitDate as string;

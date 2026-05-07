@@ -1,6 +1,41 @@
 // src/trades/risk.ts — Wave 3: Risk formula context, max-risk computation, and tooltip helpers.
 // Uses the .call(this, …) delegation pattern.
 
+import type { RiskValue } from '../types/common'
+
+// ---------------------------------------------------------------------------
+// M3 helpers — RiskValue tagged union conversions
+// ---------------------------------------------------------------------------
+
+/** Singleton for the "unlimited risk" variant. Safe to re-use. */
+export const UNLIMITED_RISK: RiskValue = { kind: 'unlimited' }
+
+/** Construct a finite RiskValue from a dollar amount. */
+export function finiteRisk(amount: number): RiskValue {
+    return { kind: 'finite', amount }
+}
+
+/**
+ * Convert a raw `maxRisk` number (which may be Infinity) to a RiskValue.
+ * Use this to populate `enriched.riskValue` in enrichTradeData.
+ */
+export function toRiskValue(maxRisk: number): RiskValue {
+    return maxRisk === Number.POSITIVE_INFINITY ? UNLIMITED_RISK : finiteRisk(maxRisk)
+}
+
+/**
+ * Type guard — narrows RiskValue to the finite variant.
+ *
+ * ```ts
+ * if (isFiniteRisk(trade.riskValue)) {
+ *   const dollars: number = trade.riskValue.amount
+ * }
+ * ```
+ */
+export function isFiniteRisk(v: RiskValue): v is { kind: 'finite'; amount: number } {
+    return v.kind === 'finite'
+}
+
 interface RiskFormulaContext {
     trade: Record<string, unknown>
     details: Record<string, unknown>
