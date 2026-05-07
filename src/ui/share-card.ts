@@ -115,7 +115,7 @@ export function getClosedTradesInRange(this: ShareCardContext, range: string = t
     }
 
     return closedTrades.filter(trade => {
-        const exitDateRaw = this.parseDateValue((trade.exitDate || trade.closedDate) as unknown);
+        const exitDateRaw = this.parseDateValue(trade.closedDate as unknown);
         if (!exitDateRaw) {
             return false;
         }
@@ -248,7 +248,7 @@ export function updateShareCardRangeLabel(this: ShareCardContext, range: string 
 
 export function computeCumulativePLSeries(this: ShareCardContext, range: string = this.cumulativePLRange): CumulativePLSeries | null {
     const closedTrades = this.trades
-        .filter(trade => this.isClosedStatus(trade.status) && trade.exitDate);
+        .filter(trade => this.isClosedStatus(trade.status) && trade.closedDate);
 
     if (closedTrades.length === 0) {
         return null;
@@ -275,7 +275,7 @@ export function computeCumulativePLSeries(this: ShareCardContext, range: string 
     let latestDate: Date | null = null;
 
     closedTrades.forEach(trade => {
-        const exitDateRaw = this.parseDateValue(trade.exitDate as unknown);
+        const exitDateRaw = this.parseDateValue(trade.closedDate as unknown);
         if (!exitDateRaw) {
             return;
         }

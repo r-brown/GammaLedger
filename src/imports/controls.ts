@@ -1,7 +1,9 @@
 // src/imports/controls.js — Wave 7: Import UI controls setup.
 // Uses the .call(this, …) delegation pattern.
 
-export function setupImportControls() {
+type AnyRecord = Record<string, any>
+
+export function setupImportControls(this: any) {
     if (this.importControlsInitialized) {
         return;
     }
@@ -103,8 +105,8 @@ export function setupImportControls() {
     this.importControlsInitialized = true;
 }
 
-export async function handleOfxFileSelection(event) {
-    const input = event?.target;
+export async function handleOfxFileSelection(this: any, event: Event) {
+    const input = event?.target as HTMLInputElement | null;
     if (!input || !input.files || input.files.length === 0) {
         return;
     }
@@ -121,7 +123,7 @@ export async function handleOfxFileSelection(event) {
         await this.importOfxFile(file, { fileName: file.name || 'OFX import' });
     } catch (error) {
         console.error('OFX import error:', error);
-        const message = error?.message || 'Unknown error';
+        const message = error instanceof Error ? error.message : 'Unknown error';
         this.showNotification(`Failed to import OFX: ${message}`, 'error');
         this.appendImportLog({
             type: 'error',
@@ -133,7 +135,7 @@ export async function handleOfxFileSelection(event) {
     }
 }
 
-export async function importOfxFile(file, context = {}) {
+export async function importOfxFile(this: any, file: File, context: AnyRecord = {}) {
     if (!file) {
         throw new Error('No file selected.');
     }
@@ -142,7 +144,7 @@ export async function importOfxFile(file, context = {}) {
     await this.importOfxContent(text, { ...context, fileSize: file.size || 0 });
 }
 
-export async function importOfxContent(raw: string, context: Record<string, unknown> = {}) {
+export async function importOfxContent(this: any, raw: string, context: Record<string, unknown> = {}) {
     const batchId = (context.batchId as string) || `OFX-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     const importContext = { ...context, batchId };
     const parsed = this.parseOfx(raw);
@@ -150,7 +152,7 @@ export async function importOfxContent(raw: string, context: Record<string, unkn
     this.applyOfxImportResult(importResult, importContext);
 }
 
-export async function importRobinhoodCsvFile(file, context = {}) {
+export async function importRobinhoodCsvFile(this: any, file: File, context: AnyRecord = {}) {
     if (!file) {
         throw new Error('No file selected.');
     }
@@ -160,7 +162,7 @@ export async function importRobinhoodCsvFile(file, context = {}) {
     await this.importRobinhoodCsvContent(text, { ...context, fileSize: file.size || 0 });
 }
 
-export async function importRobinhoodCsvContent(raw: string, context: Record<string, unknown> = {}) {
+export async function importRobinhoodCsvContent(this: any, raw: string, context: Record<string, unknown> = {}) {
     const batchId = (context.batchId as string) || `RH-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
     const importContext = { ...context, batchId };
     const parsed = this.parseRobinhoodCsv(raw);
@@ -168,7 +170,7 @@ export async function importRobinhoodCsvContent(raw: string, context: Record<str
     this.applyRobinhoodImportResult(importResult, importContext);
 }
 
-export function setupTradesMergeControls() {
+export function setupTradesMergeControls(this: any) {
     const panel = document.getElementById('trades-merge-panel');
     if (!panel) {
         return;
@@ -210,7 +212,7 @@ export function setupTradesMergeControls() {
     this.refreshTradesMergePanelContents();
 }
 
-export function toggleTradesMergePanel(forceOpen = null) {
+export function toggleTradesMergePanel(this: any, forceOpen: boolean | null = null) {
     const targetState = typeof forceOpen === 'boolean'
         ? forceOpen
         : !this.tradesMergePanelOpen;
@@ -229,7 +231,7 @@ export function toggleTradesMergePanel(forceOpen = null) {
     this.refreshTradesMergePanelContents();
 }
 
-export function updateTradesMergeToggleLabel() {
+export function updateTradesMergeToggleLabel(this: any) {
     const toggleButton = document.getElementById('trades-merge-toggle');
     if (!toggleButton) {
         return;
@@ -241,7 +243,7 @@ export function updateTradesMergeToggleLabel() {
     toggleButton.classList.toggle('is-active', expanded);
 }
 
-export function updateMergeColumnVisibility() {
+export function updateMergeColumnVisibility(this: any) {
     const hidden = !this.tradesMergePanelOpen;
     const headerCell = document.querySelector('.trade-select-header');
     if (headerCell) {
@@ -268,7 +270,7 @@ export function updateMergeColumnVisibility() {
     });
 }
 
-export function refreshTradesMergePanelContents() {
+export function refreshTradesMergePanelContents(this: any) {
     const summary = document.getElementById('trades-merge-summary');
     const groupsContainer = document.getElementById('trades-merge-groups');
     const mergeButton = document.getElementById('trades-merge-btn');
@@ -297,7 +299,7 @@ export function refreshTradesMergePanelContents() {
     this.updateTradesMergeButtonState();
 }
 
-export function updateImportSummary(details: Record<string, unknown> = {}) {
+export function updateImportSummary(this: any, details: Record<string, unknown> = {}) {
     const timestamp = details.timestamp instanceof Date
         ? details.timestamp as Date
         : new Date((details.timestamp as string | number | undefined) || Date.now());
@@ -317,8 +319,8 @@ export function updateImportSummary(details: Record<string, unknown> = {}) {
     this.importMergeSelection.clear();
 }
 
-export function countImportReviewTrades(batchId = null) {
-    return this.trades.filter((trade) => {
+export function countImportReviewTrades(this: any, batchId: string | null = null) {
+    return this.trades.filter((trade: AnyRecord) => {
         if (!trade?.importReview) {
             return false;
         }
@@ -329,18 +331,18 @@ export function countImportReviewTrades(batchId = null) {
     }).length;
 }
 
-export function getImportReviewTrades() {
+export function getImportReviewTrades(this: any) {
     return this.trades
-        .filter((trade) => trade?.importReview)
+        .filter((trade: AnyRecord) => trade?.importReview)
         .slice()
-        .sort((a, b) => {
+        .sort((a: AnyRecord, b: AnyRecord) => {
             const aDate = new Date(a.openedDate || a.entryDate || 0).getTime();
             const bDate = new Date(b.openedDate || b.entryDate || 0).getTime();
             return bDate - aDate;
         });
 }
 
-export function syncTradeSelectionCheckboxes() {
+export function syncTradeSelectionCheckboxes(this: any) {
     document.querySelectorAll<HTMLInputElement>('.trade-merge-checkbox').forEach((checkbox) => {
         const id = (checkbox as HTMLElement).dataset.tradeId;
         checkbox.checked = !!id && this.tradeMergeSelection.has(id);
@@ -348,7 +350,7 @@ export function syncTradeSelectionCheckboxes() {
     this.syncSelectAllCheckbox();
 }
 
-export function syncSelectAllCheckbox() {
+export function syncSelectAllCheckbox(this: any) {
     const selectAll = document.getElementById('trades-select-all') as HTMLInputElement | null;
     if (!selectAll) {
         return;
@@ -383,7 +385,7 @@ export function syncSelectAllCheckbox() {
     }
 }
 
-export function handleSelectAllTrades(checked: boolean) {
+export function handleSelectAllTrades(this: any, checked: boolean) {
     if (!this.tradesMergePanelOpen) {
         return;
     }

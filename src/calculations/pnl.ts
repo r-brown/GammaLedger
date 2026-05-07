@@ -238,12 +238,12 @@ export function calculateDaysHeld(this: PnlContext, trade: EnrichedTrade | null 
         return 0;
     }
 
-    const entryDate = this.parseDateValue(trade.entryDate || trade.openedDate);
+    const entryDate = this.parseDateValue(trade.openedDate);
     if (!entryDate) {
         return 0;
     }
 
-    const exitCandidate = this.parseDateValue(trade.exitDate || trade.closedDate);
+    const exitCandidate = this.parseDateValue(trade.closedDate);
     const endDate = (this.isClosedStatus(trade.status) && exitCandidate) ? exitCandidate : this.currentDate;
 
     const diffTime = endDate.getTime() - entryDate.getTime();

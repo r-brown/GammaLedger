@@ -146,7 +146,7 @@ export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[
         quantityCell.textContent = quantityValue !== null ? String(Math.abs(quantityValue)) : '—';
 
         const entryDateCell = row.insertCell();
-        entryDateCell.textContent = this.formatDate(trade.entryDate);
+        entryDateCell.textContent = this.formatDate(trade.openedDate);
 
         const expirationCell = row.insertCell();
         expirationCell.textContent = this.formatDate(trade.expirationDate);
@@ -157,7 +157,7 @@ export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[
 
         const exitDateCell = row.insertCell();
         const isClosed = this.isClosedStatus(trade.status);
-        exitDateCell.textContent = (isClosed && trade.exitDate) ? this.formatDate(trade.exitDate) : '—';
+        exitDateCell.textContent = (isClosed && trade.closedDate) ? this.formatDate(trade.closedDate) : '—';
 
         const daysHeldCell = row.insertCell();
         const daysHeldValue = safeNumber(trade.daysHeld);
@@ -465,7 +465,6 @@ export function editTrade(this: TradesTableContext, id: unknown): void {
 
 // NOTE: updateTickerPreview is implemented in views.ts and provided to this module
 // via the host class mixin — declared in the primary interface above.
-
 
 
 

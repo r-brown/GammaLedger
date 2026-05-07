@@ -1,7 +1,9 @@
 // src/imports/ofx.js — Wave 7: OFX/brokerage statement import parser.
 // Uses the .call(this, …) delegation pattern.
 
-export function parseOfx(raw) {
+type AnyRecord = Record<string, any>
+
+export function parseOfx(this: any, raw: string) {
     if (typeof raw !== 'string') {
         throw new Error('OFX payload is invalid.');
     }
@@ -28,14 +30,14 @@ export function parseOfx(raw) {
     };
 }
 
-export function extractOfxSecurities(doc) {
-    const map = new Map();
+export function extractOfxSecurities(this: any, doc: Document) {
+    const map = new Map<string, AnyRecord>();
     const secList = doc.getElementsByTagName('SECLIST')[0];
     if (!secList) {
         return map;
     }
 
-    const getText = (root, tag) => {
+    const getText = (root: Element | null, tag: string) => {
         if (!root) {
             return '';
         }
@@ -60,7 +62,7 @@ export function extractOfxSecurities(doc) {
 
         const ticker = getText(secInfo, 'TICKER');
         const name = getText(secInfo, 'SECNAME');
-        const info = {
+        const info: AnyRecord = {
             id: uniqueId,
             tag: tagName,
             ticker,
@@ -92,7 +94,7 @@ export function extractOfxSecurities(doc) {
     return map;
 }
 
-export function parseOfxDate(value) {
+export function parseOfxDate(this: any, value: unknown) {
     if (!value) {
         return null;
     }
@@ -128,7 +130,7 @@ export function parseOfxDate(value) {
     return null;
 }
 
-export function mapOfxOrderType(tag, rawType, units = 0) {
+export function mapOfxOrderType(this: any, tag: string, rawType: unknown, units = 0) {
     const normalized = (rawType || '').toString().trim().toUpperCase();
     switch (tag) {
         case 'BUYOPT':
@@ -150,14 +152,14 @@ export function mapOfxOrderType(tag, rawType, units = 0) {
     }
 }
 
-export function extractOfxTransactions(doc, securities) {
-    const transactions = [];
+export function extractOfxTransactions(this: any, doc: Document, securities: Map<string, AnyRecord>) {
+    const transactions: AnyRecord[] = [];
     const invTranList = doc.getElementsByTagName('INVTRANLIST')[0];
     if (!invTranList) {
         return transactions;
     }
 
-    const getText = (root, tag) => {
+    const getText = (root: Element | null, tag: string) => {
         if (!root) {
             return '';
         }
@@ -217,7 +219,7 @@ export function extractOfxTransactions(doc, securities) {
         const isOption = tag.includes('OPT');
         let underlying = '';
         let optionType = '';
-        let strike = null;
+        let strike: number | null = null;
         let expiration = '';
         let multiplier = isOption ? 100 : 1;
         let ticker = '';
@@ -291,12 +293,12 @@ export function extractOfxTransactions(doc, securities) {
     return transactions;
 }
 
-export function buildOfxImportPayload(parsed: Record<string, unknown>, context: Record<string, unknown> = {}) {
-    const transactions = Array.isArray(parsed?.transactions) ? parsed.transactions : [];
+export function buildOfxImportPayload(this: any, parsed: AnyRecord, context: AnyRecord = {}) {
+    const transactions: AnyRecord[] = Array.isArray(parsed?.transactions) ? parsed.transactions : [];
     const batchId = context.batchId || null;
-    const updates = new Map();
-    const newTrades = [];
-    const reviewTradeIds = [];
+    const updates = new Map<string, AnyRecord[]>();
+    const newTrades: AnyRecord[] = [];
+    const reviewTradeIds: string[] = [];
 
     const stats = {
         totalTransactions: transactions.length,
@@ -322,17 +324,17 @@ export function buildOfxImportPayload(parsed: Record<string, unknown>, context: 
     const groups = this.groupTransactionsForImport(transactions);
     const positionIndex = this.buildPositionIndex(this.trades);
 const existingExternalIds = this.buildExistingExternalIdSet();
-const seenExternalIds = new Set();
+const seenExternalIds = new Set<string>();
 
     stats.totalGroups = groups.size;
 
-    groups.forEach((group) => {
+    groups.forEach((group: AnyRecord) => {
         if (!group || !Array.isArray(group.transactions) || group.transactions.length === 0) {
             return;
         }
 
-        const legs = [];
-        group.transactions.forEach((tx) => {
+        const legs: AnyRecord[] = [];
+        group.transactions.forEach((tx: AnyRecord) => {
             const leg = this.buildLegFromTransaction(tx);
             if (!leg) {
                 return;
@@ -352,19 +354,19 @@ const seenExternalIds = new Set();
         }
 
         const ticker = (group.ticker || legs[0]?.tickerSymbol || '').toUpperCase();
-        const openingLegs = legs.filter((leg) => this.getLegSide(leg) === 'OPEN');
-        const closingLegs = legs.filter((leg) => this.getLegSide(leg) === 'CLOSE');
-        const unmatchedClosingLegs = [];
+        const openingLegs = legs.filter((leg: AnyRecord) => this.getLegSide(leg) === 'OPEN');
+        const closingLegs = legs.filter((leg: AnyRecord) => this.getLegSide(leg) === 'CLOSE');
+        const unmatchedClosingLegs: AnyRecord[] = [];
 
         stats.openingLegs += openingLegs.length;
         stats.closingLegs += closingLegs.length;
 
-        closingLegs.forEach((leg) => {
+        closingLegs.forEach((leg: AnyRecord) => {
             const key = this.buildPositionKey(ticker, leg, { forMatching: true });
             const match = this.consumePositionMatches(positionIndex, key, leg);
 
             if (match.matched.length) {
-                match.matched.forEach((entry) => {
+                match.matched.forEach((entry: AnyRecord) => {
                     const targetTrade = entry.trade;
                     if (this.tradeContainsExternalId(targetTrade, leg.externalId)) {
                         return;
@@ -374,7 +376,7 @@ const seenExternalIds = new Set();
                     }
 
                     const bucket = updates.get(targetTrade.id) || [];
-                    const legClone = { ...leg, quantity: entry.quantity };
+                    const legClone: AnyRecord = { ...leg, quantity: entry.quantity };
                     if (batchId) {
                         legClone.importBatchId = batchId;
                     }
@@ -412,7 +414,7 @@ const seenExternalIds = new Set();
                 hasClosings: closingLegs.length > 0
             });
 
-            const sanitizedLegs = openingLegs.map((leg) => {
+            const sanitizedLegs = openingLegs.map((leg: AnyRecord) => {
                 if (leg.externalId) {
                     seenExternalIds.add(leg.externalId);
                 }
@@ -443,7 +445,7 @@ const seenExternalIds = new Set();
                 note: 'Review required: closing legs have no matching open position.'
             });
 
-            const sanitizedLegs = unmatchedClosingLegs.map((leg) => {
+            const sanitizedLegs = unmatchedClosingLegs.map((leg: AnyRecord) => {
                 if (leg.externalId) {
                     seenExternalIds.add(leg.externalId);
                 }
@@ -473,13 +475,13 @@ const seenExternalIds = new Set();
     stats.totalTradesCreated = newTrades.length;
     stats.tradesUpdated = updates.size;
     stats.reviewLegs = newTrades
-        .filter((trade) => trade.importReview)
-        .reduce((acc, trade) => acc + ((trade.legs || []).length), 0);
+        .filter((trade: AnyRecord) => trade.importReview)
+        .reduce((acc: number, trade: AnyRecord) => acc + ((trade.legs || []).length), 0);
 
     return { newTrades, updates, stats, batchId, reviewTradeIds };
 }
 
-export function applyOfxImportResult(importResult: Record<string, unknown>, context: Record<string, unknown> = {}) {
+export function applyOfxImportResult(this: any, importResult: AnyRecord, context: AnyRecord = {}) {
     if (!importResult) {
         return;
     }
@@ -487,25 +489,25 @@ export function applyOfxImportResult(importResult: Record<string, unknown>, cont
     const stats = (importResult.stats as Record<string, unknown>) || {};
     const batchId = importResult.batchId || context.batchId || null;
     const reviewTradeIds = Array.isArray(importResult.reviewTradeIds)
-        ? importResult.reviewTradeIds.slice()
+        ? importResult.reviewTradeIds.slice() as string[]
         : [];
 
     let created = 0;
     let updated = 0;
 
     if (importResult.updates instanceof Map) {
-        importResult.updates.forEach((legs, tradeId) => {
+        importResult.updates.forEach((legs: AnyRecord[], tradeId: string) => {
             if (!Array.isArray(legs) || legs.length === 0) {
                 return;
             }
 
-            const index = this.trades.findIndex((trade) => trade.id === tradeId);
+            const index = this.trades.findIndex((trade: AnyRecord) => trade.id === tradeId);
             if (index === -1) {
                 return;
             }
 
             const existing = this.trades[index];
-            const mergedLegs = [...existing.legs, ...legs.map((leg) => ({ ...leg }))];
+            const mergedLegs = [...existing.legs, ...legs.map((leg: AnyRecord) => ({ ...leg }))];
             const note = this.composeImportNotes(context, {
                 legCount: legs.length,
                 note: 'Existing trade updated from OFX import.'
@@ -523,7 +525,7 @@ export function applyOfxImportResult(importResult: Record<string, unknown>, cont
     }
 
     if (Array.isArray(importResult.newTrades)) {
-        importResult.newTrades.forEach((tradeData) => {
+        importResult.newTrades.forEach((tradeData: AnyRecord) => {
             if (!tradeData || !Array.isArray(tradeData.legs) || tradeData.legs.length === 0) {
                 return;
             }
@@ -547,7 +549,7 @@ export function applyOfxImportResult(importResult: Record<string, unknown>, cont
         this.markUnsavedChanges();
         this.updateDashboard();
 
-        const segments = [];
+        const segments: string[] = [];
         if (created) {
             segments.push(`${created} new trade${created === 1 ? '' : 's'}`);
         }

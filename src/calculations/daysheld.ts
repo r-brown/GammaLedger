@@ -21,12 +21,12 @@ export function calculateDaysHeld(this: DaysHeldContext, trade: EnrichedTrade | 
         return 0;
     }
 
-    const entryDate = this.parseDateValue(trade.entryDate || trade.openedDate);
+    const entryDate = this.parseDateValue(trade.openedDate);
     if (!entryDate) {
         return 0;
     }
 
-    const exitCandidate = this.parseDateValue(trade.exitDate || trade.closedDate);
+    const exitCandidate = this.parseDateValue(trade.closedDate);
     const endDate = (this.isClosedStatus(trade.status) && exitCandidate) ? exitCandidate : this.currentDate;
 
     const diffTime = endDate.getTime() - entryDate.getTime();
@@ -69,4 +69,3 @@ export function calculateDTE(
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return Math.max(0, diffDays);
 }
-

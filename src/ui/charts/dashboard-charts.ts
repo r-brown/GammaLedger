@@ -635,9 +635,9 @@ export function updateMonthlyPLChart(this: DashboardChartsContext): void {
 
     const monthlyData: Record<string, number> = {};
     this.trades
-        .filter(trade => this.isClosedStatus(trade.status) && trade.exitDate)
+        .filter(trade => this.isClosedStatus(trade.status) && trade.closedDate)
         .forEach(trade => {
-            const monthKey = (trade.exitDate as string).substring(0, 7); // YYYY-MM
+            const monthKey = (trade.closedDate as string).substring(0, 7); // YYYY-MM
             if (!monthlyData[monthKey]) {
                 monthlyData[monthKey] = 0;
             }
@@ -857,5 +857,4 @@ export function inferOptionFlavor(trade: TradeRecord = {}): 'call' | 'put' | nul
 
     return null;
 }
-
 

@@ -1,7 +1,34 @@
 // src/payoff/render.js — Wave 6: Payoff chart toggle and rendering.
 // Uses the .call(this, …) delegation pattern.
 
-export function toggleTradePayoffDetail(row, detailRow, trade, chartId, footnoteId) {
+type AnyRecord = Record<string, any>
+
+interface PayoffPoint {
+    x: number
+    y: number
+}
+
+interface PayoffResult {
+    points?: PayoffPoint[]
+    zeroLinePoints?: PayoffPoint[]
+    breakeven?: number | number[] | null
+    maxProfit?: number | null
+    maxLoss?: number | null
+    message?: string
+    [key: string]: any
+}
+
+interface PayoffDataset {
+    id: string
+    label: string
+    data: PayoffPoint[]
+    hidden?: boolean
+    [key: string]: any
+}
+
+declare const Chart: any
+
+export function toggleTradePayoffDetail(this: any, row: HTMLElement | null, detailRow: HTMLElement | null, trade: AnyRecord, chartId: string, footnoteId: string) {
     if (!detailRow) {
         return;
     }
@@ -21,7 +48,7 @@ export function toggleTradePayoffDetail(row, detailRow, trade, chartId, footnote
     if (isOpen) {
         const renderPromise = this.renderTradePayoffChart(trade, chartId, footnoteId);
         if (renderPromise?.catch) {
-            renderPromise.catch(error => {
+            renderPromise.catch((error: unknown) => {
                 console.error('Failed to render payoff chart:', error);
             });
         }
@@ -30,7 +57,7 @@ export function toggleTradePayoffDetail(row, detailRow, trade, chartId, footnote
     }
 }
 
-export function destroyTradePayoffChart(chartId, footnoteId) {
+export function destroyTradePayoffChart(this: any, chartId: string, footnoteId?: string) {
     const existingChart = this.tradeDetailCharts?.get(chartId);
     if (existingChart) {
         try {
@@ -60,7 +87,7 @@ export function destroyTradePayoffChart(chartId, footnoteId) {
     }
 }
 
-export async function renderTradePayoffChart(trade: Record<string, unknown>, chartId: string, footnoteId: string) {
+export async function renderTradePayoffChart(this: any, trade: Record<string, unknown>, chartId: string, footnoteId: string) {
     const canvas = document.getElementById(chartId) as HTMLCanvasElement | null;
     const footnote = document.getElementById(footnoteId);
     const wrapper = canvas?.parentElement;
@@ -80,7 +107,7 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
         footnote.textContent = 'Loading live price and payoff data…';
     }
 
-    const payoff = this.calculatePayoffSeries(trade);
+    const payoff = this.calculatePayoffSeries(trade) as PayoffResult | null;
 
     if (!payoff || !Array.isArray(payoff.points) || payoff.points.length === 0) {
         if (wrapper) {
@@ -115,7 +142,7 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
     const profitFill = 'rgba(34, 197, 94, 0.15)';
     const lossFill = 'rgba(248, 113, 113, 0.15)';
 
-    const yValues = payoff.points.map(point => point.y);
+    const yValues = payoff.points.map((point: PayoffPoint) => point.y);
     let minY = Math.min(...yValues, 0);
     let maxY = Math.max(...yValues, 0);
 
@@ -133,20 +160,20 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
     }
 
     // Prepare positive and negative fill areas extending to entire diagram
-    const xMin = Math.min(...payoff.points.map(p => p.x));
-    const xMax = Math.max(...payoff.points.map(p => p.x));
+    const xMin = Math.min(...payoff.points.map((p: PayoffPoint) => p.x));
+    const xMax = Math.max(...payoff.points.map((p: PayoffPoint) => p.x));
 
-    const positiveArea = [
+    const positiveArea: PayoffPoint[] = [
         { x: xMin, y: 0 },
-        ...payoff.points.map(point => ({
+        ...payoff.points.map((point: PayoffPoint) => ({
             x: point.x,
             y: point.y > 0 ? point.y : 0
         })),
         { x: xMax, y: 0 }
     ];
-    const negativeArea = [
+    const negativeArea: PayoffPoint[] = [
         { x: xMin, y: 0 },
-        ...payoff.points.map(point => ({
+        ...payoff.points.map((point: PayoffPoint) => ({
             x: point.x,
             y: point.y < 0 ? point.y : 0
         })),
@@ -165,7 +192,7 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
 
     const priceLabelPlugin = {
         id: `payoffPriceLineLabel-${chartId}`,
-        afterDatasetsDraw: (chartInstance) => {
+        afterDatasetsDraw: (chartInstance: any) => {
             if (!Number.isFinite(currentPrice)) {
                 return;
             }
@@ -203,7 +230,7 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
         }
     };
 
-    const datasets = [
+    const datasets: PayoffDataset[] = [
         {
             id: 'currentPriceLine',
             label: 'Current Price',
@@ -280,7 +307,7 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
             fill: false,
             order: 2,
             segment: {
-                borderColor: ctx => {
+                borderColor: (ctx: any) => {
                     const y0 = ctx.p0.parsed?.y;
                     const y1 = ctx.p1.parsed?.y;
                     if (y0 >= 0 && y1 >= 0) {
@@ -296,7 +323,7 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
         {
             id: 'zeroLine',
             label: 'Break-even Baseline',
-            data: payoff.zeroLinePoints ?? payoff.points.map(point => ({ x: point.x, y: 0 })),
+            data: payoff.zeroLinePoints ?? payoff.points.map((point: PayoffPoint) => ({ x: point.x, y: 0 })),
             borderColor: 'rgba(71, 85, 105, 0.9)',
             borderDash: [4, 4],
             borderWidth: 2,
@@ -325,12 +352,13 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
         ? payoff.breakeven[0]
         : payoff.breakeven;
 
-    if (Number.isFinite(breakevenValue)) {
+    const breakevenNumber = Number(breakevenValue);
+    if (Number.isFinite(breakevenNumber)) {
         const breakevenIndex = datasets.findIndex(dataset => dataset.id === 'breakevenLine');
         if (breakevenIndex !== -1) {
             datasets[breakevenIndex].data = [
-                { x: breakevenValue, y: minY },
-                { x: breakevenValue, y: maxY }
+                { x: breakevenNumber, y: minY },
+                { x: breakevenNumber, y: maxY }
             ];
             datasets[breakevenIndex].hidden = false;
         }
@@ -380,12 +408,12 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
                         size: 12
                     },
                     callbacks: {
-                        title: (context) => {
+                        title: (context: any[]) => {
                             const price = Number(context[0]?.parsed?.x);
                             if (!Number.isFinite(price)) return '';
                             return `At ${currencyFormatter.format(price)}`;
                         },
-                        label: (context) => {
+                        label: (context: any) => {
                             if (!context.dataset || context.dataset.id !== 'payoffLine') {
                                 return null;
                             }
@@ -418,7 +446,7 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
                         },
                         maxRotation: 0,
                         autoSkipPadding: 20,
-                        callback: (value) => {
+                        callback: (value: string | number) => {
                             const formatted = currencyFormatter.format(Number(value));
                             return formatted.replace('.00', '');
                         }
@@ -442,7 +470,7 @@ export async function renderTradePayoffChart(trade: Record<string, unknown>, cha
                         font: {
                             size: 10
                         },
-                        callback: (value) => {
+                        callback: (value: string | number) => {
                             const formatted = currencyFormatter.format(Number(value));
                             return formatted.replace('.00', '');
                         }

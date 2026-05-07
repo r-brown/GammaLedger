@@ -91,6 +91,7 @@ export const FINNHUB_RATE_LIMIT_STORAGE_KEY: string = APP_CONFIG.STORAGE.FINNHUB
 export const GEMINI_MAX_TOKENS_STORAGE_KEY: string = APP_CONFIG.STORAGE.GEMINI_MAX_TOKENS;
 export const DEFAULT_FINNHUB_RATE_LIMIT = 60 as const;
 export const DEFAULT_GEMINI_MAX_TOKENS = 65536 as const;
+export const CURRENT_STORAGE_VERSION = '2.5' as const;
 
 // ---------------------------------------------------------------------------
 // Runtime field sets — used to strip transient properties before persistence
@@ -137,7 +138,6 @@ export const RUNTIME_TRADE_FIELDS: ReadonlySet<string> = new Set([
     'weeklyROI',
     'monthlyROI',
     'annualizedROI',
-    'tradeReasoning',
     'wheelCoverage',
     'shares',
     'effectiveCostBasis',
@@ -147,10 +147,6 @@ export const RUNTIME_TRADE_FIELDS: ReadonlySet<string> = new Set([
 ]);
 
 export const RUNTIME_LEG_FIELDS: ReadonlySet<string> = new Set([
-    'externalId',
-    'importGroupId',
-    'importSource',
     'importBatchId',
     'tickerSymbol'
 ]);
-

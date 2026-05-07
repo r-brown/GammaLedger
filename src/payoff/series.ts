@@ -1,7 +1,14 @@
 // src/payoff/series.js — Wave 6: Payoff data series calculation.
 // Uses the .call(this, …) delegation pattern.
 
-export function getFallbackUnderlyingPrice(trade: Record<string, unknown> = {}) {
+type AnyRecord = Record<string, any>
+
+interface PayoffPoint {
+    x: number
+    y: number
+}
+
+export function getFallbackUnderlyingPrice(this: any, trade: Record<string, unknown> = {}) {
     const candidates = [
         trade.currentUnderlyingPrice,
         trade.currentPrice,
@@ -23,7 +30,7 @@ export function getFallbackUnderlyingPrice(trade: Record<string, unknown> = {}) 
     return null;
 }
 
-export function calculatePayoffSeries(trade) {
+export function calculatePayoffSeries(this: any, trade: AnyRecord) {
     const model = this.determinePayoffModel(trade);
     if (!model || model.type === 'unsupported') {
         return {
@@ -49,7 +56,7 @@ export function calculatePayoffSeries(trade) {
     }
 }
 
-export function determinePayoffModel(trade) {
+export function determinePayoffModel(this: any, trade: AnyRecord) {
     const strategyRaw = (trade.strategy || '').toString().trim();
     const strategy = strategyRaw.toLowerCase();
     const definedWidth = Number(trade.definedRiskWidth);
@@ -59,8 +66,8 @@ export function determinePayoffModel(trade) {
     }
 
     // Analyze actual legs for multi-leg strategies
-    const legs = Array.isArray(trade.legs) ? trade.legs : [];
-    const activeLegs = legs.filter(leg => {
+    const legs: AnyRecord[] = Array.isArray(trade.legs) ? trade.legs : [];
+    const activeLegs = legs.filter((leg: AnyRecord) => {
         const side = this.getLegSide(leg);
         // Only consider OPEN and ROLL legs (exclude CLOSE)
         return side === 'OPEN' || side === 'ROLL';
@@ -168,7 +175,7 @@ export function determinePayoffModel(trade) {
     };
 }
 
-export function calculateSingleLegSeries(trade, model) {
+export function calculateSingleLegSeries(this: any, trade: AnyRecord, model: AnyRecord) {
     const strike = Number(trade.strikePrice);
     const premium = Number(trade.entryPrice);
     const fees = Number(trade.fees) || 0;
@@ -184,7 +191,7 @@ export function calculateSingleLegSeries(trade, model) {
     const priceRange = this.buildPriceRange({ strikeValues: [strike], spot });
     const multiplier = quantity * 100;
     const steps = 40;
-    const points = [];
+    const points: PayoffPoint[] = [];
 
     for (let i = 0; i <= steps; i++) {
         const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
@@ -199,15 +206,15 @@ export function calculateSingleLegSeries(trade, model) {
         });
     }
 
-    const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+    const zeroLinePoints = points.map((point: PayoffPoint) => ({ x: point.x, y: 0 }));
 
     const breakeven = model.optionType === 'call'
         ? strike + premium
         : strike - premium;
 
     const premiumValue = premium * multiplier;
-    let maxProfit;
-    let maxLoss;
+    let maxProfit: number;
+    let maxLoss: number;
     if (model.direction === 'long') {
         if (model.optionType === 'call') {
             maxProfit = Infinity;
@@ -249,8 +256,8 @@ export function calculateSingleLegSeries(trade, model) {
     };
 }
 
-export function calculateMultiLegSeries(trade, model) {
-    const legs = model.legs || [];
+export function calculateMultiLegSeries(this: any, trade: AnyRecord, model: AnyRecord) {
+    const legs: AnyRecord[] = model.legs || [];
     if (legs.length < 2) {
         return {
             message: 'Multi-leg payoff requires at least 2 active option legs.'
@@ -258,7 +265,7 @@ export function calculateMultiLegSeries(trade, model) {
     }
 
     // Get all strikes to determine price range
-    const strikes = legs.map(leg => leg.strike).filter(s => Number.isFinite(s) && s > 0);
+    const strikes = legs.map((leg: AnyRecord) => leg.strike).filter((s: unknown) => Number.isFinite(s) && Number(s) > 0);
     const spot = Number(trade.stockPriceAtEntry);
     
     if (strikes.length < 2) {
@@ -269,13 +276,13 @@ export function calculateMultiLegSeries(trade, model) {
 
     const priceRange = this.buildPriceRange({ strikeValues: strikes, spot });
     const steps = 40;
-    const points = [];
+    const points: PayoffPoint[] = [];
     
     // Calculate total premium (net debit/credit)
     let totalPremium = 0;
     let totalFees = Number(trade.fees) || 0;
     
-    legs.forEach(leg => {
+    legs.forEach((leg: AnyRecord) => {
         const premium = Number(leg.premium) || 0;
         const quantity = Math.abs(Number(leg.quantity) || 1);
         const multiplier = 100 * quantity;
@@ -292,7 +299,7 @@ export function calculateMultiLegSeries(trade, model) {
         const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
         let payoff = totalPremium - totalFees;
         
-        legs.forEach(leg => {
+        legs.forEach((leg: AnyRecord) => {
             const quantity = Math.abs(Number(leg.quantity) || 1);
             const multiplier = 100 * quantity;
             const intrinsic = this.optionIntrinsic(leg.type.toLowerCase(), price, leg.strike);
@@ -313,7 +320,7 @@ export function calculateMultiLegSeries(trade, model) {
     }
 
     // Find breakeven points (where payoff crosses zero)
-    const breakevens = [];
+    const breakevens: number[] = [];
     for (let i = 1; i < points.length; i++) {
         const prev = points[i - 1];
         const curr = points[i];
@@ -325,10 +332,10 @@ export function calculateMultiLegSeries(trade, model) {
         }
     }
 
-    const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+    const zeroLinePoints = points.map((point: PayoffPoint) => ({ x: point.x, y: 0 }));
     
     // Calculate max profit and max loss
-    const payoffValues = points.map(p => p.y);
+    const payoffValues = points.map((p: PayoffPoint) => p.y);
     const maxProfit = Math.max(...payoffValues);
     
     // Use trade's Max Risk if available, otherwise calculate from payoff curve
@@ -337,7 +344,7 @@ export function calculateMultiLegSeries(trade, model) {
         ? tradeMaxRisk
         : Math.abs(Math.min(...payoffValues, 0));
     
-    const contracts = Math.min(...legs.map(leg => Math.abs(Number(leg.quantity) || 1)));
+    const contracts = Math.min(...legs.map((leg: AnyRecord) => Math.abs(Number(leg.quantity) || 1)));
     const isCredit = totalPremium > 0;
     
     const summary = this.buildPayoffSummary({
@@ -359,7 +366,7 @@ export function calculateMultiLegSeries(trade, model) {
     };
 }
 
-export function calculateVerticalSpreadSeries(trade, model) {
+export function calculateVerticalSpreadSeries(this: any, trade: AnyRecord, model: AnyRecord) {
     const primaryStrike = Number(trade.strikePrice);
     const entryPrice = Number(trade.entryPrice);
     const fees = Number(trade.fees) || 0;
@@ -378,8 +385,8 @@ export function calculateVerticalSpreadSeries(trade, model) {
         };
     }
 
-    let shortStrike;
-    let longStrike;
+    let shortStrike: number;
+    let longStrike: number;
     if (model.optionType === 'call') {
         if (model.orientation === 'short') {
             shortStrike = primaryStrike;
@@ -407,7 +414,7 @@ export function calculateVerticalSpreadSeries(trade, model) {
     const priceRange = this.buildPriceRange({ strikeValues: [shortStrike, longStrike], spot });
     const multiplier = quantity * 100;
     const steps = 40;
-    const points = [];
+    const points: PayoffPoint[] = [];
 
     for (let i = 0; i <= steps; i++) {
         const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
@@ -423,7 +430,7 @@ export function calculateVerticalSpreadSeries(trade, model) {
         });
     }
 
-    const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+    const zeroLinePoints = points.map((point: PayoffPoint) => ({ x: point.x, y: 0 }));
 
     const breakeven = this.calculateSpreadBreakeven({
         model,
@@ -436,8 +443,8 @@ export function calculateVerticalSpreadSeries(trade, model) {
     const widthValue = widthPerShare * multiplier;
     const entryValue = entryPrice * multiplier;
 
-    let maxProfit;
-    let maxLoss;
+    let maxProfit: number;
+    let maxLoss: number;
     if (model.orientation === 'short') {
         maxProfit = Math.max(entryValue - fees, 0);
         maxLoss = Math.max(widthValue - entryValue, 0) + fees;
@@ -471,7 +478,7 @@ export function calculateVerticalSpreadSeries(trade, model) {
     };
 }
 
-export function calculateCoveredCallSeries(trade) {
+export function calculateCoveredCallSeries(this: any, trade: AnyRecord) {
     const strike = Number(trade.strikePrice);
     const premium = Number(trade.entryPrice);
     const stockEntry = Number(trade.stockPriceAtEntry);
@@ -487,7 +494,7 @@ export function calculateCoveredCallSeries(trade) {
     const priceRange = this.buildPriceRange({ strikeValues: [strike, stockEntry], spot: stockEntry });
     const multiplier = quantity * 100;
     const steps = 40;
-    const points = [];
+    const points: PayoffPoint[] = [];
 
     for (let i = 0; i <= steps; i++) {
         const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
@@ -500,7 +507,7 @@ export function calculateCoveredCallSeries(trade) {
         });
     }
 
-    const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+    const zeroLinePoints = points.map((point: PayoffPoint) => ({ x: point.x, y: 0 }));
 
     const breakeven = stockEntry - premium;
     const maxProfit = Math.max(((strike - stockEntry) + premium) * multiplier - fees, 0);
@@ -531,7 +538,7 @@ export function calculateCoveredCallSeries(trade) {
     };
 }
 
-export function calculatePmccSeries(trade, model) {
+export function calculatePmccSeries(this: any, trade: AnyRecord, model: AnyRecord) {
     const baseLeg = model.baseLeg;
     if (!baseLeg) {
         return {
@@ -574,7 +581,7 @@ export function calculatePmccSeries(trade, model) {
     const longMultiplier = baseQuantity * 100;
     const shortMultiplier = shortQuantity > 0 ? shortQuantity * 100 : longMultiplier;
 
-    const points = [];
+    const points: PayoffPoint[] = [];
     for (let i = 0; i <= steps; i++) {
         const price = priceRange.minPrice + ((priceRange.maxPrice - priceRange.minPrice) * i) / steps;
         const longIntrinsic = Math.max(price - baseStrike, 0);
@@ -596,7 +603,7 @@ export function calculatePmccSeries(trade, model) {
         });
     }
 
-    const zeroLinePoints = points.map(point => ({ x: point.x, y: 0 }));
+    const zeroLinePoints = points.map((point: PayoffPoint) => ({ x: point.x, y: 0 }));
 
     const baseCost = (basePremium * longMultiplier) + baseFees;
     let shortCredit = 0;

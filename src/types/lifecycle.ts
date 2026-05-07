@@ -8,9 +8,8 @@ import type { ISODate, ExitReason, LifecycleStatus } from './common'
 /**
  * Detailed lifecycle metadata embedded in every EnrichedTrade.
  *
- * NOTE: In the live code (app.js:3762-3777) `matchedPairs` is initialised as
- * `false` and later overwritten with a numeric count. The TypeScript type
- * uses `number` (initialise to 0) to eliminate the mixed-type footgun.
+ * `matchedPairs` is numeric from initialization through enrichment; lifecycle
+ * boolean flags are required and default to false before leg traversal.
  */
 export interface LifecycleMeta {
   /** Number of matched open/close contract pairs. Initialise to 0. */
@@ -37,17 +36,10 @@ export interface LifecycleMeta {
   /** True if total bought stock > total sold stock across all STOCK legs. */
   hasOpenStockPosition: boolean
 
-  /**
-   * True if a CASH-type leg was encountered (cash-settlement).
-   * Not present in the initialiser object — added during leg traversal.
-   * Declared as required here (default false) for type safety.
-   */
+  /** True if a CASH-type leg was encountered (cash-settlement). */
   hasCashSettlementEvent: boolean
 
-  /**
-   * True if a close / expiry activity was detected after the primary expiration.
-   * Added conditionally; declared required (default false).
-   */
+  /** True if a close / expiry activity was detected after the primary expiration. */
   activityAfterExpiration: boolean
 }
 
@@ -81,4 +73,3 @@ export interface LegLifecycleResult {
   /** Detailed lifecycle flags forwarded to EnrichedTrade.lifecycleMeta. */
   meta: LifecycleMeta
 }
-

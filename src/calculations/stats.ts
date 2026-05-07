@@ -50,6 +50,14 @@ interface StatsContext {
     formatDate(dateString: string): string
 }
 
+function assertPositiveMultiplier(value: unknown, context: string): number {
+    const multiplier = Number(value);
+    if (!Number.isFinite(multiplier) || multiplier <= 0) {
+        throw new Error(`Invalid ${context} multiplier: ${String(value)}`);
+    }
+    return multiplier;
+}
+
 // ---------------------------------------------------------------------------
 // calculateAdvancedStats
 // NOTE: The Stats interface in src/types/stats.ts has minor mismatches with
@@ -142,7 +150,7 @@ export function calculateAdvancedStats(this: StatsContext) {
     let peak = 0;
     let cumulativePL = 0;
 
-    const sortedTrades = [...closedTrades].sort((a, b) => new Date(a.exitDate).getTime() - new Date(b.exitDate).getTime());
+    const sortedTrades = [...closedTrades].sort((a, b) => new Date(a.closedDate).getTime() - new Date(b.closedDate).getTime());
     sortedTrades.forEach(trade => {
         cumulativePL += trade.pl;
         if (cumulativePL > peak) {
@@ -389,7 +397,7 @@ export function calculateAssignmentStats(this: StatsContext, assignedTrades: Enr
         if (stockLegs.length > 0) {
             // Sum shares from ALL stock assignments
             const totalShares = stockLegs.reduce((sum, item) => {
-                const legShares = (item.quantity || 0) * (item.multiplier || 1);
+                const legShares = (item.quantity || 0) * assertPositiveMultiplier(item.multiplier, 'assignment stock leg');
                 return sum + legShares;
             }, 0);
             if (totalShares > 0) {
@@ -412,7 +420,7 @@ export function calculateAssignmentStats(this: StatsContext, assignedTrades: Enr
             let totalShares = 0;
 
             stockLegs.forEach(item => {
-                const legShares = (item.quantity || 0) * (item.multiplier || 1);
+                const legShares = (item.quantity || 0) * assertPositiveMultiplier(item.multiplier, 'assignment stock leg');
                 const premiumPerShare = Number(item.leg.premium);
                 const strikeFromLeg = Number(item.leg.strike);
 
@@ -504,7 +512,7 @@ export function calculateAssignmentStats(this: StatsContext, assignedTrades: Enr
             })
             : null;
 
-        let assignmentDateValue: string | null = trade.exitDate || trade.closedDate || null;
+        let assignmentDateValue: string | null = trade.closedDate || null;
         if (positionType === 'pmcc') {
             const longCallExecution = primaryLongCall?.executionDate;
             if (longCallExecution instanceof Date) {

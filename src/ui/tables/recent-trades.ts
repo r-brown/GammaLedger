@@ -24,7 +24,7 @@ export function updateRecentTradesTable(
     const desiredRowCount = Math.max(Number.isFinite(normalizedActiveCount) ? normalizedActiveCount : 0, 10);
 
     const recentTrades = [...(Array.isArray(closedTrades) ? closedTrades : [])]
-        .sort((a, b) => new Date(b.exitDate as string).getTime() - new Date(a.exitDate as string).getTime())
+        .sort((a, b) => new Date(b.closedDate as string).getTime() - new Date(a.closedDate as string).getTime())
         .slice(0, desiredRowCount);
 
     const tbody = document.querySelector('#recent-trades-table tbody') as HTMLTableSectionElement | null;
@@ -45,7 +45,7 @@ export function updateRecentTradesTable(
             tickerCell.appendChild(tickerLink);
 
             row.insertCell(1).textContent = (trade.strategy as string) || '—';
-            row.insertCell(2).textContent = this.formatDate(trade.exitDate);
+            row.insertCell(2).textContent = this.formatDate(trade.closedDate);
 
             const daysHeldCell = row.insertCell(3);
             const daysHeldValue = Number(trade.daysHeld);
@@ -79,4 +79,3 @@ export function updateRecentTradesTable(
         });
     }
 }
-

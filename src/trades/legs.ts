@@ -18,6 +18,18 @@ interface OpenOptionGroupEntry {
     side: string
 }
 
+function isProvided(value: unknown): boolean {
+    return value !== undefined && value !== null && value !== '';
+}
+
+function assertPositiveMultiplier(value: unknown, context: string): number {
+    const multiplier = Number(value);
+    if (!Number.isFinite(multiplier) || multiplier <= 0) {
+        throw new Error(`Invalid ${context} multiplier: ${String(value)}`);
+    }
+    return multiplier;
+}
+
 /** All this.* dependencies required by legs.ts functions */
 interface LegsContext {
     // Leg order / action helpers (self-referential)
@@ -127,12 +139,11 @@ export function getLegOrderDescriptor(
     this: LegsContext,
     leg: Record<string, unknown> = {}
 ): { action: string; side: string } {
-    const normalizedOrderType = this.normalizeLegOrderType(
-        (leg?.orderType as string) || (leg?.order as string) || (leg?.tradeType as string)
-    );
-    if (normalizedOrderType) {
-        return this.mapOrderTypeToActionSide(normalizedOrderType);
+    const rawOrderType = (leg?.orderType as string) || (leg?.tradeType as string) || (leg?.order as string);
+    if (rawOrderType) {
+        return this.mapOrderTypeToActionSide(this.normalizeLegOrderType(rawOrderType));
     }
+
     const normalizedAction = this.normalizeLegAction(leg?.action);
     const normalizedSide = this.normalizeLegSide(leg?.side);
     if (normalizedAction || normalizedSide) {
@@ -205,9 +216,8 @@ export function getLegMultiplier(
     this: LegsContext,
     leg: Record<string, unknown>
 ): number {
-    const provided = Number(leg?.multiplier);
-    if (Number.isFinite(provided) && provided > 0) {
-        return provided;
+    if (isProvided(leg?.multiplier)) {
+        return assertPositiveMultiplier(leg.multiplier, 'leg');
     }
     const type = this.normalizeLegType(leg?.type);
     if (type === 'STOCK' || type === 'CASH') {
@@ -350,7 +360,7 @@ export function summarizeLegs(
                 summary.openContracts += quantity;
                 summary.openCashFlow += cashFlow;
 
-                const multiplier = this.getLegMultiplier(leg as unknown as Record<string, unknown>) || 1;
+                const multiplier = this.getLegMultiplier(leg as unknown as Record<string, unknown>);
                 const grossPremium = Math.abs(Number(leg.premium) || 0) * multiplier * quantity;
                 if (action === 'SELL') {
                     summary.openCreditGross += grossPremium;
@@ -750,7 +760,7 @@ export function determineTradeLifecycleStatus(
         effectiveClosedDate: null,
         openContractsOverride: undefined,
         meta: {
-            matchedPairs: 0 as unknown as number,
+            matchedPairs: 0,
             unmatchedExposure: 0,
             expirationPassed: false,
             hasRollLegs: false,
@@ -764,7 +774,6 @@ export function determineTradeLifecycleStatus(
     };
 
     if (legs.length === 0) {
-        result.meta.matchedPairs = true as unknown as number;
         return result;
     }
 
@@ -792,7 +801,7 @@ export function determineTradeLifecycleStatus(
 
         // Track stock positions separately — do not add to pairMap.
         if (legType === 'STOCK') {
-            const stockMultiplier = Math.abs(Number(leg.multiplier) || 100);
+            const stockMultiplier = this.getLegMultiplier(leg as unknown as Record<string, unknown>);
             const shares = quantity * stockMultiplier;
             if (orderType === 'BTO') {
                 stockBought += shares;
@@ -874,7 +883,7 @@ export function determineTradeLifecycleStatus(
                     if (!key.startsWith('PUT|')) return;
                     const parts = key.split('|');
                     const keyStrike = parseFloat(parts[1]);
-                    const multiplier = parseInt(parts[3], 10) || 100;
+                    const multiplier = assertPositiveMultiplier(parts[3], 'lifecycle key');
                     if (!Number.isFinite(keyStrike) || Math.abs(keyStrike - strike) > 0.01) return;
                     const unmatched = bucket.shortOpen - bucket.shortClose;
                     if (unmatched <= 0) return;
@@ -892,7 +901,7 @@ export function determineTradeLifecycleStatus(
                 pairMap.forEach((bucket, key) => {
                     if (!key.startsWith(prefix) || sharesRemaining <= 0) return;
                     const parts = key.split('|');
-                    const multiplier = parseInt(parts[3], 10) || 100;
+                    const multiplier = assertPositiveMultiplier(parts[3], 'lifecycle key');
                     const unmatched = bucket.shortOpen - bucket.shortClose;
                     if (unmatched <= 0) return;
                     const assignedContracts = Math.min(unmatched, Math.floor(sharesRemaining / multiplier));
@@ -911,7 +920,7 @@ export function determineTradeLifecycleStatus(
         pairMap.forEach((bucket, key) => {
             if (!key.startsWith('CALL|') || sharesRemaining <= 0) return;
             const parts = key.split('|');
-            const multiplier = parseInt(parts[3], 10) || 100;
+            const multiplier = assertPositiveMultiplier(parts[3], 'lifecycle key');
             const unmatched = bucket.shortOpen - bucket.shortClose;
             if (unmatched <= 0) return;
             const contracts = Math.min(unmatched, Math.floor(sharesRemaining / multiplier));
@@ -923,13 +932,15 @@ export function determineTradeLifecycleStatus(
         });
     }
 
-    let matchedPairs = true;
+    let matchedPairs = 0;
+    let allPairsMatched = true;
     let unmatchedExposure = 0;
 
     pairMap.forEach((bucket) => {
         const longDiff = Math.abs(bucket.longOpen - bucket.longClose);
         const shortDiff = Math.abs(bucket.shortOpen - bucket.shortClose);
-        if (longDiff > 0 || shortDiff > 0) matchedPairs = false;
+        matchedPairs += Math.min(bucket.longOpen, bucket.longClose) + Math.min(bucket.shortOpen, bucket.shortClose);
+        if (longDiff > 0 || shortDiff > 0) allPairsMatched = false;
         unmatchedExposure += longDiff + shortDiff;
     });
 
@@ -944,13 +955,13 @@ export function determineTradeLifecycleStatus(
 
     const lastActivityDate = summary.closedDate instanceof Date
         ? summary.closedDate
-        : this.parseDateValue((trade.closedDate as string) || (trade.exitDate as string));
+        : this.parseDateValue(trade.closedDate as string);
     const activityAfterExpiration = expirationPassed && lastActivityDate && expirationDate
         ? lastActivityDate.getTime() >= expirationDate.getTime()
         : false;
 
     result.meta = {
-        matchedPairs: matchedPairs as unknown as number,
+        matchedPairs,
         unmatchedExposure,
         expirationPassed,
         hasRollLegs,
@@ -977,7 +988,7 @@ export function determineTradeLifecycleStatus(
         return result;
     }
 
-    if (hasAssignmentEvent && !hasOpenStockPosition && stockBought > 0 && stockSold >= stockBought && (matchedPairs || unmatchedExposure === 0)) {
+    if (hasAssignmentEvent && !hasOpenStockPosition && stockBought > 0 && stockSold >= stockBought && (allPairsMatched || unmatchedExposure === 0)) {
         result.status = 'Closed';
         result.exitReason = ((trade.exitReason as string) || 'Assignment resolved') as ExitReason;
         result.openContractsOverride = 0;
@@ -1003,7 +1014,7 @@ export function determineTradeLifecycleStatus(
         return result;
     }
 
-    if (matchedPairs || unmatchedExposure === 0) {
+    if (allPairsMatched || unmatchedExposure === 0) {
         if (hasOpenStockPosition) {
             result.status = 'Open';
             return result;
@@ -1170,8 +1181,10 @@ export function enrichTradeData(
     enriched.maxRiskLabel = riskInfo.maxRiskLabel;
     enriched.riskIsUnlimited = riskInfo.unlimited;
 
-    const openedDate = this.parseDateValue((enriched.openedDate as string) || (enriched.entryDate as string) || legSummary.openedDate);
-    const closedDate = this.parseDateValue((enriched.closedDate as string) || (enriched.exitDate as string) || (legSummary.closeLegs > 0 ? legSummary.closedDate : null));
+    const legacyEntryDate = (enriched as Record<string, unknown>).entryDate as string;
+    const legacyExitDate = (enriched as Record<string, unknown>).exitDate as string;
+    const openedDate = this.parseDateValue((enriched.openedDate as string) || legacyEntryDate || legSummary.openedDate);
+    const closedDate = this.parseDateValue((enriched.closedDate as string) || legacyExitDate || (legSummary.closeLegs > 0 ? legSummary.closedDate : null));
 
     let expirationDate = this.parseDateValue(enriched.expirationDate as string);
     if (!expirationDate && legSummary.latestExpiration) {
@@ -1195,8 +1208,8 @@ export function enrichTradeData(
 
     enriched.openedDate = openedDate ? openedDate.toISOString().slice(0, 10) : '';
     enriched.closedDate = closedDate ? closedDate.toISOString().slice(0, 10) : '';
-    enriched.entryDate = enriched.openedDate;
-    enriched.exitDate = enriched.closedDate;
+    delete (enriched as Record<string, unknown>).entryDate;
+    delete (enriched as Record<string, unknown>).exitDate;
     enriched.expirationDate = expirationDate ? expirationDate.toISOString().slice(0, 10) : '';
 
     enriched.pl = this.calculatePL(enriched);
@@ -1285,7 +1298,7 @@ export function enrichTradeData(
 
     if (lifecycle.effectiveClosedDate) {
         enriched.closedDate = lifecycle.effectiveClosedDate;
-        enriched.exitDate = lifecycle.effectiveClosedDate;
+        delete (enriched as Record<string, unknown>).exitDate;
     }
 
     if (lifecycle.exitReason && !enriched.exitReason) {
@@ -1371,8 +1384,5 @@ export function inferTradeDirection(
     const primaryLeg = this.getPrimaryLeg(trade);
     return this.deriveTradeDirectionFromLeg(primaryLeg);
 }
-
-
-
 
 

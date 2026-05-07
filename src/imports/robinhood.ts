@@ -1,8 +1,10 @@
 // src/imports/robinhood.js — Wave 7: Robinhood CSV import parser.
 // Uses the .call(this, …) delegation pattern.
 
-export function handleRobinhoodCsvFileSelection(event) {
-    const input = event?.target;
+type AnyRecord = Record<string, any>
+
+export function handleRobinhoodCsvFileSelection(this: any, event: Event) {
+    const input = event?.target as HTMLInputElement | null;
     if (!input || !input.files || input.files.length === 0) {
         return;
     }
@@ -15,9 +17,9 @@ export function handleRobinhoodCsvFileSelection(event) {
     }
 
     this.importRobinhoodCsvFile(file, { fileName: file.name || 'Robinhood CSV import' })
-        .catch((error) => {
+        .catch((error: unknown) => {
             console.error('Robinhood CSV import error:', error);
-            const message = error?.message || 'Unknown error';
+            const message = error instanceof Error ? error.message : 'Unknown error';
             this.showNotification(`Failed to import Robinhood CSV: ${message}`, 'error');
             this.appendImportLog({
                 type: 'error',
@@ -30,7 +32,7 @@ export function handleRobinhoodCsvFileSelection(event) {
         });
 }
 
-export function parseRobinhoodCsv(raw) {
+export function parseRobinhoodCsv(this: any, raw: string) {
     if (typeof raw !== 'string') {
         throw new Error('Robinhood CSV payload is invalid.');
     }
@@ -42,18 +44,18 @@ export function parseRobinhoodCsv(raw) {
 
     const headerLine = lines[0];
     const headers = this.parseCsvRow(headerLine);
-    const headerMap = {};
-    headers.forEach((header, index) => {
+    const headerMap: Record<string, number> = {};
+    headers.forEach((header: string, index: number) => {
         headerMap[header.trim()] = index;
     });
 
     const requiredHeaders = ['Activity Date', 'Process Date', 'Description', 'Trans Code', 'Quantity', 'Price', 'Amount'];
-    const missingHeaders = requiredHeaders.filter((h) => headerMap[h] === undefined);
+    const missingHeaders = requiredHeaders.filter((h: string) => headerMap[h] === undefined);
     if (missingHeaders.length > 0) {
         throw new Error(`Invalid Robinhood CSV: missing headers: ${missingHeaders.join(', ')}`);
     }
 
-    const transactions = [];
+    const transactions: AnyRecord[] = [];
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) {
@@ -94,7 +96,7 @@ export function parseRobinhoodCsv(raw) {
     return { transactions };
 }
 
-export function parseRobinhoodTransaction(row) {
+export function parseRobinhoodTransaction(this: any, row: AnyRecord) {
     const { activityDate, processDate, description, transCode, instrument, quantity, price, amount, rowIndex } = row;
 
     const normalizedTransCode = transCode.toString().trim().toUpperCase();
@@ -147,7 +149,7 @@ export function parseRobinhoodTransaction(row) {
     return null;
 }
 
-export function parseRobinhoodOptionTransaction(data) {
+export function parseRobinhoodOptionTransaction(this: any, data: AnyRecord) {
     const {
         activityDate,
         processDate,
@@ -214,7 +216,7 @@ export function parseRobinhoodOptionTransaction(data) {
     };
 }
 
-export function parseRobinhoodStockTransaction(data) {
+export function parseRobinhoodStockTransaction(this: any, data: AnyRecord) {
     const {
         activityDate,
         processDate,
@@ -267,7 +269,7 @@ export function parseRobinhoodStockTransaction(data) {
     };
 }
 
-export function parseRobinhoodAssignedStockTransaction(row) {
+export function parseRobinhoodAssignedStockTransaction(this: any, row: AnyRecord) {
     const { activityDate, processDate, description, instrument, quantity, price, amount, rowIndex } = row;
 
     // Extract number of contracts from description like "2 CRWV Options Assigned"
@@ -312,7 +314,7 @@ export function parseRobinhoodAssignedStockTransaction(row) {
     };
 }
 
-export function parseRobinhoodAssignmentClosingLeg(row) {
+export function parseRobinhoodAssignmentClosingLeg(this: any, row: AnyRecord) {
     const { activityDate, processDate, description, instrument, quantity, rowIndex } = row;
 
     // Reuse the standard option-description regex:
@@ -367,7 +369,7 @@ export function parseRobinhoodAssignmentClosingLeg(row) {
     };
 }
 
-export function mapRobinhoodTransCode(transCode) {
+export function mapRobinhoodTransCode(this: any, transCode: unknown) {
     const normalized = (transCode || '').toString().trim().toUpperCase();
     switch (normalized) {
         case 'BTO':
@@ -387,7 +389,7 @@ export function mapRobinhoodTransCode(transCode) {
     }
 }
 
-export function parseRobinhoodDate(value) {
+export function parseRobinhoodDate(this: any, value: string) {
     if (!value) {
         return null;
     }
@@ -407,7 +409,7 @@ export function parseRobinhoodDate(value) {
     return isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export function normalizeRobinhoodDate(value) {
+export function normalizeRobinhoodDate(this: any, value: unknown) {
     // Returns YYYY-MM-DD without timezone shifts from MM/DD/YYYY or ISO-ish inputs
     if (!value) {
         return '';
@@ -431,7 +433,7 @@ export function normalizeRobinhoodDate(value) {
     return '';
 }
 
-export function parseRobinhoodNumber(value) {
+export function parseRobinhoodNumber(this: any, value: unknown) {
     if (value === null || value === undefined || value === '') {
         return 0;
     }
@@ -445,7 +447,7 @@ export function parseRobinhoodNumber(value) {
     return isNaN(num) ? 0 : num;
 }
 
-export function calculateRobinhoodFees(quantity, premium, total) {
+export function calculateRobinhoodFees(this: any, quantity: number, premium: number, total: number) {
     const expectedTotal = quantity * premium * 100;
     const actualTotal = Math.abs(total);
     const difference = Math.abs(actualTotal - expectedTotal);
@@ -456,13 +458,13 @@ export function calculateRobinhoodFees(quantity, premium, total) {
     return 0;
 }
 
-export function buildRobinhoodImportPayload(parsed: unknown, context: Record<string, unknown> = {}) {
+export function buildRobinhoodImportPayload(this: any, parsed: unknown, context: Record<string, unknown> = {}) {
     const _parsed = parsed as Record<string, unknown> | null;
-    const transactions = Array.isArray(_parsed?.transactions) ? (_parsed!.transactions as unknown[]) : [];
+    const transactions: AnyRecord[] = Array.isArray(_parsed?.transactions) ? (_parsed!.transactions as AnyRecord[]) : [];
     const batchId = context.batchId || null;
-    const updates = new Map();
-    const newTrades = [];
-    const reviewTradeIds = [];
+    const updates = new Map<string, AnyRecord[]>();
+    const newTrades: AnyRecord[] = [];
+    const reviewTradeIds: string[] = [];
 
     const stats = {
         totalTransactions: transactions.length,
@@ -488,11 +490,11 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
     // Build position index from existing trades for matching closing legs
     const positionIndex = this.buildPositionIndex(this.trades);
     const existingExternalIds = this.buildExistingExternalIdSet();
-    const seenExternalIds = new Set();
+    const seenExternalIds = new Set<string>();
 
     // Convert all transactions to legs first
-    const allLegs = [];
-    transactions.forEach((tx) => {
+    const allLegs: AnyRecord[] = [];
+    transactions.forEach((tx: AnyRecord) => {
         const leg = this.buildLegFromRobinhoodTransaction(tx);
         if (!leg) {
             return;
@@ -511,9 +513,9 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
     });
 
     // Separate into opening and closing legs
-    const openingLegs = allLegs.filter((leg) => this.getLegSide(leg) === 'OPEN');
+    const openingLegs = allLegs.filter((leg: AnyRecord) => this.getLegSide(leg) === 'OPEN');
     // Consolidate closing leg split fills (e.g. BTC 2 + BTC 1 → BTC 3)
-    const rawClosingLegs = allLegs.filter((leg) => this.getLegSide(leg) === 'CLOSE');
+    const rawClosingLegs = allLegs.filter((leg: AnyRecord) => this.getLegSide(leg) === 'CLOSE');
     const closingLegs = this.consolidateImportLegs(rawClosingLegs);
 
     stats.openingLegs = openingLegs.length;
@@ -521,8 +523,8 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
 
     // Group opening legs by position signature (ticker + optionType + strike + expiration)
     // This groups split orders into single trades
-    const openingGroups = new Map();
-    openingLegs.forEach((leg) => {
+    const openingGroups = new Map<string, AnyRecord>();
+    openingLegs.forEach((leg: AnyRecord) => {
         const ticker = (leg.tickerSymbol || '').toUpperCase();
         const type = (leg.type || '').toUpperCase();
         const strike = Number(leg.strike) || 0;
@@ -532,14 +534,14 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
         if (!openingGroups.has(positionKey)) {
             openingGroups.set(positionKey, { ticker, legs: [] });
         }
-        openingGroups.get(positionKey).legs.push(leg);
+        openingGroups.get(positionKey)!.legs.push(leg);
     });
 
     // Create trades from opening leg groups and build a new position index for matching closing legs
-    const newPositionIndex = new Map();
-    const pendingTrades = [];
+    const newPositionIndex = new Map<string, AnyRecord[]>();
+    const pendingTrades: AnyRecord[] = [];
 
-    openingGroups.forEach((group, positionKey) => {
+    openingGroups.forEach((group: AnyRecord, positionKey: string) => {
         const ticker = group.ticker;
         const legs = group.legs;
 
@@ -548,11 +550,11 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
 
         const tradeId = `TRD-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
         const strategy = this.inferStrategyFromLegs(consolidatedLegs);
-        const sanitizedLegs = consolidatedLegs.map((leg) => this.sanitizeImportedLeg(leg));
+        const sanitizedLegs = consolidatedLegs.map((leg: AnyRecord) => this.sanitizeImportedLeg(leg));
         const note = this.composeImportNotes(context, { legCount: sanitizedLegs.length });
 
         // Determine status
-        const hasAssignmentLegs = consolidatedLegs.some((leg) => leg.isAssignment);
+        const hasAssignmentLegs = consolidatedLegs.some((leg: AnyRecord) => leg.isAssignment);
         const status = hasAssignmentLegs ? 'Assigned' : 'Open';
 
         const newTrade = {
@@ -568,7 +570,7 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
         pendingTrades.push({ trade: newTrade, consolidatedLegs, ticker });
 
         // Add to new position index for matching closing legs
-        consolidatedLegs.forEach((leg) => {
+        consolidatedLegs.forEach((leg: AnyRecord) => {
             const key = this.buildPositionKey(ticker, leg);
             if (!key) return;
             const quantity = Math.abs(Number(leg.quantity) || 0);
@@ -581,9 +583,9 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
     });
 
     // Match closing legs to existing trades first, then to newly created trades
-    const unmatchedClosingLegs = [];
+    const unmatchedClosingLegs: AnyRecord[] = [];
 
-    closingLegs.forEach((closingLeg) => {
+    closingLegs.forEach((closingLeg: AnyRecord) => {
         const ticker = (closingLeg.tickerSymbol || '').toUpperCase();
         const key = this.buildPositionKey(ticker, closingLeg, { forMatching: true });
         let remainingQty = Math.abs(Number(closingLeg.quantity) || 0);
@@ -592,13 +594,13 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
         const existingMatch = this.consumePositionMatches(positionIndex, key, { ...closingLeg, quantity: remainingQty });
 
         if (existingMatch.matched.length) {
-            existingMatch.matched.forEach((entry) => {
+            existingMatch.matched.forEach((entry: AnyRecord) => {
                 const targetTrade = entry.trade;
                 if (!targetTrade) return;
                 if (this.tradeContainsExternalId(targetTrade, closingLeg.externalId)) return;
 
                 const bucket = updates.get(targetTrade.id) || [];
-                const legClone = { ...closingLeg, quantity: entry.quantity };
+                const legClone: AnyRecord = { ...closingLeg, quantity: entry.quantity };
                 if (batchId) legClone.importBatchId = batchId;
                 bucket.push(this.sanitizeImportedLeg(legClone));
                 updates.set(targetTrade.id, bucket);
@@ -611,12 +613,12 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
         // Then try to match against newly created trades in this import
         if (remainingQty > 0 && newPositionIndex.has(key)) {
             const entries = newPositionIndex.get(key) || [];
-            entries.forEach((entry) => {
+            entries.forEach((entry: AnyRecord) => {
                 if (remainingQty <= 0 || entry.remaining <= 0) return;
                 const matchQty = Math.min(entry.remaining, remainingQty);
 
                 // Add closing leg to the pending trade
-                const legClone = { ...closingLeg, quantity: matchQty };
+                const legClone: AnyRecord = { ...closingLeg, quantity: matchQty };
                 if (batchId) legClone.importBatchId = batchId;
                 entry.trade.legs.push(this.sanitizeImportedLeg(legClone));
 
@@ -626,7 +628,7 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
             });
 
             // Clean up fully consumed entries
-            const filtered = entries.filter((entry) => entry.remaining > 0);
+            const filtered = entries.filter((entry: AnyRecord) => entry.remaining > 0);
             if (filtered.length > 0) {
                 newPositionIndex.set(key, filtered);
             } else {
@@ -636,7 +638,7 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
 
         // Any remaining unmatched quantity goes to review
         if (remainingQty > 0) {
-            const remainder = { ...closingLeg, quantity: remainingQty };
+            const remainder: AnyRecord = { ...closingLeg, quantity: remainingQty };
             if (batchId) remainder.importBatchId = batchId;
             unmatchedClosingLegs.push(remainder);
             stats.unmatchedClosingLegs += remainingQty;
@@ -644,11 +646,11 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
     });
 
     // Finalize pending trades - update status based on whether they're fully closed
-    pendingTrades.forEach(({ trade, consolidatedLegs, ticker }) => {
+    pendingTrades.forEach(({ trade, consolidatedLegs, ticker }: AnyRecord) => {
         // Calculate net open contracts
-        const openQty = consolidatedLegs.reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0);
-        const closeQty = trade.legs.filter((leg) => this.getLegSide(leg) === 'CLOSE')
-            .reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0);
+        const openQty = consolidatedLegs.reduce((sum: number, leg: AnyRecord) => sum + Math.abs(Number(leg.quantity) || 0), 0);
+        const closeQty = trade.legs.filter((leg: AnyRecord) => this.getLegSide(leg) === 'CLOSE')
+            .reduce((sum: number, leg: AnyRecord) => sum + Math.abs(Number(leg.quantity) || 0), 0);
 
         // Update status if all positions are closed
         if (closeQty >= openQty && trade.status !== 'Assigned') {
@@ -670,18 +672,18 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
     // Pass 1: Absorb unmatched OASGN closing legs into stock assignment
     // trades for the same ticker so assignment data stays unified.
     {
-        const absorbed = [];
-        const remaining = [];
-        unmatchedClosingLegs.forEach((leg) => {
+        const absorbed: AnyRecord[] = [];
+        const remaining: AnyRecord[] = [];
+        unmatchedClosingLegs.forEach((leg: AnyRecord) => {
             if (!leg.isAssignment) {
                 remaining.push(leg);
                 return;
             }
             const ticker = (leg.tickerSymbol || '').toUpperCase();
-            const target = newTrades.find((t) => {
+            const target = newTrades.find((t: AnyRecord) => {
                 if ((t.ticker || '').toUpperCase() !== ticker) return false;
                 return (t.legs || []).some(
-                    (tl) => tl.isAssignment && (tl.type || '').toUpperCase() === 'STOCK'
+                    (tl: AnyRecord) => tl.isAssignment && (tl.type || '').toUpperCase() === 'STOCK'
                 );
             });
             if (target) {
@@ -693,7 +695,7 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
         });
         if (absorbed.length) {
             const absorbedQty = absorbed.reduce(
-                (s, l) => s + Math.abs(Number(l.quantity) || 0), 0
+                (s: number, l: AnyRecord) => s + Math.abs(Number(l.quantity) || 0), 0
             );
             stats.matchedClosingLegs += absorbedQty;
             stats.unmatchedClosingLegs = Math.max(0, stats.unmatchedClosingLegs - absorbedQty);
@@ -707,8 +709,8 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
     // a newly created trade are almost certainly roll transactions.
     // Merge them into the new trade so the position shows as "Rolling".
     {
-        const remaining = [];
-        unmatchedClosingLegs.forEach((leg) => {
+        const remaining: AnyRecord[] = [];
+        unmatchedClosingLegs.forEach((leg: AnyRecord) => {
             const ticker = (leg.tickerSymbol || '').toUpperCase();
             const legDate = leg.executionDate || '';
             const legType = (leg.type || '').toUpperCase();
@@ -716,9 +718,9 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
                 remaining.push(leg);
                 return;
             }
-            const target = newTrades.find((t) => {
+            const target = newTrades.find((t: AnyRecord) => {
                 if ((t.ticker || '').toUpperCase() !== ticker) return false;
-                return (t.legs || []).some((tl) => {
+                return (t.legs || []).some((tl: AnyRecord) => {
                     const tlType = (tl.type || '').toUpperCase();
                     const tlDate = tl.executionDate || '';
                     return this.getLegSide(tl) === 'OPEN'
@@ -745,30 +747,30 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
     // Pass 3: Merge stock assignment trades with other same-ticker trades
     // created in this import (e.g. covered calls written on assigned stock).
     {
-        const tickerGroups = new Map();
-        newTrades.forEach((trade, idx) => {
+        const tickerGroups = new Map<string, Array<{ trade: AnyRecord; idx: number }>>();
+        newTrades.forEach((trade: AnyRecord, idx: number) => {
             const tk = (trade.ticker || '').toUpperCase();
             if (!tickerGroups.has(tk)) tickerGroups.set(tk, []);
-            tickerGroups.get(tk).push({ trade, idx });
+            tickerGroups.get(tk)!.push({ trade, idx });
         });
 
         const toRemove = new Set<number>();
-        tickerGroups.forEach((entries) => {
+        tickerGroups.forEach((entries: Array<{ trade: AnyRecord; idx: number }>) => {
             if (entries.length < 2) return;
 
             // Find the anchor: stock assignment trade
-            const anchor = entries.find(({ trade }) =>
+            const anchor = entries.find(({ trade }: { trade: AnyRecord }) =>
                 (trade.legs || []).some(
-                    (l) => l.isAssignment && (l.type || '').toUpperCase() === 'STOCK'
+                    (l: AnyRecord) => l.isAssignment && (l.type || '').toUpperCase() === 'STOCK'
                 )
             );
             if (!anchor) return;
 
-            entries.forEach(({ trade, idx }) => {
+            entries.forEach(({ trade, idx }: { trade: AnyRecord; idx: number }) => {
                 if (trade === anchor.trade) return;
                 if (trade.importReview) return;
                 // Absorb legs into anchor trade
-                (trade.legs || []).forEach((leg) => anchor.trade.legs.push(leg));
+                (trade.legs || []).forEach((leg: AnyRecord) => anchor.trade.legs.push(leg));
                 toRemove.add(idx);
             });
 
@@ -780,27 +782,27 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
         });
 
         // Remove absorbed trades in reverse index order
-        [...toRemove].sort((a, b) => b - a).forEach((i) => newTrades.splice(i, 1));
+        [...toRemove].sort((a: number, b: number) => b - a).forEach((i: number) => newTrades.splice(i, 1));
     }
 
     // Handle unmatched closing legs - create one review trade per ticker
     if (unmatchedClosingLegs.length > 0) {
-        const byTicker = new Map();
-        unmatchedClosingLegs.forEach((leg) => {
+        const byTicker = new Map<string, AnyRecord[]>();
+        unmatchedClosingLegs.forEach((leg: AnyRecord) => {
             const tk = (leg.tickerSymbol || '').toUpperCase() || 'UNKNOWN';
             if (!byTicker.has(tk)) {
                 byTicker.set(tk, []);
             }
-            byTicker.get(tk).push(leg);
+            byTicker.get(tk)!.push(leg);
         });
 
-        byTicker.forEach((legs, tk) => {
+        byTicker.forEach((legs: AnyRecord[], tk: string) => {
             const note = this.composeImportNotes(context, {
                 legCount: legs.length,
                 note: 'Review required: closing legs have no matching open position.'
             });
 
-            const sanitizedLegs = legs.map((leg) => this.sanitizeImportedLeg(leg));
+            const sanitizedLegs = legs.map((leg: AnyRecord) => this.sanitizeImportedLeg(leg));
             const reviewId = `IMP-REVIEW-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
             newTrades.push({
@@ -824,13 +826,13 @@ export function buildRobinhoodImportPayload(parsed: unknown, context: Record<str
     stats.totalTradesCreated = newTrades.length;
     stats.tradesUpdated = updates.size;
     stats.reviewLegs = newTrades
-        .filter((trade) => trade.importReview)
-        .reduce((acc, trade) => acc + ((trade.legs || []).length), 0);
+        .filter((trade: AnyRecord) => trade.importReview)
+        .reduce((acc: number, trade: AnyRecord) => acc + ((trade.legs || []).length), 0);
 
     return { newTrades, updates, stats, batchId, reviewTradeIds };
 }
 
-export function buildLegFromRobinhoodTransaction(transaction) {
+export function buildLegFromRobinhoodTransaction(this: any, transaction: AnyRecord) {
     if (!transaction) {
         return null;
     }
@@ -873,7 +875,7 @@ export function buildLegFromRobinhoodTransaction(transaction) {
     return leg;
 }
 
-export function applyRobinhoodImportResult(importResult: Record<string, unknown>, context: Record<string, unknown> = {}) {
+export function applyRobinhoodImportResult(this: any, importResult: AnyRecord, context: AnyRecord = {}) {
     if (!importResult) {
         return;
     }
@@ -881,25 +883,25 @@ export function applyRobinhoodImportResult(importResult: Record<string, unknown>
     const stats = (importResult.stats as Record<string, unknown>) || {};
     const batchId = importResult.batchId || context.batchId || null;
     const reviewTradeIds = Array.isArray(importResult.reviewTradeIds)
-        ? importResult.reviewTradeIds.slice()
+        ? importResult.reviewTradeIds.slice() as string[]
         : [];
 
     let created = 0;
     let updated = 0;
 
     if (importResult.updates instanceof Map) {
-        importResult.updates.forEach((legs, tradeId) => {
+        importResult.updates.forEach((legs: AnyRecord[], tradeId: string) => {
             if (!Array.isArray(legs) || legs.length === 0) {
                 return;
             }
 
-            const index = this.trades.findIndex((trade) => trade.id === tradeId);
+            const index = this.trades.findIndex((trade: AnyRecord) => trade.id === tradeId);
             if (index === -1) {
                 return;
             }
 
             const existing = this.trades[index];
-            const mergedLegs = [...existing.legs, ...legs.map((leg) => ({ ...leg }))];
+            const mergedLegs = [...existing.legs, ...legs.map((leg: AnyRecord) => ({ ...leg }))];
             const note = this.composeImportNotes(context, {
                 legCount: legs.length,
                 note: 'Existing trade updated from Robinhood CSV import.'
@@ -917,7 +919,7 @@ export function applyRobinhoodImportResult(importResult: Record<string, unknown>
     }
 
     if (Array.isArray(importResult.newTrades)) {
-        importResult.newTrades.forEach((tradeData) => {
+        importResult.newTrades.forEach((tradeData: AnyRecord) => {
             if (!tradeData || !Array.isArray(tradeData.legs) || tradeData.legs.length === 0) {
                 return;
             }
@@ -941,7 +943,7 @@ export function applyRobinhoodImportResult(importResult: Record<string, unknown>
         this.markUnsavedChanges();
         this.updateDashboard();
 
-        const segments = [];
+        const segments: string[] = [];
         if (created) {
             segments.push(`${created} new trade${created === 1 ? '' : 's'}`);
         }

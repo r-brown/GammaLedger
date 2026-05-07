@@ -6,7 +6,60 @@ import {
     FINNHUB_RATE_LIMIT_STORAGE_KEY
 } from '@core/config'
 
-export function initializeFinnhubControls() {
+type AnyRecord = Record<string, any>
+
+interface FinnhubQuotePayload {
+    c: number
+    h: number
+    l: number
+    o: number
+    pc: number
+    t: number
+    d?: number
+    dp?: number
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readFiniteFinnhubNumber(payload: Record<string, unknown>, key: keyof FinnhubQuotePayload): number {
+    const value = Number(payload[key]);
+    if (!Number.isFinite(value)) {
+        throw new Error(`Invalid Finnhub response: ${String(key)} must be a finite number`);
+    }
+    return value;
+}
+
+function parseFinnhubQuotePayload(payload: unknown): FinnhubQuotePayload {
+    if (!isRecord(payload)) {
+        throw new Error('Invalid response from Finnhub');
+    }
+    if (typeof payload.error === 'string') {
+        throw new Error(payload.error);
+    }
+
+    const quote: FinnhubQuotePayload = {
+        c: readFiniteFinnhubNumber(payload, 'c'),
+        h: readFiniteFinnhubNumber(payload, 'h'),
+        l: readFiniteFinnhubNumber(payload, 'l'),
+        o: readFiniteFinnhubNumber(payload, 'o'),
+        pc: readFiniteFinnhubNumber(payload, 'pc'),
+        t: readFiniteFinnhubNumber(payload, 't')
+    };
+    if (payload.d !== undefined && payload.d !== null && payload.d !== '') {
+        quote.d = readFiniteFinnhubNumber(payload, 'd');
+    }
+    if (payload.dp !== undefined && payload.dp !== null && payload.dp !== '') {
+        quote.dp = readFiniteFinnhubNumber(payload, 'dp');
+    }
+    if (quote.c <= 0) {
+        throw new Error('Price unavailable for symbol');
+    }
+    return quote;
+}
+
+export function initializeFinnhubControls(this: any) {
     const container = document.getElementById('finnhub-controls');
     if (!container) {
         return;
@@ -75,7 +128,7 @@ export function initializeFinnhubControls() {
     this.initializeFinnhubRateLimitControls();
 }
 
-export function initializeFinnhubRateLimitControls() {
+export function initializeFinnhubRateLimitControls(this: any) {
     const rateLimitInput = document.getElementById('finnhub-rate-limit') as HTMLInputElement | null;
     const rateSaveButton = document.getElementById('finnhub-rate-save');
     const rateResetButton = document.getElementById('finnhub-rate-reset');
@@ -127,7 +180,7 @@ export function initializeFinnhubRateLimitControls() {
     });
 }
 
-export function updateFinnhubRateStatus(element, message = null, variant = 'neutral') {
+export function updateFinnhubRateStatus(this: any, element: HTMLElement | null, message: string | null = null, variant = 'neutral') {
     if (!element) {
         return;
     }
@@ -154,7 +207,7 @@ export function updateFinnhubRateStatus(element, message = null, variant = 'neut
     }
 }
 
-export function loadFinnhubRateLimitFromStorage() {
+export function loadFinnhubRateLimitFromStorage(this: any) {
     try {
         const stored = localStorage.getItem(FINNHUB_RATE_LIMIT_STORAGE_KEY);
         if (stored !== null) {
@@ -169,7 +222,7 @@ export function loadFinnhubRateLimitFromStorage() {
     return DEFAULT_FINNHUB_RATE_LIMIT;
 }
 
-export function saveFinnhubRateLimitToStorage() {
+export function saveFinnhubRateLimitToStorage(this: any) {
     try {
         if (this.finnhub?.maxRequestsPerMinute) {
             localStorage.setItem(FINNHUB_RATE_LIMIT_STORAGE_KEY, String(this.finnhub.maxRequestsPerMinute));
@@ -179,7 +232,7 @@ export function saveFinnhubRateLimitToStorage() {
     }
 }
 
-export function removeFinnhubRateLimitFromStorage() {
+export function removeFinnhubRateLimitFromStorage(this: any) {
     try {
         localStorage.removeItem(FINNHUB_RATE_LIMIT_STORAGE_KEY);
     } catch (error) {
@@ -187,7 +240,7 @@ export function removeFinnhubRateLimitFromStorage() {
     }
 }
 
-export function updateFinnhubStatus(message, variant = 'neutral', autoClearMs = 0) {
+export function updateFinnhubStatus(this: any, message: string, variant = 'neutral', autoClearMs = 0) {
     const statusEl = this.finnhub?.elements?.status;
     if (!statusEl || !message) {
         return;
@@ -219,7 +272,7 @@ export function updateFinnhubStatus(message, variant = 'neutral', autoClearMs = 
     }
 }
 
-export function setFinnhubApiKey(value, { persist = false, updateUI = true, markUnsaved = false } = {}) {
+export function setFinnhubApiKey(this: any, value: string, { persist = false, updateUI = true, markUnsaved = false } = {}) {
     const sanitized = (value || '').trim();
     if (sanitized === this.finnhub.apiKey) {
         return;
@@ -242,11 +295,11 @@ export function setFinnhubApiKey(value, { persist = false, updateUI = true, mark
     }
 }
 
-export function getFinnhubStorageKey() {
+export function getFinnhubStorageKey(this: any) {
     return 'GammaLedgerFinnhubConfig';
 }
 
-export function saveFinnhubConfigToStorage() {
+export function saveFinnhubConfigToStorage(this: any) {
     try {
         const payload = { apiKey: this.finnhub.apiKey };
         localStorage.setItem(this.getFinnhubStorageKey(), JSON.stringify(payload));
@@ -255,7 +308,7 @@ export function saveFinnhubConfigToStorage() {
     }
 }
 
-export function removeFinnhubConfigFromStorage() {
+export function removeFinnhubConfigFromStorage(this: any) {
     try {
         localStorage.removeItem(this.getFinnhubStorageKey());
     } catch (error) {
@@ -263,11 +316,11 @@ export function removeFinnhubConfigFromStorage() {
     }
 }
 
-export function getFinnhubSecretStorageKey() {
+export function getFinnhubSecretStorageKey(this: any) {
     return 'GammaLedgerFinnhubSecret';
 }
 
-export async function loadFinnhubConfigFromStorage() {
+export async function loadFinnhubConfigFromStorage(this: any) {
     try {
         const raw = localStorage.getItem(this.getFinnhubStorageKey());
         if (!raw) {
@@ -310,7 +363,7 @@ export async function loadFinnhubConfigFromStorage() {
     }
 }
 
-export async function ensureFinnhubEncryptionKey(cryptoApi = this.getCrypto()) {
+export async function ensureFinnhubEncryptionKey(this: any, cryptoApi = this.getCrypto()) {
     if (!cryptoApi?.subtle) {
         return null;
     }
@@ -319,10 +372,10 @@ export async function ensureFinnhubEncryptionKey(cryptoApi = this.getCrypto()) {
         return this.finnhub.encryptionKey;
     }
 
-    let rawKeyB64 = localStorage.getItem(this.getFinnhubSecretStorageKey());
+    let rawKeyB64 = localStorage.getItem(this.getFinnhubSecretStorageKey()) || '';
     if (!rawKeyB64) {
         const raw = cryptoApi.getRandomValues(new Uint8Array(32));
-        rawKeyB64 = this.arrayBufferToBase64(raw.buffer);
+        rawKeyB64 = String(this.arrayBufferToBase64(raw.buffer));
         localStorage.setItem(this.getFinnhubSecretStorageKey(), rawKeyB64);
     }
 
@@ -332,7 +385,7 @@ export async function ensureFinnhubEncryptionKey(cryptoApi = this.getCrypto()) {
     return cryptoKey;
 }
 
-export async function encryptAndStoreFinnhubApiKey(cryptoApi = this.getCrypto()) {
+export async function encryptAndStoreFinnhubApiKey(this: any, cryptoApi = this.getCrypto()) {
     try {
         if (!cryptoApi?.subtle) {
             throw new Error('Web Crypto API unavailable');
@@ -357,7 +410,7 @@ export async function encryptAndStoreFinnhubApiKey(cryptoApi = this.getCrypto())
     }
 }
 
-export async function getCurrentPrice(ticker, { forceRefresh = false } = {}) {
+export async function getCurrentPrice(this: any, ticker: string, { forceRefresh = false }: { forceRefresh?: boolean } = {}) {
     const symbol = (ticker || '').toString().trim().toUpperCase();
     if (!symbol) {
         throw new Error('Invalid symbol');
@@ -382,12 +435,13 @@ export async function getCurrentPrice(ticker, { forceRefresh = false } = {}) {
     }
 
     const request = this.enqueueFinnhubRequest(symbol)
-        .then(result => {
+        .then((result: AnyRecord) => {
             this.setCachedQuote(symbol, result);
             return result;
         })
-        .catch(error => {
-            this.updateFinnhubStatus(error.message || 'Failed to load quote.', 'error', 7000);
+        .catch((error: unknown) => {
+            const message = error instanceof Error ? error.message : 'Failed to load quote.';
+            this.updateFinnhubStatus(message || 'Failed to load quote.', 'error', 7000);
             throw error;
         })
         .finally(() => {
@@ -399,7 +453,7 @@ export async function getCurrentPrice(ticker, { forceRefresh = false } = {}) {
     return request;
 }
 
-export function getQuoteEntryKey(trade) {
+export function getQuoteEntryKey(this: any, trade: AnyRecord) {
     if (!trade || typeof trade !== 'object') {
         return 'unknown';
     }
@@ -410,12 +464,12 @@ export function getQuoteEntryKey(trade) {
     }
 
     const ticker = (trade.ticker || '').toString().trim().toUpperCase();
-    const entryDate = trade.entryDate || '';
+    const entryDate = trade.openedDate || '';
     const strike = trade.strikePrice || '';
     return `fallback:${ticker}|${entryDate}|${strike}`;
 }
 
-export function rebuildQuoteRefreshSchedule() {
+export function rebuildQuoteRefreshSchedule(this: any) {
     if (!(this.activeQuoteEntries instanceof Map)) {
         this.activeQuoteEntries = new Map();
     }
@@ -424,11 +478,11 @@ export function rebuildQuoteRefreshSchedule() {
     // - High priority: no price yet, errors, rate-limited, unavailable
     // - Low priority: has valid price (ready state)
     const priorityGroups = {
-        highPriority: [],
-        lowPriority: []
+        highPriority: [] as string[],
+        lowPriority: [] as string[]
     };
 
-    this.activeQuoteEntries.forEach((entry, key) => {
+    this.activeQuoteEntries.forEach((entry: AnyRecord, key: string) => {
         const state = entry.cell?.dataset?.priceState;
         // High priority: idle, error, loading, refreshing, or no state
         // This includes rate-limited, unavailable, and any other error conditions
@@ -445,7 +499,7 @@ export function rebuildQuoteRefreshSchedule() {
     this.quoteRefreshCursor = 0;
 }
 
-export function startQuoteAutoRefreshIfNeeded() {
+export function startQuoteAutoRefreshIfNeeded(this: any) {
     // Only refresh quotes for the currently active view to reduce API calls
     if (!(this.activeQuoteEntries instanceof Map)) {
         this.activeQuoteEntries = new Map();
@@ -493,7 +547,7 @@ export function startQuoteAutoRefreshIfNeeded() {
         const isCurrentlyCreditPlaybook = this.currentView === 'credit-playbook';
 
         // Build sources list based on current view
-        const sources = [];
+        const sources: Array<{ refresh: () => void }> = [];
 
         if (isCurrentlyDashboard) {
             if (this.activeQuoteEntries.size > 0) {
@@ -519,7 +573,7 @@ export function startQuoteAutoRefreshIfNeeded() {
     }, this.autoRefreshIntervalMs);
 }
 
-export function stopQuoteAutoRefresh() {
+export function stopQuoteAutoRefresh(this: any) {
     if (this.quoteRefreshIntervalId) {
         clearInterval(this.quoteRefreshIntervalId);
         this.quoteRefreshIntervalId = null;
@@ -531,7 +585,7 @@ export function stopQuoteAutoRefresh() {
     }
 }
 
-export function restartQuoteRefreshWithNewRate() {
+export function restartQuoteRefreshWithNewRate(this: any) {
     // Force recalculation of the refresh interval
     this.autoRefreshIntervalMs = this.computeAutoRefreshInterval();
     
@@ -548,7 +602,7 @@ export function restartQuoteRefreshWithNewRate() {
     }
 }
 
-export function refreshActivePositionsQuotes({ force = false, immediate = false } = {}) {
+export function refreshActivePositionsQuotes(this: any, { force = false, immediate = false }: { force?: boolean; immediate?: boolean } = {}) {
     // Process ONE Active Positions quote per call to respect rate limits
     // Called by unified auto-refresh timer that alternates between tables
     if (!(this.activeQuoteEntries instanceof Map) || this.activeQuoteEntries.size === 0) {
@@ -599,7 +653,7 @@ export function refreshActivePositionsQuotes({ force = false, immediate = false 
     }
 }
 
-export function refreshAssignedPositionsQuotes({ force = false, immediate = false } = {}) {
+export function refreshAssignedPositionsQuotes(this: any, { force = false, immediate = false }: { force?: boolean; immediate?: boolean } = {}) {
     // Process ONE Assigned Positions quote per call to respect rate limits
     // Called by unified auto-refresh timer that alternates between tables
     if (!(this.assignedPositionsQuoteEntries instanceof Map) || this.assignedPositionsQuoteEntries.size === 0) {
@@ -607,8 +661,8 @@ export function refreshAssignedPositionsQuotes({ force = false, immediate = fals
     }
 
     // Find one entry to refresh, prioritizing entries without prices or with errors
-    let entryToRefresh = null;
-    let keyToRefresh = null;
+    let entryToRefresh: AnyRecord | null = null;
+    let keyToRefresh: string | null = null;
 
     // First pass: look for high-priority entries (no price yet, errors, rate-limited)
     for (const [key, entry] of this.assignedPositionsQuoteEntries.entries()) {
@@ -651,13 +705,13 @@ export function refreshAssignedPositionsQuotes({ force = false, immediate = fals
         }
 
         this.getCurrentPrice(ticker, { forceRefresh: force })
-            .then(quote => {
+            .then((quote: AnyRecord) => {
                 if (!entryToRefresh.row?.isConnected) {
                     return;
                 }
                 this.updateAssignedPositionMetrics(entryToRefresh, quote);
             })
-            .catch(error => {
+            .catch((_error: unknown) => {
                 if (!entryToRefresh.row?.isConnected) {
                     return;
                 }
@@ -676,7 +730,7 @@ export function refreshAssignedPositionsQuotes({ force = false, immediate = fals
     }
 }
 
-export function refreshCreditPlaybookQuotes({ force = false, immediate = false } = {}) {
+export function refreshCreditPlaybookQuotes(this: any, { force = false, immediate = false }: { force?: boolean; immediate?: boolean } = {}) {
     // Process ONE Credit Playbook quote per call to respect rate limits
     // Called by unified auto-refresh timer that alternates between tables
     if (!(this.creditPlaybookQuoteEntries instanceof Map) || this.creditPlaybookQuoteEntries.size === 0) {
@@ -684,8 +738,8 @@ export function refreshCreditPlaybookQuotes({ force = false, immediate = false }
     }
 
     // Find one entry to refresh, prioritizing by state
-    let entryToRefresh = null;
-    let keyToRefresh = null;
+    let entryToRefresh: AnyRecord | null = null;
+    let keyToRefresh: string | null = null;
 
     // First pass: look for high-priority entries (no price yet, errors, rate-limited, unavailable)
     for (const [key, entry] of this.creditPlaybookQuoteEntries.entries()) {
@@ -732,7 +786,7 @@ export function refreshCreditPlaybookQuotes({ force = false, immediate = false }
     }
 }
 
-export function populateQuoteCell(cell, trade, row, options: { forceRefresh?: boolean; deferNetworkFetch?: boolean; silentIfCached?: boolean; suppressLoadingText?: boolean } = {}) {
+export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: AnyRecord, row: HTMLElement | null, options: { forceRefresh?: boolean; deferNetworkFetch?: boolean; silentIfCached?: boolean; suppressLoadingText?: boolean } = {}) {
     const {
         forceRefresh = false,
         deferNetworkFetch = false,
@@ -777,13 +831,13 @@ export function populateQuoteCell(cell, trade, row, options: { forceRefresh?: bo
     }
 
     this.getCurrentPrice(ticker, { forceRefresh })
-        .then(quote => {
+        .then((quote: AnyRecord) => {
             if (!cell.isConnected) {
                 return;
             }
             this.renderQuoteValue(cell, row, trade, quote);
         })
-        .catch(error => {
+        .catch((error: unknown) => {
             if (!cell.isConnected) {
                 return;
             }
@@ -792,7 +846,7 @@ export function populateQuoteCell(cell, trade, row, options: { forceRefresh?: bo
         });
 }
 
-export function renderQuoteValue(cell, row, trade, quote) {
+export function renderQuoteValue(this: any, cell: HTMLElement | null, row: HTMLElement | null, trade: AnyRecord, quote: AnyRecord) {
     if (!cell) {
         return;
     }
@@ -847,7 +901,7 @@ export function renderQuoteValue(cell, row, trade, quote) {
     this.applyPositionHighlight(row, trade, numeric);
 }
 
-export function getQuoteChangePercent(quote) {
+export function getQuoteChangePercent(this: any, quote: AnyRecord) {
     const percent = Number(quote?.changePercent);
     if (Number.isFinite(percent)) {
         return percent;
@@ -867,7 +921,7 @@ export function getQuoteChangePercent(quote) {
     return null;
 }
 
-export function getQuoteChangeValue(quote) {
+export function getQuoteChangeValue(this: any, quote: AnyRecord) {
     const change = Number(quote?.change);
     if (Number.isFinite(change)) {
         return change;
@@ -882,7 +936,7 @@ export function getQuoteChangeValue(quote) {
     return null;
 }
 
-export function setQuoteCellError(cell, row, trade, message) {
+export function setQuoteCellError(this: any, cell: HTMLElement | null, row: HTMLElement | null, trade: AnyRecord, message: string) {
     if (!cell) {
         return;
     }
@@ -907,8 +961,8 @@ export function setQuoteCellError(cell, row, trade, message) {
     this.applyPositionHighlight(row, trade, null);
 }
 
-export function getQuoteErrorMessage(error) {
-    const message = (error?.message || '').toLowerCase();
+export function getQuoteErrorMessage(this: any, error: unknown) {
+    const message = (error instanceof Error ? error.message : '').toLowerCase();
     if (!message) {
         return 'Unavailable';
     }
@@ -927,7 +981,7 @@ export function getQuoteErrorMessage(error) {
     return 'Unavailable';
 }
 
-export function getCachedQuote(ticker) {
+export function getCachedQuote(this: any, ticker: string) {
     if (!ticker) {
         return null;
     }
@@ -942,7 +996,7 @@ export function getCachedQuote(ticker) {
     return cached;
 }
 
-export function setCachedQuote(ticker, value) {
+export function setCachedQuote(this: any, ticker: string, value: AnyRecord) {
     if (!ticker) {
         return;
     }
@@ -952,7 +1006,7 @@ export function setCachedQuote(ticker, value) {
     });
 }
 
-export function enqueueFinnhubRequest(symbol) {
+export function enqueueFinnhubRequest(this: any, symbol: string) {
     const execute = () => this.performFinnhubFetch(symbol);
     const chain = this.finnhub.rateLimitQueue
         .catch(() => undefined)
@@ -965,14 +1019,14 @@ export function enqueueFinnhubRequest(symbol) {
     return chain;
 }
 
-export async function performFinnhubFetch(symbol) {
+export async function performFinnhubFetch(this: any, symbol: string) {
     await this.enforceFinnhubRateLimit();
 
     const url = new URL('https://finnhub.io/api/v1/quote');
     url.searchParams.set('symbol', symbol);
-    url.searchParams.set('token', this.finnhub.apiKey);
+    url.searchParams.set('token', String(this.finnhub.apiKey || ''));
 
-    let response;
+    let response: Response;
     try {
         response = await fetch(url.toString(), { cache: 'no-store' });
     } catch (error) {
@@ -983,44 +1037,32 @@ export async function performFinnhubFetch(symbol) {
         throw new Error(response.status === 429 ? 'Finnhub rate limit exceeded. Please wait.' : 'Finnhub API error');
     }
 
-    let payload;
+    let payload: unknown;
     try {
         payload = await response.json();
     } catch (error) {
         throw new Error('Invalid response from Finnhub');
     }
 
-    if (payload && typeof payload.error === 'string') {
-        throw new Error(payload.error);
-    }
-
-    const price = Number(payload?.c);
-    if (!Number.isFinite(price)) {
-        throw new Error('Price unavailable for symbol');
-    }
-
-    const change = Number(payload?.d);
-    const changePercent = Number(payload?.dp);
-    const previousClose = Number(payload?.pc);
-    const openPrice = Number(payload?.o);
-    const high = Number(payload?.h);
-    const low = Number(payload?.l);
+    const quote = parseFinnhubQuotePayload(payload);
+    const change = Number(quote.d);
+    const changePercent = Number(quote.dp);
 
     return {
         symbol,
-        price,
+        price: quote.c,
         change: Number.isFinite(change) ? change : null,
         changePercent: Number.isFinite(changePercent) ? changePercent : null,
-        previousClose: Number.isFinite(previousClose) ? previousClose : null,
-        open: Number.isFinite(openPrice) ? openPrice : null,
-        high: Number.isFinite(high) ? high : null,
-        low: Number.isFinite(low) ? low : null,
+        previousClose: quote.pc,
+        open: quote.o,
+        high: quote.h,
+        low: quote.l,
         fetchedAt: new Date().toISOString(),
         currency: 'USD'
     };
 }
 
-export async function enforceFinnhubRateLimit() {
+export async function enforceFinnhubRateLimit(this: any) {
     const windowMs = 60_000;
     const timestamps = this.finnhub.timestamps;
     const maxRequests = this.finnhub.maxRequestsPerMinute;
@@ -1034,7 +1076,7 @@ export async function enforceFinnhubRateLimit() {
     // Enforce rate limit (requests per minute) using sliding window
     if (timestamps.length >= maxRequests) {
         const waitTime = windowMs - (now - timestamps[0]) + 50;
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+        await new Promise<void>((resolve) => setTimeout(resolve, waitTime));
         // Re-clean after waiting
         const afterWait = Date.now();
         while (timestamps.length > 0 && afterWait - timestamps[0] >= windowMs) {

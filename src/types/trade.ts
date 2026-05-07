@@ -62,6 +62,13 @@ export interface Trade {
   notes?: string
 
   /**
+   * Legacy user-entered reasoning field.
+   * Current UI writes notes; storage snapshots preserve this alias if present,
+   * and load/import paths normalize it into notes when notes is absent.
+   */
+  tradeReasoning?: string
+
+  /**
    * User-supplied override of the computed maximum risk in dollars.
    * null means "use the computed value".
    */
@@ -179,13 +186,7 @@ export interface EnrichedTrade extends Trade {
   /** Per-contract average exit premium rounded to 4 decimals. */
   exitPrice: DollarAmount | null
 
-  // ---- Dates (runtime aliases + derived) ----
-
-  /** Alias of openedDate. */
-  entryDate: ISODate | ''
-
-  /** Alias of closedDate. */
-  exitDate: ISODate | ''
+  // ---- Dates (derived runtime fields) ----
 
   /** If PMCC, the nearest upcoming short call expiration. */
   pmccShortExpiration: ISODate | ''
@@ -257,9 +258,6 @@ export interface EnrichedTrade extends Trade {
 
   // ---- Wheel / PMCC runtime fields (stripped on save) ----
 
-  /** User-entered free text explaining the reasoning for the trade. STRIPPED ON SAVE. */
-  tradeReasoning?: string
-
   /**
    * Wheel coverage state. STRIPPED ON SAVE — recomputed on enrichment.
    * null for non-wheel / non-PMCC trades.
@@ -284,4 +282,3 @@ export interface EnrichedTrade extends Trade {
   /** Where the current market price came from. STRIPPED ON SAVE. */
   marketPriceSource?: MarketPriceSource
 }
-

@@ -3,6 +3,8 @@ import type { Trade } from './trade'
 import type { EnrichedTrade } from './trade'
 import type { Stats } from './stats'
 
+export type StorageSchemaVersion = '2.5'
+
 // ---------------------------------------------------------------------------
 // §10 — MCPContext
 // Snapshot embedded in the persisted database payload.
@@ -68,16 +70,16 @@ export interface MCPContext {
 /**
  * Root shape for the GammaLedger database stored in localStorage.
  *
- * NOTE: `version` is the string `'2.5'` in the live codebase, NOT a number.
- * The CLAUDE.md spec assumed numeric versioning — do not change the stored
- * value without a migration step. Type it as `string` for now.
+ * NOTE: `version` is the string literal `'2.5'` in the live codebase, NOT a
+ * number. The CLAUDE.md spec assumed numeric versioning; the current schema
+ * models the persisted value exactly.
  */
 export interface StorageSchema {
   /**
    * Schema version. Currently `'2.5'` as a string literal.
    * Increment when the shape changes and add a migration in src/core/migration.ts.
    */
-  version: string
+  version: StorageSchemaVersion
 
   /** ISO timestamp when this payload was written. */
   exportDate: ISOTimestamp
@@ -91,4 +93,3 @@ export interface StorageSchema {
    */
   mcpContext?: MCPContext
 }
-

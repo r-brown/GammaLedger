@@ -61,20 +61,26 @@ export interface PersistedLeg {
   /** Per-leg underlying type (overrides trade-level when present). */
   underlyingType: UnderlyingType
 
-  // Legacy / import-source aliases — may be present on stored data.
-  // normalizeLeg collapses these into orderType; they are carried for compat.
+  /**
+   * External broker ID for import deduplication.
+   * Persisted when present; absent on manual legs.
+   */
+  externalId?: string | null
+
+  /** Import group identifier for broker/import provenance. */
+  importGroupId?: string | null
+
+  /** Import source (e.g. 'Robinhood', 'OFX'). */
+  importSource?: string | null
+
+  // Legacy action/side fields may be present on imported data.
+  // normalizeLeg collapses them into orderType before persistence.
 
   /** Legacy: raw action; deprecated in favour of orderType. */
   action?: LegAction
 
   /** Legacy: raw side; deprecated in favour of orderType. */
   side?: LegSide
-
-  /** Legacy: Robinhood import alias of orderType. */
-  tradeType?: string
-
-  /** Legacy: hand-entry alias of orderType. */
-  order?: string
 
   /** Marks this leg as an assignment event. */
   isAssignment?: boolean
@@ -130,20 +136,20 @@ export interface NormalizedLeg {
 
   /**
    * External broker ID for the leg.
-   * Populated by the import pipeline; stripped before save (RUNTIME_LEG_FIELDS).
+   * Populated by the import pipeline and persisted for future deduplication.
    * null if empty or absent.
    */
   externalId: string | null
 
   /**
    * Import group identifier.
-   * Populated by the import pipeline; stripped before save.
+   * Populated by the import pipeline and persisted for provenance.
    */
   importGroupId: string | null
 
   /**
    * Import source (e.g. 'robinhood', 'ofx').
-   * Populated by the import pipeline; stripped before save.
+   * Populated by the import pipeline and persisted for provenance.
    */
   importSource: string | null
 

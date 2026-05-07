@@ -11,7 +11,21 @@ import {
     GEMINI_MAX_TOKENS_STORAGE_KEY
 } from '@core/config'
 
-export function initializeGeminiControls() {
+type AnyRecord = Record<string, any>
+type GeminiStatusVariant = 'success' | 'error' | 'neutral'
+
+interface GeminiPendingStatus {
+    message: string
+    variant: GeminiStatusVariant
+    autoClearMs: number
+}
+
+interface GeminiSaveOptions {
+    includeApiKey?: boolean
+    encryptedPayload?: string | null
+}
+
+export function initializeGeminiControls(this: any) {
     const container = document.getElementById('gemini-controls');
     if (!container) {
         return;
@@ -148,7 +162,7 @@ export function initializeGeminiControls() {
     this.flushPendingGeminiStatus();
 }
 
-export function initializeGeminiMaxTokensControls() {
+export function initializeGeminiMaxTokensControls(this: any) {
     const maxTokensInput = document.getElementById('gemini-max-tokens') as HTMLInputElement | null;
     const tokensSaveButton = document.getElementById('gemini-tokens-save');
     const tokensResetButton = document.getElementById('gemini-tokens-reset');
@@ -196,7 +210,7 @@ export function initializeGeminiMaxTokensControls() {
     });
 }
 
-export function updateGeminiTokensStatus(element, message = null, variant = 'neutral') {
+export function updateGeminiTokensStatus(this: any, element: HTMLElement | null, message: string | null = null, variant: GeminiStatusVariant = 'neutral') {
     if (!element) {
         return;
     }
@@ -223,7 +237,7 @@ export function updateGeminiTokensStatus(element, message = null, variant = 'neu
     }
 }
 
-export function syncGeminiControlsFromState({ preserveStatus = true } = {}) {
+export function syncGeminiControlsFromState(this: any, { preserveStatus = true } = {}) {
     const keyInput = this.gemini?.elements?.keyInput;
     const nextValue = this.gemini?.apiKey ? this.gemini.apiKey : '';
 
@@ -250,7 +264,7 @@ export function syncGeminiControlsFromState({ preserveStatus = true } = {}) {
     this.updateAIChatHeader();
 }
 
-export function flushPendingGeminiStatus() {
+export function flushPendingGeminiStatus(this: any) {
     const pending = this.gemini?.pendingStatus;
     if (!pending) {
         return;
@@ -260,9 +274,9 @@ export function flushPendingGeminiStatus() {
     this.gemini.pendingStatus = null;
 }
 
-export function getGeminiModelLabel(model = '') {
+export function getGeminiModelLabel(this: any, model = '') {
     const normalized = (model || '').toLowerCase();
-    const labels = {
+    const labels: Record<string, string> = {
         'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
         'gemini-2.5-flash': 'Gemini 2.5 Flash',
         'gemini-2.5-pro': 'Gemini 2.5 Pro'
@@ -285,12 +299,12 @@ export function getGeminiModelLabel(model = '') {
     return fallback || 'Gemini';
 }
 
-export function getGeminiChatDisplayName() {
+export function getGeminiChatDisplayName(this: any) {
     const label = this.getGeminiModelLabel(this.gemini?.model);
     return label ? label : 'Gemini';
 }
 
-export function updateGeminiStatus(message, variant = 'neutral', autoClearMs = 0) {
+export function updateGeminiStatus(this: any, message: string, variant: GeminiStatusVariant = 'neutral', autoClearMs = 0) {
     const statusEl = this.gemini?.elements?.status;
     if (!statusEl || !message) {
         return;
@@ -323,7 +337,7 @@ export function updateGeminiStatus(message, variant = 'neutral', autoClearMs = 0
     }
 }
 
-export function setGeminiApiKey(value, { persist = false, updateUI = true } = {}) {
+export function setGeminiApiKey(this: any, value: string, { persist = false, updateUI = true }: { persist?: boolean; updateUI?: boolean } = {}) {
     const sanitized = (value || '').trim();
     if (sanitized === this.gemini.apiKey) {
         return;
@@ -340,7 +354,7 @@ export function setGeminiApiKey(value, { persist = false, updateUI = true } = {}
     }
 }
 
-export function setGeminiModel(value) {
+export function setGeminiModel(this: any, value: string) {
     const sanitized = (value || '').trim();
     const nextModel = GEMINI_ALLOWED_MODELS.includes(sanitized)
         ? sanitized
@@ -359,9 +373,9 @@ export function setGeminiModel(value) {
     }
 }
 
-export async function loadGeminiConfigFromStorage() {
+export async function loadGeminiConfigFromStorage(this: any) {
     let loadedApiKey = '';
-    let pendingStatus = null;
+    let pendingStatus: GeminiPendingStatus | null = null;
 
     try {
         const raw = this.safeLocalStorage.getItem(GEMINI_STORAGE_KEY);
@@ -450,7 +464,7 @@ export async function loadGeminiConfigFromStorage() {
     return Boolean(loadedApiKey);
 }
 
-export function saveGeminiConfigToStorage({ includeApiKey = false, encryptedPayload = null } = {}) {
+export function saveGeminiConfigToStorage(this: any, { includeApiKey = false, encryptedPayload = null }: GeminiSaveOptions = {}) {
     try {
         const payload: Record<string, unknown> = {
             model: this.gemini.model
@@ -497,7 +511,7 @@ export function saveGeminiConfigToStorage({ includeApiKey = false, encryptedPayl
     }
 }
 
-export function removeGeminiEncryptionKey() {
+export function removeGeminiEncryptionKey(this: any) {
     try {
         this.safeLocalStorage.removeItem(GEMINI_SECRET_STORAGE_KEY);
         this.gemini.encryptionKey = null;
@@ -506,7 +520,7 @@ export function removeGeminiEncryptionKey() {
     }
 }
 
-export async function ensureGeminiEncryptionKey(cryptoApi = this.getCrypto()) {
+export async function ensureGeminiEncryptionKey(this: any, cryptoApi = this.getCrypto()) {
     if (!cryptoApi?.subtle) {
         return null;
     }
@@ -528,7 +542,7 @@ export async function ensureGeminiEncryptionKey(cryptoApi = this.getCrypto()) {
     return cryptoKey;
 }
 
-export async function encryptAndStoreGeminiApiKey(cryptoApi = this.getCrypto()) {
+export async function encryptAndStoreGeminiApiKey(this: any, cryptoApi = this.getCrypto()) {
     try {
         if (!cryptoApi?.subtle) {
             throw new Error('Web Crypto API unavailable');
@@ -554,7 +568,7 @@ export async function encryptAndStoreGeminiApiKey(cryptoApi = this.getCrypto()) 
     }
 }
 
-export function loadGeminiMaxTokensFromStorage() {
+export function loadGeminiMaxTokensFromStorage(this: any) {
     try {
         const stored = localStorage.getItem(GEMINI_MAX_TOKENS_STORAGE_KEY);
         if (stored !== null) {
@@ -569,7 +583,7 @@ export function loadGeminiMaxTokensFromStorage() {
     return DEFAULT_GEMINI_MAX_TOKENS;
 }
 
-export function saveGeminiMaxTokensToStorage() {
+export function saveGeminiMaxTokensToStorage(this: any) {
     try {
         if (this.gemini?.maxOutputTokens) {
             localStorage.setItem(GEMINI_MAX_TOKENS_STORAGE_KEY, String(this.gemini.maxOutputTokens));
@@ -579,7 +593,7 @@ export function saveGeminiMaxTokensToStorage() {
     }
 }
 
-export function removeGeminiMaxTokensFromStorage() {
+export function removeGeminiMaxTokensFromStorage(this: any) {
     try {
         localStorage.removeItem(GEMINI_MAX_TOKENS_STORAGE_KEY);
     } catch (error) {

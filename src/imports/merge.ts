@@ -1,33 +1,35 @@
 // src/imports/merge.js — Wave 7: Trade merge logic.
 // Uses the .call(this, …) delegation pattern.
 
-export function countMergeableTickerGroups() {
-    const tickerCounts = new Map();
-    this.trades.forEach((trade) => {
+type AnyRecord = Record<string, any>
+
+export function countMergeableTickerGroups(this: any) {
+    const tickerCounts = new Map<string, number>();
+    this.trades.forEach((trade: AnyRecord) => {
         if (!trade) return;
         const ticker = (trade.ticker || '').toUpperCase();
         if (!ticker) return;
         // Only consider imported trades (have importSource on at least one leg)
         const isImported = (trade.legs || []).some(
-            (leg) => leg.importSource || leg.externalId
+            (leg: AnyRecord) => leg.importSource || leg.externalId
         );
         if (!isImported) return;
         tickerCounts.set(ticker, (tickerCounts.get(ticker) || 0) + 1);
     });
     let groups = 0;
-    tickerCounts.forEach((count) => {
+    tickerCounts.forEach((count: number) => {
         if (count >= 2) groups += 1;
     });
     return groups;
 }
 
-export function refreshImportMergeList() {
+export function refreshImportMergeList(this: any) {
     const container = document.getElementById('import-merge-list');
     const hintElement = document.getElementById('import-merge-hint');
     const hintButton = document.getElementById('import-merge-hint-btn');
     const countBadge = document.getElementById('import-merge-count');
     const mergeButton = document.getElementById('import-merge-btn');
-    const reviewTrades = this.getImportReviewTrades();
+    const reviewTrades: AnyRecord[] = this.getImportReviewTrades();
 
     // Also count same-ticker trade groups that could be merged
     const mergeableTickers = this.countMergeableTickerGroups();
@@ -36,8 +38,8 @@ export function refreshImportMergeList() {
     if (!reviewTrades.length) {
         this.importMergeSelection.clear();
     } else {
-        const presentIds = new Set(reviewTrades.map((trade) => trade.id));
-        Array.from(this.importMergeSelection).forEach((id) => {
+        const presentIds = new Set(reviewTrades.map((trade: AnyRecord) => trade.id));
+        Array.from(this.importMergeSelection).forEach((id: unknown) => {
             if (!presentIds.has(id)) {
                 this.importMergeSelection.delete(id);
             }
@@ -92,7 +94,7 @@ export function refreshImportMergeList() {
 
     const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
 
-    container.innerHTML = reviewTrades.map((trade) => {
+    container.innerHTML = reviewTrades.map((trade: AnyRecord) => {
         const isChecked = this.importMergeSelection.has(trade.id);
         const legsCount = Array.isArray(trade.legs) ? trade.legs.length : 0;
         const rawDate = trade.openedDate || trade.entryDate || '';
@@ -151,7 +153,7 @@ export function refreshImportMergeList() {
     this.updateImportMergeButtonState();
 }
 
-export function updateImportMergeButtonState() {
+export function updateImportMergeButtonState(this: any) {
     const mergeButton = document.getElementById('import-merge-btn');
     if (!mergeButton) {
         return;
@@ -164,7 +166,7 @@ export function updateImportMergeButtonState() {
         : 'Merge Selected Trades';
 }
 
-export function resolveMergedExitReason(trades = []) {
+export function resolveMergedExitReason(this: any, trades: AnyRecord[] = []) {
     const reasons = Array.isArray(trades)
         ? trades
             .map((trade) => (trade?.exitReason || '').toString().trim())
@@ -183,7 +185,7 @@ export function resolveMergedExitReason(trades = []) {
     return `${uniqueReasons[0]} (+${uniqueReasons.length - 1} more)`;
 }
 
-export function buildMergedTradeNote(trades = [], prefix = '') {
+export function buildMergedTradeNote(this: any, trades: AnyRecord[] = [], prefix = '') {
     const timestamp = new Date();
     const safePrefix = (prefix || '').toString().trim().replace(/\.*$/, '');
     const prefixText = safePrefix ? `${safePrefix}. ` : '';
@@ -203,9 +205,9 @@ export function buildMergedTradeNote(trades = [], prefix = '') {
     return `${header} ${idLine}\n\n${priorNotes.join('\n\n')}`;
 }
 
-export function createMergedTradeFromTrades(trades: Record<string, unknown>[] = [], options: Record<string, unknown> = {}) {
-    const candidates = Array.isArray(trades)
-        ? trades.filter((trade) => trade && Array.isArray(trade.legs) && trade.legs.length > 0)
+export function createMergedTradeFromTrades(this: any, trades: AnyRecord[] = [], options: AnyRecord = {}) {
+    const candidates: AnyRecord[] = Array.isArray(trades)
+        ? trades.filter((trade: AnyRecord) => trade && Array.isArray(trade.legs) && trade.legs.length > 0)
         : [];
 
     if (candidates.length < 2) {
@@ -214,7 +216,7 @@ export function createMergedTradeFromTrades(trades: Record<string, unknown>[] = 
 
     const tickerSet = new Set(
         candidates
-            .map((trade) => ((trade.ticker as string) || '').toUpperCase())
+            .map((trade: AnyRecord) => ((trade.ticker as string) || '').toUpperCase())
             .filter(Boolean)
     );
 
@@ -222,14 +224,14 @@ export function createMergedTradeFromTrades(trades: Record<string, unknown>[] = 
         throw new Error('Trades must share the same ticker before merging.');
     }
 
-    const mergedLegs = [];
+    const mergedLegs: AnyRecord[] = [];
     let batchId = typeof options.batchId === 'string' ? options.batchId : null;
 
-    candidates.forEach((trade) => {
+    candidates.forEach((trade: AnyRecord) => {
         if (!batchId && trade.importBatchId) {
             batchId = trade.importBatchId as string;
         }
-        ((trade.legs as unknown[]) || []).forEach((leg, index) => {
+        ((trade.legs as AnyRecord[]) || []).forEach((leg: AnyRecord, index: number) => {
             if (!leg) {
                 return;
             }
@@ -250,14 +252,14 @@ export function createMergedTradeFromTrades(trades: Record<string, unknown>[] = 
 
     const idPrefix = options.idPrefix || 'MERGED';
     const mergedId = `${idPrefix}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-    const baseTrade = (options.baseTrade || candidates[0]) as Record<string, unknown>;
+    const baseTrade = (options.baseTrade || candidates[0]) as AnyRecord;
     const ticker = tickerSet.size ? Array.from(tickerSet)[0] : 'UNKNOWN';
 
     const strategyOverride = options.strategyOverride && options.strategyOverride.toString().trim();
     const strategyCandidates = candidates
-        .map((trade) => (trade.strategy || '').toString().trim())
+        .map((trade: AnyRecord) => (trade.strategy || '').toString().trim())
         .filter(Boolean);
-    const preferredStrategy = strategyCandidates.find((value) => value && value !== 'Import Review' && value !== 'Imported Multi-Leg');
+    const preferredStrategy = strategyCandidates.find((value: string) => value && value !== 'Import Review' && value !== 'Imported Multi-Leg');
     const fallbackStrategy = strategyCandidates[0] || 'Imported Multi-Leg';
     const strategy = strategyOverride || preferredStrategy || fallbackStrategy;
 
@@ -281,16 +283,16 @@ export function createMergedTradeFromTrades(trades: Record<string, unknown>[] = 
     return mergedTrade;
 }
 
-export function mergeSelectedImportTrades() {
-    const selectedIds = Array.from(this.importMergeSelection);
+export function mergeSelectedImportTrades(this: any) {
+    const selectedIds = Array.from(this.importMergeSelection) as string[];
     if (selectedIds.length < 2) {
         this.showNotification('Select at least two review trades to merge.', 'info');
         return;
     }
 
     const tradesToMerge = selectedIds
-        .map((id) => this.trades.find((trade) => trade.id === id))
-        .filter(Boolean);
+        .map((id: string) => this.trades.find((trade: AnyRecord) => trade.id === id))
+        .filter((trade: AnyRecord | undefined): trade is AnyRecord => Boolean(trade));
 
     if (tradesToMerge.length < 2) {
         this.showNotification('Unable to locate all selected trades. Refresh the list and try again.', 'error');
@@ -305,23 +307,24 @@ export function mergeSelectedImportTrades() {
             notePrefix: 'Import review merge'
         });
     } catch (error) {
-        this.showNotification(error.message, 'error');
+        const message = error instanceof Error ? error.message : String(error);
+        this.showNotification(message, 'error');
         return;
     }
 
-    const removalSet = new Set(tradesToMerge.map((trade) => trade.id));
-    this.trades = this.trades.filter((trade) => !removalSet.has(trade.id));
+    const removalSet = new Set(tradesToMerge.map((trade: AnyRecord) => trade.id));
+    this.trades = this.trades.filter((trade: AnyRecord) => !removalSet.has(trade.id));
     this.trades.push(mergedTrade);
 
     if (this.importSummary) {
         this.importSummary.mergedTrades = (this.importSummary.mergedTrades || 0) + 1;
         if (Array.isArray(this.importSummary.reviewTradeIds)) {
-            this.importSummary.reviewTradeIds = this.importSummary.reviewTradeIds.filter((id) => !removalSet.has(id));
+            this.importSummary.reviewTradeIds = this.importSummary.reviewTradeIds.filter((id: string) => !removalSet.has(id));
         }
     }
 
     this.importMergeSelection.clear();
-    tradesToMerge.forEach((trade) => this.tradeMergeSelection.delete(trade.id));
+    tradesToMerge.forEach((trade: AnyRecord) => this.tradeMergeSelection.delete(trade.id));
     this.saveToStorage({ fileName: this.currentFileName });
     this.markUnsavedChanges();
     this.updateDashboard();
@@ -342,16 +345,16 @@ export function mergeSelectedImportTrades() {
 this.refreshTradesMergePanelContents();
 }
 
-export function mergeSelectedTradesFromList() {
-    const selectedIds = Array.from(this.tradeMergeSelection);
+export function mergeSelectedTradesFromList(this: any) {
+    const selectedIds = Array.from(this.tradeMergeSelection) as string[];
     if (selectedIds.length < 2) {
         this.showNotification('Select at least two trades to merge.', 'info');
         return;
     }
 
     const tradesToMerge = selectedIds
-        .map((id) => this.trades.find((trade) => trade.id === id))
-        .filter(Boolean);
+        .map((id: string) => this.trades.find((trade: AnyRecord) => trade.id === id))
+        .filter((trade: AnyRecord | undefined): trade is AnyRecord => Boolean(trade));
 
     if (tradesToMerge.length < 2) {
         this.showNotification('Unable to locate all selected trades. Refresh the table and try again.', 'error');
@@ -371,17 +374,17 @@ export function mergeSelectedTradesFromList() {
     }
 
     const ticker = Array.from(tickerSet)[0];
-    const totalLegs = tradesToMerge.reduce((acc, trade) => acc + ((trade.legs || []).length || 0), 0);
-    const statuses = Array.from(new Set(tradesToMerge.map((trade) => this.getDisplayStatus(trade)))).filter(Boolean);
+    const totalLegs = tradesToMerge.reduce((acc: number, trade: AnyRecord) => acc + ((trade.legs || []).length || 0), 0);
+    const statuses = Array.from(new Set(tradesToMerge.map((trade: AnyRecord) => this.getDisplayStatus(trade)))).filter(Boolean);
     const entryDates = tradesToMerge
-        .map((trade) => this.parseDateValue(trade.entryDate || trade.openedDate))
-        .filter((date) => date instanceof Date && !Number.isNaN(date.getTime()))
-        .sort((a, b) => a.getTime() - b.getTime());
+        .map((trade: AnyRecord) => this.parseDateValue(trade.openedDate || trade.entryDate))
+        .filter((date: unknown): date is Date => date instanceof Date && !Number.isNaN(date.getTime()))
+        .sort((a: Date, b: Date) => a.getTime() - b.getTime());
 const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
     const entryRange = entryDates.length
         ? `${dateFormatter.format(entryDates[0])} - ${dateFormatter.format(entryDates[entryDates.length - 1])}`
         : 'N/A';
-    const netOpenContracts = tradesToMerge.reduce((acc, trade) => acc + Math.max(0, Number(trade.openContracts) || 0), 0);
+    const netOpenContracts = tradesToMerge.reduce((acc: number, trade: AnyRecord) => acc + Math.max(0, Number(trade.openContracts) || 0), 0);
 
     const confirmMessage = [
         `Merge ${tradesToMerge.length} trades for ${ticker}?`,
@@ -404,12 +407,13 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
             notePrefix: 'Manual merge'
         });
     } catch (error) {
-        this.showNotification(error.message, 'error');
+        const message = error instanceof Error ? error.message : String(error);
+        this.showNotification(message, 'error');
         return;
     }
 
-    const removalSet = new Set(tradesToMerge.map((trade) => trade.id));
-    this.trades = this.trades.filter((trade) => !removalSet.has(trade.id));
+    const removalSet = new Set(tradesToMerge.map((trade: AnyRecord) => trade.id));
+    this.trades = this.trades.filter((trade: AnyRecord) => !removalSet.has(trade.id));
     this.trades.push(mergedTrade);
 
     if (this.importSummary) {
@@ -432,21 +436,21 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
     this.showNotification(`Merged ${tradesToMerge.length} trades for ${mergedTrade.ticker}.`, 'success');
 }
 
-export function renderTradeMergeSelectionSummary() {
+export function renderTradeMergeSelectionSummary(this: any) {
     const summary = document.getElementById('trades-merge-summary');
     if (!summary) {
         return;
     }
 
-    const selectedIds = Array.from(this.tradeMergeSelection);
+    const selectedIds = Array.from(this.tradeMergeSelection) as string[];
     if (!selectedIds.length) {
         summary.textContent = 'Select two or more trades with the same ticker to enable merging.';
         return;
     }
 
     const selectedTrades = selectedIds
-        .map((id) => this.trades.find((trade) => trade.id === id))
-        .filter(Boolean);
+        .map((id: string) => this.trades.find((trade: AnyRecord) => trade.id === id))
+        .filter((trade: AnyRecord | undefined): trade is AnyRecord => Boolean(trade));
 
     if (!selectedTrades.length) {
         this.tradeMergeSelection.clear();
@@ -454,9 +458,9 @@ export function renderTradeMergeSelectionSummary() {
         return;
     }
 
-    const tickers = Array.from(new Set(selectedTrades.map((trade) => (trade.ticker || '').toUpperCase()).filter(Boolean)));
-    const totalLegs = selectedTrades.reduce((acc, trade) => acc + ((trade.legs || []).length || 0), 0);
-    const statuses = Array.from(new Set(selectedTrades.map((trade) => this.getDisplayStatus(trade)))).filter(Boolean);
+    const tickers = Array.from(new Set(selectedTrades.map((trade: AnyRecord) => (trade.ticker || '').toUpperCase()).filter(Boolean)));
+    const totalLegs = selectedTrades.reduce((acc: number, trade: AnyRecord) => acc + ((trade.legs || []).length || 0), 0);
+    const statuses = Array.from(new Set(selectedTrades.map((trade: AnyRecord) => this.getDisplayStatus(trade)))).filter(Boolean);
     const parts = [
         `<strong>${this.escapeHTML(`${selectedTrades.length} trade${selectedTrades.length === 1 ? '' : 's'} selected`)}</strong>`,
         tickers.length ? `<span>${this.escapeHTML(tickers.length === 1 ? `Ticker: ${tickers[0]}` : `Tickers: ${tickers.join(', ')}`)}</span>` : '',
@@ -471,14 +475,14 @@ export function renderTradeMergeSelectionSummary() {
     summary.innerHTML = parts.filter(Boolean).join(' ');
 }
 
-export function renderTradeMergeGroups(trades = this.currentFilteredTrades) {
+export function renderTradeMergeGroups(this: any, trades: AnyRecord[] = this.currentFilteredTrades) {
     const container = document.getElementById('trades-merge-groups');
     if (!container) {
         return;
     }
 
-    const list = Array.isArray(trades) ? trades : [];
-    const grouped = list.reduce((acc, trade) => {
+    const list: AnyRecord[] = Array.isArray(trades) ? trades : [];
+    const grouped = list.reduce((acc: Map<string, AnyRecord[]>, trade: AnyRecord) => {
         const ticker = (trade.ticker || '').toUpperCase();
         if (!ticker) {
             return acc;
@@ -486,7 +490,7 @@ export function renderTradeMergeGroups(trades = this.currentFilteredTrades) {
         if (!acc.has(ticker)) {
             acc.set(ticker, []);
         }
-        acc.get(ticker).push(trade);
+        acc.get(ticker)!.push(trade);
         return acc;
     }, new Map());
 
@@ -500,9 +504,9 @@ export function renderTradeMergeGroups(trades = this.currentFilteredTrades) {
     }
 
     container.innerHTML = eligible.map(([ticker, tradesForTicker]) => {
-        const selectedCount = tradesForTicker.filter((trade) => this.tradeMergeSelection.has(trade.id)).length;
-        const statuses = Array.from(new Set(tradesForTicker.map((trade) => this.getDisplayStatus(trade)))).filter(Boolean);
-        const legCount = tradesForTicker.reduce((acc, trade) => acc + ((trade.legs || []).length || 0), 0);
+        const selectedCount = tradesForTicker.filter((trade: AnyRecord) => this.tradeMergeSelection.has(trade.id)).length;
+        const statuses = Array.from(new Set(tradesForTicker.map((trade: AnyRecord) => this.getDisplayStatus(trade)))).filter(Boolean);
+        const legCount = tradesForTicker.reduce((acc: number, trade: AnyRecord) => acc + ((trade.legs || []).length || 0), 0);
         const allSelected = selectedCount === tradesForTicker.length;
         const remaining = tradesForTicker.length - selectedCount;
         const buttonLabel = allSelected
@@ -536,12 +540,12 @@ export function renderTradeMergeGroups(trades = this.currentFilteredTrades) {
                 return;
             }
             const tradesForTicker = (Array.isArray(this.currentFilteredTrades) ? this.currentFilteredTrades : [])
-                .filter((trade) => (trade.ticker || '').toUpperCase() === ticker);
+                .filter((trade: AnyRecord) => (trade.ticker || '').toUpperCase() === ticker);
             if (!tradesForTicker.length) {
                 return;
             }
-            const allSelected = tradesForTicker.every((trade) => this.tradeMergeSelection.has(trade.id));
-            tradesForTicker.forEach((trade) => {
+            const allSelected = tradesForTicker.every((trade: AnyRecord) => this.tradeMergeSelection.has(trade.id));
+            tradesForTicker.forEach((trade: AnyRecord) => {
                 if (allSelected) {
                     this.tradeMergeSelection.delete(trade.id);
                 } else {
@@ -554,7 +558,7 @@ export function renderTradeMergeGroups(trades = this.currentFilteredTrades) {
     });
 }
 
-export function updateTradesMergeButtonState() {
+export function updateTradesMergeButtonState(this: any) {
     const mergeButton = document.getElementById('trades-merge-btn') as HTMLButtonElement | null;
     if (!mergeButton) {
         return;
@@ -568,8 +572,8 @@ export function updateTradesMergeButtonState() {
     }
 
     const selectedTrades = Array.from(this.tradeMergeSelection)
-        .map((id) => this.trades.find((trade) => trade.id === id))
-        .filter(Boolean);
+        .map((id: unknown) => this.trades.find((trade: AnyRecord) => trade.id === id))
+        .filter((trade: AnyRecord | undefined): trade is AnyRecord => Boolean(trade));
 
     if (selectedTrades.length < 2) {
         mergeButton.disabled = true;
@@ -578,7 +582,7 @@ export function updateTradesMergeButtonState() {
         return;
     }
 
-    const tickers = new Set(selectedTrades.map((trade) => ((trade as Record<string, unknown>).ticker || '').toString().toUpperCase()).filter(Boolean));
+    const tickers = new Set(selectedTrades.map((trade: AnyRecord) => (trade.ticker || '').toString().toUpperCase()).filter(Boolean));
     if (tickers.size !== 1) {
         mergeButton.disabled = true;
         mergeButton.textContent = 'Merge Selected Trades';
@@ -591,14 +595,14 @@ export function updateTradesMergeButtonState() {
     mergeButton.title = `Merge ${selectedTrades.length} trades for ${Array.from(tickers)[0]}.`;
 }
 
-export function pruneTradeMergeSelection() {
+export function pruneTradeMergeSelection(this: any) {
     if (!(this.tradeMergeSelection instanceof Set) || this.tradeMergeSelection.size === 0) {
         return;
     }
 
-    const existingIds = new Set(this.trades.map((trade) => trade.id));
+    const existingIds = new Set(this.trades.map((trade: AnyRecord) => trade.id));
     let changed = false;
-    this.tradeMergeSelection.forEach((id) => {
+    this.tradeMergeSelection.forEach((id: string) => {
         if (!existingIds.has(id)) {
             this.tradeMergeSelection.delete(id);
             changed = true;

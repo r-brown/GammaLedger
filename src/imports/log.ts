@@ -1,7 +1,9 @@
 // src/imports/log.js — Wave 7: Import log rendering.
 // Uses the .call(this, …) delegation pattern.
 
-export function appendImportLog(entry: Record<string, unknown> = {}) {
+type AnyRecord = Record<string, any>
+
+export function appendImportLog(this: any, entry: Record<string, unknown> = {}) {
     const timestamp = entry.timestamp instanceof Date ? entry.timestamp as Date : new Date();
     const type = (entry.type as string) || 'info';
     const message = (entry.message as string) || '';
@@ -13,7 +15,7 @@ export function appendImportLog(entry: Record<string, unknown> = {}) {
     this.renderImportLog();
 }
 
-export function renderImportLog() {
+export function renderImportLog(this: any) {
     const container = document.getElementById('import-log');
     if (!container) {
         return;
@@ -29,14 +31,14 @@ export function renderImportLog() {
         timeStyle: 'short'
     });
 
-    container.innerHTML = this.importLog.map((entry) => {
+    container.innerHTML = this.importLog.map((entry: AnyRecord) => {
         const timeLabel = formatter.format(entry.timestamp);
         const statusLabel = entry.type === 'error' ? 'Error' : entry.type === 'success' ? 'Success' : 'Info';
         return `<div class="import-log__entry"><strong>${statusLabel} · ${timeLabel}</strong><span>${this.escapeHTML(entry.message)}</span></div>`;
     }).join('');
 }
 
-export function renderImportSummary() {
+export function renderImportSummary(this: any) {
     const container = document.getElementById('import-summary');
     if (!container) {
         return;
@@ -58,7 +60,7 @@ export function renderImportSummary() {
         timeStyle: 'short'
     });
     const timestampLabel = Number.isNaN(timestamp.getTime()) ? '—' : dateFormatter.format(timestamp);
-    const formatValue = (value) => {
+    const formatValue = (value: unknown) => {
         const numeric = Number(value);
         if (Number.isFinite(numeric)) {
             return this.formatNumber(numeric, { decimals: 0, useGrouping: true }) ?? '0';
@@ -96,7 +98,7 @@ export function renderImportSummary() {
             <span title="Imported at">${this.escapeHTML(timestampLabel)}</span>
         </div>
         <div class="import-summary__grid">
-            ${metrics.map((metric) => `
+            ${metrics.map((metric: { label: string; value: unknown }) => `
                 <div class="import-summary__item">
                     <span class="import-summary__value">${this.escapeHTML(formatValue(metric.value))}</span>
                     <span class="import-summary__label">${this.escapeHTML(metric.label)}</span>

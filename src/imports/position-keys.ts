@@ -1,7 +1,19 @@
 // src/imports/position-keys.js — Wave 7: Position key building for trade matching.
 // Uses the .call(this, …) delegation pattern.
 
-export function buildPositionKey(ticker: unknown, leg: Record<string, unknown> | null, options: Record<string, unknown> = {}) {
+type AnyRecord = Record<string, any>
+
+interface PositionMatchEntry {
+    trade: AnyRecord
+    remaining: number
+}
+
+interface PositionMatchResult {
+    matched: Array<{ trade: AnyRecord; quantity: number }>
+    unmatched: number
+}
+
+export function buildPositionKey(this: any, ticker: unknown, leg: AnyRecord | null, options: AnyRecord = {}) {
     if (!leg) {
         return '';
     }
@@ -41,7 +53,7 @@ export function buildPositionKey(ticker: unknown, leg: Record<string, unknown> |
     return [symbol, type, strike || 0, expiration || '', direction].join('|');
 }
 
-export function buildLegFromTransaction(transaction) {
+export function buildLegFromTransaction(this: any, transaction: AnyRecord) {
     if (!transaction) {
         return null;
     }
@@ -72,14 +84,14 @@ export function buildLegFromTransaction(transaction) {
     };
 }
 
-export function consolidateImportLegs(legs = []) {
+export function consolidateImportLegs(this: any, legs: AnyRecord[] = []) {
     if (!Array.isArray(legs) || legs.length <= 1) {
         return legs;
     }
 
     // Group by unique leg signature (same orderType, type, strike, expiration, executionDate)
-    const groups = new Map();
-    legs.forEach((leg) => {
+    const groups = new Map<string, AnyRecord[]>();
+    legs.forEach((leg: AnyRecord) => {
         const key = [
             leg.orderType || '',
             leg.type || '',
@@ -91,12 +103,12 @@ export function consolidateImportLegs(legs = []) {
         if (!groups.has(key)) {
             groups.set(key, []);
         }
-        groups.get(key).push(leg);
+        groups.get(key)!.push(leg);
     });
 
     // Consolidate each group
-    const result = [];
-    groups.forEach((groupLegs) => {
+    const result: AnyRecord[] = [];
+    groups.forEach((groupLegs: AnyRecord[]) => {
         if (groupLegs.length === 1) {
             result.push(groupLegs[0]);
             return;
@@ -106,9 +118,9 @@ export function consolidateImportLegs(legs = []) {
         let totalQty = 0;
         let weightedPremiumSum = 0;
         let totalFees = 0;
-        const externalIds = [];
+        const externalIds: string[] = [];
 
-        groupLegs.forEach((leg) => {
+        groupLegs.forEach((leg: AnyRecord) => {
             const qty = Math.abs(Number(leg.quantity) || 0);
             const premium = Number(leg.premium) || 0;
             const fees = Number(leg.fees) || 0;
@@ -135,7 +147,7 @@ export function consolidateImportLegs(legs = []) {
         }
 
         // Preserve assignment flag if any source leg is an assignment
-        if (!consolidated.isAssignment && groupLegs.some((leg) => leg.isAssignment)) {
+        if (!consolidated.isAssignment && groupLegs.some((leg: AnyRecord) => leg.isAssignment)) {
             consolidated.isAssignment = true;
         }
 
@@ -145,7 +157,7 @@ export function consolidateImportLegs(legs = []) {
     return result;
 }
 
-export function parseOptionContractSymbol(symbol = '') {
+export function parseOptionContractSymbol(this: any, symbol = '') {
     const compact = (symbol || '').toString().replace(/\s+/g, '').toUpperCase();
     const match = compact.match(/^([A-Z]{1,6})(\d{6})([CP])(\d{8})/);
     if (!match) {
@@ -169,16 +181,16 @@ export function parseOptionContractSymbol(symbol = '') {
     };
 }
 
-export function sanitizeExternalLegId(value) {
+export function sanitizeExternalLegId(this: any, value: unknown) {
     if (!value) {
         return '';
     }
     return value.toString().replace(/[^A-Za-z0-9]/g, '');
 }
 
-export function groupTransactionsForImport(transactions = []) {
-    const groups = new Map();
-    transactions.forEach((tx) => {
+export function groupTransactionsForImport(this: any, transactions: AnyRecord[] = []) {
+    const groups = new Map<string, AnyRecord>();
+    transactions.forEach((tx: AnyRecord) => {
         if (!tx || !tx.groupKey) {
             return;
         }
@@ -199,7 +211,7 @@ export function groupTransactionsForImport(transactions = []) {
     return groups;
 }
 
-export function sanitizeImportedLeg(leg) {
+export function sanitizeImportedLeg(this: any, leg: AnyRecord | null) {
     if (!leg) {
         return null;
     }
@@ -208,10 +220,10 @@ export function sanitizeImportedLeg(leg) {
     return clone;
 }
 
-export function buildPositionIndex(trades = []) {
-    const index = new Map();
+export function buildPositionIndex(this: any, trades: AnyRecord[] = []) {
+    const index = new Map<string, PositionMatchEntry[]>();
 
-    trades.forEach((trade) => {
+    trades.forEach((trade: AnyRecord) => {
         if (!trade || !Array.isArray(trade.legs) || trade.legs.length === 0) {
             return;
         }
@@ -221,8 +233,8 @@ export function buildPositionIndex(trades = []) {
             return;
         }
 
-        const aggregates = new Map();
-        trade.legs.forEach((leg) => {
+        const aggregates = new Map<string, number>();
+        trade.legs.forEach((leg: AnyRecord) => {
             if (!leg) {
                 return;
             }
@@ -252,7 +264,7 @@ export function buildPositionIndex(trades = []) {
             aggregates.set(key, current + direction * quantity);
         });
 
-        aggregates.forEach((net, key) => {
+        aggregates.forEach((net: number, key: string) => {
             if (net > 0) {
                 const bucket = index.get(key) || [];
                 bucket.push({ trade, remaining: net });
@@ -264,8 +276,8 @@ export function buildPositionIndex(trades = []) {
     return index;
 }
 
-export function consumePositionMatches(index, key, leg) {
-    const result = { matched: [], unmatched: Math.abs(Number(leg?.quantity) || 0) };
+export function consumePositionMatches(this: any, index: Map<string, PositionMatchEntry[]>, key: string, leg: AnyRecord | null): PositionMatchResult {
+    const result: PositionMatchResult = { matched: [], unmatched: Math.abs(Number(leg?.quantity) || 0) };
     if (!key || !index.has(key) || !leg) {
         return result;
     }
@@ -273,7 +285,7 @@ export function consumePositionMatches(index, key, leg) {
     let remaining = result.unmatched;
     const entries = index.get(key) || [];
 
-    entries.forEach((entry) => {
+    entries.forEach((entry: PositionMatchEntry) => {
         if (remaining <= 0 || entry.remaining <= 0) {
             return;
         }
@@ -285,7 +297,7 @@ export function consumePositionMatches(index, key, leg) {
 
     result.unmatched = remaining;
 
-    const filtered = entries.filter((entry) => entry.remaining > 0);
+    const filtered = entries.filter((entry: PositionMatchEntry) => entry.remaining > 0);
     if (filtered.length > 0) {
         index.set(key, filtered);
     } else {
@@ -295,13 +307,13 @@ export function consumePositionMatches(index, key, leg) {
     return result;
 }
 
-export function buildExistingExternalIdSet() {
-    const ids = new Set();
-    this.trades.forEach((trade) => {
+export function buildExistingExternalIdSet(this: any) {
+    const ids = new Set<string>();
+    this.trades.forEach((trade: AnyRecord) => {
         if (!trade || !Array.isArray(trade.legs)) {
             return;
         }
-        trade.legs.forEach((leg) => {
+        trade.legs.forEach((leg: AnyRecord) => {
             if (leg?.externalId) {
                 ids.add(leg.externalId);
             }
@@ -310,35 +322,35 @@ export function buildExistingExternalIdSet() {
     return ids;
 }
 
-export function tradeContainsExternalId(trade, externalId) {
+export function tradeContainsExternalId(this: any, trade: AnyRecord, externalId: string) {
     if (!externalId || !trade || !Array.isArray(trade.legs)) {
         return false;
     }
-    return trade.legs.some((leg) => leg?.externalId && leg.externalId === externalId);
+    return trade.legs.some((leg: AnyRecord) => leg?.externalId && leg.externalId === externalId);
 }
 
-export function inferStrategyFromLegs(legs = []) {
+export function inferStrategyFromLegs(this: any, legs: AnyRecord[] = []) {
     if (!Array.isArray(legs) || legs.length === 0) {
         return 'Imported Trade';
     }
 
     // Check if any leg is a stock assignment (from put assignment)
-    const hasAssignment = legs.some((leg) => leg.isAssignment === true);
+    const hasAssignment = legs.some((leg: AnyRecord) => leg.isAssignment === true);
 
-    const openLegs = legs.filter((leg) => this.getLegSide(leg) === 'OPEN');
+    const openLegs = legs.filter((leg: AnyRecord) => this.getLegSide(leg) === 'OPEN');
     // Exclude CASH settlement legs from strategy inference — they record the
     // settlement payment, not an independent position type.
-    const filterForStrategy = (legList) => legList.filter((leg) => this.normalizeLegType(leg?.type) !== 'CASH');
+    const filterForStrategy = (legList: AnyRecord[]) => legList.filter((leg: AnyRecord) => this.normalizeLegType(leg?.type) !== 'CASH');
     const relevant = filterForStrategy(openLegs.length ? openLegs : legs);
 
     // Check for Wheel: stock leg (usually from assignment) + option legs (covered calls)
-    const stockLegs = relevant.filter((leg) => (leg.type || '').toUpperCase() === 'STOCK');
-    const callLegs = relevant.filter((leg) => (leg.type || '').toUpperCase() === 'CALL');
-    const putLegs = relevant.filter((leg) => (leg.type || '').toUpperCase() === 'PUT');
+    const stockLegs = relevant.filter((leg: AnyRecord) => (leg.type || '').toUpperCase() === 'STOCK');
+    const callLegs = relevant.filter((leg: AnyRecord) => (leg.type || '').toUpperCase() === 'CALL');
+    const putLegs = relevant.filter((leg: AnyRecord) => (leg.type || '').toUpperCase() === 'PUT');
     
     // Wheel: stock + covered calls (STO CALL), or stock from assignment
     if (stockLegs.length > 0) {
-        const hasShortCalls = callLegs.some((leg) => this.getLegAction(leg) === 'SELL');
+        const hasShortCalls = callLegs.some((leg: AnyRecord) => this.getLegAction(leg) === 'SELL');
         if (hasAssignment || hasShortCalls) {
             return 'Wheel';
         }
@@ -364,13 +376,13 @@ export function inferStrategyFromLegs(legs = []) {
         }
     }
 
-    const optionLegs = relevant.filter((leg) => leg.type === 'PUT' || leg.type === 'CALL');
+    const optionLegs = relevant.filter((leg: AnyRecord) => leg.type === 'PUT' || leg.type === 'CALL');
     if (optionLegs.length === 2) {
         const [first, second] = optionLegs;
         if (first && second && first.type === second.type) {
-            const shortLeg = optionLegs.find((leg) => this.getLegAction(leg) === 'SELL');
+            const shortLeg = optionLegs.find((leg: AnyRecord) => this.getLegAction(leg) === 'SELL');
             if (shortLeg) {
-                const longLeg = optionLegs.find((leg) => leg !== shortLeg);
+                const longLeg = optionLegs.find((leg: AnyRecord) => leg !== shortLeg);
                 if (longLeg) {
                     const shortStrike = Number(shortLeg.strike) || 0;
                     const longStrike = Number(longLeg.strike) || 0;
@@ -386,12 +398,12 @@ export function inferStrategyFromLegs(legs = []) {
     return 'Imported Multi-Leg';
 }
 
-export function composeImportNotes(context: Record<string, unknown> = {}, options: Record<string, unknown> = {}) {
+export function composeImportNotes(this: any, context: AnyRecord = {}, options: AnyRecord = {}) {
 const fileName = context.fileName || 'OFX file';
 const timestamp = new Date();
 const dateLabel = timestamp.toLocaleDateString('en-US', { dateStyle: 'medium' });
 const timeLabel = timestamp.toLocaleTimeString('en-US', { timeStyle: 'short' });
-const parts = [`Imported from ${fileName} on ${dateLabel} at ${timeLabel}.`];
+const parts: string[] = [`Imported from ${fileName} on ${dateLabel} at ${timeLabel}.`];
 
     if (options.legCount) {
         parts.push(`${options.legCount} leg${options.legCount === 1 ? '' : 's'} detected.`);

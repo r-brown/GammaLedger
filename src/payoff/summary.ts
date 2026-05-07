@@ -1,8 +1,19 @@
 // src/payoff/summary.js — Wave 6: Payoff summary and footnote builders.
 // Uses the .call(this, …) delegation pattern.
 
-export function buildPayoffSummary({ profileLabel, breakeven, maxProfit, maxLoss, contracts, isCredit = false }) {
-    const parts = [];
+type AnyRecord = Record<string, any>
+
+interface PayoffSummaryInput {
+    profileLabel?: string
+    breakeven?: number | number[] | null
+    maxProfit?: number | null
+    maxLoss?: number | null
+    contracts?: number | null
+    isCredit?: boolean
+}
+
+export function buildPayoffSummary(this: any, { profileLabel, breakeven, maxProfit, maxLoss, contracts, isCredit = false }: PayoffSummaryInput) {
+    const parts: string[] = [];
     if (profileLabel) {
         parts.push(profileLabel);
     }
@@ -25,17 +36,19 @@ export function buildPayoffSummary({ profileLabel, breakeven, maxProfit, maxLoss
     return parts.join(' • ') || 'Payoff preview unavailable.';
 }
 
-export function formatPayoffFooter(payoff, formatter) {
-    const formatValue = (value) => {
+export function formatPayoffFooter(this: any, payoff: AnyRecord, formatter: Intl.NumberFormat) {
+    const formatValue = (value: unknown) => {
         if (value === Infinity || value === -Infinity) {
             return 'Unlimited';
         }
         if (Array.isArray(value)) {
-            const formatted = value.filter(v => Number.isFinite(v)).map(v => formatter.format(v));
+            const formatted = value
+                .filter((v: unknown): v is number => Number.isFinite(v))
+                .map((v: number) => formatter.format(v));
             return formatted.length > 0 ? formatted.join(', ') : '—';
         }
         if (Number.isFinite(value)) {
-            return formatter.format(value);
+            return formatter.format(Number(value));
         }
         return '—';
     };
@@ -47,7 +60,7 @@ export function formatPayoffFooter(payoff, formatter) {
     return [maxProfitText, maxLossText, breakevenText].join(' • ');
 }
 
-export function getTradePayoffMeta(trade) {
+export function getTradePayoffMeta(this: any, trade: AnyRecord) {
     const strategy = (trade.strategy || 'Unspecified strategy').toString();
     const tradeType = this.getTradeType(trade) || '—';
     const status = this.getDisplayStatus(trade);

@@ -149,7 +149,6 @@ gammaledger/
 │   ├── gammaledger-logo-32x32.png
 │   └── gammaledger-logo-64x64.png
 │
-├── assets/img/             ← Marketing assets (not served by Vite)
 ├── docs/refactor/          ← Refactor analysis docs (phase1, phase2)
 ├── tests/                  ← Reference JSON fixtures and OFX samples
 └── mcp/                    ← MCP server (Python, separate from the browser app)

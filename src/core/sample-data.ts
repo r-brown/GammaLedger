@@ -1,4 +1,5 @@
 // Static demo dataset injected on first run when no database is loaded.
+import { CURRENT_STORAGE_VERSION } from '@core/config'
 
 export const BUILTIN_SAMPLE_DATA = (() => {
     const reference = new Date();
@@ -1215,6 +1216,6 @@ export const BUILTIN_SAMPLE_DATA = (() => {
     return {
         trades,
         exportDate: reference.toISOString(),
-        version: '3.1'
+        version: CURRENT_STORAGE_VERSION
     };
 })();

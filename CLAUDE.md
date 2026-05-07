@@ -1,718 +1,330 @@
-# GammaLedger — Claude Code Instructions (Phase 2)
+# GammaLedger — Claude Code Context
 
-## Project Context
+## Project Overview
 
-GammaLedger is a **local-only, privacy-first, open-source** options portfolio tracker.
-It runs entirely in the browser with no backend. All data lives in `localStorage`.
+GammaLedger is a **privacy-first, local-first options trading journal and analytics dashboard**. It is a single-page web application (SPA) built with **pure vanilla JavaScript, HTML, and CSS** — no frameworks, no build system, no npm.
 
-Phase 1 is complete: the codebase is now split into ES modules under `src/`, built with Vite.
-The module structure is:
+- **Live app**: https://gammaledger.com
+- **GitHub**: https://github.com/r-brown/GammaLedger
+- **License**: AGPLv3 (commercial license available separately)
+
+## Running the App
+
+No build step. Open `src/index.html` directly in a browser:
+
+```bash
+# Chrome / Edge / Firefox — just open the file
+open src/index.html
+```
+
+Supported browsers: Chrome, Edge, Firefox (modern versions). Chrome/Edge required for the File System Access API (save/load `.json` database files directly).
+
+## Repository Structure
 
 ```
 src/
-  core/         config.js, state.js, storage.js
-  trades/       positions.js, wheel.js, pmcc.js, spreads.js
-  calculations/ pnl.js, costbasis.js, greeks.js, formatting.js
-  ui/           tables.js, charts.js, modals.js, filters.js, toasts.js
-  utils/        dates.js, dom.js, export.js, import.js
-  styles/       base.css, layout.css, tables.css, ...
-  index.js
+  app.js        # ~21 000 lines — all application logic (single file)
+  index.html    # ~1 000 lines — SPA shell; all views defined here
+  style.css     # ~4 700 lines — full design system with light/dark tokens
+mcp/            # GammaLedger MCP server (Python, uv-managed)
+  pyproject.toml
+  src/
+    gammaledger_mcp/
+      server.py   # FastMCP server — tools, resources, prompts
+      database.py # Lazy JSON DB reader with mtime auto-reload
+      prompts/    # Registered MCP prompt templates
+  tests/
+assets/
+  img/          # Marketing and screenshot images
+blog/           # Blog content
+CONTRIBUTING.md
+README.md
 ```
 
----
+### MCP server (`mcp/`)
 
-## Phase 2 Goal
+The `mcp/` subdirectory contains a standalone Python package (`gammaledger-mcp`) that exposes the GammaLedger database as an MCP server for AI clients (Claude Desktop, Claude Code, etc.).
 
-Add **TypeScript** to the codebase for type safety, IDE support, and long-term correctness.
-Priority is the **financial calculation and data model layers** — these carry the highest risk
-of silent bugs from wrong types (e.g. string vs number for P&L, wrong date format, missing fields).
+- **Language**: Python ≥ 3.10, managed with `uv`
+- **Build backend**: `setuptools` + `setuptools-scm` (VCS versioning); `package_dir` maps `src/` → `gammaledger_mcp` in the wheel
+- **Entry point**: `gammaledger_mcp.server:main` (console script `gammaledger-mcp`)
+- **Dev workflow** (run from `mcp/`):
+  ```bash
+  uv sync --all-extras
+  uv run python -m pytest
+  uv run python -m ruff check src tests
+  uv run mcp dev src/gammaledger_mcp/server.py
+  ```
+- Do **not** edit files under `mcp/src/` directly above the `gammaledger_mcp/` package directory.
+- The `mcp/` folder retains its own git history (nested repo); treat it accordingly when committing.
 
-This is an **incremental migration**. JS and TS files coexist throughout.
-The app must work correctly after every step. No feature changes.
+#### MCP Tools
 
----
+| Tool | Description |
+|---|---|
+| `gammaledger_database_info` | Metadata: file path, schema version, export date, trade count, mcpContext presence |
+| `gammaledger_portfolio_summary` | Full portfolio snapshot — counts, P&L, Sharpe/Sortino, drawdown, streaks |
+| `gammaledger_pl_breakdown` | Time-windowed P&L: total, realized, unrealized, YTD, MTD, 7d/30d/90d/1y |
+| `gammaledger_open_positions` | Active positions with filters (ticker, strategy, dte_max, underwater_only) |
+| `gammaledger_position` | Full leg-level detail for a single trade by ID |
+| `gammaledger_wheel_pmcc_positions` | Wheel/PMCC tracker: cost basis, premium history, coverage status |
+| `gammaledger_recent_closed_trades` | Most recently closed trades (sorted by close date) |
+| `gammaledger_strategy_breakdown` | Per-strategy stats: counts, wins, P&L, win rate |
+| `gammaledger_ticker_exposure` | Per-ticker performance sorted by absolute P&L |
+| `gammaledger_underlying_breakdown` | Breakdown by instrument type (Stock/ETF/Index/Future) |
+| `gammaledger_concentration_risk` | Top positions by capital at risk and share of total collateral |
+| `gammaledger_expiring_positions` | Positions expiring within N days, sorted by DTE |
+| `gammaledger_audit_risk` | Comprehensive risk audit: concentration, drawdown, expiring, underwater, Wheel/PMCC gaps |
+| `gammaledger_audit_wheel_pmcc` | Wheel/PMCC audit: coverage gaps, cost-basis vs strike, premium effectiveness |
+| `gammaledger_search_trades` | Search all trades (open, closed, expired, assigned) with filters |
 
-## Constraints — Read Before Acting
+#### MCP Resources
 
-- **Do not change any business logic** — add types to existing code, do not rewrite it
-- **Do not introduce UI frameworks** (React, Vue, etc.)
-- **Do not change the localStorage schema** — existing user data must survive migration
-- **Do not rename public API functions** — external callers (e.g. `index.js`) must not break
-- **Do not enable `strict: true` globally at the start** — tighten incrementally per module
-- **Commit after each file is converted** — bisectable history is mandatory
-- **All existing functionality must work after every step** — run the smoke test checklist
+| URI | Description |
+|---|---|
+| `gammaledger://portfolio/summary` | Current portfolio metrics snapshot |
+| `gammaledger://positions/active` | Current active positions |
+| `gammaledger://positions/wheel-pmcc` | Wheel and PMCC tracker positions |
+| `gammaledger://database/info` | Loaded database file metadata |
 
----
+#### MCP Prompts
 
-## Step 1 — Pre-Migration Analysis
+| Prompt | Description |
+|---|---|
+| `analyze_portfolio` | Comprehensive portfolio review — performance, risk, exposure |
+| `risk_audit` | Risk-focused audit — concentration, drawdown, expiring, uncovered |
+| `wheel_pmcc_review` | Deep-dive on Wheel/PMCC positions — premium, coverage, cost basis |
+| `weekly_review` | Short weekly check-in — P&L delta, closures, expiring positions |
+| `position_inspect` | Deep dive on one specific position by trade ID |
 
-Before touching any file, read the current codebase and produce an analysis report.
+#### mcpContext
 
-### 1.1 — Identify type-unsafe hotspots
+The app builds and writes `mcpContext` into the JSON database on every save (via `buildMCPContext()`). This pre-computed section is the authoritative data surface for the MCP server and includes: `portfolio`, `activePositions`, `wheelPmccPositions`, `recentClosedTrades`, `strategyBreakdown`, `tickerExposure`, `underlyingBreakdown`, `concentration`, `asOfDate`, `generatedAt`.
 
-Read every `.js` file under `src/` and identify:
+## Architecture
 
-- Functions that mix `string` and `number` for financial values (prices, premiums, P&L)
-- Date values stored/passed as `string`, `number` (timestamp), or `Date` objects — note inconsistencies
-- Objects passed between modules with no documented shape (plain `{}` bags)
-- Functions with no return type that callers depend on
-- `localStorage` values parsed with `JSON.parse()` and used without validation
-- Any `null` / `undefined` values that could propagate silently
+### Single-File JavaScript Design
 
-### 1.2 — Catalogue the domain objects
+The entire application lives in `src/app.js`. There is no module system, no bundler, and no transpilation. Everything is written in modern ES2020+ and loaded directly in the browser.
 
-List every distinct data shape used in the app. For each one, note:
-- Where it is created
-- Where it is read
-- All fields and their apparent types
-- Whether it is persisted to `localStorage`
+### Key Classes
 
-Expected objects include (adjust based on actual codebase):
-`Trade`, `Position`, `WheelCycle`, `PMCCPosition`, `PMCCLeg`, `Spread`, `AppState`,
-`StorageSchema`, `ChartDataset`, `FilterState`, `ExportRow`
+| Class | Location | Purpose |
+|---|---|---|
+| `GammaLedger` | `app.js` line ~1299 | Main application class — instantiated as `window.app` |
+| `LocalInsightsAgent` | `app.js` line ~20574 | Offline rule-based AI coach |
+| `GeminiInsightsAgent` | `app.js` line ~20785 | Gemini AI integration; falls back to `LocalInsightsAgent` |
 
-Output this as: `docs/refactor/phase2-analysis.md`
+### Application Constants
 
-**Wait for human review and approval before proceeding.**
+Defined at the top of `app.js` in `APP_CONFIG` (frozen object) with backward-compatible standalone `const` aliases:
 
----
+- `APP_CONFIG.GEMINI` — model names, endpoint, default temperature
+- `APP_CONFIG.STORAGE` — all `localStorage` key names
+- `APP_CONFIG.SHARE_CARD` — export image dimensions
+- `APP_CONFIG.PL_RANGES` — time-range buttons (`['7D', 'MTD', '1M', '3M', 'YTD', '1Y', 'ALL']`)
 
-## Step 2 — TypeScript Tooling Setup
+Other top-level constants:
+- `RUNTIME_TRADE_FIELDS` — `Set` of field names computed at runtime; never persisted to raw storage (but written into the saved JSON for MCP use)
+- `RUNTIME_LEG_FIELDS` — `Set` of leg-level fields excluded from OFX serialisation
+- `BUILTIN_SAMPLE_DATA` — IIFE that generates date-relative demo trades for first-run experience
 
-### 2.1 — Install TypeScript and Vite plugin
+### Data Storage
 
-```bash
-npm install --save-dev typescript @types/node vite-plugin-checker
-```
+| Storage | Key / Mechanism | Contents |
+|---|---|---|
+| `localStorage` | `GammaLedgerLocalDatabase` | Full trade database (JSON string) |
+| `localStorage` | `GammaLedgerGeminiConfig` | Gemini model/endpoint config |
+| `localStorage` | `GammaLedgerGeminiSecret` | Encrypted Gemini API key |
+| `localStorage` | `GammaLedgerGeminiMaxTokens` | Gemini max output tokens setting |
+| `localStorage` | `GammaLedgerDisclaimerAcceptedAt` | Timestamp of disclaimer acceptance |
+| `localStorage` | `GammaLedgerSidebarCollapsed` | Sidebar UI preference |
+| `localStorage` | `GammaLedgerDefaultFeePerContract` | Default commission fee setting |
+| `localStorage` | `GammaLedgerFinnhubRateLimit` | Finnhub API rate limit setting |
+| `localStorage` | `GammaLedgerAICoachConsentAt` | AI coach consent timestamp |
+| File System | JSON file via File System Access API | Portable database backup |
 
-Install `@types` for any third-party libraries already in use:
+All data stays on the user's device. Nothing is sent to any server except optional AI (Gemini) and quote (Finnhub) API calls.
 
-```bash
-# Install only the ones that apply to this project
-npm install --save-dev @types/chart.js       # if Chart.js is used
-```
+### Views / Navigation
 
-For CDN libraries without `@types` packages, create a minimal declaration shim
-(see Step 3.3 below).
+Views are `<div class="view ...">` elements in `index.html`. Only one is active at a time. Navigation is handled by `showView(viewName)`:
 
-### 2.2 — Create `tsconfig.json`
+| `data-view` | View Class | Description |
+|---|---|---|
+| `dashboard` | `dashboard-view` | Portfolio overview, charts, tables |
+| `trades-list` | `trades-list-view` | All trades with filtering/sorting |
+| `credit-playbook` | `credit-playbook-view` | Credit strategy tracker |
+| `add-trade` | `add-trade-view` | Multi-leg trade entry form |
+| `import` | `import-view` | OFX / JSON import wizard |
+| `settings` | `settings-view` | API keys, fees, preferences |
 
-Use permissive settings initially. Strictness is added per-module as files are converted.
+### External Dependencies (CDN only)
 
-```json
+- **Chart.js** — `https://cdn.jsdelivr.net/npm/chart.js` — all dashboard charts
+- **html2canvas** — `https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js` — Share Card PNG export
+- **Google Fonts** — Inter typeface
+- **Finnhub API** — optional live stock/option quotes (requires API key in Settings)
+- **Google Gemini API** — optional AI coach (requires API key in Settings)
+
+## Core Data Model
+
+### Trade Object
+
+```js
 {
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "allowJs": true,
-    "checkJs": false,
-    "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
-    "skipLibCheck": true,
-    "isolatedModules": true,
-    "outDir": "dist",
-    "baseUrl": ".",
-    "paths": {
-      "@core/*":         ["src/core/*"],
-      "@trades/*":       ["src/trades/*"],
-      "@calculations/*": ["src/calculations/*"],
-      "@ui/*":           ["src/ui/*"],
-      "@utils/*":        ["src/utils/*"],
-      "@types-gl/*":     ["src/types/*"]
-    }
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  id: 'TRD-XXXX',           // unique identifier
+  ticker: 'SPY',
+  strategy: 'Iron Condor',   // one of 62 supported strategy names
+  status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolling',
+  underlyingType: 'Stock' | 'ETF' | 'Index' | 'Future',
+  openedDate: 'YYYY-MM-DD',  // derived from earliest leg executionDate
+  closedDate: 'YYYY-MM-DD',  // derived from latest closing leg
+  expirationDate: 'YYYY-MM-DD',
+  exitReason: '',
+  notes: '',                 // markdown supported
+  legs: [ /* Leg[] */ ]
 }
 ```
 
-### 2.3 — Update `vite.config.js` → `vite.config.ts`
+### Leg Object
 
-Rename the file and update it:
-
-```ts
-import { defineConfig } from 'vite'
-import checker from 'vite-plugin-checker'
-
-export default defineConfig({
-  root: '.',
-  plugins: [
-    checker({ typescript: true })   // shows TS errors in the browser overlay
-  ],
-  resolve: {
-    alias: {
-      '@core':         '/src/core',
-      '@trades':       '/src/trades',
-      '@calculations': '/src/calculations',
-      '@ui':           '/src/ui',
-      '@utils':        '/src/utils',
-      '@types-gl':     '/src/types'
-    }
-  },
-  build: {
-    outDir: 'dist',
-    rollupOptions: {
-      input: 'index.html'
-    }
-  }
-})
-```
-
-### 2.4 — Update `package.json` scripts
-
-```json
+```js
 {
-  "scripts": {
-    "dev":       "vite",
-    "build":     "tsc --noEmit && vite build",
-    "preview":   "vite preview",
-    "typecheck": "tsc --noEmit"
-  }
+  id: 'TRD-XXXX-L1',
+  orderType: 'BTO' | 'STO' | 'BTC' | 'STC',  // or action+side equivalent
+  type: 'CALL' | 'PUT' | 'STOCK' | 'CASH',
+  quantity: 1,
+  multiplier: 100,           // 100 for standard equity options
+  strike: 450,
+  premium: 3.50,
+  fees: 0.35,
+  executionDate: 'YYYY-MM-DD',
+  expirationDate: 'YYYY-MM-DD'
 }
 ```
 
-### 2.5 — Validate the setup
-
-Run `npm run dev`. The app must load correctly with no new runtime errors.
-The browser overlay may show TS warnings — that is expected at this stage.
-
-Commit: `git commit -m "build: add TypeScript tooling and tsconfig"`
-
----
-
-## Step 3 — Define the Domain Type Library
-
-Create all types **before** converting any implementation files.
-Types live in `src/types/`. No logic goes here — interfaces and type aliases only.
-
-### 3.1 — Create the type files
-
-```
-src/
-  types/
-    index.ts           ← re-exports everything; single import point
-    trade.ts           ← core trade and option types
-    position.ts        ← aggregated position types
-    wheel.ts           ← Wheel strategy types
-    pmcc.ts            ← PMCC types
-    spreads.ts         ← spread strategy types
-    storage.ts         ← localStorage schema types
-    state.ts           ← app state shape
-    ui.ts              ← UI-specific types (filter state, chart config, etc.)
-    common.ts          ← shared primitives and utility types
-```
-
-### 3.2 — Implement the type definitions
-
-Use the domain object catalogue from Step 1.2 as the source of truth.
-Annotate every field. Use TSDoc comments for any field that is not self-evident.
-
-**`src/types/common.ts`** — primitives used everywhere:
-
-```ts
-/** ISO 8601 date string, e.g. "2024-11-15" */
-export type ISODateString = string
-
-/** Dollar amount as a decimal number, e.g. 1.25 = $1.25 per share */
-export type DollarAmount = number
-
-/** Number of option contracts (1 contract = 100 shares) */
-export type ContractCount = number
-
-/** Strike price in dollars */
-export type StrikePrice = number
-
-/** Option type */
-export type OptionType = 'call' | 'put'
-
-/** Trade direction */
-export type TradeDirection = 'long' | 'short'
-
-/** Strategy label */
-export type StrategyType =
-  | 'CSP'
-  | 'CC'
-  | 'PMCC'
-  | 'BullPutSpread'
-  | 'BearCallSpread'
-  | 'Wheel'
-  | 'NakedCall'
-  | 'Other'
-
-/** Position status */
-export type PositionStatus = 'open' | 'closed' | 'assigned' | 'expired'
-```
-
-**`src/types/trade.ts`** — the core persisted trade record:
-
-```ts
-import type { ISODateString, DollarAmount, ContractCount, StrikePrice, OptionType, TradeDirection, StrategyType, PositionStatus } from './common'
-
-export interface Trade {
-  /** Unique identifier (UUID or timestamp-based) */
-  id: string
-  /** Underlying ticker symbol, uppercased */
-  ticker: string
-  /** Option type */
-  optionType: OptionType
-  /** Long or short */
-  direction: TradeDirection
-  /** Strategy this trade belongs to */
-  strategy: StrategyType
-  /** Strike price */
-  strike: StrikePrice
-  /** Expiration date */
-  expiry: ISODateString
-  /** Date the trade was opened */
-  openDate: ISODateString
-  /** Date the trade was closed, null if still open */
-  closeDate: ISODateString | null
-  /** Premium received (positive) or paid (negative) per share */
-  premium: DollarAmount
-  /** Number of contracts */
-  contracts: ContractCount
-  /** Status */
-  status: PositionStatus
-  /** Free-text notes */
-  notes?: string
-  /** ID of a linked parent trade (e.g. the short put that was assigned) */
-  linkedTradeId?: string | null
-}
-```
-
-**`src/types/wheel.ts`** — Wheel cycle tracker:
-
-```ts
-import type { ISODateString, DollarAmount, ContractCount, StrikePrice, PositionStatus } from './common'
-
-export interface WheelCycle {
-  id: string
-  ticker: string
-  /** Number of shares held if assigned */
-  sharesHeld: number
-  /** Cost basis per share after assignment */
-  costBasisPerShare: DollarAmount
-  /** Total premium collected across all CSP and CC legs in this cycle */
-  totalPremiumCollected: DollarAmount
-  /** All trade IDs that belong to this cycle */
-  tradeIds: string[]
-  status: PositionStatus
-  openDate: ISODateString
-  closeDate: ISODateString | null
-}
-```
-
-**`src/types/pmcc.ts`** — PMCC legs:
-
-```ts
-import type { ISODateString, DollarAmount, ContractCount, StrikePrice } from './common'
-
-export interface PMCCPosition {
-  id: string
-  ticker: string
-  /** The long call (LEAPS) leg trade ID */
-  longLegId: string
-  /** All short call leg trade IDs sold against the LEAPS */
-  shortLegIds: string[]
-  /** Cost paid for the long LEAPS */
-  longLegCost: DollarAmount
-  /** Total premium collected from short legs to date */
-  premiumCollected: DollarAmount
-  /** Net debit (longLegCost - premiumCollected) */
-  netDebit: DollarAmount
-  openDate: ISODateString
-  closeDate: ISODateString | null
-  status: 'open' | 'closed'
-}
-```
-
-**`src/types/storage.ts`** — what is persisted to `localStorage`:
-
-```ts
-import type { Trade } from './trade'
-import type { WheelCycle } from './wheel'
-import type { PMCCPosition } from './pmcc'
-
-export interface StorageSchema {
-  trades: Trade[]
-  wheelCycles: WheelCycle[]
-  pmccPositions: PMCCPosition[]
-  /** Schema version — increment when the shape changes */
-  version: number
-}
-
-/** All valid localStorage keys used by GammaLedger */
-export type StorageKey = keyof StorageSchema
-```
-
-**`src/types/state.ts`** — runtime app state:
-
-```ts
-import type { Trade } from './trade'
-import type { WheelCycle } from './wheel'
-import type { PMCCPosition } from './pmcc'
-import type { FilterState } from './ui'
-
-export interface AppState {
-  trades: Trade[]
-  wheelCycles: WheelCycle[]
-  pmccPositions: PMCCPosition[]
-  activeFilters: FilterState
-  isLoading: boolean
-}
-```
-
-**`src/types/ui.ts`** — UI-layer types:
-
-```ts
-import type { ISODateString, StrategyType, PositionStatus } from './common'
-
-export interface FilterState {
-  ticker: string
-  strategy: StrategyType | 'all'
-  status: PositionStatus | 'all'
-  dateFrom: ISODateString | null
-  dateTo: ISODateString | null
-}
-
-export interface ToastOptions {
-  message: string
-  type: 'success' | 'error' | 'warning' | 'info'
-  durationMs?: number
-}
-```
-
-**`src/types/index.ts`** — re-export everything:
-
-```ts
-export * from './common'
-export * from './trade'
-export * from './position'
-export * from './wheel'
-export * from './pmcc'
-export * from './spreads'
-export * from './storage'
-export * from './state'
-export * from './ui'
-```
-
-### 3.3 — Shim CDN libraries
-
-For any library loaded via a CDN `<script>` tag (not npm), create a declaration file:
-
-```ts
-// src/types/vendor.d.ts  — example for Chart.js loaded from CDN
-declare const Chart: typeof import('chart.js').Chart
-```
-
-Adjust based on which libraries are actually loaded from CDN.
-
-Commit: `git commit -m "types: add domain type library"`
-
-**Wait for human review of all types before proceeding.**
-The types must accurately reflect the actual data in `localStorage` — verify against real data.
-
----
-
-## Step 4 — Convert Modules to TypeScript
-
-Convert in dependency order — same order as Phase 1 migration.
-After converting each file:
-
-1. Rename `.js` → `.ts`
-2. Add type annotations to function parameters and return values
-3. Import types from `@types-gl` (resolves to `src/types/`)
-4. Fix any type errors reported by the checker
-5. Run `npm run dev` and smoke-test the affected feature
-6. Run `npm run typecheck` — zero new errors allowed before committing
-7. Commit: `git commit -m "types(<module>): convert <filename> to TypeScript"`
-
-### Conversion order
-
-```
-Phase A — Utils and Core (no domain dependencies)
-  1.  src/utils/dates.ts
-  2.  src/utils/dom.ts
-  3.  src/utils/formatting.ts
-  4.  src/core/config.ts
-  5.  src/core/storage.ts
-  6.  src/core/state.ts
-
-Phase B — Calculations (depend on types and core)
-  7.  src/calculations/pnl.ts
-  8.  src/calculations/costbasis.ts
-  9.  src/calculations/greeks.ts        ← skip if not present
-
-Phase C — Trade logic (depend on calculations and core)
-  10. src/trades/positions.ts
-  11. src/trades/wheel.ts
-  12. src/trades/pmcc.ts
-  13. src/trades/spreads.ts
-
-Phase D — UI layer (depend on everything above)
-  14. src/ui/tables.ts
-  15. src/ui/charts.ts
-  16. src/ui/modals.ts
-  17. src/ui/filters.ts
-  18. src/ui/toasts.ts
-
-Phase E — Data IO
-  19. src/utils/export.ts
-  20. src/utils/import.ts
-
-Phase F — Entry point
-  21. src/index.ts
-```
-
-### Per-file typing rules
-
-**When converting a utility or calculation file:**
-
-```ts
-// Before (JS)
-export function calcPnl(trade, closePrice) {
-  return (closePrice - trade.premium) * trade.contracts * 100
-}
-
-// After (TS)
-import type { Trade, DollarAmount } from '@types-gl'
-
-export function calcPnl(trade: Trade, closePrice: DollarAmount): DollarAmount {
-  return (closePrice - trade.premium) * trade.contracts * 100
-}
-```
-
-**When converting `storage.ts`:**
-
-- Type the return value of every `localStorage.getItem()` call
-- Add a runtime validation guard after `JSON.parse()` — use a type predicate or a minimal `isValidSchema()` check
-- Never silently swallow a parse failure — throw or return a typed error
-
-```ts
-import type { StorageSchema } from '@types-gl'
-
-export function loadFromStorage(): StorageSchema | null {
-  try {
-    const raw = localStorage.getItem('gl_data')
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as StorageSchema
-    if (!isValidSchema(parsed)) {
-      console.error('[storage] Invalid schema in localStorage')
-      return null
-    }
-    return parsed
-  } catch (e) {
-    console.error('[storage] Failed to parse localStorage', e)
-    return null
-  }
-}
-
-function isValidSchema(data: unknown): data is StorageSchema {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    Array.isArray((data as StorageSchema).trades)
-  )
-}
-```
-
-**When converting `state.ts`:**
-
-- The app state object must be fully typed as `AppState`
-- All setter functions must accept typed values — no `any`
-
-**When converting calculation files:**
-
-- All dollar amounts must be `DollarAmount` (number)
-- Never accept `string` for a financial value
-- Use `ContractCount` and `StrikePrice` type aliases for clarity
-
-**When converting UI files:**
-
-- DOM references: use `HTMLElement`, `HTMLInputElement`, `HTMLSelectElement`, etc.
-- Never use `any` for DOM elements — use specific types or `Element`
-- Chart.js datasets must be typed if `@types/chart.js` is installed
-
----
-
-## Step 5 — Enable Strict Mode Per Module
-
-After all files are converted, enable strict mode one module at a time, starting with
-the most critical (calculations) and ending with UI.
-
-Edit `tsconfig.json` — do **not** enable globally yet. Use per-file overrides via
-`@ts-check` comments or a per-directory `tsconfig` approach:
-
-```
-src/
-  calculations/
-    tsconfig.json    ← extends root, adds "strict": true
-  core/
-    tsconfig.json    ← extends root, adds "strict": true
-```
-
-Example per-directory `tsconfig.json`:
-
-```json
-{
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true
-  },
-  "include": ["./**/*"]
-}
-```
-
-**Strict mode order:**
-
-```
-1. src/calculations/     ← highest value — P&L bugs are silent and dangerous
-2. src/core/             ← storage parsing and state management
-3. src/trades/           ← domain logic
-4. src/utils/            ← low risk, easy to type strictly
-5. src/ui/               ← DOM types are noisy; do last
-```
-
-After enabling strict mode in each directory:
-- Fix all errors — do not suppress with `@ts-ignore` unless absolutely unavoidable
-- If `@ts-ignore` must be used, add a comment explaining why
-- Commit: `git commit -m "types(<dir>): enable strict mode"`
-
----
-
-## Step 6 — Add a localStorage Migration Guard
-
-The schema type is now `StorageSchema` with a `version` field.
-Implement a migration function to handle users upgrading from a pre-typed version.
-
-Create `src/core/migration.ts`:
-
-```ts
-import type { StorageSchema } from '@types-gl'
-
-const CURRENT_VERSION = 1
-
-export function migrateSchema(raw: unknown): StorageSchema {
-  if (!raw || typeof raw !== 'object') {
-    return emptySchema()
-  }
-
-  const data = raw as Record<string, unknown>
-  const version = typeof data.version === 'number' ? data.version : 0
-
-  // Version 0 → 1: ensure all trades have an `id` field
-  if (version < 1) {
-    const trades = Array.isArray(data.trades) ? data.trades : []
-    data.trades = trades.map((t: Record<string, unknown>, i: number) => ({
-      ...t,
-      id: t.id ?? `legacy-${i}`
-    }))
-    data.version = 1
-  }
-
-  // Add future version migrations here as version < N blocks
-
-  return data as StorageSchema
-}
-
-export function emptySchema(): StorageSchema {
-  return {
-    trades: [],
-    wheelCycles: [],
-    pmccPositions: [],
-    version: CURRENT_VERSION
-  }
-}
-```
-
-Call `migrateSchema()` inside `loadFromStorage()` before returning data.
-Write a migration log entry to `docs/refactor/phase2-migrations.md`.
-
----
-
-## Step 7 — Production Build Validation
-
-Run:
-
-```bash
-npm run typecheck    # must exit with 0 errors
-npm run build        # must produce a clean dist/
-npm run preview      # validate the production build
-```
-
-Verify:
-
-- App loads without console errors
-- Existing `localStorage` data is read correctly (migration guard worked)
-- All trade data displays correctly — P&L values match pre-migration values exactly
-- Wheel tracker, PMCC tracker, spreads all function correctly
-- CSV export and import work correctly
-- Charts render without errors
-- Bundle size is similar to Phase 1 — TypeScript adds zero runtime overhead
-
----
-
-## Step 8 — Update `docs/refactor/phase2-summary.md`
-
-Document:
-
-- All types defined and their key fields
-- Which modules now have `strict: true` enabled
-- Any `@ts-ignore` usages and the reason for each
-- `localStorage` migration steps performed
-- Bundle size before and after
-- Remaining type coverage gaps (any unconverted files, known `any` usages)
-- Recommended next steps for Phase 3 (Vue 3 component migration)
-
----
-
-## Smoke Test Checklist
-
-Run after every module conversion and after every strict mode activation:
-
-- [ ] `npm run typecheck` exits with 0 errors for all converted files
-- [ ] App loads without console errors
-- [ ] Dashboard renders with existing localStorage data
-- [ ] Add a new trade — it persists after reload
-- [ ] Wheel tracker shows open positions correctly
-- [ ] PMCC tracker links legs correctly
-- [ ] P&L values are numerically correct (not NaN, not string-concatenated)
-- [ ] Date fields display correctly (no epoch timestamps, no Invalid Date)
-- [ ] CSV export produces a valid file with correct column types
-- [ ] CSV import reads back correctly and all fields are typed
-- [ ] Charts render without errors
-- [ ] All modals open and close correctly
-- [ ] Existing localStorage data survives a page reload after migration
-
----
-
-## Naming and Typing Conventions
-
-- TypeScript files: `kebab-case.ts`
-- Type files: `kebab-case.ts` under `src/types/`
-- Interfaces: `PascalCase` (e.g. `Trade`, `WheelCycle`)
-- Type aliases: `PascalCase` (e.g. `OptionType`, `DollarAmount`)
-- Generic parameters: single uppercase letter or descriptive (`T`, `TKey`, `TValue`)
-- Never use `any` — use `unknown` for unvalidated external data and narrow it
-- Never use `object` — use a specific interface or `Record<string, unknown>`
-- Prefer `interface` over `type` for object shapes that may be extended
-- Prefer `type` for unions, primitives, and computed types
-
----
-
-## Questions / Blockers
-
-- A function takes many heterogeneous arguments → introduce a typed options object parameter
-- A `localStorage` field doesn't match any defined type → update the type, add a migration step
-- A third-party CDN library has no `@types` package and no shim is sufficient → document it in `phase2-summary.md` and type the wrapper function's return value manually
-- A type error in a UI file requires significant refactoring → use `as HTMLInputElement` cast with a comment, leave a `// TODO Phase 3` note, and do not block the migration
-- Circular type dependency between two files → extract the shared type to `src/types/common.ts`
-
-Do not use `@ts-ignore` without a comment.
-Do not use `as any` — use `as unknown as TargetType` with a comment if a cast is genuinely needed.
-Do not proceed past a blocker silently. Report it.
+### Runtime Computed Fields
+
+`enrichTradeData(trade)` computes and attaches these fields before any trade is used in analytics. All are listed in `RUNTIME_TRADE_FIELDS`:
+
+- `pl`, `roi`, `weeklyROI`, `monthlyROI`, `annualizedROI`
+- `tradeType`, `tradeDirection`, `lifecycleStatus`, `lifecycleMeta`
+- `capitalAtRisk`, `maxRisk`, `maxRiskLabel`, `riskIsUnlimited`
+- `totalFees`, `totalCredit`, `totalDebit`, `cashFlow`, `fees`
+- `entryPrice`, `exitPrice`, `entryDate`, `exitDate`, `daysHeld`, `dte`
+- `strikePrice`, `displayStrike`, `activeStrikePrice`, `quantity`, `multiplier`
+- `primaryLeg`, `legsCount`, `openContracts`, `closeContracts`, `openLegs`, `rollLegs`
+- `partialClose`, `rolledForward`, `autoExpired`
+- `pmccShortExpiration`, `longExpirationDate`
+- `tradeReasoning`, `wheelCoverage`, `shares`, `effectiveCostBasis`
+- `marketValue`, `unrealizedPL`, `marketPriceSource`
+
+Fields in `RUNTIME_TRADE_FIELDS` are recomputed on every load and written into the persisted JSON on save (to populate `mcpContext` for the MCP server). They must not be read back from raw storage as canonical values.
+
+`RUNTIME_LEG_FIELDS` covers leg-level import metadata (`externalId`, `importGroupId`, `importSource`, `importBatchId`, `tickerSymbol`) that is excluded from OFX serialisation.
+
+## Key Methods Reference
+
+| Method | Description |
+|---|---|
+| `init()` | Bootstrap: load storage, set up event listeners, render dashboard |
+| `updateDashboard()` | Recompute all stats and re-render all dashboard widgets |
+| `calculateAdvancedStats()` | Core analytics engine — P&L, win rate, Sharpe, drawdown, etc. |
+| `enrichTradeData(trade)` | Compute all runtime fields for a single trade |
+| `calculatePL(trade)` | Compute realized/unrealized P&L from leg cash flows |
+| `summarizeLegs(legs)` | Aggregate leg-level data (cash flow, contracts open/close) |
+| `normalizeLeg(leg, index)` | Normalize raw leg data (order type, action, side) |
+| `showView(viewName)` | Switch active view and update page title |
+| `buildMCPContext()` | Build the `mcpContext` payload written to the saved JSON database |
+| `sanitizeString(value, maxLength)` | Input sanitization for all user text |
+| `validateNumber(value, options)` | Input validation for numeric fields |
+| `validateDate(dateString)` | Input validation for date fields |
+| `safeLocalStorage.getItem/setItem` | Safe localStorage wrappers with error handling |
+
+## Strategies Supported
+
+62 strategies including: Iron Condor, Iron Butterfly, Wheel, Poor Man's Covered Call (PMCC), Cash-Secured Put, Covered Call, Bull/Bear Put/Call Spreads, Straddle, Strangle, Collar, Diagonal Spread, Calendar Spread, Jade Lizard, Reverse Jade Lizard, and more. Full list in `this.creditPlaybookStrategyOptions` in the `GammaLedger` constructor.
+
+## Import/Export
+
+- **Import OFX**: Parses broker OFX files — extracts legs, dates, strikes, premiums, commissions
+- **Import JSON**: Full database restore from GammaLedger backup file
+- **Export JSON**: Full database backup (trades + settings + mcpContext)
+- **Export OFX**: Standard OFX format for external tools
+- **Share Card**: Renders a 1080×1080px PNG of the portfolio snapshot for social media (requires html2canvas CDN)
+
+## AI Features
+
+### Gemini AI Coach (optional)
+- Requires user-provided Google Gemini API key (stored encrypted in `localStorage`)
+- Default model: `gemini-2.5-flash`; allowed: `gemini-2.5-flash-lite`, `gemini-2.5-flash`, `gemini-2.5-pro`
+- Configurable max output tokens (default 65536, stored in `GammaLedgerGeminiMaxTokens`)
+- Sends portfolio snapshot + user query to `https://generativelanguage.googleapis.com/v1beta/models`
+- Gated behind an explicit AI consent modal; API key never leaves the device
+
+### Local AI Coach (fallback)
+- Rule-based, works fully offline
+- Analyses open positions for risk, P&L summary, and simple recommendations
+
+## Charts (Chart.js)
+
+All charts are `<canvas>` elements managed by `this.charts` map:
+
+| Chart key | Canvas ID | Type | Description |
+|---|---|---|---|
+| `monthlyPL` | `monthlyPLChart` | Bar | Monthly P&L performance |
+| `cumulativePL` | `cumulativePLChart` | Line | Cumulative P&L growth (range-filtered) |
+| `strategy` | (inline) | Bar | P&L by strategy |
+| `winRate` | (inline) | Bar/Doughnut | Win rate by strategy |
+| `commissionImpact` | `commissionImpactChart` | Bar | Commission drag vs. gross P&L |
+| `timeInTrade` | `timeInTradeChart` | Bar | Average days held by strategy |
+| `monteCarlo` | `monteCarloChart` | Line | Monte Carlo 60-day projection |
+| `sharpeGauge` | `sharpeGaugeChart` | Doughnut gauge | Sharpe ratio gauge |
+| `sortinoGauge` | `sortinoGaugeChart` | Doughnut gauge | Sortino ratio gauge |
+| `tickerHeatmap` | `tickerHeatmap` | DOM grid | Ticker performance heatmap (not a Chart.js canvas) |
+
+Use `this.destroyChart(chart)` before recreating any chart instance to avoid Chart.js memory leaks.
+
+## CSS Design System
+
+`style.css` uses CSS custom properties organized in layers:
+
+1. **Primitive tokens** — raw color values (`--color-teal-500`, `--color-red-400`, etc.)
+2. **Brand tokens** — `--color-brand-purple` and variants
+3. **Semantic tokens** — `--color-background`, `--color-text`, `--color-primary`, etc.
+4. **Dark mode** — `@media (prefers-color-scheme: dark)` or `.dark-mode` class overrides semantic tokens
+
+Font: **Inter** (Google Fonts). All sizing uses `rem`. Layout uses CSS Grid and Flexbox.
+
+## Security Practices
+
+- **Input sanitization**: all user input passes through `sanitizeString()` before use
+- **Numeric validation**: `validateNumber()` enforces finite, range-bounded values
+- **API key encryption**: Finnhub and Gemini API keys are encrypted with Web Crypto API before storage
+- **CSP**: `Content-Security-Policy` meta tag is present (commented out in dev; enable for production)
+- **Security headers**: `X-Content-Type-Options: nosniff`, `X-XSS-Protection: 1; mode=block`
+- **No eval / innerHTML with user data**: user-facing strings are set via `textContent`
+- **Referrer policy**: `strict-origin-when-cross-origin`
+
+## Development Guidelines
+
+- **No build system** — edit files directly, refresh browser
+- **No frameworks** — vanilla JS only; do not introduce React, Vue, etc.
+- **No npm** — do not add `package.json` or node_modules
+- **Single-file JS** — all logic stays in `app.js`; do not split into modules unless the project explicitly adopts ES modules
+- **Test in Chrome, Firefox, and Edge** before submitting changes
+- **Preserve backward compatibility** — legacy `localStorage` keys must continue to be migrated (see `LEGACY_STORAGE_KEYS`)
+- **Follow existing code patterns** — class methods on `GammaLedger`, frozen constants at top of file
+- **Disclaimer**: The app shows a disclaimer modal on first load (stored in `localStorage`). Do not remove it.
+
+## Common Gotchas
+
+- `RUNTIME_TRADE_FIELDS` are recomputed on load and written into the persisted JSON on save — the saved file intentionally contains them so the MCP server can read pre-computed values via `mcpContext`.
+- `this.currentDate` is a **getter** (not a property) so it always returns the live current date
+- Chart instances must be destroyed before recreation to avoid canvas reuse errors
+- The File System Access API is only available in Chrome/Edge; the app falls back gracefully
+- Gemini API calls require explicit user consent via the `AI_COACH_CONSENT_STORAGE_KEY` flag
+- `safeLocalStorage` wrappers must be used instead of `localStorage` directly to handle quota and privacy-mode errors
+- Trade `status` can be `Rolling` (in addition to Open/Closed/Expired/Assigned) — this is a lifecycle-computed value set by `enrichTradeData`
+- The Share Card PNG export depends on the `html2canvas` CDN script; check for `window.html2canvas` before using

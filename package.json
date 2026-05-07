@@ -13,12 +13,15 @@
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && npm run typecheck:strict",
-    "typecheck:strict": "npm run typecheck:strict:calculations && npm run typecheck:strict:core && npm run typecheck:strict:trades && npm run typecheck:strict:utils && npm run typecheck:strict:ui",
+    "typecheck:strict": "npm run typecheck:strict:calculations && npm run typecheck:strict:core && npm run typecheck:strict:trades && npm run typecheck:strict:utils && npm run typecheck:strict:ui && npm run typecheck:strict:imports && npm run typecheck:strict:integrations && npm run typecheck:strict:payoff",
     "typecheck:strict:calculations": "tsc -p src/calculations/tsconfig.json",
     "typecheck:strict:core": "tsc -p src/core/tsconfig.json",
     "typecheck:strict:trades": "tsc -p src/trades/tsconfig.json",
     "typecheck:strict:utils": "tsc -p src/utils/tsconfig.json",
-    "typecheck:strict:ui": "tsc -p src/ui/tsconfig.json"
+    "typecheck:strict:ui": "tsc -p src/ui/tsconfig.json",
+    "typecheck:strict:imports": "tsc -p src/imports/tsconfig.json",
+    "typecheck:strict:integrations": "tsc -p src/integrations/tsconfig.json",
+    "typecheck:strict:payoff": "tsc -p src/payoff/tsconfig.json"
   },
   "repository": {
     "type": "git",

@@ -5,12 +5,14 @@ import {
     LOCAL_STORAGE_KEY,
     LEGACY_STORAGE_KEYS,
     RUNTIME_TRADE_FIELDS,
-    RUNTIME_LEG_FIELDS
+    RUNTIME_LEG_FIELDS,
+    CURRENT_STORAGE_VERSION
 } from '@core/config'
-import { migrateSchema } from '@core/migration'
+import { migrateSchema, parseStorageSchema } from '@core/migration'
 
 type TradeRecord = Record<string, unknown>
 type StorageSnapshot = Record<string, unknown>
+const PERSISTED_LEG_PROVENANCE_FIELDS = new Set(['externalId', 'importGroupId', 'importSource']);
 
 interface PickerFileHandle {
     name: string
@@ -69,6 +71,38 @@ interface PersistContext {
     formatCurrency(value: number): string
     formatNumber(value: number, options?: { decimals?: number; useGrouping?: boolean }): string
     getTradeType(trade: TradeRecord): unknown
+}
+
+function normalizeLegAliasFields(leg: TradeRecord): TradeRecord {
+    const normalized: TradeRecord = { ...leg };
+    if (!normalized.orderType) {
+        normalized.orderType = normalized.tradeType || normalized.order;
+    }
+    delete normalized.tradeType;
+    delete normalized.order;
+    return normalized;
+}
+
+function normalizeTradeAliasFields(trade: TradeRecord): TradeRecord {
+    const normalized: TradeRecord = { ...trade };
+    if (!normalized.openedDate) {
+        normalized.openedDate = normalized.entryDate || '';
+    }
+    if (!normalized.closedDate) {
+        normalized.closedDate = normalized.exitDate || '';
+    }
+    delete normalized.entryDate;
+    delete normalized.exitDate;
+
+    if (Array.isArray(normalized.legs)) {
+        normalized.legs = normalized.legs.map((leg) => (
+            leg && typeof leg === 'object'
+                ? normalizeLegAliasFields(leg as TradeRecord)
+                : leg
+        ));
+    }
+
+    return normalized;
 }
 
 export function getStorageTrades(this: PersistContext): StorageSnapshot[] {
@@ -174,10 +208,19 @@ export function buildLegStorageSnapshot(leg: TradeRecord): StorageSnapshot | nul
         return null;
     }
 
+    const canonicalLeg = normalizeLegAliasFields(leg);
     const snapshot: Record<string, unknown> = {};
 
-    for (const [key, value] of Object.entries(leg)) {
+    for (const [key, value] of Object.entries(canonicalLeg)) {
         if (RUNTIME_LEG_FIELDS.has(key)) {
+            continue;
+        }
+
+        if (key === 'tradeType' || key === 'order') {
+            continue;
+        }
+
+        if (PERSISTED_LEG_PROVENANCE_FIELDS.has(key) && (value === null || value === '')) {
             continue;
         }
 
@@ -208,7 +251,7 @@ export function buildLegStorageSnapshot(leg: TradeRecord): StorageSnapshot | nul
 
 export function buildDatabasePayload(this: PersistContext): StorageSnapshot {
     return {
-        version: '2.5',
+        version: CURRENT_STORAGE_VERSION,
         exportDate: new Date().toISOString(),
         trades: this.getStorageTrades(),
         mcpContext: this.buildMCPContext()
@@ -430,9 +473,9 @@ export function exportToCSV(this: PersistContext): void {
             formatOptionalCurrency(trade.exitPrice),
             formatOptionalNumber(trade.dte, 0),
             formatOptionalNumber(trade.daysHeld, 0),
-            trade.entryDate ?? '',
+            trade.openedDate ?? '',
             trade.expirationDate ?? '',
-            trade.exitDate ?? '',
+            trade.closedDate ?? '',
             formatOptionalCurrency(trade.maxRisk),
             formatOptionalCurrency(trade.pl),
             formatPercentValue(trade.roi),
@@ -473,12 +516,10 @@ export function processLoadedData(
     data: Record<string, unknown>,
     metadata: Record<string, unknown> = {}
 ): void {
-    if (!data || !Array.isArray(data.trades)) {
-        throw new Error('Invalid data format');
-    }
+    const parsed = parseStorageSchema(data);
 
-    this.trades = (data.trades as Record<string, unknown>[]).map(trade => {
-        const updatedTrade = { ...trade };
+    this.trades = parsed.trades.map(trade => {
+        const updatedTrade = normalizeTradeAliasFields(trade as unknown as Record<string, unknown>);
         if (updatedTrade.tradeReasoning && !updatedTrade.notes) {
             updatedTrade.notes = updatedTrade.tradeReasoning;
             delete updatedTrade.tradeReasoning;
@@ -531,7 +572,7 @@ export function newDatabase(this: PersistContext): void {
 export function saveToStorage(this: PersistContext, metadata: Record<string, unknown> = {}): void {
     try {
         const payload = {
-            version: '2.5',
+            version: CURRENT_STORAGE_VERSION,
             timestamp: new Date().toISOString(),
             fileName: (metadata.fileName as string) || this.currentFileName || 'Unsaved Database',
             trades: this.getStorageTrades(),
@@ -558,7 +599,7 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
             if (hasPrimaryTrades) {
                 const parsed = migrateSchema(raw);
                 this.trades = parsed.trades.map(trade => {
-                    const normalized: Record<string, unknown> = { ...trade };
+                    const normalized = normalizeTradeAliasFields(trade as unknown as Record<string, unknown>);
                     if (normalized.tradeReasoning && !normalized.notes) {
                         normalized.notes = normalized.tradeReasoning;
                     }
@@ -592,7 +633,7 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
             if (Array.isArray(parsedTrades)) {
                 const migrated = migrateSchema(parsedTrades);
                 this.trades = migrated.trades.map(trade => {
-                    const normalized: Record<string, unknown> = { ...trade };
+                    const normalized = normalizeTradeAliasFields(trade as unknown as Record<string, unknown>);
                     if (normalized.tradeReasoning && !normalized.notes) {
                         normalized.notes = normalized.tradeReasoning;
                     }

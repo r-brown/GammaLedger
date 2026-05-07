@@ -1,9 +1,32 @@
 // src/payoff/pricing.js — Wave 6: Payoff pricing helpers and option math.
 // Uses the .call(this, …) delegation pattern.
 
-export function analyzeMultiLegStrategy(trade, activeLegs, strategy) {
+type AnyRecord = Record<string, any>
+
+interface ParsedPayoffLeg {
+    type: string
+    action: string
+    strike: number
+    premium: number
+    quantity: number
+    raw: AnyRecord
+}
+
+interface SpreadBreakevenInput {
+    model: AnyRecord
+    shortStrike: number
+    longStrike: number
+    entryPrice: number
+}
+
+interface PriceRangeInput {
+    strikeValues?: unknown[]
+    spot?: number
+}
+
+export function analyzeMultiLegStrategy(this: any, trade: AnyRecord, activeLegs: AnyRecord[], strategy: string) {
     // Parse legs to extract strikes and types
-    const parsedLegs = activeLegs.map(leg => {
+    const parsedLegs = activeLegs.map((leg: AnyRecord): ParsedPayoffLeg => {
         const action = this.getLegAction(leg);
         const type = (leg.type || leg.optionType || '').toString().trim().toUpperCase();
         const strike = Number(leg.strike);
@@ -18,7 +41,7 @@ export function analyzeMultiLegStrategy(trade, activeLegs, strategy) {
             quantity,
             raw: leg
         };
-    }).filter(leg => 
+    }).filter((leg: ParsedPayoffLeg) =>
         (leg.type === 'CALL' || leg.type === 'PUT') && 
         Number.isFinite(leg.strike) && 
         leg.strike > 0
@@ -65,7 +88,7 @@ export function analyzeMultiLegStrategy(trade, activeLegs, strategy) {
     };
 }
 
-export function calculateSpreadBreakeven({ model, shortStrike, longStrike, entryPrice }) {
+export function calculateSpreadBreakeven(this: any, { model, shortStrike, longStrike, entryPrice }: SpreadBreakevenInput) {
     if (model.orientation === 'short') {
         return model.optionType === 'call'
             ? shortStrike + entryPrice
@@ -77,7 +100,7 @@ export function calculateSpreadBreakeven({ model, shortStrike, longStrike, entry
         : longStrike - entryPrice;
 }
 
-export function optionIntrinsic(optionType, price, strike) {
+export function optionIntrinsic(this: any, optionType: string, price: number, strike: number) {
     if (!Number.isFinite(price) || !Number.isFinite(strike)) {
         return 0;
     }
@@ -87,40 +110,40 @@ export function optionIntrinsic(optionType, price, strike) {
     return Math.max(strike - price, 0);
 }
 
-export function extractPmccLegs(trade: Record<string, unknown> = {}) {
-    const normalizeTicker = (value) => (value || '').toString().trim().toUpperCase();
+export function extractPmccLegs(this: any, trade: AnyRecord = {}) {
+    const normalizeTicker = (value: unknown) => (value || '').toString().trim().toUpperCase();
     const ticker = normalizeTicker(trade.ticker);
-    const candidates = ticker
-        ? this.trades.filter(item => normalizeTicker(item.ticker) === ticker)
+    const candidates: AnyRecord[] = ticker
+        ? this.trades.filter((item: AnyRecord) => normalizeTicker(item.ticker) === ticker)
         : [];
 
     if (!candidates.includes(trade)) {
         candidates.push(trade);
     }
 
-    const sortCandidates = (items = []) => {
+    const sortCandidates = (items: AnyRecord[] = []): AnyRecord[] => {
         return [...items].sort((a, b) => {
             const statusA = this.normalizeStatus(a.status);
             const statusB = this.normalizeStatus(b.status);
             if (statusA === 'open' && statusB !== 'open') return -1;
             if (statusA !== 'open' && statusB === 'open') return 1;
-            const dateA = new Date(a.entryDate || a.openDate || 0).getTime();
-            const dateB = new Date(b.entryDate || b.openDate || 0).getTime();
+            const dateA = new Date(a.openedDate || a.openDate || 0).getTime();
+            const dateB = new Date(b.openedDate || b.openDate || 0).getTime();
             return dateB - dateA;
         });
     };
 
-    const baseCandidates = sortCandidates(candidates.filter(item => this.isPmccBaseLeg(item)));
-    let baseLeg = baseCandidates[0];
+    const baseCandidates = sortCandidates(candidates.filter((item: AnyRecord) => this.isPmccBaseLeg(item)));
+    let baseLeg: AnyRecord | null = baseCandidates[0] || null;
     if (!baseLeg) {
-        const fallbackBase = sortCandidates(candidates.filter(item => this.inferTradeDirection(item) === 'long' && (item.strategy || '').toLowerCase().includes('call')));
+        const fallbackBase = sortCandidates(candidates.filter((item: AnyRecord) => this.inferTradeDirection(item) === 'long' && (item.strategy || '').toLowerCase().includes('call')));
         baseLeg = fallbackBase[0] || (this.inferTradeDirection(trade) === 'long' ? trade : null);
     }
 
-    const shortCandidates = sortCandidates(candidates.filter(item => this.isPmccShortCall(item)));
-    let shortLeg = shortCandidates[0];
+    const shortCandidates = sortCandidates(candidates.filter((item: AnyRecord) => this.isPmccShortCall(item)));
+    let shortLeg: AnyRecord | null = shortCandidates[0] || null;
     if (!shortLeg) {
-        const fallbackShort = sortCandidates(candidates.filter(item => this.inferTradeDirection(item) === 'short' && (item.strategy || '').toLowerCase().includes('call')));
+        const fallbackShort = sortCandidates(candidates.filter((item: AnyRecord) => this.inferTradeDirection(item) === 'short' && (item.strategy || '').toLowerCase().includes('call')));
         shortLeg = fallbackShort[0] || (this.inferTradeDirection(trade) === 'short' ? trade : null);
     }
 
@@ -131,9 +154,9 @@ export function extractPmccLegs(trade: Record<string, unknown> = {}) {
     return { baseLeg, shortLeg };
 }
 
-export function buildPriceRange({ strikeValues = [], spot = Number.NaN } = {}) {
+export function buildPriceRange(this: any, { strikeValues = [], spot = Number.NaN }: PriceRangeInput = {}) {
     const values = strikeValues
-        .map(value => Number(value))
+        .map((value: unknown) => Number(value))
         .filter(Number.isFinite);
 
     if (Number.isFinite(spot)) {
@@ -164,7 +187,7 @@ export function buildPriceRange({ strikeValues = [], spot = Number.NaN } = {}) {
     return { minPrice, maxPrice };
 }
 
-export async function getUnderlyingPriceForPayoff(trade: Record<string, unknown> = {}) {
+export async function getUnderlyingPriceForPayoff(this: any, trade: Record<string, unknown> = {}) {
     const ticker = ((trade?.ticker as string) || '').toString().trim().toUpperCase();
 
     if (ticker) {

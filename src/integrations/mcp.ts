@@ -1,39 +1,42 @@
 // src/integrations/mcp.ts — Wave 5: MCP context building functions.
 // Uses the .call(this, …) delegation pattern so all this.* refs work.
 
-export function buildMCPContext() {
+type AnyRecord = Record<string, any>
+type Streak = { type: 'win' | 'loss' | null; count: number }
+
+export function buildMCPContext(this: any) {
     try {
         const stats = this.calculateAdvancedStats();
-        const closedTrades = stats.closedTradesList || [];
-        const openTrades = stats.openTradesList || [];
-        const r2 = (v) => {
+        const closedTrades: AnyRecord[] = stats.closedTradesList || [];
+        const openTrades: AnyRecord[] = stats.openTradesList || [];
+        const r2 = (v: unknown) => {
             if (v === null || v === undefined || v === '') return null;
             const n = Number(v);
             return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
         };
-        const r4 = (v) => {
+        const r4 = (v: unknown) => {
             if (v === null || v === undefined || v === '') return null;
             const n = Number(v);
             return Number.isFinite(n) ? Math.round(n * 10000) / 10000 : null;
         };
-        const compact = (obj) => Object.fromEntries(
+        const compact = (obj: AnyRecord) => Object.fromEntries(
             Object.entries(obj).filter(([, v]) => v !== null && v !== undefined && v !== '')
         );
 
         // Time-windowed realized P&L using existing getClosedTradesInRange logic
         const sumPL = (trades: Record<string, unknown>[]) => trades.reduce((s, t) => s + (Number(t.pl) || 0), 0);
         const plByRange: Record<string, number | null> = {};
-        ['7D', 'MTD', '1M', '3M', 'YTD', '1Y'].forEach(range => {
+        ['7D', 'MTD', '1M', '3M', 'YTD', '1Y'].forEach((range: string) => {
             plByRange[range] = r2(sumPL(this.getClosedTradesInRange(range)));
         });
 
         // Current win/loss streak from most-recent closed trades backwards
         const sortedByExit = [...closedTrades]
-            .filter(t => t.closedDate || t.exitDate)
+            .filter((t: AnyRecord) => t.closedDate)
             .sort((a, b) =>
-                new Date(b.closedDate || b.exitDate).getTime() - new Date(a.closedDate || a.exitDate).getTime()
+                new Date(b.closedDate).getTime() - new Date(a.closedDate).getTime()
             );
-        let streak = { type: null, count: 0 };
+        let streak: Streak = { type: null, count: 0 };
         for (const t of sortedByExit) {
             const pl = Number(t.pl) || 0;
             if (pl > 0) {
@@ -49,7 +52,7 @@ export function buildMCPContext() {
 
         // Days since last trade activity (last open or close event)
         const today = (this.currentDate instanceof Date ? this.currentDate : new Date()).getTime();
-        const lastActivityMs = this.trades.reduce((max, t) => {
+        const lastActivityMs = this.trades.reduce((max: number, t: AnyRecord) => {
             const closed = t.closedDate ? new Date(t.closedDate).getTime() : 0;
             const opened = t.openedDate ? new Date(t.openedDate).getTime() : 0;
             return Math.max(max, closed || 0, opened || 0);
@@ -60,22 +63,22 @@ export function buildMCPContext() {
 
         // Largest winner / loser (closed trades only)
         const sortedByPL = [...closedTrades]
-            .filter(t => Number.isFinite(Number(t.pl)))
+            .filter((t: AnyRecord) => Number.isFinite(Number(t.pl)))
             .sort((a, b) => (Number(a.pl) || 0) - (Number(b.pl) || 0));
-        const briefTrade = (t) => t ? compact({
+        const briefTrade = (t: AnyRecord | null) => t ? compact({
             id: t.id,
             ticker: t.ticker,
             strategy: t.strategy,
             pl: r2(t.pl),
             roi: r2(t.roi),
-            closedDate: t.closedDate || t.exitDate || null,
+            closedDate: t.closedDate || null,
         }) : null;
         const largestWinner = sortedByPL.length ? briefTrade(sortedByPL[sortedByPL.length - 1]) : null;
         const largestLoser = sortedByPL.length ? briefTrade(sortedByPL[0]) : null;
 
         // Strategy breakdown (full lifecycle counts + closed-trade P&L stats)
-        const strategyMap = new Map();
-        this.trades.forEach(t => {
+        const strategyMap = new Map<string, AnyRecord>();
+        this.trades.forEach((t: AnyRecord) => {
             const key = t.strategy || 'Unknown';
             if (!strategyMap.has(key)) {
                 strategyMap.set(key, {
@@ -84,6 +87,7 @@ export function buildMCPContext() {
                 });
             }
             const e = strategyMap.get(key);
+            if (!e) return;
             e.total++;
             if (this.isClosedStatus(t.status)) {
                 e.closed++;
@@ -98,7 +102,7 @@ export function buildMCPContext() {
             }
         });
         const strategyBreakdown = Array.from(strategyMap.values())
-            .map(e => compact({
+            .map((e: AnyRecord) => compact({
                 strategy: e.strategy,
                 total: e.total,
                 open: e.open || null,
@@ -110,21 +114,22 @@ export function buildMCPContext() {
                 winRate: e.closed > 0 ? r2((e.wins / e.closed) * 100) : null,
                 avgPL: e.closed > 0 ? r2(e.totalPL / e.closed) : null,
             }))
-            .sort((a, b) => Math.abs((b.totalPL as number) || 0) - Math.abs((a.totalPL as number) || 0));
+            .sort((a: AnyRecord, b: AnyRecord) => Math.abs((b.totalPL as number) || 0) - Math.abs((a.totalPL as number) || 0));
 
         // Underlying-type breakdown (Stock / ETF / Index / Future)
-        const underlyingMap = new Map();
-        this.trades.forEach(t => {
+        const underlyingMap = new Map<string, AnyRecord>();
+        this.trades.forEach((t: AnyRecord) => {
             const type = t.underlyingType || 'Unknown';
             if (!underlyingMap.has(type)) {
                 underlyingMap.set(type, { type, count: 0, totalPL: 0, capitalAtRisk: 0 });
             }
             const e = underlyingMap.get(type);
+            if (!e) return;
             e.count++;
             if (this.isClosedStatus(t.status)) e.totalPL += Number(t.pl) || 0;
             if (this.isActiveStatus(t.status)) e.capitalAtRisk += Number(t.capitalAtRisk) || 0;
         });
-        const underlyingBreakdown = Array.from(underlyingMap.values()).map(e => compact({
+        const underlyingBreakdown = Array.from(underlyingMap.values()).map((e: AnyRecord) => compact({
             type: e.type,
             count: e.count,
             totalPL: r2(e.totalPL),
@@ -133,7 +138,7 @@ export function buildMCPContext() {
 
         // DTE buckets for active positions (technical risk indicator)
         const dteDistribution = { expired: 0, '0-7d': 0, '8-30d': 0, '31-60d': 0, '61-90d': 0, '90d+': 0 };
-        openTrades.forEach(t => {
+        openTrades.forEach((t: AnyRecord) => {
             const dte = Number(t.dte);
             if (!Number.isFinite(dte) || dte < 0) dteDistribution.expired++;
             else if (dte <= 7) dteDistribution['0-7d']++;
@@ -146,10 +151,10 @@ export function buildMCPContext() {
         // Concentration: top 5 active positions by capital at risk
         const collateral = Number(stats.collateralAtRisk) || 0;
         const concentration = [...openTrades]
-            .filter(t => Number.isFinite(Number(t.capitalAtRisk)) && Number(t.capitalAtRisk) > 0)
+            .filter((t: AnyRecord) => Number.isFinite(Number(t.capitalAtRisk)) && Number(t.capitalAtRisk) > 0)
             .sort((a, b) => (Number(b.capitalAtRisk) || 0) - (Number(a.capitalAtRisk) || 0))
             .slice(0, 5)
-            .map(t => compact({
+            .map((t: AnyRecord) => compact({
                 id: t.id,
                 ticker: t.ticker,
                 strategy: t.strategy,
@@ -170,7 +175,7 @@ export function buildMCPContext() {
                     closed: stats.closedTrades,
                     active: stats.activePositions,
                     assigned: stats.assignedPositions,
-                    awaitingCoverage: this.trades.filter(t => t.lifecycleStatus === 'awaiting_coverage').length,
+                    awaitingCoverage: this.trades.filter((t: AnyRecord) => t.lifecycleStatus === 'awaiting_coverage').length,
                 },
 
                 pl: compact({
@@ -226,15 +231,15 @@ export function buildMCPContext() {
             dteDistribution,
             concentration,
 
-            activePositions: openTrades.map(t => this.buildMCPTrade(t, { isOpen: true })),
+            activePositions: openTrades.map((t: AnyRecord) => this.buildMCPTrade(t, { isOpen: true })),
 
             wheelPmccPositions: (stats.assignmentStats?.assignments || [])
-                .filter(({ trade }) => !this.isClosedStatus(trade.status))
-                .map(a => this.buildMCPAssignment(a)),
+                .filter(({ trade }: { trade: AnyRecord }) => !this.isClosedStatus(trade.status))
+                .map((a: AnyRecord) => this.buildMCPAssignment(a)),
 
             tickerExposure: (stats.tickerPerformance?.items || [])
                 .slice(0, 15)
-                .map(item => compact({
+                .map((item: AnyRecord) => compact({
                     ticker: item.ticker,
                     totalPL: r2(item.totalPL),
                     trades: item.tradeCount,
@@ -245,7 +250,7 @@ export function buildMCPContext() {
                 })),
 
             recentClosedTrades: sortedByExit.slice(0, 10)
-                .map(t => this.buildMCPTrade(t, { isOpen: false })),
+                .map((t: AnyRecord) => this.buildMCPTrade(t, { isOpen: false })),
         };
     } catch (e) {
         console.warn('Failed to build MCP context:', e);
@@ -253,9 +258,9 @@ export function buildMCPContext() {
     }
 }
 
-export function buildMCPTrade(trade, { isOpen = false } = {}) {
+export function buildMCPTrade(this: any, trade: AnyRecord, { isOpen = false }: { isOpen?: boolean } = {}) {
     if (!trade) return null;
-    const r2 = (v) => {
+    const r2 = (v: unknown) => {
         if (v === null || v === undefined || v === '') return null;
         const n = Number(v);
         return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
@@ -328,15 +333,15 @@ export function buildMCPTrade(trade, { isOpen = false } = {}) {
     );
 }
 
-export function buildMCPAssignment(a) {
+export function buildMCPAssignment(this: any, a: AnyRecord) {
     if (!a) return null;
-    const r2 = (v) => {
+    const r2 = (v: unknown) => {
         if (v === null || v === undefined || v === '') return null;
         const n = Number(v);
         return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
     };
-    const history = Array.isArray(a.premiumHistory) ? a.premiumHistory : [];
-    const totalPremium = history.reduce((s, h) => s + (Number(h.amount) || 0), 0);
+    const history: AnyRecord[] = Array.isArray(a.premiumHistory) ? a.premiumHistory : [];
+    const totalPremium = history.reduce((s: number, h: AnyRecord) => s + (Number(h.amount) || 0), 0);
 
     const out: Record<string, unknown> = {
         id: a.trade?.id,
@@ -370,7 +375,7 @@ export function buildMCPAssignment(a) {
         coveredShares: a.coveredShares,
         uncoveredShares: a.uncoveredShares,
         activeShortCalls: a.activeShortCalls,
-        activeShortCallDetails: (a.activeShortCallDetails || []).map(d => ({
+        activeShortCallDetails: (a.activeShortCallDetails || []).map((d: AnyRecord) => ({
             strike: r2(d.strike),
             expiration: d.expiration,
             contracts: d.contracts,
@@ -379,7 +384,7 @@ export function buildMCPAssignment(a) {
         premiumHistorySummary: history.length ? {
             events: history.length,
             total: r2(totalPremium),
-            recent: history.slice(-5).map(h => ({
+            recent: history.slice(-5).map((h: AnyRecord) => ({
                 date: h.date,
                 amount: r2(h.amount),
                 category: h.category,

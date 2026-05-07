@@ -293,7 +293,6 @@ export function mapCreditTradeToEntry(this: CreditPlaybookRenderContext, trade: 
 export function resolveCreditPlaybookOpenedAt(this: CreditPlaybookRenderContext, trade: TradeRecord = {}, summary: Record<string, unknown> = {}): Date | null {
     const candidates = [
         this.parseDateValue(trade.openedDate),
-        this.parseDateValue(trade.entryDate),
         this.parseDateValue(trade.tradeDate),
         this.parseDateValue(trade.openDate),
         summary?.openedDate instanceof Date ? summary.openedDate as Date : null
@@ -907,4 +906,3 @@ export function renderCreditPlaybookTableFromLegPairs(this: CreditPlaybookRender
         this.refreshCreditPlaybookQuotes({ force: true, immediate: true });
     }
 }
-
