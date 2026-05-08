@@ -80,6 +80,7 @@ import * as notificationsModule from './ui/notifications.js';
 import * as sidebarModule from './ui/sidebar.js';
 import * as disclaimerModule from './ui/modals/disclaimer.js';
 import * as aiCoachConsentModule from './ui/modals/ai-coach-consent.js';
+import type { AICoachConsentState } from './ui/modals/ai-coach-consent.js';
 import * as filtersModule from './ui/filters.js';
 import * as dashboardChartsModule from './ui/charts/dashboard-charts.js';
 import * as cumulativePLModule from './ui/charts/cumulative-pl.js';
@@ -130,7 +131,7 @@ class GammaLedger {
     declare cumulativePLRange: string
     declare disclaimerBanner: { element: HTMLDialogElement | null; agreeButton: Element | null; agreeHandler: (() => void) | null }
     declare disclaimerFadeMs: number
-    declare aiCoachConsent: Record<string, unknown>
+    declare aiCoachConsent: AICoachConsentState
     declare finnhub: { apiKey: string; encryptionKey: CryptoKey | null; cache: Map<string, unknown>; cacheTTL: number; outstandingRequests: Map<string, unknown>; rateLimitQueue: Promise<unknown>; maxRequestsPerMinute: number; timestamps: number[]; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; elements: Record<string, unknown> }
     declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; maxOutputTokens: number; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
     declare aiAgent: GeminiInsightsAgent | null
@@ -203,8 +204,8 @@ class GammaLedger {
             agreeHandler: null,
             dismissButtons: [],
             dismissHandlers: [],
-            escapeHandler: null,
-            restoreFocus: null,
+            cancelHandler: null,
+            backdropHandler: null,
             pendingAction: null,
             isVisible: false
         };

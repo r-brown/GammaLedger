@@ -1,18 +1,18 @@
-// src/ui/modals/ai-coach-consent.ts — Wave 8: AI Coach consent modal.
+// src/ui/modals/ai-coach-consent.ts — Wave 8: AI Coach consent modal (native <dialog>).
 // Uses the .call(this, …) delegation pattern.
 
 import { AI_COACH_CONSENT_STORAGE_KEY } from '@core/config'
 
-interface AICoachConsentState {
-  element: HTMLElement | null
+export interface AICoachConsentState {
+  element: HTMLDialogElement | null
   panel: HTMLElement | null
   agreeButton: Element | null
   agreeHandler: (() => void) | null
   dismissButtons: Element[]
   dismissHandlers: ((event: Event) => void)[]
-  escapeHandler: ((event: KeyboardEvent) => void) | null
+  cancelHandler: ((event: Event) => void) | null
+  backdropHandler: ((event: MouseEvent) => void) | null
   pendingAction: (() => void) | null
-  restoreFocus: HTMLElement | null
   isVisible: boolean
 }
 
@@ -29,199 +29,156 @@ interface AICoachConsentContext {
   updateAIChatHeader(): void
 }
 
-export function initializeAICoachConsent(this: AICoachConsentContext): void {
-    const consent = this.aiCoachConsent;
-    const element = document.getElementById('ai-coach-consent');
-    if (!element) {
-        return;
-    }
+const HIDE_FADE_MS = 220
 
-    consent.element = element;
-    consent.panel = (element.querySelector('.ai-consent-modal__panel') || element) as HTMLElement;
-    const agreeButton = element.querySelector('[data-action="ai-consent-agree"]');
+export function initializeAICoachConsent(this: AICoachConsentContext): void {
+    const consent = this.aiCoachConsent
+    const element = document.getElementById('ai-coach-consent') as HTMLDialogElement | null
+    if (!element) return
+
+    consent.element = element
+    consent.panel = (element.querySelector('.ai-consent-modal__panel') || element) as HTMLElement
 
     if (consent.agreeButton && consent.agreeHandler) {
-        consent.agreeButton.removeEventListener('click', consent.agreeHandler);
+        consent.agreeButton.removeEventListener('click', consent.agreeHandler)
     }
-
-    consent.agreeButton = agreeButton;
-    const agreeHandler = () => this.acceptAICoachConsent();
-    consent.agreeHandler = agreeHandler;
-    if (agreeButton) {
-        agreeButton.addEventListener('click', agreeHandler);
-    }
+    const agreeButton = element.querySelector('[data-action="ai-consent-agree"]')
+    consent.agreeButton = agreeButton
+    const agreeHandler = () => this.acceptAICoachConsent()
+    consent.agreeHandler = agreeHandler
+    if (agreeButton) agreeButton.addEventListener('click', agreeHandler)
 
     consent.dismissButtons.forEach((button, index) => {
-        const handler = consent.dismissHandlers[index];
-        if (button && handler) {
-            button.removeEventListener('click', handler);
-        }
-    });
-
-    const dismissButtons = Array.from(element.querySelectorAll('[data-action="ai-consent-dismiss"]'));
-    consent.dismissButtons = dismissButtons;
+        const handler = consent.dismissHandlers[index]
+        if (button && handler) button.removeEventListener('click', handler)
+    })
+    const dismissButtons = Array.from(element.querySelectorAll('[data-action="ai-consent-dismiss"]'))
+    consent.dismissButtons = dismissButtons
     consent.dismissHandlers = dismissButtons.map((button) => {
         const handler = (event: Event) => {
-            event.preventDefault();
-            this.cancelAICoachConsent();
-        };
-        button.addEventListener('click', handler);
-        return handler;
-    });
-
-    if (consent.escapeHandler) {
-        element.removeEventListener('keydown', consent.escapeHandler as EventListener);
-    }
-
-    const escapeHandler = (event: KeyboardEvent) => {
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            this.cancelAICoachConsent();
+            event.preventDefault()
+            this.cancelAICoachConsent()
         }
-    };
-    consent.escapeHandler = escapeHandler;
-    element.addEventListener('keydown', escapeHandler as EventListener);
+        button.addEventListener('click', handler)
+        return handler
+    })
 
-    element.setAttribute('aria-hidden', 'true');
-
-    if (!element.classList.contains('is-hidden')) {
-        element.classList.add('is-hidden');
+    if (consent.cancelHandler) {
+        element.removeEventListener('cancel', consent.cancelHandler)
     }
+    const cancelHandler = (event: Event) => {
+        event.preventDefault() // suppress instant close so the fade-out animation runs
+        this.cancelAICoachConsent()
+    }
+    consent.cancelHandler = cancelHandler
+    element.addEventListener('cancel', cancelHandler)
 
-    this.updateAIChatHeader();
+    if (consent.backdropHandler) {
+        element.removeEventListener('click', consent.backdropHandler as EventListener)
+    }
+    const backdropHandler = (event: MouseEvent) => {
+        // Click on the dialog element itself = click on the backdrop area outside the panel.
+        if (event.target === element) {
+            this.cancelAICoachConsent()
+        }
+    }
+    consent.backdropHandler = backdropHandler
+    element.addEventListener('click', backdropHandler as EventListener)
+
+    this.updateAIChatHeader()
 }
 
 export function showAICoachConsent(this: AICoachConsentContext): void {
-    const consent = this.aiCoachConsent;
-    const { element, panel } = consent;
-    if (!element) {
-        return;
-    }
+    const consent = this.aiCoachConsent
+    const { element, panel } = consent
+    if (!element) return
 
-    consent.restoreFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-
-    element.classList.remove('is-hidden');
+    if (!element.open) element.showModal()
     requestAnimationFrame(() => {
-        element.classList.add('is-visible');
-        element.setAttribute('aria-hidden', 'false');
-        consent.isVisible = true;
-
+        element.classList.add('is-visible')
+        consent.isVisible = true
         if (panel && typeof panel.focus === 'function') {
-            panel.setAttribute('tabindex', '-1');
-            try {
-                panel.focus({ preventScroll: true });
-            } catch (_error) {
-                panel.focus();
-            }
+            panel.setAttribute('tabindex', '-1')
+            try { panel.focus({ preventScroll: true }) } catch (_e) { panel.focus() }
         }
-    });
+    })
 }
 
 export function hideAICoachConsent(this: AICoachConsentContext, { immediate = false } = {}): void {
-    const consent = this.aiCoachConsent;
-    const { element } = consent;
-    if (!element) {
-        return;
-    }
+    const consent = this.aiCoachConsent
+    const { element } = consent
+    if (!element) return
 
-    const finalize = () => {
-        element.classList.add('is-hidden');
-        element.setAttribute('aria-hidden', 'true');
-        consent.isVisible = false;
-
-        const target = consent.restoreFocus;
-        consent.restoreFocus = null;
-        if (target && typeof target.focus === 'function') {
-            try {
-                target.focus({ preventScroll: true });
-            } catch (_error) {
-                target.focus();
-            }
-        }
-    };
+    element.classList.remove('is-visible')
+    consent.isVisible = false
 
     if (immediate) {
-        element.classList.remove('is-visible');
-        finalize();
-        return;
+        if (element.open) element.close()
+        return
     }
 
-    element.classList.remove('is-visible');
-    element.setAttribute('aria-hidden', 'true');
-    consent.isVisible = false;
-
     setTimeout(() => {
-        if (!element.classList.contains('is-visible')) {
-            finalize();
-        }
-    }, 220);
+        if (element.open) element.close()
+    }, HIDE_FADE_MS)
 }
 
 export function promptAICoachConsent(this: AICoachConsentContext, nextAction: (() => void) | null = null): boolean {
     if (!this.aiCoachConsent.element) {
-        this.initializeAICoachConsent();
+        this.initializeAICoachConsent()
     }
 
     if (this.hasAICoachConsent()) {
         if (typeof nextAction === 'function') {
-            try {
-                nextAction();
-            } catch (error) {
-                console.error('AI Coach consent follow-up failed:', error);
-            }
+            try { nextAction() } catch (error) { console.error('AI Coach consent follow-up failed:', error) }
         }
-        return true;
+        return true
     }
 
-    this.aiCoachConsent.pendingAction = typeof nextAction === 'function' ? nextAction : null;
-    this.showAICoachConsent();
-    return false;
+    this.aiCoachConsent.pendingAction = typeof nextAction === 'function' ? nextAction : null
+    this.showAICoachConsent()
+    return false
 }
 
 export function acceptAICoachConsent(this: AICoachConsentContext): void {
-    this.setAICoachConsent(new Date().toISOString());
-    const followUp = this.aiCoachConsent.pendingAction;
-    this.aiCoachConsent.pendingAction = null;
-    this.hideAICoachConsent();
-    this.updateAIChatHeader();
+    this.setAICoachConsent(new Date().toISOString())
+    const followUp = this.aiCoachConsent.pendingAction
+    this.aiCoachConsent.pendingAction = null
+    this.hideAICoachConsent()
+    this.updateAIChatHeader()
 
     if (typeof followUp === 'function') {
-        try {
-            followUp();
-        } catch (error) {
-            console.error('AI Coach consent follow-up failed:', error);
-        }
+        try { followUp() } catch (error) { console.error('AI Coach consent follow-up failed:', error) }
     }
 }
 
 export function cancelAICoachConsent(this: AICoachConsentContext): void {
-    this.aiCoachConsent.pendingAction = null;
-    this.hideAICoachConsent();
-    this.updateAIChatHeader();
+    this.aiCoachConsent.pendingAction = null
+    this.hideAICoachConsent()
+    this.updateAIChatHeader()
 }
 
 export function hasAICoachConsent(this: AICoachConsentContext): boolean {
-    return Boolean(this.getAICoachConsent());
+    return Boolean(this.getAICoachConsent())
 }
 
 export function getAICoachConsent(): string | null {
     try {
-        const value = localStorage.getItem(AI_COACH_CONSENT_STORAGE_KEY);
-        return value || null;
+        const value = localStorage.getItem(AI_COACH_CONSENT_STORAGE_KEY)
+        return value || null
     } catch (error) {
-        console.warn('Failed to read AI Coach consent from storage:', error);
-        return null;
+        console.warn('Failed to read AI Coach consent from storage:', error)
+        return null
     }
 }
 
 export function setAICoachConsent(value: string | null): void {
     try {
         if (!value) {
-            localStorage.removeItem(AI_COACH_CONSENT_STORAGE_KEY);
-            return;
+            localStorage.removeItem(AI_COACH_CONSENT_STORAGE_KEY)
+            return
         }
-        localStorage.setItem(AI_COACH_CONSENT_STORAGE_KEY, value);
+        localStorage.setItem(AI_COACH_CONSENT_STORAGE_KEY, value)
     } catch (error) {
-        console.warn('Failed to persist AI Coach consent:', error);
+        console.warn('Failed to persist AI Coach consent:', error)
     }
 }
