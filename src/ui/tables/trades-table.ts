@@ -1,13 +1,24 @@
 // src/ui/tables/trades-table.ts — Wave 9: Trades table rendering and actions.
 // Uses the .call(this, …) delegation pattern.
 
+import {
+  createGrid,
+  type ColDef,
+  type GridApi,
+  type GridOptions,
+  type ICellRendererParams,
+  type RowClickedEvent,
+  type SortChangedEvent
+} from './ag-grid.js'
+
 type TradeRecord = Record<string, unknown>
 
 interface TradesTableContext {
   trades: TradeRecord[]
   currentFilteredTrades: TradeRecord[]
-  currentSort: { key: string; direction: string } | null
+  currentSort: { key: string | null; direction: string } | null
   sortDirection: Record<string, string>
+  tradesGridApi?: GridApi<TradeRecord> | null
   tradesMergePanelOpen: boolean
   tradeMergeSelection: Set<unknown>
   tradeDetailCharts: Map<string, { destroy(): void }> | null
@@ -18,7 +29,8 @@ interface TradesTableContext {
   createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
   getDisplayStatus(trade: TradeRecord): string
   createFormulaIcon(trade: TradeRecord, field: string): HTMLElement | null
-  toggleTradePayoffDetail(row: HTMLTableRowElement, detailRow: HTMLTableRowElement, trade: TradeRecord, chartId: string, footnoteId: string): void
+  toggleTradePayoffDetail(row: HTMLElement | null, detailRow: HTMLElement | null, trade: TradeRecord, chartId: string, footnoteId: string): void
+  destroyTradePayoffChart(chartId: string, footnoteId?: string): void
   editTrade(id: unknown): void
   deleteTrade(id: unknown): void
   applyResponsiveLabels(row: HTMLTableRowElement, labels: string[]): void
@@ -28,6 +40,7 @@ interface TradesTableContext {
   refreshTradesMergePanelContents(): void
   syncTradeSelectionCheckboxes(): void
   updateMergeColumnVisibility(): void
+  refreshTradesGridSelectionState(): void
   applySortToTrades(trades: TradeRecord[], sortKey: string, direction: string): TradeRecord[]
   populateFilters(): void
   filterTrades(): void
@@ -47,14 +60,561 @@ interface TradesTableContext {
   escapeHtml(value: string): string
 }
 
+const GRID_DETAIL_ID = 'trades-grid-detail';
+const MERGE_COLUMN_ID = 'mergeSelect';
+
+function safeNumber(value: unknown): number | null {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+}
+
+function tradeRowKey(trade: TradeRecord | null | undefined, fallback = 'trade'): string {
+    const source = trade?.id ?? trade?.tradeId ?? trade?.uniqueId ?? fallback;
+    return String(source || fallback).replace(/[^a-zA-Z0-9_-]/g, '-');
+}
+
+function hasTradeSelection(selection: Set<unknown>, id: unknown): boolean {
+    const key = String(id ?? '');
+    if (!key) {
+        return false;
+    }
+    return Array.from(selection).some(value => String(value) === key);
+}
+
+function removeTradeSelection(selection: Set<unknown>, id: unknown): void {
+    const key = String(id ?? '');
+    if (!key) {
+        return;
+    }
+    Array.from(selection).forEach(value => {
+        if (String(value) === key) {
+            selection.delete(value);
+        }
+    });
+}
+
+function createMetricElement(
+    text: string,
+    formulaIcon: HTMLElement | null = null
+): HTMLElement {
+    const wrapper = document.createElement('span');
+    wrapper.className = 'trades-grid__metric';
+    wrapper.appendChild(document.createTextNode(text));
+    if (formulaIcon) {
+        wrapper.appendChild(formulaIcon);
+    }
+    return wrapper;
+}
+
+function createStatusBadge(this: TradesTableContext, trade: TradeRecord): HTMLElement {
+    const badge = document.createElement('span');
+    const displayStatus = this.getDisplayStatus(trade);
+    const statusClass = displayStatus.toLowerCase().replace(/\s+/g, '-');
+    badge.className = `status-badge ${statusClass}`.trim();
+    badge.textContent = displayStatus;
+    return badge;
+}
+
+function createPayoffPanelContent(trade: TradeRecord, chartId: string, footnoteId: string): HTMLElement {
+    const diagramContainer = document.createElement('div');
+    diagramContainer.className = 'trade-diagram';
+    diagramContainer.setAttribute('data-chart-container', chartId);
+
+    const canvasWrapper = document.createElement('div');
+    canvasWrapper.className = 'trade-diagram__canvas';
+
+    const chartRoot = document.createElement('div');
+    chartRoot.id = chartId;
+    chartRoot.className = 'echarts-chart';
+    chartRoot.setAttribute('role', 'img');
+    chartRoot.setAttribute('aria-label', `Payoff diagram for ${(trade.ticker as string) || 'trade'}`);
+    chartRoot.setAttribute('aria-hidden', 'true');
+
+    const footnote = document.createElement('p');
+    footnote.className = 'trade-diagram__footnote';
+    footnote.id = footnoteId;
+    footnote.textContent = 'Tap or click the trade row to generate the payoff diagram.';
+
+    canvasWrapper.appendChild(chartRoot);
+    diagramContainer.appendChild(canvasWrapper);
+    diagramContainer.appendChild(footnote);
+    return diagramContainer;
+}
+
+function closeTradePayoffPanel(this: TradesTableContext): void {
+    const panel = document.getElementById(GRID_DETAIL_ID);
+    if (!panel) {
+        return;
+    }
+    const chartId = panel.dataset.chartId;
+    const footnoteId = panel.dataset.footnoteId;
+    if (chartId) {
+        this.destroyTradePayoffChart(chartId, footnoteId);
+    }
+    panel.classList.remove('is-open');
+    panel.style.display = 'none';
+    panel.setAttribute('aria-hidden', 'true');
+    delete panel.dataset.chartId;
+    delete panel.dataset.footnoteId;
+    delete panel.dataset.tradeId;
+    panel.innerHTML = '';
+}
+
+function toggleTradePayoffPanel(this: TradesTableContext, trade: TradeRecord, index = 0): void {
+    const panel = document.getElementById(GRID_DETAIL_ID);
+    if (!panel) {
+        return;
+    }
+
+    const rowKey = tradeRowKey(trade, `${(trade.ticker as string) || 'trade'}-${index}`);
+    const chartId = `trade-pl-${rowKey}`;
+    const footnoteId = `${chartId}-footnote`;
+    const isSameOpenTrade = panel.classList.contains('is-open') && panel.dataset.tradeId === rowKey;
+
+    if (isSameOpenTrade) {
+        this.toggleTradePayoffDetail(null, panel, trade, chartId, footnoteId);
+        return;
+    }
+
+    closeTradePayoffPanel.call(this);
+
+    panel.dataset.tradeId = rowKey;
+    panel.dataset.chartId = chartId;
+    panel.dataset.footnoteId = footnoteId;
+    panel.appendChild(createPayoffPanelContent(trade, chartId, footnoteId));
+    this.toggleTradePayoffDetail(null, panel, trade, chartId, footnoteId);
+}
+
+function createMergeCheckboxRenderer(
+    this: TradesTableContext,
+    params: ICellRendererParams<TradeRecord>
+): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'trade-select-cell';
+
+    const trade = params.data;
+    if (!trade) {
+        return wrapper;
+    }
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'trade-merge-checkbox';
+    checkbox.dataset.tradeId = String(trade.id ?? '');
+    checkbox.checked = hasTradeSelection(this.tradeMergeSelection, trade.id);
+    checkbox.disabled = !this.tradesMergePanelOpen;
+    checkbox.tabIndex = this.tradesMergePanelOpen ? 0 : -1;
+    checkbox.setAttribute('aria-label', `Select trade ${(trade.ticker as string) || ''}`.trim());
+    checkbox.addEventListener('change', (event) => {
+        event.stopPropagation();
+        if (!this.tradesMergePanelOpen) {
+            checkbox.checked = hasTradeSelection(this.tradeMergeSelection, trade.id);
+            return;
+        }
+        if (checkbox.checked) {
+            this.tradeMergeSelection.add(trade.id);
+        } else {
+            removeTradeSelection(this.tradeMergeSelection, trade.id);
+        }
+        this.syncSelectAllCheckbox();
+        this.refreshTradesMergePanelContents();
+    });
+
+    wrapper.appendChild(checkbox);
+    return wrapper;
+}
+
+function createActionsRenderer(
+    this: TradesTableContext,
+    params: ICellRendererParams<TradeRecord>
+): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'trades-grid__actions';
+    const trade = params.data;
+    if (!trade) {
+        return wrapper;
+    }
+
+    const rowIndex = typeof params.node?.rowIndex === 'number' ? params.node.rowIndex : 0;
+
+    const plButton = document.createElement('button');
+    plButton.type = 'button';
+    plButton.className = 'action-btn action-btn--pl';
+    plButton.textContent = 'P&L';
+    plButton.title = 'View payoff diagram';
+    plButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleTradePayoffPanel.call(this, trade, rowIndex);
+    });
+
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'action-btn action-btn--edit';
+    editButton.textContent = 'Edit';
+    editButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.editTrade(trade.id);
+    });
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'action-btn action-btn--delete';
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        this.deleteTrade(trade.id);
+    });
+
+    wrapper.append(plButton, editButton, deleteButton);
+    return wrapper;
+}
+
+function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
+    return [
+        {
+            colId: MERGE_COLUMN_ID,
+            headerName: '',
+            width: 52,
+            minWidth: 52,
+            maxWidth: 60,
+            pinned: 'left',
+            lockPosition: 'left',
+            sortable: false,
+            filter: false,
+            resizable: false,
+            suppressMovable: true,
+            hide: !this.tradesMergePanelOpen,
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => createMergeCheckboxRenderer.call(this, params),
+            cellClass: 'trade-select-cell'
+        },
+        {
+            colId: 'ticker',
+            field: 'ticker',
+            headerName: 'Ticker',
+            width: 120,
+            pinned: 'left',
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => this.createTickerElement(params.value),
+            filter: 'agTextColumnFilter'
+        },
+        {
+            colId: 'strategy',
+            field: 'strategy',
+            headerName: 'Strategy',
+            minWidth: 190,
+            flex: 1,
+            valueFormatter: params => (params.value as string) || '—',
+            filter: 'agTextColumnFilter'
+        },
+        {
+            colId: 'strikePrice',
+            headerName: 'Strike',
+            width: 110,
+            valueGetter: params => safeNumber(params.data?.strikePrice),
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => {
+                const trade = params.data;
+                const strikeDisplay = trade?.displayStrike || null;
+                const strikePrice = safeNumber(trade?.strikePrice);
+                if (strikeDisplay) {
+                    return String(strikeDisplay);
+                }
+                return strikePrice !== null ? `$${strikePrice.toFixed(2)}` : '—';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'quantity',
+            headerName: 'Qty',
+            width: 90,
+            valueGetter: params => safeNumber(params.data?.quantity),
+            valueFormatter: params => {
+                const value = safeNumber(params.value);
+                return value !== null ? String(Math.abs(value)) : '—';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'entryDate',
+            headerName: 'Entry Date',
+            width: 130,
+            valueGetter: params => params.data?.openedDate || '',
+            valueFormatter: params => this.formatDate(params.value),
+            filter: 'agDateColumnFilter'
+        },
+        {
+            colId: 'expirationDate',
+            field: 'expirationDate',
+            headerName: 'Expiration Date',
+            width: 150,
+            valueFormatter: params => this.formatDate(params.value),
+            filter: 'agDateColumnFilter'
+        },
+        {
+            colId: 'dte',
+            field: 'dte',
+            headerName: 'DTE',
+            width: 90,
+            valueGetter: params => safeNumber(params.data?.dte),
+            valueFormatter: params => {
+                const value = safeNumber(params.value);
+                return value !== null ? String(value) : '—';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'exitDate',
+            headerName: 'Exit Date',
+            width: 130,
+            valueGetter: params => {
+                const trade = params.data;
+                return trade && this.isClosedStatus(trade.status) ? trade.closedDate || '' : '';
+            },
+            valueFormatter: params => params.value ? this.formatDate(params.value) : '—',
+            filter: 'agDateColumnFilter'
+        },
+        {
+            colId: 'daysHeld',
+            field: 'daysHeld',
+            headerName: 'Days Held',
+            width: 120,
+            valueGetter: params => safeNumber(params.data?.daysHeld),
+            valueFormatter: params => {
+                const value = safeNumber(params.value);
+                return value !== null ? String(value) : '—';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'maxRisk',
+            headerName: 'Max Risk',
+            width: 140,
+            valueGetter: params => safeNumber(params.data?.maxRisk),
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => {
+                const trade = params.data || {};
+                const maxRiskValue = safeNumber(trade.maxRisk);
+                const text = (trade.maxRiskLabel as string) ||
+                    (maxRiskValue !== null ? this.formatCurrency(maxRiskValue) : '—');
+                const formulaIcon = trade.strategy && (trade.maxRiskLabel || maxRiskValue !== null)
+                    ? this.createFormulaIcon(trade, 'maxRisk')
+                    : null;
+                return createMetricElement(text, formulaIcon);
+            },
+            cellClass: params => {
+                const trade = params.data || {};
+                const maxRiskValue = safeNumber(trade.maxRisk);
+                if (trade.maxRiskLabel) {
+                    if (trade.riskIsUnlimited) {
+                        return 'pl-negative';
+                    }
+                    return maxRiskValue !== null ? 'pl-negative' : 'pl-neutral';
+                }
+                return maxRiskValue !== null ? 'pl-negative' : 'pl-neutral';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'pl',
+            headerName: 'P&L',
+            width: 125,
+            valueGetter: params => safeNumber(params.data?.pl),
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => {
+                const trade = params.data || {};
+                const plValue = safeNumber(trade.pl);
+                const text = plValue !== null ? this.formatCurrency(plValue) : '—';
+                const formulaIcon = trade.strategy && plValue !== null
+                    ? this.createFormulaIcon(trade, 'pl')
+                    : null;
+                return createMetricElement(text, formulaIcon);
+            },
+            cellClass: params => {
+                const plValue = safeNumber(params.data?.pl);
+                return plValue !== null
+                    ? (plValue > 0 ? 'pl-positive' : plValue < 0 ? 'pl-negative' : 'pl-neutral')
+                    : 'pl-neutral';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'roi',
+            headerName: 'ROI',
+            width: 105,
+            valueGetter: params => safeNumber(params.data?.roi),
+            valueFormatter: params => {
+                const value = safeNumber(params.value);
+                return value !== null ? this.formatPercent(value, '—') : '—';
+            },
+            cellClass: params => {
+                const value = safeNumber(params.value);
+                return value !== null
+                    ? (value > 0 ? 'pl-positive' : value < 0 ? 'pl-negative' : 'pl-neutral')
+                    : 'pl-neutral';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'weeklyROI',
+            headerName: 'Weekly ROI',
+            width: 125,
+            valueGetter: params => {
+                const trade = params.data;
+                return trade && this.isClosedStatus(trade.status) ? safeNumber(trade.weeklyROI) : null;
+            },
+            valueFormatter: params => {
+                const value = safeNumber(params.value);
+                return value !== null ? this.formatPercent(value, '—') : '—';
+            },
+            cellClass: params => {
+                const value = safeNumber(params.value);
+                return value !== null
+                    ? (value > 0 ? 'pl-positive' : value < 0 ? 'pl-negative' : 'pl-neutral')
+                    : 'pl-neutral';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'monthlyROI',
+            headerName: 'Monthly ROI',
+            width: 130,
+            valueGetter: params => {
+                const trade = params.data;
+                return trade && this.isClosedStatus(trade.status) ? safeNumber(trade.monthlyROI) : null;
+            },
+            valueFormatter: params => {
+                const value = safeNumber(params.value);
+                return value !== null ? this.formatPercent(value, '—') : '—';
+            },
+            cellClass: params => {
+                const value = safeNumber(params.value);
+                return value !== null
+                    ? (value > 0 ? 'pl-positive' : value < 0 ? 'pl-negative' : 'pl-neutral')
+                    : 'pl-neutral';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'annualizedROI',
+            headerName: 'Annual ROI',
+            width: 120,
+            valueGetter: params => {
+                const trade = params.data;
+                return trade && this.isClosedStatus(trade.status) ? safeNumber(trade.annualizedROI) : null;
+            },
+            valueFormatter: params => {
+                const value = safeNumber(params.value);
+                return value !== null ? this.formatPercent(value, '—') : '—';
+            },
+            cellClass: params => {
+                const value = safeNumber(params.value);
+                return value !== null
+                    ? (value > 0 ? 'pl-positive' : value < 0 ? 'pl-negative' : 'pl-neutral')
+                    : 'pl-neutral';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'status',
+            headerName: 'Status',
+            width: 130,
+            valueGetter: params => params.data ? this.getDisplayStatus(params.data) : '',
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => params.data ? createStatusBadge.call(this, params.data) : '—',
+            filter: 'agTextColumnFilter'
+        },
+        {
+            colId: 'actions',
+            headerName: 'Actions',
+            width: 176,
+            minWidth: 176,
+            pinned: 'right',
+            sortable: false,
+            filter: false,
+            resizable: false,
+            suppressMovable: true,
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => createActionsRenderer.call(this, params),
+            cellClass: 'actions-cell'
+        }
+    ];
+}
+
+function applyGridSortState(this: TradesTableContext): void {
+    const api = this.tradesGridApi;
+    const sortKey = this.currentSort?.key;
+    const direction = sortKey ? (this.sortDirection[sortKey] || this.currentSort?.direction || 'asc') : null;
+    if (!api || api.isDestroyed() || !sortKey || (direction !== 'asc' && direction !== 'desc')) {
+        return;
+    }
+
+    api.applyColumnState({
+        defaultState: { sort: null },
+        state: [{ colId: sortKey, sort: direction }]
+    });
+}
+
+function syncSortFromGrid(this: TradesTableContext, event: SortChangedEvent<TradeRecord>): void {
+    const sortedColumn = event.api.getColumnState().find(column => column.sort);
+    if (!sortedColumn?.colId) {
+        this.currentSort = { key: null, direction: 'asc' };
+        return;
+    }
+
+    const direction = sortedColumn.sort === 'desc' ? 'desc' : 'asc';
+    this.sortDirection[sortedColumn.colId] = direction;
+    this.currentSort = {
+        key: sortedColumn.colId,
+        direction
+    };
+
+    const orderedTrades: TradeRecord[] = [];
+    event.api.forEachNodeAfterFilterAndSort((node) => {
+        if (node.data) {
+            orderedTrades.push(node.data);
+        }
+    });
+    if (orderedTrades.length) {
+        this.currentFilteredTrades = orderedTrades;
+    }
+    this.syncSelectAllCheckbox();
+    this.refreshTradesMergePanelContents();
+}
+
+function createTradesGridOptions(this: TradesTableContext, trades: TradeRecord[]): GridOptions<TradeRecord> {
+    return {
+        rowData: trades,
+        columnDefs: buildTradeColumnDefs.call(this),
+        defaultColDef: {
+            sortable: true,
+            resizable: true,
+            filter: true,
+            minWidth: 90,
+            suppressHeaderMenuButton: false
+        },
+        getRowId: params => tradeRowKey(params.data),
+        rowHeight: 50,
+        headerHeight: 46,
+        rowBuffer: 20,
+        animateRows: false,
+        suppressCellFocus: false,
+        maintainColumnOrder: true,
+        onRowClicked: (event: RowClickedEvent<TradeRecord>) => {
+            const target = event.event?.target as HTMLElement | null;
+            if (target?.closest('button, a, input, select, textarea, .trade-diagram')) {
+                return;
+            }
+            if (event.data) {
+                toggleTradePayoffPanel.call(this, event.data, event.rowIndex ?? 0);
+            }
+        },
+        onSortChanged: (event: SortChangedEvent<TradeRecord>) => syncSortFromGrid.call(this, event),
+        overlayNoRowsTemplate: '<span class="ag-overlay-no-rows-center">No trades match the current filters.</span>'
+    };
+}
+
 export function updateTradesList(this: TradesTableContext): void {
     this.populateFilters();
     this.filterTrades();
 }
 
 export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[] = this.trades): void {
-    const tbody = document.querySelector('#trades-table tbody') as HTMLTableSectionElement | null;
-    if (!tbody) return;
+    const gridRoot = document.getElementById('trades-table') as HTMLElement | null;
+    if (!gridRoot) return;
 
     const tradesToRender = Array.isArray(trades) ? trades.slice() : [];
     this.currentFilteredTrades = tradesToRender;
@@ -63,7 +623,7 @@ export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[
         this.setupTradesMergeControls();
     }
 
-    tbody.innerHTML = '';
+    closeTradePayoffPanel.call(this);
 
     if (this.tradeDetailCharts?.size) {
         this.tradeDetailCharts.forEach(chart => {
@@ -78,295 +638,38 @@ export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[
 
     this.pruneTradeMergeSelection();
 
-    const safeNumber = (value: unknown): number | null => {
-        const num = Number(value);
-        return Number.isFinite(num) ? num : null;
-    };
-
-    const columnLabels = [
-        '', 'Ticker', 'Strategy', 'Strike', 'Qty', 'Entry Date', 'Expiration Date',
-        'DTE', 'Exit Date', 'Days Held', 'Max Risk', 'P&L', 'ROI', 'Weekly ROI', 'Monthly ROI', 'Annual ROI', 'Status', 'Actions'
-    ];
-
-    tradesToRender.forEach((trade, index) => {
-        const row = tbody.insertRow();
-        row.classList.add('trade-summary-row');
-
-        const selectionCell = row.insertCell();
-        selectionCell.className = 'trade-select-cell';
-        selectionCell.classList.toggle('is-hidden', !this.tradesMergePanelOpen);
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'trade-merge-checkbox';
-        checkbox.dataset.tradeId = (trade.id as string) || '';
-        checkbox.checked = trade.id ? this.tradeMergeSelection.has(trade.id) : false;
-        checkbox.disabled = !this.tradesMergePanelOpen;
-        checkbox.tabIndex = this.tradesMergePanelOpen ? 0 : -1;
-        checkbox.setAttribute('aria-label', `Select trade ${(trade.ticker as string) || ''}`.trim());
-        checkbox.addEventListener('change', (event) => {
-            event.stopPropagation();
-            if (!this.tradesMergePanelOpen) {
-                (event.target as HTMLInputElement).checked = trade.id ? this.tradeMergeSelection.has(trade.id) : false;
-                return;
-            }
-            const id = trade.id;
-            if (!id) {
-                (event.target as HTMLInputElement).checked = false;
-                return;
-            }
-            if ((event.target as HTMLInputElement).checked) {
-                this.tradeMergeSelection.add(id);
-            } else {
-                this.tradeMergeSelection.delete(id);
-            }
-            this.syncSelectAllCheckbox();
-            this.refreshTradesMergePanelContents();
+    if (!this.tradesGridApi || this.tradesGridApi.isDestroyed()) {
+        this.tradesGridApi = createGrid(gridRoot, createTradesGridOptions.call(this, tradesToRender));
+        applyGridSortState.call(this);
+    } else {
+        this.tradesGridApi.updateGridOptions({
+            rowData: tradesToRender
         });
-        selectionCell.appendChild(checkbox);
+        applyGridSortState.call(this);
+    }
 
-        const tickerCell = row.insertCell();
-        tickerCell.appendChild(this.createTickerElement(trade.ticker));
-
-        const strategyCell = row.insertCell();
-        strategyCell.textContent = (trade.strategy as string) || '—';
-
-        const strikeCell = row.insertCell();
-        const strikeDisplay = trade.displayStrike || null;
-        const strikePrice = safeNumber(trade.strikePrice);
-        if (strikeDisplay) {
-            strikeCell.textContent = strikeDisplay as string;
-        } else if (strikePrice !== null) {
-            strikeCell.textContent = `$${strikePrice.toFixed(2)}`;
-        } else {
-            strikeCell.textContent = '—';
-        }
-
-        const quantityCell = row.insertCell();
-        const quantityValue = safeNumber(trade.quantity);
-        quantityCell.textContent = quantityValue !== null ? String(Math.abs(quantityValue)) : '—';
-
-        const entryDateCell = row.insertCell();
-        entryDateCell.textContent = this.formatDate(trade.openedDate);
-
-        const expirationCell = row.insertCell();
-        expirationCell.textContent = this.formatDate(trade.expirationDate);
-
-        const dteCell = row.insertCell();
-        const dteValue = safeNumber(trade.dte);
-        dteCell.textContent = dteValue !== null ? String(dteValue) : '—';
-
-        const exitDateCell = row.insertCell();
-        const isClosed = this.isClosedStatus(trade.status);
-        exitDateCell.textContent = (isClosed && trade.closedDate) ? this.formatDate(trade.closedDate) : '—';
-
-        const daysHeldCell = row.insertCell();
-        const daysHeldValue = safeNumber(trade.daysHeld);
-        daysHeldCell.textContent = daysHeldValue !== null ? String(daysHeldValue) : '—';
-
-        const maxRiskCell = row.insertCell();
-        const maxRiskValue = safeNumber(trade.maxRisk);
-
-        const maxRiskText = document.createTextNode(
-            (trade.maxRiskLabel as string) ||
-            (maxRiskValue !== null ? this.formatCurrency(maxRiskValue) : '—')
-        );
-
-        maxRiskCell.appendChild(maxRiskText);
-
-        if (trade.strategy && (trade.maxRiskLabel || maxRiskValue !== null)) {
-            const formulaIcon = this.createFormulaIcon(trade, 'maxRisk');
-            if (formulaIcon) {
-                maxRiskCell.appendChild(formulaIcon);
-            }
-        }
-
-        if (trade.maxRiskLabel) {
-            maxRiskCell.className = (trade.riskIsUnlimited as boolean) ? 'pl-negative' : 'pl-neutral';
-            if (!(trade.riskIsUnlimited as boolean) && maxRiskValue !== null) {
-                maxRiskCell.className = 'pl-negative';
-            }
-        } else if (maxRiskValue !== null) {
-            maxRiskCell.className = 'pl-negative';
-        } else {
-            maxRiskCell.className = 'pl-neutral';
-        }
-
-        const plCell = row.insertCell();
-        const plValue = safeNumber(trade.pl);
-
-        const plText = document.createTextNode(
-            plValue !== null ? this.formatCurrency(plValue) : '—'
-        );
-
-        plCell.appendChild(plText);
-
-        if (trade.strategy && plValue !== null) {
-            const formulaIcon = this.createFormulaIcon(trade, 'pl');
-            if (formulaIcon) {
-                plCell.appendChild(formulaIcon);
-            }
-        }
-
-        if (plValue !== null) {
-            plCell.className = plValue > 0 ? 'pl-positive' : plValue < 0 ? 'pl-negative' : 'pl-neutral';
-        } else {
-            plCell.className = 'pl-neutral';
-        }
-
-        const roiCell = row.insertCell();
-        const roiValue = safeNumber(trade.roi);
-        const roiDisplay = roiValue !== null ? this.formatPercent(roiValue, '—') : '—';
-        roiCell.textContent = roiDisplay;
-        if (roiDisplay === '—') {
-            roiCell.className = 'pl-neutral';
-        } else {
-            roiCell.className = (roiValue as number) > 0 ? 'pl-positive' : (roiValue as number) < 0 ? 'pl-negative' : 'pl-neutral';
-        }
-
-        const weeklyRoiCell = row.insertCell();
-        const weeklyROIValue = safeNumber(trade.weeklyROI);
-        const hasWeeklyROI = this.isClosedStatus(trade.status) && weeklyROIValue !== null;
-        if (hasWeeklyROI) {
-            const weeklyDisplay = this.formatPercent(weeklyROIValue, '—');
-            weeklyRoiCell.textContent = weeklyDisplay;
-            weeklyRoiCell.className = (weeklyROIValue as number) > 0 ? 'pl-positive' : (weeklyROIValue as number) < 0 ? 'pl-negative' : 'pl-neutral';
-        } else {
-            weeklyRoiCell.textContent = '—';
-            weeklyRoiCell.className = 'pl-neutral';
-        }
-
-        const monthlyRoiCell = row.insertCell();
-        const monthlyROIValue = safeNumber(trade.monthlyROI);
-        const hasMonthlyROI = this.isClosedStatus(trade.status) && monthlyROIValue !== null;
-        if (hasMonthlyROI) {
-            const monthlyDisplay = this.formatPercent(monthlyROIValue, '—');
-            monthlyRoiCell.textContent = monthlyDisplay;
-            monthlyRoiCell.className = (monthlyROIValue as number) > 0 ? 'pl-positive' : (monthlyROIValue as number) < 0 ? 'pl-negative' : 'pl-neutral';
-        } else {
-            monthlyRoiCell.textContent = '—';
-            monthlyRoiCell.className = 'pl-neutral';
-        }
-
-        const annRoiCell = row.insertCell();
-        const annualROIValue = safeNumber(trade.annualizedROI);
-        const hasAnnualROI = this.isClosedStatus(trade.status) && annualROIValue !== null;
-        if (hasAnnualROI) {
-            const annualDisplay = this.formatPercent(annualROIValue, '—');
-            annRoiCell.textContent = annualDisplay;
-            annRoiCell.className = (annualROIValue as number) > 0 ? 'pl-positive' : (annualROIValue as number) < 0 ? 'pl-negative' : 'pl-neutral';
-        } else {
-            annRoiCell.textContent = '—';
-            annRoiCell.className = 'pl-neutral';
-        }
-
-        const statusCell = row.insertCell();
-        const statusBadge = document.createElement('span');
-        const displayStatus = this.getDisplayStatus(trade);
-        const statusClass = displayStatus.toLowerCase().replace(/\s+/g, '-');
-        statusBadge.className = `status-badge ${statusClass}`.trim();
-        statusBadge.textContent = displayStatus;
-        statusCell.appendChild(statusBadge);
-
-        const actionsCell = row.insertCell();
-        actionsCell.className = 'actions-cell';
-
-        const chartKeyBase = trade.id ?? trade.tradeId ?? trade.uniqueId ?? `${(trade.ticker as string) || 'trade'}-${index}`;
-        const safeChartId = `trade-pl-${chartKeyBase}`.toString().replace(/[^a-zA-Z0-9_-]/g, '-');
-        const footnoteId = `${safeChartId}-footnote`;
-
-        const plButton = document.createElement('button');
-        plButton.type = 'button';
-        plButton.className = 'action-btn action-btn--pl';
-        plButton.textContent = 'P&L';
-        plButton.title = 'View payoff diagram';
-        plButton.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const detailRow = tbody.querySelector(`.trade-detail-row[data-chart-id="${safeChartId}"]`) as HTMLTableRowElement | null;
-            if (detailRow) {
-                this.toggleTradePayoffDetail(row, detailRow, trade, safeChartId, footnoteId);
-            }
-        });
-
-        const editButton = document.createElement('button');
-        editButton.type = 'button';
-        editButton.className = 'action-btn action-btn--edit';
-        editButton.textContent = 'Edit';
-        editButton.addEventListener('click', (event) => {
-            event.stopPropagation();
-            this.editTrade(trade.id);
-        });
-
-        const deleteButton = document.createElement('button');
-        deleteButton.type = 'button';
-        deleteButton.className = 'action-btn action-btn--delete';
-        deleteButton.textContent = 'Delete';
-        deleteButton.addEventListener('click', (event) => {
-            event.stopPropagation();
-            this.deleteTrade(trade.id);
-        });
-
-        actionsCell.append(plButton, editButton, deleteButton);
-
-        row.setAttribute('tabindex', '0');
-        row.setAttribute('aria-expanded', 'false');
-        row.setAttribute('aria-controls', safeChartId);
-        row.dataset.chartId = safeChartId;
-
-        const detailRow = tbody.insertRow();
-        detailRow.className = 'trade-detail-row';
-        detailRow.setAttribute('aria-hidden', 'true');
-        detailRow.style.display = 'none';
-        detailRow.dataset.chartId = safeChartId;
-
-        const detailCell = detailRow.insertCell(0);
-        detailCell.colSpan = columnLabels.length;
-
-        const diagramContainer = document.createElement('div');
-        diagramContainer.className = 'trade-diagram';
-        diagramContainer.setAttribute('data-chart-container', safeChartId);
-
-        const canvasWrapper = document.createElement('div');
-        canvasWrapper.className = 'trade-diagram__canvas';
-
-        const canvas = document.createElement('canvas');
-        canvas.id = safeChartId;
-        canvas.setAttribute('aria-hidden', 'true');
-
-        const footnote = document.createElement('p');
-        footnote.className = 'trade-diagram__footnote';
-        footnote.id = footnoteId;
-        footnote.textContent = 'Tap or click the trade row to generate the payoff diagram.';
-
-        canvasWrapper.appendChild(canvas);
-        diagramContainer.appendChild(canvasWrapper);
-        diagramContainer.appendChild(footnote);
-        detailCell.appendChild(diagramContainer);
-
-        const toggleDetail = () => {
-            this.toggleTradePayoffDetail(row, detailRow, trade, safeChartId, footnoteId);
-        };
-
-        row.addEventListener('click', (event) => {
-            const target = event.target as HTMLElement;
-            if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('.trade-diagram')) {
-                return;
-            }
-            toggleDetail();
-        });
-
-        row.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                toggleDetail();
-            }
-        });
-
-        this.applyResponsiveLabels(row, columnLabels);
-    });
-
-    this.syncTradeSelectionCheckboxes();
     this.updateMergeColumnVisibility();
+    this.refreshTradesGridSelectionState();
     this.refreshTradesMergePanelContents();
+}
+
+export function updateTradesGridMergeColumnVisibility(this: TradesTableContext): void {
+    const api = this.tradesGridApi;
+    if (!api || api.isDestroyed()) {
+        return;
+    }
+    api.setColumnsVisible([MERGE_COLUMN_ID], Boolean(this.tradesMergePanelOpen));
+    api.refreshHeader();
+    api.refreshCells({ columns: [MERGE_COLUMN_ID], force: true });
+}
+
+export function refreshTradesGridSelectionState(this: TradesTableContext): void {
+    const api = this.tradesGridApi;
+    if (!api || api.isDestroyed()) {
+        return;
+    }
+    api.refreshCells({ columns: [MERGE_COLUMN_ID], force: true });
+    api.refreshHeader();
 }
 
 export function sortTrades(this: TradesTableContext, sortBy: string): void {
@@ -465,6 +768,3 @@ export function editTrade(this: TradesTableContext, id: unknown): void {
 
 // NOTE: updateTickerPreview is implemented in views.ts and provided to this module
 // via the host class mixin — declared in the primary interface above.
-
-
-

@@ -5,6 +5,7 @@ import type { NormalizedLeg } from '@types-gl/leg'
 import type { LegSummary } from '@types-gl/leg-summary'
 import type { LegLifecycleResult } from '@types-gl/lifecycle'
 import type { ExitReason } from '@types-gl/common'
+import { NormalizedLegInputSchema } from '@core/schema'
 import { toRiskValue } from './risk'
 
 interface VerticalSpreadInfo {
@@ -233,45 +234,35 @@ export function normalizeLeg(
     leg: Record<string, unknown>,
     index = 0
 ): NormalizedLeg {
-    const quantityRaw = Number(leg?.quantity);
-    const normalizedQuantity = Number.isFinite(quantityRaw) ? quantityRaw : 0;
-
-    const executionDate = leg?.executionDate ? new Date(leg.executionDate as string) : null;
-    const executionDateIso = executionDate && !Number.isNaN(executionDate.getTime())
-        ? executionDate.toISOString().slice(0, 10)
-        : '';
-
-    const expirationDate = leg?.expirationDate ? new Date(leg.expirationDate as string) : null;
-    const expirationDateIso = expirationDate && !Number.isNaN(expirationDate.getTime())
-        ? expirationDate.toISOString().slice(0, 10)
-        : '';
+    const parsedLeg = NormalizedLegInputSchema.parse(leg || {});
+    const normalizedQuantity = parsedLeg.quantity ?? 0;
 
     const inferredOrderType = this.normalizeLegOrderType(
-        (leg?.orderType as string) ||
-        (leg?.tradeType as string) ||
-        (leg?.order as string) ||
-        this.deriveOrderTypeFromActionSide(leg?.action, leg?.side)
+        parsedLeg.orderType ||
+        parsedLeg.tradeType ||
+        parsedLeg.order ||
+        this.deriveOrderTypeFromActionSide(parsedLeg.action, parsedLeg.side)
     );
-    const externalIdValue = leg?.externalId;
-    const importGroupIdValue = leg?.importGroupId;
-    const importSourceValue = leg?.importSource;
+    const externalIdValue = parsedLeg.externalId;
+    const importGroupIdValue = parsedLeg.importGroupId;
+    const importSourceValue = parsedLeg.importSource;
 
     return {
-        id: (leg?.id as string) || `LEG-${Date.now()}-${index}`,
+        id: parsedLeg.id || `LEG-${Date.now()}-${index}`,
         orderType: inferredOrderType as NormalizedLeg['orderType'],
-        type: this.normalizeLegType(leg?.type) as NormalizedLeg['type'],
+        type: this.normalizeLegType(parsedLeg.type) as NormalizedLeg['type'],
         quantity: normalizedQuantity,
         multiplier: this.getLegMultiplier(leg),
-        executionDate: executionDateIso,
-        expirationDate: expirationDateIso,
-        strike: Number.isFinite(Number(leg?.strike)) ? Number(leg!.strike) : null,
-        premium: Number.isFinite(Number(leg?.premium)) ? Number(leg!.premium) : 0,
-        fees: Number.isFinite(Number(leg?.fees)) ? Number(leg!.fees) : 0,
-        underlyingPrice: Number.isFinite(Number(leg?.underlyingPrice)) ? Number(leg!.underlyingPrice) : null,
-        underlyingType: this.normalizeUnderlyingType(leg?.underlyingType, { fallback: 'Stock' }) as NormalizedLeg['underlyingType'],
-        externalId: externalIdValue === undefined || externalIdValue === null ? null : (externalIdValue as string).toString().trim() || null,
-        importGroupId: importGroupIdValue === undefined || importGroupIdValue === null ? null : (importGroupIdValue as string).toString().trim() || null,
-        importSource: importSourceValue === undefined || importSourceValue === null ? null : (importSourceValue as string).toString().trim() || null
+        executionDate: parsedLeg.executionDate,
+        expirationDate: parsedLeg.expirationDate,
+        strike: parsedLeg.strike ?? null,
+        premium: parsedLeg.premium ?? 0,
+        fees: parsedLeg.fees ?? 0,
+        underlyingPrice: parsedLeg.underlyingPrice ?? null,
+        underlyingType: this.normalizeUnderlyingType(parsedLeg.underlyingType, { fallback: 'Stock' }) as NormalizedLeg['underlyingType'],
+        externalId: externalIdValue ?? null,
+        importGroupId: importGroupIdValue ?? null,
+        importSource: importSourceValue ?? null
     };
 }
 
@@ -1387,5 +1378,4 @@ export function inferTradeDirection(
     const primaryLeg = this.getPrimaryLeg(trade);
     return this.deriveTradeDirectionFromLeg(primaryLeg);
 }
-
 

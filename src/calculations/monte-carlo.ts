@@ -1,6 +1,5 @@
 // src/calculations/monte-carlo.ts — Wave 3: Monte Carlo simulation helpers.
 // generateMonteCarloProjection is pure (no this refs).
-// ensureMonteCarloBaseline operates on a Chart.js chart object (no class state).
 
 export interface MonteCarloOptions {
     periods?: number
@@ -18,13 +17,6 @@ export interface MonteCarloPercentiles {
 export interface MonteCarloResult {
     labels: string[]
     percentiles: MonteCarloPercentiles
-}
-
-/** Chart.js-compatible chart object surface used by ensureMonteCarloBaseline. */
-interface ChartLike {
-    ctx: CanvasRenderingContext2D | null
-    scales?: { y?: { getPixelForValue(value: number): number } }
-    chartArea?: { left: number; right: number; top: number; bottom: number }
 }
 
 export function generateMonteCarloProjection(
@@ -94,32 +86,3 @@ export function generateMonteCarloProjection(
         }
     };
 }
-
-export function ensureMonteCarloBaseline(chart: ChartLike | null | undefined): void {
-    if (!chart) {
-        return;
-    }
-
-    const ctx = chart.ctx;
-    const yScale = chart.scales?.y;
-    const area = chart.chartArea;
-    if (!ctx || !yScale || !area) {
-        return;
-    }
-
-    const zeroPixel = yScale.getPixelForValue(1);
-    if (!Number.isFinite(zeroPixel)) {
-        return;
-    }
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(area.left, zeroPixel);
-    ctx.lineTo(area.right, zeroPixel);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(146, 149, 152, 0.85)';
-    ctx.setLineDash([]);
-    ctx.stroke();
-    ctx.restore();
-}
-

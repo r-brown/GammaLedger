@@ -165,13 +165,15 @@ Navigation is handled by `showView(viewName)` → `src/ui/views.ts`:
 
 ### CDN (loaded in `index.html`, NOT bundled — no npm equivalent)
 
-- **Chart.js** — `cdn.jsdelivr.net/npm/chart.js` (unversioned pin — L1 in MIGRATION_PROGRESS.md)
 - **html2canvas 1.4.1** — `cdn.jsdelivr.net/npm/html2canvas@1.4.1/…` — Share Card PNG export
 
-Guard CDN globals before use: `typeof Chart !== 'undefined'`, `window.html2canvas`.
+Guard CDN globals before use: `window.html2canvas`.
 
-### npm (build-time devDependencies only — no runtime npm deps)
+### npm
 
+- `ag-grid-community ^35.2.1` — trade table virtualization, sorting, filters, resize/reorder
+- `echarts ^6.0.0` — dashboard, payoff, heatmap, and share-card charts
+- `zod ^4.4.3` — storage payload and trade form validation schemas
 - `typescript ^6.0.3` — type checking
 - `vite ^8.0.10` — bundler and dev server
 - `vite-plugin-checker ^0.13.0` — inline TS error overlay in dev
@@ -259,9 +261,13 @@ if (isFiniteRisk(trade.riskValue)) {
 { version: '2.5', trades: Trade[], exportDate: ISOTimestamp, mcpContext?: MCPContext }
 ```
 
-`src/core/migration.ts` → `migrateSchema(raw)` is the mandatory guard that validates and
-normalises any payload (including legacy formats) before it reaches the application.
-Called by both `loadFromStorage()` and `parseStorageSchema()` (user JSON import).
+`src/core/schema.ts` owns the Zod schemas for storage, normalized leg input, and add/edit trade
+form input. `src/core/migration.ts` → `parseStorageSchema(raw)` is the mandatory guard that
+migrates and validates any payload (including legacy formats) before it reaches the application.
+It is used by localStorage load/save paths and user JSON imports.
+
+Form validation uses `TradeFormInputSchema` and `LegFormInputSchema`. New form or persistence
+code should reuse those schemas instead of adding ad hoc `Number(x) || 0` coercion paths.
 
 ## Type Library (`src/types/`)
 
@@ -309,36 +315,52 @@ Sub-module imports: `import type { RiskValue } from '@types-gl/common'`.
 | Function | Import from | Description |
 |---|---|---|
 | `safeLocalStorage` | `@core/storage` | Safe localStorage — don't use raw `localStorage` |
-| `migrateSchema(raw)` | `@core/migration` | Validate + normalise storage payload |
+| `parseStorageSchema(raw)` | `@core/migration` | Migrate + validate storage payload |
 | `toRiskValue(n)` | `@trades/risk` | Convert `number \| Infinity` → `RiskValue` |
 | `isFiniteRisk(v)` | `@trades/risk` | Type guard — narrows `RiskValue` to finite |
 | `isGeminiApiResponse(v)` | `@types-gl/integrations` | Runtime guard for Gemini API JSON |
 | `extractGeminiText(r)` | `@types-gl/integrations` | Text extractor for validated Gemini response |
 
-## Charts (Chart.js via CDN)
+## Charts (Apache ECharts via npm)
 
-All charts are `<canvas>` elements managed by `this.charts` Map.
+Charts use `.echarts-chart` DOM roots managed by `this.charts` and `src/ui/charts/echarts.ts`.
+Update existing charts with `chart.setOption()` through `renderEChart(...)`; cleanup still works through
+`this.destroyChart(chart)`.
 
-| Chart key | Canvas ID | Type | Description |
+| Chart key | Root ID | Type | Description |
 |---|---|---|---|
 | `monthlyPL` | `monthlyPLChart` | Bar | Monthly P&L |
 | `cumulativePL` | `cumulativePLChart` | Line+fill | Cumulative P&L (range-filtered) |
 | `strategy` | `strategyChart` | Horiz. bar | P&L by strategy |
-| `winRate` | `winRateChart` | Doughnut | Win rate by strategy |
+| `winRate` | `winRateChart` | Pie/doughnut | Win rate by strategy |
 | `commissionImpact` | `commissionImpactChart` | Bar | Commission drag vs gross P&L |
 | `timeInTrade` | `timeInTradeChart` | Bar | Avg days held by strategy |
 | `monteCarlo` | `monteCarloChart` | Multi-path line | 60-day Monte Carlo |
-| `sharpeGauge` | `sharpeGaugeChart` | Doughnut gauge | Sharpe ratio |
-| `sortinoGauge` | `sortinoGaugeChart` | Doughnut gauge | Sortino ratio |
-| `tickerHeatmap` | `tickerHeatmap` | DOM grid | Ticker heatmap (NOT Chart.js) |
+| `sharpeGauge` | `sharpeGaugeChart` | Gauge | Sharpe ratio |
+| `sortinoGauge` | `sortinoGaugeChart` | Gauge | Sortino ratio |
+| `tickerHeatmap` | `tickerHeatmap` | Heatmap | Ticker performance |
 
-Always call `this.destroyChart(chart)` before recreating a chart instance.
+## Tables
+
+Trade-facing tables use AG Grid Community through `src/ui/tables/ag-grid.ts`: All Trades,
+Active Positions, Recent Closed Trades, Assigned Positions, and the Credit Playbook. Column
+definitions use typed `ColDef<>` arrays with virtual scrolling, built-in sort/filter UI, and
+column resize/reorder where appropriate. The shared wrapper sets `theme: 'legacy'` because the app
+uses AG Grid's CSS theme files (`ag-grid.css` + `ag-theme-quartz.css`).
+
+Merge-trade selection is still owned by `tradeMergeSelection`; the AG Grid selection column only mirrors
+that Set so existing merge-group logic remains compatible. Payoff diagrams render in the
+`#trades-grid-detail` panel below the grid instead of pre-allocating one hidden detail row per trade.
+
+Quote-backed table cells still register with the existing Finnhub quote refresh scheduler from AG Grid
+cell renderers, so table migrations should preserve the `activeQuoteEntries` / `creditPlaybookQuoteEntries`
+contract instead of fetching quotes directly from grid callbacks.
 
 ## Import/Export
 
 - **Import OFX**: `src/imports/ofx.ts` — broker OFX files
 - **Import Robinhood CSV**: `src/imports/robinhood.ts`
-- **Import JSON**: full database restore, validated by `migrateSchema()`
+- **Import JSON**: full database restore, validated by `parseStorageSchema()`
 - **Export JSON**: full backup (trades + settings + mcpContext) → `src/database/persist.ts`
 - **Export CSV**: `src/utils/export.ts`
 - **Share Card**: 1080×1080px PNG → `src/ui/share-card.ts` (requires `window.html2canvas`)
@@ -400,7 +422,7 @@ Font: **Inter** (Google Fonts CDN). All sizing in `rem`. Layout: CSS Grid + Flex
 
 ### Backward-compatibility
 
-- New `localStorage` keys → add to `STORAGE` in `APP_CONFIG` and handle in `migrateSchema()`
+- New `localStorage` keys → add to `STORAGE` in `APP_CONFIG` and handle through `parseStorageSchema()`
 - `LEGACY_STORAGE_KEYS` keys must remain readable until fully migrated
 - `trade.status` can be `'Rolling'` — never assume only 4 statuses
 
@@ -408,7 +430,7 @@ Font: **Inter** (Google Fonts CDN). All sizing in `rem`. Layout: CSS Grid + Flex
 
 - `RUNTIME_TRADE_FIELDS` stripped before `localStorage` write but included in saved JSON for MCP server
 - `this.currentDate` is a **getter** — always returns live date, not a stored property
-- Chart instances must be destroyed before recreation — call `this.destroyChart(key)` first
+- Use `renderEChart(...)` for chart updates so existing ECharts instances are reused with `setOption()`
 - File System Access API is Chrome/Edge only — app falls back to `<a download>` gracefully
 - Gemini calls require `AI_COACH_CONSENT_STORAGE_KEY` flag check before sending
 - Share Card requires `window.html2canvas` (CDN) — check before calling

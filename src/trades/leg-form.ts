@@ -1,6 +1,8 @@
 // src/trades/leg-form.ts — Wave 11: Leg form UI helpers.
 // Uses the .call(this, …) delegation pattern.
 
+import { LegFormInputSchema, formatZodIssues } from '@core/schema'
+
 interface LegFormContext {
     currentView: string
     currentEditingId: string | null | undefined
@@ -28,8 +30,6 @@ interface LegFormContext {
     autoFillUnderlyingPricesForLegs(): Promise<void>
     getCurrentPrice(ticker: string): Promise<{ price?: unknown }>
     getDefaultFeeForQuantity(qty: number): number | null
-    parseDecimal(raw: string, defaultVal: number | null, opts?: { allowNegative?: boolean }): number | null
-    parseInteger(raw: string, defaultVal: number | null, opts?: { allowNegative?: boolean }): number | null
     showNotification(msg: string, type: string): void
 }
 
@@ -667,47 +667,34 @@ export function collectLegsFromForm(this: LegFormContext): Record<string, unknow
         const orderType = this.normalizeLegOrderType(getFieldValue('orderType') || 'BTO');
         const type = this.normalizeLegType(getFieldValue('type') || 'CALL');
 
-        const quantityRaw = getFieldValue('quantity');
-        const quantityParsed = this.parseInteger(quantityRaw, null, { allowNegative: false });
-        if (!Number.isFinite(quantityParsed) || (quantityParsed as number) <= 0) {
-            errors.push(`Leg ${index + 1} must have a quantity greater than 0.`);
-            return;
-        }
-
-        const multiplierRaw = getFieldValue('multiplier');
-        const multiplierParsed = this.parseInteger(multiplierRaw, null, { allowNegative: false });
-        const multiplier = Number.isFinite(multiplierParsed) && (multiplierParsed as number) > 0
-            ? multiplierParsed as number
-            : this.getDefaultMultiplierForLegType(type, tradeUnderlyingType);
-
-        const strikeRaw = getFieldValue('strike');
-        const strike = this.parseDecimal(strikeRaw, null, { allowNegative: false });
-
-        const premiumRaw = getFieldValue('premium');
-        const premium = this.parseDecimal(premiumRaw, 0, { allowNegative: false });
-
-        const feesRaw = getFieldValue('fees');
-        const fees = this.parseDecimal(feesRaw, 0, { allowNegative: true });
-
-        const underlyingRaw = getFieldValue('underlyingPrice');
-        const underlyingPrice = this.parseDecimal(underlyingRaw, null, { allowNegative: false });
-
-        const executionDate = getFieldValue('executionDate') || '';
-        const expirationDate = getFieldValue('expirationDate') || '';
-
-        const legData: Record<string, unknown> = {
+        const parsed = LegFormInputSchema.safeParse({
             id: (row as HTMLElement & { dataset: DOMStringMap }).dataset.legId || this.generateLegId(index),
             orderType,
             type,
-            quantity: quantityParsed,
-            multiplier,
-            executionDate,
-            expirationDate,
-            strike,
-            premium,
-            fees,
-            underlyingPrice,
+            quantity: getFieldValue('quantity'),
+            multiplier: getFieldValue('multiplier'),
+            executionDate: getFieldValue('executionDate'),
+            expirationDate: getFieldValue('expirationDate'),
+            strike: getFieldValue('strike'),
+            premium: getFieldValue('premium'),
+            fees: getFieldValue('fees'),
+            underlyingPrice: getFieldValue('underlyingPrice'),
             underlyingType: tradeUnderlyingType
+        });
+
+        if (!parsed.success) {
+            errors.push(formatZodIssues(parsed.error, `Leg ${index + 1}`));
+            return;
+        }
+
+        const parsedLeg = parsed.data;
+        const multiplier = Number.isFinite(parsedLeg.multiplier)
+            ? parsedLeg.multiplier as number
+            : this.getDefaultMultiplierForLegType(parsedLeg.type, tradeUnderlyingType);
+
+        const legData: Record<string, unknown> = {
+            ...parsedLeg,
+            multiplier
         };
 
         legs.push(legData);

@@ -1,24 +1,8 @@
-// src/ui/charts/destroy.ts — Safe Chart.js cleanup helper.
+// src/ui/charts/destroy.ts — Safe chart cleanup helper.
 
-interface DestroyableChart {
-    destroy(): void
-}
-
-function isDestroyableChart(chart: unknown): chart is DestroyableChart {
-    return Boolean(chart)
-        && typeof chart === 'object'
-        && typeof (chart as { destroy?: unknown }).destroy === 'function';
-}
+import { disposeChartInstance } from './echarts.js'
 
 export function destroyChart(chart: unknown): void {
-    if (!isDestroyableChart(chart)) {
-        return;
-    }
-
-    try {
-        chart.destroy();
-    } catch (error) {
-        console.warn('Failed to destroy chart:', error);
-    }
+    disposeChartInstance(chart);
 }
 // Populated in waves per docs/refactor/phase1-module-map.md.

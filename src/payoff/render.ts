@@ -1,6 +1,8 @@
 // src/payoff/render.js — Wave 6: Payoff chart toggle and rendering.
 // Uses the .call(this, …) delegation pattern.
 
+import { disposeChartInstance, renderEChart, type GammaChartOption } from '../ui/charts/echarts.js'
+
 type AnyRecord = Record<string, any>
 
 interface PayoffPoint {
@@ -18,16 +20,6 @@ interface PayoffResult {
     [key: string]: any
 }
 
-interface PayoffDataset {
-    id: string
-    label: string
-    data: PayoffPoint[]
-    hidden?: boolean
-    [key: string]: any
-}
-
-declare const Chart: any
-
 export function toggleTradePayoffDetail(this: any, row: HTMLElement | null, detailRow: HTMLElement | null, trade: AnyRecord, chartId: string, footnoteId: string) {
     if (!detailRow) {
         return;
@@ -36,13 +28,15 @@ export function toggleTradePayoffDetail(this: any, row: HTMLElement | null, deta
     const isOpen = !detailRow.classList.contains('is-open');
 
     detailRow.classList.toggle('is-open', isOpen);
-    detailRow.style.display = isOpen ? 'table-row' : 'none';
+    detailRow.style.display = isOpen
+        ? (detailRow instanceof HTMLTableRowElement ? 'table-row' : 'block')
+        : 'none';
     detailRow.setAttribute('aria-hidden', String(!isOpen));
     row?.setAttribute('aria-expanded', String(isOpen));
 
-    const detailCanvas = detailRow.querySelector('canvas');
-    if (detailCanvas) {
-        detailCanvas.setAttribute('aria-hidden', String(!isOpen));
+    const detailChart = detailRow.querySelector('.echarts-chart');
+    if (detailChart) {
+        detailChart.setAttribute('aria-hidden', String(!isOpen));
     }
 
     if (isOpen) {
@@ -60,22 +54,15 @@ export function toggleTradePayoffDetail(this: any, row: HTMLElement | null, deta
 export function destroyTradePayoffChart(this: any, chartId: string, footnoteId?: string) {
     const existingChart = this.tradeDetailCharts?.get(chartId);
     if (existingChart) {
-        try {
-            existingChart.destroy();
-        } catch (error) {
-            console.warn('Failed to destroy payoff chart:', error);
-        }
+        disposeChartInstance(existingChart);
         this.tradeDetailCharts.delete(chartId);
     }
 
-    const canvas = document.getElementById(chartId) as HTMLCanvasElement | null;
-    const wrapper = canvas?.parentElement;
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-        canvas.classList.remove('hidden');
+    const chartRoot = document.getElementById(chartId);
+    const wrapper = chartRoot?.parentElement;
+    if (chartRoot) {
+        chartRoot.innerHTML = '';
+        chartRoot.classList.remove('hidden');
     }
     wrapper?.classList.remove('trade-diagram__canvas--empty');
 
@@ -88,13 +75,13 @@ export function destroyTradePayoffChart(this: any, chartId: string, footnoteId?:
 }
 
 export async function renderTradePayoffChart(this: any, trade: Record<string, unknown>, chartId: string, footnoteId: string) {
-    const canvas = document.getElementById(chartId) as HTMLCanvasElement | null;
+    const chartRoot = document.getElementById(chartId);
     const footnote = document.getElementById(footnoteId);
-    const wrapper = canvas?.parentElement;
+    const wrapper = chartRoot?.parentElement;
 
-    if (!canvas) {
+    if (!chartRoot) {
         if (footnote) {
-            footnote.textContent = 'Canvas element missing; cannot generate payoff diagram.';
+            footnote.textContent = 'Chart element missing; cannot generate payoff diagram.';
         }
         return;
     }
@@ -113,23 +100,15 @@ export async function renderTradePayoffChart(this: any, trade: Record<string, un
         if (wrapper) {
             wrapper.classList.add('trade-diagram__canvas--empty');
         }
-        canvas.classList.add('hidden');
+        chartRoot.classList.add('hidden');
         if (footnote) {
             footnote.textContent = payoff?.message || 'Payoff diagram not available for this strategy yet.';
         }
         return;
     }
 
-    canvas.classList.remove('hidden');
+    chartRoot.classList.remove('hidden');
     wrapper?.classList.remove('trade-diagram__canvas--empty');
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-        if (footnote) {
-            footnote.textContent = 'Unable to access canvas rendering context.';
-        }
-        return;
-    }
 
     const currencyFormatter = new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -157,6 +136,11 @@ export async function renderTradePayoffChart(this: any, trade: Record<string, un
     const tradeMaxRisk = Number(trade.maxRiskOverride || trade.maxRisk);
     if (Number.isFinite(tradeMaxRisk) && tradeMaxRisk > 0) {
         minY = Math.min(minY, -tradeMaxRisk);
+    }
+
+    if (minY === maxY) {
+        minY -= 1;
+        maxY += 1;
     }
 
     // Prepare positive and negative fill areas extending to entire diagram
@@ -190,301 +174,167 @@ export async function renderTradePayoffChart(this: any, trade: Record<string, un
         return;
     }
 
-    const priceLabelPlugin = {
-        id: `payoffPriceLineLabel-${chartId}`,
-        afterDatasetsDraw: (chartInstance: any) => {
-            if (!Number.isFinite(currentPrice)) {
-                return;
-            }
-            const xScale = chartInstance.scales?.x;
-            const chartArea = chartInstance.chartArea;
-            if (!xScale || !chartArea) {
-                return;
-            }
-            const x = xScale.getPixelForValue(currentPrice);
-            if (!Number.isFinite(x) || x < chartArea.left || x > chartArea.right) {
-                return;
-            }
-            const yScale = chartInstance.scales?.y;
-            const ctxLabel = chartInstance.ctx;
-            ctxLabel.save();
-            ctxLabel.font = '12px "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctxLabel.fillStyle = 'rgba(30, 41, 59, 0.9)';
-            ctxLabel.textBaseline = 'middle';
-            ctxLabel.textAlign = 'center';
-            const chartBottomLimit = chartArea.bottom - 10;
-            let targetY = chartBottomLimit - 50;
-            if (!Number.isFinite(targetY) || targetY < chartArea.top + 12) {
-                targetY = chartArea.top + 12;
-            }
-            const horizontalPadding = 18;
-            const placeOnRight = x < (chartArea.left + chartArea.right) / 2;
-            const translatedX = placeOnRight
-                ? Math.min(chartArea.right - horizontalPadding, x + horizontalPadding)
-                : Math.max(chartArea.left + horizontalPadding, x - horizontalPadding);
-            const label = `Current ${currencyFormatter.format(currentPrice)}`;
-            ctxLabel.translate(translatedX, targetY);
-            ctxLabel.rotate(-Math.PI / 2);
-            ctxLabel.fillText(label, 0, 0);
-            ctxLabel.restore();
-        }
-    };
-
-    const datasets: PayoffDataset[] = [
-        {
-            id: 'currentPriceLine',
-            label: 'Current Price',
-            data: [],
-            borderColor: 'rgba(100, 116, 139, 0.95)',
-            borderDash: [6, 4],
-            borderWidth: 2,
-            hoverBorderColor: 'rgba(100, 116, 139, 0.95)',
-            hoverBorderWidth: 2,
-            pointRadius: 0,
-            pointHitRadius: 0,
-            fill: false,
-            order: 0,
-            hidden: true
-        },
-        {
-            id: 'breakevenLine',
-            label: 'Breakeven',
-            data: [],
-            borderColor: 'rgba(59, 130, 246, 0.8)',
-            borderDash: [2, 4],
-            borderWidth: 1,
-            pointRadius: 0,
-            pointHitRadius: 0,
-            fill: false,
-            order: 0,
-            hidden: true
-        },
-        {
-            id: 'positiveFill',
-            label: 'Profit Region',
-            data: positiveArea,
-            borderColor: 'rgba(0,0,0,0)',
-            backgroundColor: profitFill,
-            hoverBackgroundColor: profitFill,
-            hoverBorderColor: 'rgba(0, 0, 0, 0)',
-            hoverBorderWidth: 0,
-            fill: 'origin',
-            pointRadius: 0,
-            pointHitRadius: 0,
-            tension: 0,
-            order: 1,
-            spanGaps: true,
-            showLine: true
-        },
-        {
-            id: 'negativeFill',
-            label: 'Loss Region',
-            data: negativeArea,
-            borderColor: 'rgba(0,0,0,0)',
-            backgroundColor: lossFill,
-            hoverBackgroundColor: lossFill,
-            hoverBorderColor: 'rgba(0, 0, 0, 0)',
-            hoverBorderWidth: 0,
-            fill: 'origin',
-            pointRadius: 0,
-            pointHitRadius: 0,
-            tension: 0,
-            order: 1,
-            spanGaps: true,
-            showLine: true
-        },
-        {
-            id: 'payoffLine',
-            label: 'P&L at Expiration',
-            data: payoff.points,
-            borderColor: profitColor,
-            hoverBorderColor: profitColor,
-            hoverBorderWidth: 2,
-            tension: 0,
-            pointRadius: 0,
-            pointHoverRadius: 0,
-            borderWidth: 2,
-            fill: false,
-            order: 2,
-            segment: {
-                borderColor: (ctx: any) => {
-                    const y0 = ctx.p0.parsed?.y;
-                    const y1 = ctx.p1.parsed?.y;
-                    if (y0 >= 0 && y1 >= 0) {
-                        return profitColor;
-                    }
-                    if (y0 <= 0 && y1 <= 0) {
-                        return lossColor;
-                    }
-                    return 'rgba(148, 163, 184, 1)';
-                }
-            }
-        },
-        {
-            id: 'zeroLine',
-            label: 'Break-even Baseline',
-            data: payoff.zeroLinePoints ?? payoff.points.map((point: PayoffPoint) => ({ x: point.x, y: 0 })),
-            borderColor: 'rgba(71, 85, 105, 0.9)',
-            borderDash: [4, 4],
-            borderWidth: 2,
-            hoverBorderColor: 'rgba(71, 85, 105, 0.95)',
-            hoverBorderWidth: 2,
-            pointRadius: 0,
-            pointHitRadius: 0,
-            fill: false,
-            order: 3
-        }
-    ];
-
-    if (Number.isFinite(currentPrice)) {
-        const currentIndex = datasets.findIndex(dataset => dataset.id === 'currentPriceLine');
-        if (currentIndex !== -1) {
-            datasets[currentIndex].data = [
-                { x: currentPrice, y: minY },
-                { x: currentPrice, y: maxY }
-            ];
-            datasets[currentIndex].hidden = false;
-        }
-    }
-
     // Handle breakeven - can be single value or array
     const breakevenValue = Array.isArray(payoff.breakeven)
         ? payoff.breakeven[0]
         : payoff.breakeven;
 
     const breakevenNumber = Number(breakevenValue);
-    if (Number.isFinite(breakevenNumber)) {
-        const breakevenIndex = datasets.findIndex(dataset => dataset.id === 'breakevenLine');
-        if (breakevenIndex !== -1) {
-            datasets[breakevenIndex].data = [
-                { x: breakevenNumber, y: minY },
-                { x: breakevenNumber, y: maxY }
-            ];
-            datasets[breakevenIndex].hidden = false;
+    const toSeriesData = (points: PayoffPoint[]): number[][] => points.map(point => [point.x, point.y]);
+    const formatAxisCurrency = (value: unknown): string => currencyFormatter.format(Number(value)).replace('.00', '');
+    const markLineData: Array<Record<string, unknown>> = [
+        {
+            name: 'Break-even Baseline',
+            yAxis: 0,
+            symbol: 'none',
+            label: { show: false },
+            lineStyle: { color: 'rgba(71, 85, 105, 0.9)', width: 2, type: 'dashed' }
         }
+    ];
+
+    if (Number.isFinite(currentPrice)) {
+        markLineData.push({
+            name: 'Current Price',
+            xAxis: currentPrice,
+            symbol: 'none',
+            label: {
+                show: true,
+                formatter: `Current ${currencyFormatter.format(currentPrice)}`,
+                color: 'rgba(30, 41, 59, 0.9)',
+                fontSize: 12,
+                position: 'insideEndTop'
+            },
+            lineStyle: { color: 'rgba(100, 116, 139, 0.95)', width: 2, type: 'dashed' }
+        });
     }
 
-    const chart = new Chart(ctx, {
-        type: 'line',
-        data: { datasets },
-        plugins: [priceLabelPlugin],
-        options: {
-            parsing: false,
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false
+    if (Number.isFinite(breakevenNumber)) {
+        markLineData.push({
+            name: 'Breakeven',
+            xAxis: breakevenNumber,
+            symbol: 'none',
+            label: {
+                show: true,
+                formatter: 'Breakeven',
+                color: 'rgba(59, 130, 246, 0.9)',
+                fontSize: 11,
+                position: 'insideStartTop'
             },
-            hover: {
-                mode: 'index',
-                intersect: false
-            },
-            layout: {
-                padding: {
-                    top: 10,
-                    right: 10,
-                    bottom: 5,
-                    left: 5
+            lineStyle: { color: 'rgba(59, 130, 246, 0.85)', width: 1.25, type: 'dotted' }
+        });
+    }
+
+    const option: GammaChartOption = {
+        animation: false,
+        aria: { enabled: true },
+        grid: {
+            top: 18,
+            right: 18,
+            bottom: 44,
+            left: 16,
+            containLabel: true
+        },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'cross' },
+            backgroundColor: 'rgba(30, 41, 59, 0.95)',
+            borderColor: 'rgba(148, 163, 184, 0.3)',
+            borderWidth: 1,
+            textStyle: { color: 'rgba(255, 255, 255, 0.92)' },
+            formatter: (params: unknown) => {
+                if (!Array.isArray(params)) {
+                    return '';
                 }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(30, 41, 59, 0.95)',
-                    titleColor: 'rgba(255, 255, 255, 0.95)',
-                    bodyColor: 'rgba(255, 255, 255, 0.9)',
-                    borderColor: 'rgba(148, 163, 184, 0.3)',
-                    borderWidth: 1,
-                    padding: 10,
-                    displayColors: false,
-                    titleFont: {
-                        size: 13,
-                        weight: 'bold'
-                    },
-                    bodyFont: {
-                        size: 12
-                    },
-                    callbacks: {
-                        title: (context: any[]) => {
-                            const price = Number(context[0]?.parsed?.x);
-                            if (!Number.isFinite(price)) return '';
-                            return `At ${currencyFormatter.format(price)}`;
-                        },
-                        label: (context: any) => {
-                            if (!context.dataset || context.dataset.id !== 'payoffLine') {
-                                return null;
-                            }
-                            const value = Number(context.parsed?.y);
-                            if (!Number.isFinite(value)) {
-                                return null;
-                            }
-                            const formattedValue = currencyFormatter.format(value);
-                            const label = value >= 0 ? 'Profit' : 'Loss';
-                            return `${label}: ${formattedValue}`;
-                        }
-                    }
+                const point = params.find(item => (item as { seriesName?: string }).seriesName === 'P&L at Expiration') as { value?: unknown } | undefined;
+                const tuple = Array.isArray(point?.value) ? point.value as unknown[] : [];
+                const price = Number(tuple[0]);
+                const value = Number(tuple[1]);
+                if (!Number.isFinite(price) || !Number.isFinite(value)) {
+                    return '';
                 }
+                const label = value >= 0 ? 'Profit' : 'Loss';
+                return [
+                    `At ${currencyFormatter.format(price)}`,
+                    `${label}: ${currencyFormatter.format(value)}`
+                ].join('<br>');
+            }
+        },
+        xAxis: {
+            type: 'value',
+            min: xMin,
+            max: xMax,
+            name: 'Underlying Price',
+            nameLocation: 'middle',
+            nameGap: 30,
+            nameTextStyle: {
+                color: 'rgba(100, 116, 139, 0.9)',
+                fontSize: 11,
+                fontWeight: 600
             },
-            scales: {
-                x: {
-                    type: 'linear',
-                    title: {
-                        display: true,
-                        text: 'Underlying Price',
-                        font: {
-                            size: 11,
-                            weight: '600'
-                        },
-                        color: 'rgba(100, 116, 139, 0.9)'
-                    },
-                    ticks: {
-                        font: {
-                            size: 10
-                        },
-                        maxRotation: 0,
-                        autoSkipPadding: 20,
-                        callback: (value: string | number) => {
-                            const formatted = currencyFormatter.format(Number(value));
-                            return formatted.replace('.00', '');
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(148, 163, 184, 0.1)',
-                        drawBorder: false
-                    }
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: 'P&L',
-                        font: {
-                            size: 11,
-                            weight: '600'
-                        },
-                        color: 'rgba(100, 116, 139, 0.9)'
-                    },
-                    ticks: {
-                        font: {
-                            size: 10
-                        },
-                        callback: (value: string | number) => {
-                            const formatted = currencyFormatter.format(Number(value));
-                            return formatted.replace('.00', '');
-                        }
-                    },
-                    grid: {
-                        color: 'rgba(148, 163, 184, 0.1)',
-                        drawBorder: false
-                    },
-                    suggestedMin: minY,
-                    suggestedMax: maxY
+            axisLabel: {
+                color: 'rgba(100, 116, 139, 0.9)',
+                fontSize: 10,
+                formatter: formatAxisCurrency
+            },
+            splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.1)' } }
+        },
+        yAxis: {
+            type: 'value',
+            min: minY,
+            max: maxY,
+            name: 'P&L',
+            nameLocation: 'middle',
+            nameGap: 52,
+            nameTextStyle: {
+                color: 'rgba(100, 116, 139, 0.9)',
+                fontSize: 11,
+                fontWeight: 600
+            },
+            axisLabel: {
+                color: 'rgba(100, 116, 139, 0.9)',
+                fontSize: 10,
+                formatter: formatAxisCurrency
+            },
+            splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.1)' } }
+        },
+        series: [
+            {
+                type: 'line',
+                name: 'Profit Region',
+                data: toSeriesData(positiveArea),
+                showSymbol: false,
+                silent: true,
+                lineStyle: { opacity: 0 },
+                areaStyle: { color: profitFill },
+                emphasis: { disabled: true }
+            },
+            {
+                type: 'line',
+                name: 'Loss Region',
+                data: toSeriesData(negativeArea),
+                showSymbol: false,
+                silent: true,
+                lineStyle: { opacity: 0 },
+                areaStyle: { color: lossFill },
+                emphasis: { disabled: true }
+            },
+            {
+                type: 'line',
+                name: 'P&L at Expiration',
+                data: toSeriesData(payoff.points),
+                showSymbol: false,
+                smooth: false,
+                lineStyle: { color: profitColor, width: 2 },
+                itemStyle: { color: profitColor },
+                markLine: {
+                    silent: true,
+                    data: markLineData
                 }
             }
-        }
-    });
+        ]
+    };
+
+    const chart = renderEChart(chartRoot, this.tradeDetailCharts?.get(chartId), option);
 
     this.tradeDetailCharts.set(chartId, chart);
 

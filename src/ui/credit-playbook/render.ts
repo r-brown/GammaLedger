@@ -1,6 +1,15 @@
 // src/ui/credit-playbook/render.ts — Wave 9: Credit playbook rendering.
 // Uses the .call(this, …) delegation pattern.
 
+import {
+  createGrid,
+  type ColDef,
+  type GridApi,
+  type GridOptions,
+  type ICellRendererParams,
+  type SortChangedEvent
+} from '../tables/ag-grid.js'
+
 type TradeRecord = Record<string, unknown>
 type LegRecord = Record<string, unknown>
 
@@ -50,6 +59,7 @@ interface CreditPlaybookRenderContext {
   creditPlaybookHorizon: string
   creditPlaybookSymbol: string
   creditPlaybookSort: { key: string; direction: string }
+  creditPlaybookGridApi?: GridApi<LegPair> | null
   positionHighlightConfig: { expirationCriticalDays: number }
   creditPlaybookQuoteEntries?: Map<string, Record<string, unknown>>
   getLegAction(leg: LegRecord): string
@@ -74,8 +84,8 @@ interface CreditPlaybookRenderContext {
   getNetOpenOptionContracts(legs: unknown[]): number
   getSortableValue(entry: Record<string, unknown>, key: string): unknown
   compareSortableValues(a: unknown, b: unknown): number
-  populateQuoteCell(cell: HTMLTableCellElement, trade: TradeRecord, row: HTMLTableRowElement, opts: Record<string, unknown>): void
-  updateExpirationHighlight(cell: HTMLTableCellElement, trade: TradeRecord): void
+  populateQuoteCell(cell: HTMLElement, trade: TradeRecord, row: HTMLElement, opts: Record<string, unknown>): void
+  updateExpirationHighlight(cell: HTMLElement, trade: TradeRecord): void
   applyResponsiveLabels(row: HTMLTableRowElement, labels: string[]): void
   startQuoteAutoRefreshIfNeeded(): void
   refreshCreditPlaybookQuotes(opts: { force: boolean; immediate: boolean }): void
@@ -557,21 +567,219 @@ export function applyCreditPlaybookSortToLegPairs(this: CreditPlaybookRenderCont
     });
 }
 
+function legPairRowKey(pair: LegPair, index = 0): string {
+    return String(pair.tradeId ?? `${pair.ticker || 'credit'}-${pair.entryDate || ''}-${pair.expirationDate || ''}-${index}`)
+        .replace(/[^a-zA-Z0-9_-]/g, '-');
+}
+
+function formatSignedPercent(this: CreditPlaybookRenderContext, value: unknown): string {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return '—';
+    }
+    const magnitude = Math.abs(numeric);
+    const text = this.formatNumber(magnitude, { decimals: 1, useGrouping: false }) ?? magnitude.toFixed(1);
+    const prefix = numeric > 0 ? '+' : numeric < 0 ? '-' : '';
+    return `${prefix}${text}%`;
+}
+
+function signedClass(value: unknown): string {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return 'pl-neutral';
+    }
+    return numeric > 0 ? 'pl-positive' : numeric < 0 ? 'pl-negative' : 'pl-neutral';
+}
+
+function getPairStatus(pair: LegPair): { className: string; label: string } {
+    if (pair.isAssigned) return { className: 'assigned', label: 'Assigned' };
+    if (pair.isRolling) return { className: 'rolling', label: 'Rolling' };
+    if (pair.isExpired && pair.isOpen) return { className: 'expired', label: 'Expired' };
+    if (pair.isOpen) return { className: 'open', label: 'Open' };
+    return { className: 'closed', label: 'Closed' };
+}
+
+function createOptionTypeBadge(pair: LegPair): HTMLElement {
+    const badge = document.createElement('span');
+    badge.className = 'option-type-badge';
+    if (pair.type === 'CALL') {
+        badge.classList.add('type-call');
+        badge.textContent = 'CALL';
+    } else if (pair.type === 'PUT') {
+        badge.classList.add('type-put');
+        badge.textContent = 'PUT';
+    } else if (pair.type === 'CALL/PUT') {
+        badge.classList.add('type-multi');
+        badge.textContent = 'C/P';
+    } else {
+        badge.textContent = (pair.type as string) || '—';
+    }
+    return badge;
+}
+
+function createStatusBadge(pair: LegPair): HTMLElement {
+    const status = getPairStatus(pair);
+    const badge = document.createElement('span');
+    badge.className = `status-badge ${status.className}`;
+    badge.textContent = status.label;
+    return badge;
+}
+
+function createCreditQuoteRenderer(
+    this: CreditPlaybookRenderContext,
+    quoteEntries: Map<string, Record<string, unknown>>,
+    params: ICellRendererParams<LegPair>
+): HTMLElement {
+    const cell = document.createElement('div');
+    cell.className = 'quote-cell';
+    const pair = params.data;
+    const status = pair ? getPairStatus(pair) : null;
+    if (!pair || !pair.isOpen || status?.className === 'closed' || status?.className === 'expired' || status?.className === 'assigned') {
+        cell.textContent = '—';
+        return cell;
+    }
+
+    const rowProxy = document.createElement('div');
+    const quoteKey = `${pair.ticker}|${pair.tradeId}|creditPlaybook:${params.node?.rowIndex ?? quoteEntries.size}`;
+    rowProxy.dataset.quoteKey = quoteKey;
+    rowProxy.dataset.ticker = pair.ticker ?? '';
+
+    if (typeof pair.strike === 'string' && pair.strike.includes('/')) {
+        const strikes = pair.strike.split('/').map(s => parseFloat(s.trim()));
+        rowProxy.dataset.strikePrice = String(strikes[0]);
+    } else if (Number.isFinite(pair.strike)) {
+        rowProxy.dataset.strikePrice = String(pair.strike);
+    }
+
+    const mockTrade: TradeRecord = {
+        ticker: pair.ticker,
+        optionType: (pair.type as string | undefined)?.toLowerCase(),
+        strategy: pair.strategy,
+        dte: pair.dte
+    };
+
+    this.populateQuoteCell(cell, mockTrade, rowProxy, { deferNetworkFetch: true });
+    quoteEntries.set(quoteKey, {
+        trade: mockTrade,
+        row: rowProxy,
+        cell,
+        key: quoteKey,
+        pair
+    });
+    return cell;
+}
+
+function buildCreditPlaybookColumnDefs(
+    this: CreditPlaybookRenderContext,
+    quoteEntries: Map<string, Record<string, unknown>>
+): ColDef<LegPair>[] {
+    return [
+        {
+            colId: 'ticker',
+            field: 'ticker',
+            headerName: 'Ticker',
+            width: 120,
+            pinned: 'left',
+            cellRenderer: (params: ICellRendererParams<LegPair>) => this.createTickerElement(params.value, 'ticker-pill', {
+                behavior: 'filter',
+                onClick: (value: unknown) => this.openTradesFilteredByTicker(value),
+                title: params.value ? `View trades for ${params.value}` : ''
+            }),
+            filter: 'agTextColumnFilter'
+        },
+        { colId: 'strategy', field: 'strategy', headerName: 'Strategy', minWidth: 180, flex: 1, valueFormatter: params => (params.value as string) || '—', filter: 'agTextColumnFilter' },
+        { colId: 'type', field: 'type', headerName: 'Type', width: 95, cellRenderer: (params: ICellRendererParams<LegPair>) => params.data ? createOptionTypeBadge(params.data) : '—', filter: 'agTextColumnFilter' },
+        {
+            colId: 'strike',
+            field: 'strike',
+            headerName: 'Strike Price',
+            width: 125,
+            valueFormatter: params => {
+                if (typeof params.value === 'string') return params.value;
+                const numeric = Number(params.value);
+                return Number.isFinite(numeric) ? (this.formatNumber(numeric, { decimals: 2, useGrouping: false }) ?? '—') : '—';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        { colId: 'status', headerName: 'Status', width: 115, valueGetter: params => params.data ? getPairStatus(params.data).label : '', cellRenderer: (params: ICellRendererParams<LegPair>) => params.data ? createStatusBadge(params.data) : '—', filter: 'agTextColumnFilter' },
+        { colId: 'quantity', field: 'quantity', headerName: 'Contracts', width: 115, valueFormatter: params => Number.isFinite(params.value as number) ? String(params.value) : '—', filter: 'agNumberColumnFilter' },
+        { colId: 'pricePerContract', field: 'pricePerContract', headerName: 'Price/Contract', width: 145, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', filter: 'agNumberColumnFilter' },
+        { colId: 'fees', field: 'fees', headerName: 'Fees', width: 105, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(Math.abs(params.value as number)) : '—', cellClass: 'pl-negative', filter: 'agNumberColumnFilter' },
+        { colId: 'premium', field: 'premium', headerName: 'Premium', width: 120, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
+        { colId: 'pl', field: 'pl', headerName: 'P&L', width: 120, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
+        { colId: 'roi', field: 'roi', headerName: 'ROI', width: 100, valueFormatter: params => formatSignedPercent.call(this, params.value), cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
+        { colId: 'currentPrice', headerName: 'Current Price', width: 135, sortable: false, filter: false, cellRenderer: (params: ICellRendererParams<LegPair>) => createCreditQuoteRenderer.call(this, quoteEntries, params) },
+        { colId: 'entryDate', field: 'entryDate', headerName: 'Entry Date', width: 125, valueFormatter: params => this.formatDate(params.value), filter: 'agDateColumnFilter' },
+        { colId: 'expirationDate', field: 'expirationDate', headerName: 'Expiration Date', width: 145, valueFormatter: params => this.formatDate(params.value), filter: 'agDateColumnFilter' },
+        {
+            colId: 'dte',
+            field: 'dte',
+            headerName: 'DTE',
+            width: 90,
+            valueFormatter: params => {
+                const pair = params.data;
+                return Number.isFinite(params.value as number) ? String(params.value) : (pair?.isExpired ? '0' : '—');
+            },
+            cellClass: params => {
+                const pair = params.data;
+                const status = pair ? getPairStatus(pair) : null;
+                if (!pair || !pair.isOpen || status?.className === 'closed' || status?.className === 'expired') {
+                    return '';
+                }
+                const probe = document.createElement('span');
+                this.updateExpirationHighlight(probe, { dte: pair.dte });
+                return Array.from(probe.classList).join(' ');
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        { colId: 'exitDate', field: 'exitDate', headerName: 'Exit Date', width: 125, valueFormatter: params => params.value ? this.formatDate(params.value) : '—', filter: 'agDateColumnFilter' },
+        { colId: 'daysHeld', field: 'daysHeld', headerName: 'Days Held', width: 115, valueFormatter: params => Number.isFinite(params.value as number) ? String(params.value) : '—', filter: 'agNumberColumnFilter' }
+    ];
+}
+
+function createCreditPlaybookGridOptions(
+    this: CreditPlaybookRenderContext,
+    rows: LegPair[],
+    quoteEntries: Map<string, Record<string, unknown>>
+): GridOptions<LegPair> {
+    return {
+        rowData: rows,
+        columnDefs: buildCreditPlaybookColumnDefs.call(this, quoteEntries),
+        defaultColDef: {
+            sortable: true,
+            resizable: true,
+            filter: true,
+            minWidth: 90
+        },
+        getRowId: params => legPairRowKey(params.data),
+        rowHeight: 46,
+        headerHeight: 44,
+        rowBuffer: 16,
+        animateRows: false,
+        onSortChanged: (event: SortChangedEvent<LegPair>) => {
+            const sortedColumn = event.api.getColumnState().find(column => column.sort);
+            if (!sortedColumn?.colId) return;
+            this.creditPlaybookSort = {
+                key: sortedColumn.colId,
+                direction: sortedColumn.sort === 'desc' ? 'desc' : 'asc'
+            };
+        },
+        overlayNoRowsTemplate: '<span class="ag-overlay-no-rows-center">No positions match the current filters.</span>'
+    };
+}
+
 export function applyCreditPlaybookSortIndicators(this: CreditPlaybookRenderContext): void {
-    const table = document.getElementById('credit-playbook-table');
-    if (!table) {
+    const api = this.creditPlaybookGridApi;
+    if (!api || api.isDestroyed() || !this.creditPlaybookSort?.key) {
         return;
     }
 
-    const headers = table.querySelectorAll('.sortable');
-    headers.forEach((header) => {
-        const sortKey = header.getAttribute('data-sort');
-        const isActive = sortKey === this.creditPlaybookSort.key;
-        header.classList.toggle('asc', isActive && this.creditPlaybookSort.direction === 'asc');
-        header.classList.toggle('desc', isActive && this.creditPlaybookSort.direction === 'desc');
-        header.setAttribute('aria-sort', isActive
-            ? (this.creditPlaybookSort.direction === 'asc' ? 'ascending' : 'descending')
-            : 'none');
+    api.applyColumnState({
+        defaultState: { sort: null },
+        state: [{
+            colId: this.creditPlaybookSort.key,
+            sort: this.creditPlaybookSort.direction === 'desc' ? 'desc' : 'asc'
+        }]
     });
 }
 
@@ -680,228 +888,29 @@ export function renderCreditPlaybookMetrics(this: CreditPlaybookRenderContext, l
 }
 
 export function renderCreditPlaybookTableFromLegPairs(this: CreditPlaybookRenderContext, legPairs: LegPair[] = []): void {
-    const table = document.getElementById('credit-playbook-table') as HTMLTableElement | null;
-    if (!table) {
+    const gridRoot = document.getElementById('credit-playbook-table') as HTMLElement | null;
+    if (!gridRoot) {
         return;
     }
 
-    const tbody = table.querySelector('tbody') as HTMLTableSectionElement | null;
-    if (!tbody) {
-        return;
+    const rows = Array.isArray(legPairs) ? legPairs.slice() : [];
+    const quoteEntries = new Map<string, Record<string, unknown>>();
+
+    if (!this.creditPlaybookGridApi || this.creditPlaybookGridApi.isDestroyed()) {
+        this.creditPlaybookGridApi = createGrid(
+            gridRoot,
+            createCreditPlaybookGridOptions.call(this, rows, quoteEntries)
+        );
+    } else {
+        this.creditPlaybookGridApi.updateGridOptions({
+            columnDefs: buildCreditPlaybookColumnDefs.call(this, quoteEntries),
+            rowData: rows
+        });
     }
 
-    tbody.innerHTML = '';
+    this.creditPlaybookQuoteEntries = quoteEntries;
 
-    if (!legPairs.length) {
-        const row = tbody.insertRow();
-        const cell = row.insertCell();
-        const columnCount = table.tHead?.rows?.[0]?.cells?.length || 15;
-        cell.colSpan = columnCount;
-        cell.className = 'empty-table-message';
-        cell.textContent = 'No positions match the current filters.';
-        return;
-    }
-
-    legPairs.forEach((pair) => {
-        const row = tbody.insertRow();
-        row.dataset.tradeId = (pair.tradeId as string) || '';
-        if (pair.ticker) {
-            row.dataset.ticker = pair.ticker;
-        }
-
-        let columnIndex = 0;
-
-        // Ticker
-        const tickerCell = row.insertCell(columnIndex++);
-        tickerCell.appendChild(this.createTickerElement(pair.ticker, 'ticker-pill', {
-            behavior: 'filter',
-            onClick: (value: unknown) => this.openTradesFilteredByTicker(value),
-            title: pair.ticker ? `View trades for ${pair.ticker}` : ''
-        }));
-
-        // Strategy
-        const strategyCell = row.insertCell(columnIndex++);
-        strategyCell.textContent = (pair.strategy as string) || '—';
-
-        // Type (CALL/PUT)
-        const typeCell = row.insertCell(columnIndex++);
-        const typeSpan = document.createElement('span');
-        typeSpan.className = 'option-type-badge';
-        if (pair.type === 'CALL') {
-            typeSpan.classList.add('type-call');
-            typeSpan.textContent = 'CALL';
-        } else if (pair.type === 'PUT') {
-            typeSpan.classList.add('type-put');
-            typeSpan.textContent = 'PUT';
-        } else if (pair.type === 'CALL/PUT') {
-            typeSpan.classList.add('type-multi');
-            typeSpan.textContent = 'C/P';
-        } else {
-            typeSpan.textContent = (pair.type as string) || '—';
-        }
-        typeCell.appendChild(typeSpan);
-
-        // Strike Price
-        const strikeCell = row.insertCell(columnIndex++);
-        if (typeof pair.strike === 'string') {
-            strikeCell.textContent = pair.strike;
-        } else if (Number.isFinite(pair.strike)) {
-            strikeCell.textContent = this.formatNumber(pair.strike, { decimals: 2, useGrouping: false }) ?? '—';
-        } else {
-            strikeCell.textContent = '—';
-        }
-
-        // Status
-        const statusCell = row.insertCell(columnIndex++);
-        const statusBadge = document.createElement('span');
-        statusBadge.className = 'status-badge';
-
-        let statusClass: string;
-        let statusText: string;
-        if (pair.isAssigned) {
-            statusClass = 'assigned';
-            statusText = 'Assigned';
-        } else if (pair.isRolling) {
-            statusClass = 'rolling';
-            statusText = 'Rolling';
-        } else if (pair.isExpired && pair.isOpen) {
-            statusClass = 'expired';
-            statusText = 'Expired';
-        } else if (pair.isOpen) {
-            statusClass = 'open';
-            statusText = 'Open';
-        } else {
-            statusClass = 'closed';
-            statusText = 'Closed';
-        }
-
-        statusBadge.classList.add(statusClass);
-        statusBadge.textContent = statusText;
-        statusCell.appendChild(statusBadge);
-
-        // Contracts / Quantity
-        const quantityCell = row.insertCell(columnIndex++);
-        quantityCell.textContent = Number.isFinite(pair.quantity) ? String(pair.quantity) : '—';
-
-        // Price per Contract
-        const pricePerContractCell = row.insertCell(columnIndex++);
-        pricePerContractCell.textContent = Number.isFinite(pair.pricePerContract)
-            ? this.formatCurrency(pair.pricePerContract)
-            : '—';
-
-        // Fees
-        const feesCell = row.insertCell(columnIndex++);
-        feesCell.textContent = Number.isFinite(pair.fees)
-            ? this.formatCurrency(Math.abs(pair.fees as number))
-            : '—';
-        feesCell.className = 'pl-negative';
-
-        // Premium
-        const premiumCell = row.insertCell(columnIndex++);
-        premiumCell.textContent = Number.isFinite(pair.premium)
-            ? this.formatCurrency(pair.premium)
-            : '—';
-        premiumCell.className = (pair.premium as number) >= 0 ? 'pl-positive' : 'pl-negative';
-
-        // P&L
-        const plCell = row.insertCell(columnIndex++);
-        if (Number.isFinite(pair.pl)) {
-            plCell.textContent = this.formatCurrency(pair.pl);
-            plCell.className = (pair.pl as number) > 0 ? 'pl-positive' : ((pair.pl as number) < 0 ? 'pl-negative' : 'pl-neutral');
-        } else {
-            plCell.textContent = '—';
-        }
-
-        // ROI
-        const roiCell = row.insertCell(columnIndex++);
-        if (Number.isFinite(pair.roi)) {
-            const roiAbs = Math.abs(pair.roi as number);
-            const roiStr = this.formatNumber(roiAbs, { decimals: 1, useGrouping: false }) ?? roiAbs.toFixed(1);
-            const roiPrefix = (pair.roi as number) > 0 ? '+' : ((pair.roi as number) < 0 ? '-' : '');
-            roiCell.textContent = `${roiPrefix}${roiStr}%`;
-            roiCell.className = (pair.roi as number) > 0 ? 'pl-positive' : ((pair.roi as number) < 0 ? 'pl-negative' : 'pl-neutral');
-        } else {
-            roiCell.textContent = '—';
-        }
-
-        // Current Price (only for open positions)
-        const currentPriceCell = row.insertCell(columnIndex++);
-        currentPriceCell.className = 'quote-cell';
-        if (!pair.isOpen || statusClass === 'closed' || statusClass === 'expired' || statusClass === 'assigned') {
-            currentPriceCell.textContent = '—';
-        } else {
-            const baseQuoteKey = `${pair.ticker}|${pair.tradeId}`;
-            const quoteKey = `${baseQuoteKey}|creditPlaybook:${legPairs.indexOf(pair)}`;
-            row.dataset.quoteKey = quoteKey;
-            row.dataset.ticker = pair.ticker ?? '';
-
-            if (typeof pair.strike === 'string' && pair.strike.includes('/')) {
-                const strikes = pair.strike.split('/').map(s => parseFloat(s.trim()));
-                row.dataset.strikePrice = String(strikes[0]);
-            } else if (Number.isFinite(pair.strike)) {
-                row.dataset.strikePrice = String(pair.strike);
-            }
-
-            const mockTrade: TradeRecord = {
-                ticker: pair.ticker,
-                optionType: (pair.type as string | undefined)?.toLowerCase(),
-                strategy: pair.strategy,
-                dte: pair.dte
-            };
-
-            this.populateQuoteCell(currentPriceCell, mockTrade, row, { deferNetworkFetch: true });
-
-            if (!this.creditPlaybookQuoteEntries) {
-                this.creditPlaybookQuoteEntries = new Map();
-            }
-            this.creditPlaybookQuoteEntries.set(quoteKey, {
-                trade: mockTrade,
-                row,
-                cell: currentPriceCell,
-                key: quoteKey,
-                pair
-            });
-        }
-
-        // Entry Date
-        const entryDateCell = row.insertCell(columnIndex++);
-        entryDateCell.textContent = this.formatDate(pair.entryDate);
-
-        // Expiration Date
-        const expirationCell = row.insertCell(columnIndex++);
-        expirationCell.textContent = this.formatDate(pair.expirationDate);
-
-        // DTE
-        const dteCell = row.insertCell(columnIndex++);
-        if (Number.isFinite(pair.dte)) {
-            dteCell.textContent = String(pair.dte);
-        } else if (pair.isExpired || statusClass === 'expired') {
-            dteCell.textContent = '0';
-        } else {
-            dteCell.textContent = '—';
-        }
-
-        if (pair.isOpen && statusClass !== 'closed' && statusClass !== 'expired') {
-            const mockTrade: TradeRecord = { dte: pair.dte };
-            this.updateExpirationHighlight(dteCell as HTMLTableCellElement, mockTrade);
-        }
-
-        // Exit Date
-        const exitDateCell = row.insertCell(columnIndex++);
-        exitDateCell.textContent = pair.exitDate ? this.formatDate(pair.exitDate) : '—';
-
-        // Days Held
-        const daysHeldCell = row.insertCell(columnIndex++);
-        daysHeldCell.textContent = Number.isFinite(pair.daysHeld) ? String(pair.daysHeld) : '—';
-
-        this.applyResponsiveLabels(row, [
-            'Ticker', 'Strategy', 'Type', 'Strike Price', 'Status', 'Contracts',
-            'Price/Contract', 'Fees', 'Premium', 'P&L', 'ROI', 'Current Price',
-            'Entry Date', 'Expiration Date', 'DTE', 'Exit Date', 'Days Held'
-        ]);
-    });
-
-    if (this.creditPlaybookQuoteEntries && this.creditPlaybookQuoteEntries.size > 0) {
+    if (quoteEntries.size > 0) {
         this.startQuoteAutoRefreshIfNeeded();
         this.refreshCreditPlaybookQuotes({ force: true, immediate: true });
     }

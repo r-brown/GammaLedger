@@ -1,8 +1,11 @@
-// src/ui/charts/dashboard-charts.ts — Wave 9: Dashboard chart updates.
+// src/ui/charts/dashboard-charts.ts — Dashboard chart updates.
 // Uses the .call(this, …) delegation pattern.
 
-// Chart is loaded from CDN; declared in vendor.d.ts or the host app scope.
-declare const Chart: { new(ctx: CanvasRenderingContext2D, config: Record<string, unknown>): { destroy(): void } };
+import {
+    disposeChartInstance,
+    renderEChart,
+    type GammaChartOption
+} from './echarts.js'
 
 type TradeRecord = Record<string, unknown>
 
@@ -12,7 +15,7 @@ interface TickerPerformanceResult {
 }
 
 interface DashboardChartsContext {
-  charts: Record<string, { destroy(): void }>
+  charts: Record<string, unknown>
   trades: TradeRecord[]
   latestStats: Record<string, unknown> | null
   isClosedStatus(status: unknown): boolean
@@ -22,7 +25,6 @@ interface DashboardChartsContext {
   formatPercent(value: unknown, fallback: string, opts?: Record<string, unknown>): string
   calculateTickerPerformance(trades: TradeRecord[]): TickerPerformanceResult | null
   generateMonteCarloProjection(dailyReturns: number[], opts?: { periods?: number; simulations?: number }): Record<string, unknown> | null
-  ensureMonteCarloBaseline(chart: Record<string, unknown>): void
   renderRatioGauge(opts: RatioGaugeOptions): void
   updateMonthlyPLChart(): void
   updateCumulativePLChart(): void
@@ -42,6 +44,45 @@ interface RatioGaugeOptions {
   value: number | undefined
   min?: number
   max?: number
+}
+
+interface MonteCarloOptions {
+  periods?: number
+  simulations?: number
+}
+
+const AXIS_TEXT_COLOR = 'rgba(100, 116, 139, 0.9)';
+const GRID_LINE_COLOR = 'rgba(148, 163, 184, 0.16)';
+const PROFIT_COLOR = '#1FB8CD';
+const WARNING_COLOR = '#FFC185';
+const LOSS_COLOR = '#B4413C';
+const MUTED_BAR_COLOR = 'rgba(148, 163, 184, 0.25)';
+
+function getChartRoot(id: string): HTMLElement | null {
+    return document.getElementById(id);
+}
+
+function disposeStoredChart(charts: Record<string, unknown>, chartKey: string): void {
+    disposeChartInstance(charts[chartKey]);
+    delete charts[chartKey];
+}
+
+function renderStoredChart(
+    charts: Record<string, unknown>,
+    chartKey: string,
+    root: HTMLElement,
+    option: GammaChartOption
+): void {
+    charts[chartKey] = renderEChart(root, charts[chartKey], option);
+}
+
+function axisCurrencyFormatter(formatCurrency: (value: unknown, opts?: Record<string, unknown>) => string) {
+    return (value: unknown): string => formatCurrency(value, { decimals: 0 });
+}
+
+function toFiniteNumber(value: unknown, fallback = 0): number {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
 }
 
 export function updateAllCharts(this: DashboardChartsContext): void {
@@ -83,77 +124,66 @@ export function renderRatioGauge(this: DashboardChartsContext, { chartKey, canva
         valueElement.textContent = this.formatNumber(value, { decimals: 2, useGrouping: false }) ?? '—';
     }
 
-    const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
-    if (!canvas) {
+    const root = getChartRoot(canvasId);
+    if (!root) {
         return;
     }
 
     if (!Number.isFinite(value)) {
-        if (this.charts[chartKey]) {
-            this.charts[chartKey].destroy();
-            delete this.charts[chartKey];
-        }
-        return;
-    }
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
+        disposeStoredChart(this.charts, chartKey);
         return;
     }
 
     const numericValue = value as number;
     const clamped = Math.min(Math.max(numericValue, min), max);
-    const range = Math.max(max - min, 1);
-    const progress = (clamped - min) / range;
-    const normalized = Number.isFinite(progress) ? Math.max(Math.min(progress, 1), 0) : 0;
-    const remainder = Math.max(1 - normalized, 0);
-
     const primaryColor = numericValue >= 1.5
-        ? '#1FB8CD'
+        ? PROFIT_COLOR
         : numericValue >= 0.75
-            ? '#FFC185'
-            : '#B4413C';
-
+            ? WARNING_COLOR
+            : LOSS_COLOR;
     const formattedValue = this.formatNumber(numericValue, { decimals: 2, useGrouping: false })
-        ?? (Number.isFinite(numericValue) ? numericValue.toFixed(2) : '—');
+        ?? numericValue.toFixed(2);
 
-    if (this.charts[chartKey]) {
-        this.charts[chartKey].destroy();
-    }
-
-    this.charts[chartKey] = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Ratio', 'Remaining'],
-            datasets: [{
-                data: [normalized, remainder],
-                backgroundColor: [primaryColor, 'rgba(148, 163, 184, 0.25)'],
-                borderWidth: 0
-            }]
+    renderStoredChart(this.charts, chartKey, root, {
+        aria: { enabled: true },
+        tooltip: {
+            trigger: 'item',
+            formatter: () => `Ratio: ${formattedValue}`
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            rotation: -90,
-            circumference: 180,
-            cutout: '70%',
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: () => `Ratio: ${formattedValue}`
-                    }
+        series: [{
+            type: 'gauge',
+            min,
+            max,
+            startAngle: 180,
+            endAngle: 0,
+            radius: '96%',
+            center: ['50%', '70%'],
+            progress: {
+                show: true,
+                width: 14,
+                itemStyle: { color: primaryColor }
+            },
+            axisLine: {
+                lineStyle: {
+                    width: 14,
+                    color: [[1, MUTED_BAR_COLOR]]
                 }
-            }
-        }
-    } as Record<string, unknown>);
+            },
+            pointer: { show: false },
+            axisTick: { show: false },
+            splitLine: { show: false },
+            axisLabel: { show: false },
+            detail: { show: false },
+            data: [{ value: clamped, name: 'Ratio' }]
+        }]
+    });
 }
 
 export function updateCommissionImpactChart(this: DashboardChartsContext): void {
-    const canvas = document.getElementById('commissionImpactChart') as HTMLCanvasElement | null;
+    const root = getChartRoot('commissionImpactChart');
     const summaryElement = document.getElementById('commissionImpactSummary');
 
-    if (!canvas) {
+    if (!root) {
         return;
     }
 
@@ -162,10 +192,7 @@ export function updateCommissionImpactChart(this: DashboardChartsContext): void 
         if (summaryElement) {
             summaryElement.textContent = 'No closed trades in selected timeframe.';
         }
-        if (this.charts.commissionImpact) {
-            this.charts.commissionImpact.destroy();
-            delete this.charts.commissionImpact;
-        }
+        disposeStoredChart(this.charts, 'commissionImpact');
         return;
     }
 
@@ -173,9 +200,11 @@ export function updateCommissionImpactChart(this: DashboardChartsContext): void 
     let netPL = 0;
     let grossTurnover = 0;
     filteredTrades.forEach(trade => {
-        totalFees += Number(trade.totalFees) || 0;
-        netPL += Number(trade.pl) || 0;
-        grossTurnover += Math.abs(Number(trade.pl) || 0) + (Number(trade.totalFees) || 0);
+        const fees = toFiniteNumber(trade.totalFees);
+        const pl = toFiniteNumber(trade.pl);
+        totalFees += fees;
+        netPL += pl;
+        grossTurnover += Math.abs(pl) + fees;
     });
     const feeShare = grossTurnover > 0 ? (totalFees / grossTurnover) * 100 : 0;
 
@@ -188,147 +217,183 @@ export function updateCommissionImpactChart(this: DashboardChartsContext): void 
         }
     }
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-        return;
-    }
-
-    if (this.charts.commissionImpact) {
-        this.charts.commissionImpact.destroy();
-    }
-
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
-
-    this.charts.commissionImpact = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['Net P&L', 'Fees'],
-            datasets: [{
-                label: 'Amount',
-                data: [netPL, totalFees],
-                backgroundColor: [
-                    netPL >= 0 ? '#1FB8CD' : '#B4413C',
-                    '#B4413C'
-                ],
-                borderRadius: 8,
-                borderSkipped: false
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    ticks: {
-                        callback: (value: unknown) => formatCurrencyValue(value, 0)
-                    },
-                    grid: {
-                        drawBorder: false
-                    }
-                },
-                y: {
-                    grid: {
-                        display: false
-                    }
-                }
-            },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (context: { label: string; raw: unknown }) => `${context.label}: ${formatCurrencyValue(context.raw)}`
-                    }
-                }
+    renderStoredChart(this.charts, 'commissionImpact', root, {
+        aria: { enabled: true },
+        grid: { top: 8, right: 18, bottom: 22, left: 10, containLabel: true },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params: unknown) => {
+                const item = Array.isArray(params) ? params[0] as { name?: string; value?: unknown } : null;
+                return item ? `${item.name}: ${formatCurrencyValue(item.value)}` : '';
             }
-        }
-    } as Record<string, unknown>);
+        },
+        xAxis: {
+            type: 'value',
+            axisLabel: { color: AXIS_TEXT_COLOR, formatter: axisCurrencyFormatter(this.formatCurrency.bind(this)) },
+            splitLine: { lineStyle: { color: GRID_LINE_COLOR } }
+        },
+        yAxis: {
+            type: 'category',
+            data: ['Net P&L', 'Fees'],
+            axisTick: { show: false },
+            axisLine: { show: false },
+            axisLabel: { color: AXIS_TEXT_COLOR }
+        },
+        series: [{
+            type: 'bar',
+            barMaxWidth: 32,
+            data: [
+                { value: netPL, itemStyle: { color: netPL >= 0 ? PROFIT_COLOR : LOSS_COLOR } },
+                { value: totalFees, itemStyle: { color: LOSS_COLOR } }
+            ]
+        }]
+    });
 }
 
 export function renderTickerHeatmap(this: DashboardChartsContext): void {
-    const container = document.getElementById('tickerHeatmap');
-    if (!container) {
+    const root = getChartRoot('tickerHeatmap');
+    if (!root) {
         return;
     }
-
-    container.innerHTML = '';
 
     const filteredTrades = this.getClosedTradesInRange();
     const tickerPerformance = this.calculateTickerPerformance(filteredTrades);
     const items = tickerPerformance?.items || [];
     if (!items.length) {
+        disposeStoredChart(this.charts, 'tickerHeatmap');
+        root.innerHTML = '';
         const empty = document.createElement('div');
         empty.className = 'heatmap-empty';
         empty.textContent = 'Add more closed trades to see per-ticker performance.';
-        container.appendChild(empty);
+        root.appendChild(empty);
         return;
     }
 
-    const maxMagnitude = tickerPerformance?.maxMagnitude || 1;
+    if (!this.charts.tickerHeatmap) {
+        root.innerHTML = '';
+    }
     const subset = items.slice(0, 12);
+    const maxMagnitude = tickerPerformance?.maxMagnitude || 1;
+    const rowCount = Math.min(3, subset.length);
+    const columnCount = Math.ceil(subset.length / rowCount);
+    const xCategories = Array.from({ length: columnCount }, (_, idx) => String(idx + 1));
+    const yCategories = Array.from({ length: rowCount }, (_, idx) => String(idx + 1));
+    const heatmapData = subset.map((item, index) => [
+        Math.floor(index / rowCount),
+        index % rowCount,
+        item.totalPL
+    ]);
 
-    subset.forEach((item) => {
-        const card = document.createElement('div');
-        card.className = 'heatmap-card';
-
-        const baseColor = item.totalPL >= 0 ? [31, 184, 205] : [180, 65, 60];
-        const normalized = maxMagnitude > 0 ? Math.min(Math.abs(item.totalPL) / maxMagnitude, 1) : 0;
-        const alpha = 0.15 + normalized * 0.55;
-        const borderAlpha = Math.min(alpha + 0.1, 0.9);
-
-        card.style.backgroundColor = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${alpha.toFixed(2)})`;
-        card.style.borderColor = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${borderAlpha.toFixed(2)})`;
-
-        const tickerEl = document.createElement('div');
-        tickerEl.className = 'heatmap-card__ticker';
-        tickerEl.textContent = item.ticker;
-
-        const plEl = document.createElement('div');
-        plEl.className = `heatmap-card__pl ${item.totalPL >= 0 ? 'pl-positive' : 'pl-negative'}`;
-        plEl.textContent = this.formatCurrency(item.totalPL);
-
-        const metaEl = document.createElement('div');
-        metaEl.className = 'heatmap-card__meta';
+    const formatItemLabel = (index: number): string => {
+        const item = subset[index];
+        if (!item) {
+            return '';
+        }
         const tradeCountLabel = this.formatNumber(item.tradeCount, { decimals: 0, useGrouping: true }) ?? String(item.tradeCount ?? 0);
         const winRateLabel = this.formatPercent(item.winRate, '0%', { decimals: 0 });
-        metaEl.textContent = `${tradeCountLabel} trades • Win ${winRateLabel}`;
+        return `{ticker|${item.ticker}}\n{pl|${this.formatCurrency(item.totalPL)}}\n{meta|${tradeCountLabel} trades • Win ${winRateLabel}}`;
+    };
 
-        card.appendChild(tickerEl);
-        card.appendChild(plEl);
-        card.appendChild(metaEl);
-
-        container.appendChild(card);
+    renderStoredChart(this.charts, 'tickerHeatmap', root, {
+        aria: { enabled: true },
+        grid: { top: 8, right: 8, bottom: 8, left: 8, containLabel: false },
+        tooltip: {
+            formatter: (params: unknown) => {
+                const dataIndex = Number((params as { dataIndex?: unknown }).dataIndex);
+                const item = subset[dataIndex];
+                if (!item) {
+                    return '';
+                }
+                const winRateLabel = this.formatPercent(item.winRate, '0%', { decimals: 1 });
+                return [
+                    `<strong>${item.ticker}</strong>`,
+                    `P&L: ${this.formatCurrency(item.totalPL)}`,
+                    `Trades: ${item.tradeCount}`,
+                    `Win rate: ${winRateLabel}`
+                ].join('<br>');
+            }
+        },
+        xAxis: {
+            type: 'category',
+            data: xCategories,
+            show: false,
+            splitArea: { show: true }
+        },
+        yAxis: {
+            type: 'category',
+            data: yCategories,
+            show: false,
+            inverse: true,
+            splitArea: { show: true }
+        },
+        visualMap: {
+            show: false,
+            min: -maxMagnitude,
+            max: maxMagnitude,
+            inRange: {
+                color: ['rgba(180, 65, 60, 0.74)', 'rgba(148, 163, 184, 0.14)', 'rgba(31, 184, 205, 0.74)']
+            }
+        },
+        series: [{
+            type: 'heatmap',
+            data: heatmapData,
+            label: {
+                show: true,
+                overflow: 'break',
+                formatter: (params: { dataIndex?: number }) => formatItemLabel(params.dataIndex ?? 0),
+                rich: {
+                    ticker: {
+                        color: '#1f2937',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        lineHeight: 18
+                    },
+                    pl: {
+                        color: '#111827',
+                        fontWeight: 700,
+                        fontSize: 14,
+                        lineHeight: 20
+                    },
+                    meta: {
+                        color: '#475569',
+                        fontSize: 11,
+                        lineHeight: 16
+                    }
+                }
+            },
+            itemStyle: {
+                borderColor: 'rgba(255, 255, 255, 0.85)',
+                borderWidth: 3,
+                borderRadius: 8
+            },
+            emphasis: {
+                itemStyle: {
+                    shadowBlur: 12,
+                    shadowColor: 'rgba(15, 23, 42, 0.18)'
+                }
+            }
+        }]
     });
 }
 
 export function updateTimeInTradeChart(this: DashboardChartsContext): void {
-    const canvas = document.getElementById('timeInTradeChart') as HTMLCanvasElement | null;
+    const root = getChartRoot('timeInTradeChart');
     const stats = this.latestStats;
 
-    if (!canvas) {
+    if (!root) {
         return;
     }
 
     if (!stats || stats.closedTrades === 0 || (!Number.isFinite(stats.avgWinnerDays as number) && !Number.isFinite(stats.avgLoserDays as number))) {
-        if (this.charts.timeInTrade) {
-            this.charts.timeInTrade.destroy();
-            delete this.charts.timeInTrade;
-        }
+        disposeStoredChart(this.charts, 'timeInTrade');
         return;
-    }
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-        return;
-    }
-
-    if (this.charts.timeInTrade) {
-        this.charts.timeInTrade.destroy();
     }
 
     const winners = Number.isFinite(stats.avgWinnerDays as number) ? stats.avgWinnerDays as number : 0;
     const losers = Number.isFinite(stats.avgLoserDays as number) ? stats.avgLoserDays as number : 0;
-    const formatDayCount = (value: unknown, decimals = 1) => {
+    const formatDayCount = (value: unknown, decimals = 1): string => {
         const numeric = Number(value);
         if (!Number.isFinite(numeric)) {
             return '';
@@ -336,61 +401,55 @@ export function updateTimeInTradeChart(this: DashboardChartsContext): void {
         return this.formatNumber(numeric, { decimals, useGrouping: true }) ?? numeric.toFixed(decimals);
     };
 
-    this.charts.timeInTrade = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['Winners', 'Losers'],
-            datasets: [{
-                label: 'Average Days Held',
-                data: [winners, losers],
-                backgroundColor: ['#1FB8CD', '#B4413C'],
-                borderRadius: 8,
-                borderSkipped: false
-            }]
+    renderStoredChart(this.charts, 'timeInTrade', root, {
+        aria: { enabled: true },
+        grid: { top: 12, right: 14, bottom: 24, left: 12, containLabel: true },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params: unknown) => {
+                const item = Array.isArray(params) ? params[0] as { name?: string; value?: unknown } : null;
+                const label = item ? formatDayCount(item.value, 1) : '';
+                return item ? `${item.name}: ${label || item.value} days` : '';
+            }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: (value: unknown) => {
-                            const label = formatDayCount(value, 0);
-                            return label ? `${label}d` : `${value}d`;
-                        }
-                    },
-                    grid: {
-                        drawBorder: false
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    }
+        xAxis: {
+            type: 'category',
+            data: ['Winners', 'Losers'],
+            axisTick: { show: false },
+            axisLine: { show: false },
+            axisLabel: { color: AXIS_TEXT_COLOR }
+        },
+        yAxis: {
+            type: 'value',
+            min: 0,
+            axisLabel: {
+                color: AXIS_TEXT_COLOR,
+                formatter: (value: unknown) => {
+                    const label = formatDayCount(value, 0);
+                    return label ? `${label}d` : `${value}d`;
                 }
             },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (context: { label: string; raw: unknown }) => {
-                            const label = formatDayCount(context.raw, 1);
-                            return `${context.label}: ${label || context.raw} days`;
-                        }
-                    }
-                }
-            }
-        }
-    } as Record<string, unknown>);
+            splitLine: { lineStyle: { color: GRID_LINE_COLOR } }
+        },
+        series: [{
+            type: 'bar',
+            name: 'Average Days Held',
+            barMaxWidth: 42,
+            data: [
+                { value: winners, itemStyle: { color: PROFIT_COLOR } },
+                { value: losers, itemStyle: { color: LOSS_COLOR } }
+            ]
+        }]
+    });
 }
 
 export function updateMonteCarloChart(this: DashboardChartsContext): void {
-    const canvas = document.getElementById('monteCarloChart') as HTMLCanvasElement | null;
+    const root = getChartRoot('monteCarloChart');
     const summaryElement = document.getElementById('monteCarloSummary');
     const stats = this.latestStats;
 
-    if (!canvas) {
+    if (!root) {
         return;
     }
 
@@ -398,10 +457,7 @@ export function updateMonteCarloChart(this: DashboardChartsContext): void {
         if (summaryElement) {
             summaryElement.textContent = 'Need more closed trades to run projections.';
         }
-        if (this.charts.monteCarlo) {
-            this.charts.monteCarlo.destroy();
-            delete this.charts.monteCarlo;
-        }
+        disposeStoredChart(this.charts, 'monteCarlo');
         return;
     }
 
@@ -410,23 +466,12 @@ export function updateMonteCarloChart(this: DashboardChartsContext): void {
         if (summaryElement) {
             summaryElement.textContent = 'Need more closed trades to run projections.';
         }
-        if (this.charts.monteCarlo) {
-            this.charts.monteCarlo.destroy();
-            delete this.charts.monteCarlo;
-        }
+        disposeStoredChart(this.charts, 'monteCarlo');
         return;
-    }
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-        return;
-    }
-
-    if (this.charts.monteCarlo) {
-        this.charts.monteCarlo.destroy();
     }
 
     const percentiles = projection.percentiles as Record<string, number[]>;
+    const labels = projection.labels as string[];
     const medianTerminal = percentiles.p50[percentiles.p50.length - 1] || 1;
     if (summaryElement) {
         const pctChange = (medianTerminal - 1) * 100;
@@ -436,7 +481,7 @@ export function updateMonteCarloChart(this: DashboardChartsContext): void {
         summaryElement.textContent = `Median path suggests ${prefix}${formattedNumber}% over 60 trading days.`;
     }
 
-    const formatPercent = (value: unknown) => {
+    const formatProjectedPercent = (value: unknown): string => {
         const percent = (Number(value) - 1) * 100;
         const formattedNumber = this.formatNumber(Math.abs(percent), { decimals: 1, useGrouping: true })
             ?? Math.abs(percent).toFixed(1);
@@ -444,117 +489,81 @@ export function updateMonteCarloChart(this: DashboardChartsContext): void {
         return `${prefix}${formattedNumber}%`;
     };
 
-    const zeroLinePlugin = {
-        id: 'monteCarloBaseline',
-        afterDatasetsDraw: (chartInstance: Record<string, unknown>) => {
-            this.ensureMonteCarloBaseline(chartInstance);
-        }
-    };
-
-    this.charts.monteCarlo = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: projection.labels,
-            datasets: [
-                {
-                    label: '10th percentile',
-                    data: percentiles.p10,
-                    borderColor: 'rgba(180, 65, 60, 0.6)',
-                    backgroundColor: 'rgba(180, 65, 60, 0.12)',
-                    borderWidth: 1.5,
-                    fill: false,
-                    tension: 0.25
-                },
-                {
-                    label: '90th percentile',
-                    data: percentiles.p90,
-                    borderColor: 'rgba(31, 184, 205, 0.6)',
-                    backgroundColor: 'rgba(31, 184, 205, 0.12)',
-                    borderWidth: 1.5,
-                    fill: '-1',
-                    tension: 0.25
-                },
-                {
-                    label: 'Median',
-                    data: percentiles.p50,
-                    borderColor: '#1FB8CD',
-                    borderWidth: 2,
-                    tension: 0.25,
-                    fill: false
+    renderStoredChart(this.charts, 'monteCarlo', root, {
+        aria: { enabled: true },
+        color: ['rgba(180, 65, 60, 0.75)', 'rgba(31, 184, 205, 0.4)', PROFIT_COLOR],
+        grid: { top: 16, right: 18, bottom: 42, left: 10, containLabel: true },
+        legend: { bottom: 0, textStyle: { color: AXIS_TEXT_COLOR } },
+        tooltip: {
+            trigger: 'axis',
+            formatter: (params: unknown) => {
+                if (!Array.isArray(params)) {
+                    return '';
                 }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            scales: {
-                y: {
-                    ticks: {
-                        callback: (value: unknown) => formatPercent(value)
-                    },
-                    grid: {
-                        drawBorder: false
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        maxTicksLimit: 12
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: (context: { dataset: { label?: string }; parsed: { y: unknown } }) => `${context.dataset.label}: ${formatPercent(context.parsed.y)}`
-                    }
-                }
+                return params
+                    .map(item => {
+                        const point = item as { marker?: string; seriesName?: string; value?: unknown };
+                        return `${point.marker ?? ''}${point.seriesName}: ${formatProjectedPercent(point.value)}`;
+                    })
+                    .join('<br>');
             }
         },
-        plugins: [zeroLinePlugin]
-    } as Record<string, unknown>);
+        xAxis: {
+            type: 'category',
+            data: labels,
+            axisLabel: { color: AXIS_TEXT_COLOR, interval: 5 },
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: GRID_LINE_COLOR } }
+        },
+        yAxis: {
+            type: 'value',
+            axisLabel: { color: AXIS_TEXT_COLOR, formatter: formatProjectedPercent },
+            splitLine: { lineStyle: { color: GRID_LINE_COLOR } }
+        },
+        series: [
+            {
+                type: 'line',
+                name: '10th percentile',
+                data: percentiles.p10,
+                showSymbol: false,
+                smooth: 0.2,
+                lineStyle: { width: 1.5 }
+            },
+            {
+                type: 'line',
+                name: '90th percentile',
+                data: percentiles.p90,
+                showSymbol: false,
+                smooth: 0.2,
+                lineStyle: { width: 1.5 },
+                areaStyle: { color: 'rgba(31, 184, 205, 0.08)' }
+            },
+            {
+                type: 'line',
+                name: 'Median',
+                data: percentiles.p50,
+                showSymbol: false,
+                smooth: 0.2,
+                lineStyle: { width: 2.25, color: PROFIT_COLOR },
+                markLine: {
+                    silent: true,
+                    symbol: 'none',
+                    label: { show: false },
+                    lineStyle: { color: 'rgba(146, 149, 152, 0.85)', width: 1.5 },
+                    data: [{ yAxis: 1 }]
+                }
+            }
+        ]
+    });
 }
 
-export function ensureMonteCarloBaseline(chart: Record<string, unknown>): void {
-    if (!chart) {
-        return;
-    }
-
-    const ctx = chart.ctx as CanvasRenderingContext2D | undefined;
-    const yScale = (chart.scales as Record<string, unknown> | undefined)?.y as Record<string, unknown> | undefined;
-    const area = chart.chartArea as Record<string, number> | undefined;
-    if (!ctx || !yScale || !area) {
-        return;
-    }
-
-    const zeroPixel = (yScale.getPixelForValue as (v: number) => number)(1);
-    if (!Number.isFinite(zeroPixel)) {
-        return;
-    }
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(area.left, zeroPixel);
-    ctx.lineTo(area.right, zeroPixel);
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(146, 149, 152, 0.85)';
-    ctx.setLineDash([]);
-    ctx.stroke();
-    ctx.restore();
+export function ensureMonteCarloBaseline(): void {
+    // Baseline is now rendered declaratively via ECharts markLine.
 }
 
 export function generateMonteCarloProjection(
     dailyReturns: number[] = [],
-    { periods = 60, simulations = 400 } = {}
+    { periods = 60, simulations = 400 }: MonteCarloOptions = {}
 ): Record<string, unknown> | null {
     if (!Array.isArray(dailyReturns) || dailyReturns.length === 0) {
         return null;
@@ -621,18 +630,10 @@ export function generateMonteCarloProjection(
 }
 
 export function updateMonthlyPLChart(this: DashboardChartsContext): void {
-    const canvas = document.getElementById('monthlyPLChart') as HTMLCanvasElement | null;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    if (this.charts.monthlyPL) {
-        this.charts.monthlyPL.destroy();
-    }
+    const root = getChartRoot('monthlyPLChart');
+    if (!root) return;
 
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
-
     const monthlyData: Record<string, number> = {};
     this.trades
         .filter(trade => this.isClosedStatus(trade.status) && trade.closedDate)
@@ -641,77 +642,62 @@ export function updateMonthlyPLChart(this: DashboardChartsContext): void {
             if (!monthlyData[monthKey]) {
                 monthlyData[monthKey] = 0;
             }
-            monthlyData[monthKey] += trade.pl as number;
+            monthlyData[monthKey] += toFiniteNumber(trade.pl);
         });
 
     const sortedMonths = Object.keys(monthlyData).sort();
     const labels = sortedMonths.map(month => {
-        const date = new Date(month + '-01');
+        const date = new Date(`${month}-01`);
         return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     });
 
-    this.charts.monthlyPL = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Monthly P&L',
-                data: sortedMonths.map(month => monthlyData[month]),
-                backgroundColor: sortedMonths.map(month => monthlyData[month] >= 0 ? '#1FB8CD' : '#B4413C'),
-                borderColor: sortedMonths.map(month => monthlyData[month] >= 0 ? '#1FB8CD' : '#B4413C'),
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: (value: unknown) => formatCurrencyValue(value, 0)
-                    }
-                },
-                x: {
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: (context: { raw: unknown }) => `P&L: ${formatCurrencyValue(context.raw)}`
-                    }
-                }
+    renderStoredChart(this.charts, 'monthlyPL', root, {
+        aria: { enabled: true },
+        grid: { top: 12, right: 18, bottom: 54, left: 10, containLabel: true },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params: unknown) => {
+                const item = Array.isArray(params) ? params[0] as { value?: unknown } : null;
+                return item ? `P&L: ${formatCurrencyValue(item.value)}` : '';
             }
-        }
-    } as Record<string, unknown>);
+        },
+        xAxis: {
+            type: 'category',
+            data: labels,
+            axisLabel: { color: AXIS_TEXT_COLOR, rotate: 45 },
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: GRID_LINE_COLOR } }
+        },
+        yAxis: {
+            type: 'value',
+            axisLabel: { color: AXIS_TEXT_COLOR, formatter: (value: unknown) => formatCurrencyValue(value, 0) },
+            splitLine: { lineStyle: { color: GRID_LINE_COLOR } }
+        },
+        series: [{
+            type: 'bar',
+            name: 'Monthly P&L',
+            barMaxWidth: 42,
+            data: sortedMonths.map(month => ({
+                value: monthlyData[month],
+                itemStyle: { color: monthlyData[month] >= 0 ? PROFIT_COLOR : LOSS_COLOR }
+            }))
+        }]
+    });
 }
 
 export function updateStrategyPerformanceChart(this: DashboardChartsContext): void {
-    const canvas = document.getElementById('strategyChart') as HTMLCanvasElement | null;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    if (this.charts.strategy) {
-        this.charts.strategy.destroy();
-    }
+    const root = getChartRoot('strategyChart');
+    if (!root) return;
 
     const filteredTrades = this.getClosedTradesInRange();
     const strategyPL: Record<string, number> = {};
     filteredTrades.forEach(trade => {
-        const strategy = trade.strategy as string;
+        const strategy = (trade.strategy as string) || 'Unknown';
         if (!strategyPL[strategy]) {
             strategyPL[strategy] = 0;
         }
-        strategyPL[strategy] += trade.pl as number;
+        strategyPL[strategy] += toFiniteNumber(trade.pl);
     });
 
     const sortedStrategies = Object.entries(strategyPL)
@@ -720,64 +706,54 @@ export function updateStrategyPerformanceChart(this: DashboardChartsContext): vo
 
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
 
-    this.charts.strategy = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: sortedStrategies.map(([strategy]) => strategy),
-            datasets: [{
-                label: 'Total P&L',
-                data: sortedStrategies.map(([, pl]) => pl),
-                backgroundColor: sortedStrategies.map(([, pl]) => pl >= 0 ? '#1FB8CD' : '#B4413C'),
-                borderColor: sortedStrategies.map(([, pl]) => pl >= 0 ? '#1FB8CD' : '#B4413C'),
-                borderWidth: 1
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: (value: unknown) => formatCurrencyValue(value, 0)
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: (context: { raw: unknown }) => `P&L: ${formatCurrencyValue(context.raw)}`
-                    }
-                }
+    renderStoredChart(this.charts, 'strategy', root, {
+        aria: { enabled: true },
+        grid: { top: 10, right: 18, bottom: 22, left: 10, containLabel: true },
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: (params: unknown) => {
+                const item = Array.isArray(params) ? params[0] as { value?: unknown } : null;
+                return item ? `P&L: ${formatCurrencyValue(item.value)}` : '';
             }
-        }
-    } as Record<string, unknown>);
+        },
+        xAxis: {
+            type: 'value',
+            axisLabel: { color: AXIS_TEXT_COLOR, formatter: (value: unknown) => formatCurrencyValue(value, 0) },
+            splitLine: { lineStyle: { color: GRID_LINE_COLOR } }
+        },
+        yAxis: {
+            type: 'category',
+            data: sortedStrategies.map(([strategy]) => strategy),
+            axisTick: { show: false },
+            axisLine: { show: false },
+            axisLabel: { color: AXIS_TEXT_COLOR }
+        },
+        series: [{
+            type: 'bar',
+            name: 'Total P&L',
+            barMaxWidth: 30,
+            data: sortedStrategies.map(([, pl]) => ({
+                value: pl,
+                itemStyle: { color: pl >= 0 ? PROFIT_COLOR : LOSS_COLOR }
+            }))
+        }]
+    });
 }
 
 export function updateWinRateByStrategyChart(this: DashboardChartsContext): void {
-    const canvas = document.getElementById('winRateChart') as HTMLCanvasElement | null;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    if (this.charts.winRate) {
-        this.charts.winRate.destroy();
-    }
+    const root = getChartRoot('winRateChart');
+    if (!root) return;
 
     const filteredTrades = this.getClosedTradesInRange();
     const strategyStats: Record<string, { total: number; wins: number }> = {};
     filteredTrades.forEach(trade => {
-        const strategy = trade.strategy as string;
+        const strategy = (trade.strategy as string) || 'Unknown';
         if (!strategyStats[strategy]) {
             strategyStats[strategy] = { total: 0, wins: 0 };
         }
         strategyStats[strategy].total++;
-        if ((trade.pl as number) > 0) {
+        if (toFiniteNumber(trade.pl) > 0) {
             strategyStats[strategy].wins++;
         }
     });
@@ -791,41 +767,45 @@ export function updateWinRateByStrategyChart(this: DashboardChartsContext): void
         }))
         .sort((a, b) => b.winRate - a.winRate);
 
-    const colors = ['#1FB8CD', '#FFC185', '#B4413C', '#ECEBD5', '#5D878F', '#DB4545', '#D2BA4C', '#964325', '#944454', '#13343B'];
+    const colors = [PROFIT_COLOR, WARNING_COLOR, LOSS_COLOR, '#ECEBD5', '#5D878F', '#DB4545', '#D2BA4C', '#964325', '#944454', '#13343B'];
+    const data = validStrategies.length
+        ? validStrategies.map((item, index) => ({
+            name: `${item.strategy} (${item.total})`,
+            value: item.winRate,
+            itemStyle: { color: colors[index % colors.length] }
+        }))
+        : [{ name: 'No closed trades', value: 1, itemStyle: { color: MUTED_BAR_COLOR } }];
 
-    this.charts.winRate = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: validStrategies.map(s => `${s.strategy} (${s.total})`),
-            datasets: [{
-                data: validStrategies.map(s => s.winRate),
-                backgroundColor: colors.slice(0, validStrategies.length),
-                borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'right',
-                    labels: {
-                        boxWidth: 15,
-                        padding: 15
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: (context: { label: string; raw: unknown }) => {
-                            const percent = this.formatPercent(context.raw, '0%', { decimals: 2 });
-                            return `${context.label}: ${percent}`;
-                        }
-                    }
+    renderStoredChart(this.charts, 'winRate', root, {
+        aria: { enabled: true },
+        legend: validStrategies.length
+            ? { orient: 'vertical', right: 0, top: 'middle', textStyle: { color: AXIS_TEXT_COLOR }, type: 'scroll' }
+            : { show: false },
+        tooltip: {
+            formatter: (params: unknown) => {
+                if (!validStrategies.length) {
+                    return 'No closed trades';
                 }
+                const item = params as { name?: string; value?: unknown };
+                const percent = this.formatPercent(item.value, '0%', { decimals: 2 });
+                return `${item.name}: ${percent}`;
             }
-        }
-    } as Record<string, unknown>);
+        },
+        series: [{
+            type: 'pie',
+            radius: ['54%', '76%'],
+            center: validStrategies.length ? ['38%', '50%'] : ['50%', '50%'],
+            avoidLabelOverlap: true,
+            label: { show: false },
+            emphasis: {
+                label: {
+                    show: true,
+                    formatter: (params: { value?: unknown }) => this.formatPercent(params.value, '0%', { decimals: 1 })
+                }
+            },
+            data
+        }]
+    });
 }
 
 export function inferOptionFlavor(trade: TradeRecord = {}): 'call' | 'put' | null {
@@ -857,4 +837,3 @@ export function inferOptionFlavor(trade: TradeRecord = {}): 'call' | 'put' | nul
 
     return null;
 }
-

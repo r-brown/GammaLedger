@@ -105,10 +105,10 @@ export interface ShareCardState {
   root: HTMLElement | null
   card: HTMLElement | null
   button: HTMLButtonElement | null
-  chartCanvas: HTMLCanvasElement | null
+  chartCanvas: HTMLElement | null
   chartTitle: HTMLElement | null
   rangeLabel: HTMLElement | null
-  /** Chart.js instance; typed as unknown because Chart.js may be CDN-loaded. */
+  /** ECharts instance; kept unknown to avoid coupling state docs to UI vendor types. */
   chart: unknown | null
   metrics: ShareCardMetrics
   /** ISO timestamp of the last export. null until first export. */
@@ -166,4 +166,3 @@ export interface ToastOptions {
   /** Duration in milliseconds before auto-dismiss. Defaults to ~3000. */
   durationMs?: number
 }
-

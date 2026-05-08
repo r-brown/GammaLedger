@@ -8,7 +8,7 @@ import {
     RUNTIME_LEG_FIELDS,
     CURRENT_STORAGE_VERSION
 } from '@core/config'
-import { migrateSchema, parseStorageSchema } from '@core/migration'
+import { parseStorageSchema } from '@core/migration'
 
 type TradeRecord = Record<string, unknown>
 type StorageSnapshot = Record<string, unknown>
@@ -571,13 +571,15 @@ export function newDatabase(this: PersistContext): void {
 
 export function saveToStorage(this: PersistContext, metadata: Record<string, unknown> = {}): void {
     try {
-        const payload = {
+        const timestamp = new Date().toISOString();
+        const payload = parseStorageSchema({
             version: CURRENT_STORAGE_VERSION,
-            timestamp: new Date().toISOString(),
+            exportDate: timestamp,
+            timestamp,
             fileName: (metadata.fileName as string) || this.currentFileName || 'Unsaved Database',
             trades: this.getStorageTrades(),
             mcpContext: this.buildMCPContext()
-        };
+        });
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
         LEGACY_STORAGE_KEYS.forEach(key => {
             if (key && key !== LOCAL_STORAGE_KEY) {
@@ -597,7 +599,7 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
             const hasPrimaryTrades = Array.isArray(raw)
                 || (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).trades));
             if (hasPrimaryTrades) {
-                const parsed = migrateSchema(raw);
+                const parsed = parseStorageSchema(raw);
                 this.trades = parsed.trades.map(trade => {
                     const normalized = normalizeTradeAliasFields(trade as unknown as Record<string, unknown>);
                     if (normalized.tradeReasoning && !normalized.notes) {
@@ -631,7 +633,7 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
 
             const parsedTrades = JSON.parse(legacy);
             if (Array.isArray(parsedTrades)) {
-                const migrated = migrateSchema(parsedTrades);
+                const migrated = parseStorageSchema(parsedTrades);
                 this.trades = migrated.trades.map(trade => {
                     const normalized = normalizeTradeAliasFields(trade as unknown as Record<string, unknown>);
                     if (normalized.tradeReasoning && !normalized.notes) {

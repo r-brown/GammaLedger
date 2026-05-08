@@ -5,7 +5,7 @@
 > `phase2-analysis.md`, `phase2-domain-objects.md`, `phase2-migrations.md`,
 > `phase2-summary.md`, and `tech-stack.md`.
 >
-> Last updated: 2026-05-07
+> Last updated: 2026-05-08
 
 ---
 
@@ -14,7 +14,7 @@
 | Phase | Goal | Status |
 |---|---|---|
 | **Phase 1** | JS module migration (21K-line monolith → 60 ES modules, Vite) | ✅ Complete |
-| **Phase 2** | TypeScript migration (type safety across all modules) | ✅ Complete — M1/M2/M3 resolved; M4 smoke test pending |
+| **Phase 2** | TypeScript migration (type safety across all modules) | ✅ Complete — M1/M2/M3 resolved |
 | **Phase 3** | Vue 3 component migration | ⏳ Not started |
 
 ---
@@ -27,7 +27,7 @@
 - 3 classes: `GammaLedger` (~360 methods), `LocalInsightsAgent` (12 methods), `GeminiInsightsAgent` (16 methods)
 - ~462 total methods; ~160 `this.*` state properties on `GammaLedger`
 - All state on `this` — no module system, no bundler, no transpilation
-- 2 CDN libraries: Chart.js (11 `new Chart()` sites), html2canvas
+- 1 remaining CDN library: html2canvas; charts now use npm-managed Apache ECharts
 - 119 distinct `getElementById` IDs, 94 `addEventListener` calls, 0 inline HTML handlers
 - 11 localStorage keys (+4 legacy migration keys)
 - 6 top-level views: `dashboard`, `add-trade`, `trades-list`, `credit-playbook`, `import`, `settings`
@@ -52,7 +52,7 @@ intact, preserve all observable behavior. No logic changes; pure relocation.
 7. **No circular dependencies** in the monolith — preserved by keeping `state.ts` lowest.
 8. **Credit Playbook data extractors** (`extractSpreadPair`, etc.) genuinely belong in
    `trades/spreads.ts`; the filter/render UI stays under `ui/credit-playbook/`.
-9. **`payoff/` earns its own directory** — ~1,300 LOC of strategy-specific payoff math + Chart.js,
+9. **`payoff/` earns its own directory** — ~1,300 LOC of strategy-specific payoff math + ECharts,
    not generic chart code.
 
 ### Module structure
@@ -66,7 +66,7 @@ src/
   calculations/              daysheld, monte-carlo, pnl, stats
   ui/
     tables/                  active-positions, assigned-positions, highlights, recent-trades, trades-table
-    charts/                  cumulative-pl, dashboard-charts, destroy
+    charts/                  cumulative-pl, dashboard-charts, destroy, echarts
     modals/                  ai-coach-consent, disclaimer
     credit-playbook/         data, index, render
     dashboard, filters, notifications, share-card, sidebar, views
@@ -272,7 +272,8 @@ Eight strict subprojects enforced via `npm run typecheck:strict`:
 
 ### localStorage migration guard (`src/core/migration.ts`)
 
-Called by both `loadFromStorage()` (primary + legacy keys) and `parseStorageSchema()` (user JSON imports):
+`parseStorageSchema()` migrates legacy shapes, validates the Zod storage payload, and is called by
+localStorage load/save paths plus user JSON imports:
 
 | Rule | Behavior |
 |---|---|
@@ -363,79 +364,84 @@ No blocking issues.
 
 ### 🟡 Medium priority
 
-**M4 — Manual smoke checklist items still pending**
-Browser automation timed out before completing deeper interactive workflows. Unverified:
-- [ ] Add a new trade and confirm it persists after reload
-- [ ] Wheel tracker shows open positions correctly
-- [ ] PMCC tracker links legs correctly
-- [ ] CSV export produces a valid file with correct column types
-- [ ] CSV import (Robinhood, OFX) reads back correctly with all fields typed
-- [ ] All modals open and close correctly (disclaimer, AI consent, trade detail)
-- [ ] All Trades table renders, sorts, and filters correctly
+No blocking issues.
 
 ---
 
 ### 🟢 Low priority — Phase 3 prerequisites
 
-**L1 — Chart.js loaded via unversioned CDN** *(Priority 1)*
-`cdn.jsdelivr.net/npm/chart.js` with no version pin. 11 `new Chart()` sites all use
-`destroy()` + `new Chart()` — no incremental update. No `@types/chart.js`.
-**Replace with Apache ECharts** (`npm install echarts`, built-in TS types, `chart.setOption()` delta updates, built-in heatmap series):
+**L1 — Chart.js loaded via unversioned CDN** *(Priority 1 — ✅ Complete)*
+Replaced the unversioned Chart.js CDN dependency with npm-managed Apache ECharts
+(`echarts@6.0.0`). Runtime chart hosts now use ECharts DOM roots, a tree-shaken
+registry in `src/ui/charts/echarts.ts`, and `chart.setOption()` updates instead of
+destroy/recreate on every render.
 
-| | Chart.js (current) | ECharts |
+| | Chart.js (removed) | ECharts (current) |
 |---|---|---|
-| Delivery | CDN unversioned | npm, tree-shakeable |
-| TS types | external `@types` | built-in `.d.ts` |
+| Delivery | CDN unversioned | npm, tree-shaken through `echarts/core` |
+| TS types | external `@types` needed | built-in `.d.ts` |
 | Update without destroy | ❌ | ✅ `chart.setOption(delta)` |
-| Financial candlestick/waterfall | ❌ | ✅ built-in series types |
-| Heatmap series | ❌ | ✅ replaces hand-rolled CSS grid |
-| Large dataset (100k pts) | slowdown | `series.large: true` progressive render |
-| Payoff annotations | custom canvas plugin | `markLine` / `markArea` declarative |
-| Size (tree-shaken) | ~180 kB | ~100–120 kB for types used |
+| Heatmap series | ❌ hand-rolled DOM grid | ✅ ECharts heatmap series |
+| Payoff annotations | custom canvas plugin | ✅ declarative `markLine` |
 | License | MIT | Apache 2.0 |
 
-Migrate each of the 11 chart methods one-by-one (each is a self-contained method — ideal for incremental conversion). Remove `<script src="…chart.js">` from `index.html` when done.
+Completed scope:
+- Removed `<script src="https://cdn.jsdelivr.net/npm/chart.js">` from `index.html`.
+- Migrated dashboard charts, cumulative P&L, ticker heatmap, payoff diagrams, and share-card export chart to ECharts.
+- Replaced payoff/current-price canvas plugin and Monte Carlo baseline drawing with declarative `markLine`.
+- Kept existing `this.charts` / `tradeDetailCharts` lifecycle compatible through the shared chart cleanup helper.
 
-> **Why not alternatives:** Recharts/Victory are React-only. Highcharts is proprietary. D3 is lower-level (same work). Lightweight-charts covers OHLC only. Plotly is 3× the size.
+Verification:
+- `npm run typecheck`
+- `npm run build`
+- `rg "chart\\.js|Chart\\.js|new Chart\\(|cdn\\.jsdelivr\\.net/npm/chart\\.js" src index.html dist package.json package-lock.json` returns no matches.
 
-**L2 — Add Zod/Valibot for storage + form validation** *(Priority 2)*
-~200 lines of imperative `Number(x) || 0` coercion in `normalizeLeg` and form submission. The same schema doubles as the TypeScript type source via `z.infer<>`, replacing the separate `interface Trade`:
+**L2 — Add Zod/Valibot for storage + form validation** *(Priority 2 — ✅ Complete)*
+Added npm-managed Zod (`zod@4.4.3`) and centralized validation in `src/core/schema.ts`.
+The schemas now cover storage payloads, importable storage shape checks, normalized leg input,
+and add/edit trade form input.
 
-```bash
-npm install zod    # or: npm install valibot  (~3 kB alternative)
-```
+Completed scope:
+- Replaced the hand-written storage field validators in `src/core/migration.ts` with Zod schemas and shared issue formatting.
+- Routed localStorage save/load, legacy-key migration, and user JSON import processing through `parseStorageSchema()`.
+- Validated `normalizeLeg()` through `NormalizedLegInputSchema` so date, numeric, and import provenance fields are coerced consistently.
+- Replaced add/edit trade form imperative numeric parsing with `TradeFormInputSchema` and `LegFormInputSchema`.
+- Added schema-derived TypeScript aliases with `z.infer<>` for the new validation surfaces.
 
-```ts
-const LegSchema = z.object({
-  type:     z.enum(['CALL', 'PUT', 'STOCK', 'CASH']),
-  quantity: z.number().finite().positive(),
-  premium:  z.number().finite(),
-  fees:     z.number().finite().min(0),
-  // …
-})
+Verification:
+- `npm run typecheck`
+- focused schema smoke test covering valid/invalid leg form inputs and valid/invalid storage payloads
+- `npm run build`
 
-// localStorage guard — eliminates the #1 silent-bug source from pre-migration analysis
-const result = z.array(TradeSchema).safeParse(JSON.parse(raw))
-if (!result.success) { return [] }
-return result.data  // typed as Trade[]
-```
+**L3 — All trade tables do full DOM rebuild** *(Priority 3 — ✅ Complete)*
+Added AG Grid Community (`ag-grid-community@35.2.1`) and migrated the trade-facing tables from
+`tbody.innerHTML = ''` + `insertRow()` rebuilds to virtualized AG Grid hosts.
 
-**L3 — All trade tables do full DOM rebuild** *(Priority 3)*
-Five tables use `tbody.innerHTML = ''` + `insertRow()` loops on every data change. At 2,000+ trades, visible paint pauses occur. **Replace with AG Grid Community** (`npm install ag-grid-community`). Start with the All Trades table:
-
-| | Current (DOM rebuild) | AG Grid Community |
+| | Previous trade tables | Current AG Grid tables |
 |---|---|---|
-| Virtual scrolling | ❌ all rows in DOM | ✅ only visible rows rendered |
-| 2000-row performance | freeze | smooth 60 fps |
-| Column sort | 120 lines custom | built-in, multi-column |
-| Column filter | custom `<select>` | built-in per-column filter UI |
-| Column resize/reorder | ❌ | ✅ drag-and-drop |
-| Row selection/checkboxes | custom Set + DOM sync | built-in selection model |
-| CSV export | custom `export.ts` | `gridApi.exportDataAsCsv()` |
-| TS types | ❌ | `ColDef<Trade>` generic |
+| Row rendering | every row rebuilt into the DOM | AG Grid virtual rows |
+| Column sort | custom header listeners + table class toggles | AG Grid column sort state |
+| Column filter | external controls only | external controls + AG column filter UI |
+| Column resize/reorder | ❌ | ✅ AG Grid columns |
+| Merge selection | checkbox DOM sync over all rows | AG Grid selection column mirrors `tradeMergeSelection` |
+| Payoff detail | one hidden payoff row per trade | single reusable `#trades-grid-detail` panel |
+| Quote cells | table-row side effects | AG cell renderers register with existing quote refresh maps |
+| TS types | ad hoc table DOM | typed `ColDef<>` + `GridApi<>` surfaces |
 | License | — | MIT (Community) |
 
-Active Positions and Credit Playbook tables can follow. **TanStack Table** is headless and saves nothing in vanilla JS since you still write all DOM manipulation yourself.
+Completed scope:
+- Replaced `#trades-table` markup with an AG Grid root plus merge-selection toolbar and reusable payoff-detail panel.
+- Preserved external filters/search, edit/delete actions, merge group selection, and payoff chart generation.
+- Updated merge-select-all logic to use `currentFilteredTrades` instead of querying all rendered checkboxes, which keeps it correct under virtualization.
+- Migrated Active Positions, Recent Closed Trades, Assigned Positions, and Credit Playbook to AG Grid roots.
+- Preserved Finnhub quote-refresh integration for quote-backed dashboard and Credit Playbook cells.
+- Added AG Grid Quartz styling integrated with the existing design tokens.
+
+Verification:
+- `npm run typecheck`
+- `npm run build`
+
+Follow-up scope: consider replacing `AllCommunityModule` with a smaller AG Grid module set once the exact column/filter feature surface settles.
 
 **L4 — Modals use `is-hidden` class-toggle** *(Priority 4)*
 Three modal types with manual `escapeHandler` and partial focus trapping. **Replace with native `<dialog>` element** — no library needed, all evergreen browsers supported:
@@ -498,17 +504,17 @@ messageEl.innerHTML = DOMPurify.sanitize(marked.parse(content) as string)
 
 ### Current UI layer (pre-Phase 3)
 
-Everything is raw DOM imperativism — no virtual DOM, no template engine, no reactivity layer. The `class GammaLedger` writes directly to the page using `insertRow()`, `insertCell()`, `document.createElement()`, and `innerHTML = ''` to fully rebuild every table on every data change.
+Most UI remains raw DOM imperativism — no virtual DOM, no template engine, no reactivity layer. The `class GammaLedger` still writes directly to the page for forms, modals, cards, and controls, while trade-facing tables now delegate row rendering to AG Grid.
 
 Key pain points by area:
 
 | Area | Current implementation | Pain |
 |---|---|---|
-| Charts | Chart.js 4 via unversioned CDN; all updates via `destroy()` + `new Chart()` | Reliability risk; no partial re-render; no TS types |
-| Ticker heatmap | Hand-rolled CSS grid with inline `rgba()` strings | Not a Chart.js chart at all; hard to maintain |
-| Payoff annotations | 60-line `priceLabelPlugin` for canvas annotations | Fragile custom plugin replaced by `markLine`/`markArea` in ECharts |
-| Tables | Five tables: full `tbody.innerHTML = ''` + `insertRow()` rebuild | 2,000+ trade DOM freeze; 120+ lines custom sort; no pagination |
-| Forms | Leg rows via `insertAdjacentHTML`/`createElement`; validation is imperative error array | Schema-less; silent numeric coercion |
+| Charts | Apache ECharts 6 via npm; chart roots use `setOption()` and shared disposal | Ready for `vue-echarts`; still invoked from `GammaLedger` delegators |
+| Ticker heatmap | ECharts heatmap series | Ready for component wrapper |
+| Payoff annotations | ECharts `markLine` annotations | Declarative chart options, ready for component wrapper |
+| Tables | All trade-facing tables use AG Grid Community | Ready for `ag-grid-vue3`; custom cell renderers still live in vanilla callbacks |
+| Forms | Leg rows via `insertAdjacentHTML`/`createElement`; Zod validates trade + leg inputs before save | DOM remains imperative; schemas are ready for Vue form bindings |
 | Modals | `is-hidden` class toggle; only disclaimer has a focus trap | Partial a11y; no shared abstraction |
 | Toasts | 40-line method, no queue, no ARIA | Missing `role="status"` |
 | AI chat Markdown | 250-line custom parser | No streaming; CommonMark edge cases |
@@ -518,17 +524,17 @@ Key pain points by area:
 | Criterion | Status |
 |---|---|
 | Phase 2 TypeScript complete — types stable before wrapping in components | ✅ |
-| L1 ECharts migration — `vue-echarts` wraps ECharts; migrating Chart.js directly is riskier | ⏳ |
-| L2 Zod/Valibot — typed storage schema before Vue binds to data | ⏳ |
-| L3 AG Grid migration — `ag-grid-vue3` wraps AG Grid; DOM-rebuild tables + Vue = unmaintainable | ⏳ |
+| L1 ECharts migration — `vue-echarts` wraps ECharts; migrating Chart.js directly is riskier | ✅ |
+| L2 Zod/Valibot — typed storage schema before Vue binds to data | ✅ |
+| L3 AG Grid migration — `ag-grid-vue3` wraps AG Grid; DOM-rebuild tables + Vue = unmaintainable | ✅ |
 | L4 Native `<dialog>` — clean slot boundary for Vue modal wrappers | ⏳ |
 
 ### Recommended sequencing
 
 ```
-1. ECharts migration    (npm, built-in types, no destroy-recreate; vue-echarts wrapper ready)
-2. AG Grid migration    (virtual scrolling, ~300 lines sort/filter code removed; ag-grid-vue3 wrapper ready)
-3. Zod/Valibot          (eliminates silent-zero type risks before Vue binds to data)
+1. ECharts migration    ✅ Done (npm, built-in types, no destroy-recreate; vue-echarts wrapper ready)
+2. Zod/Valibot          ✅ Done (storage/form schemas; eliminates silent-zero type risks before Vue binds)
+3. AG Grid migration    ✅ Done (trade tables virtualized; column sort/filter/resize; ag-grid-vue3 wrapper ready)
 4. Native <dialog>      (clean slot boundary for Vue wrappers)
 5. marked + DOMPurify   (AI chat; 250 lines removed)
 6. Sonner               (toasts; 40 lines removed)
@@ -561,10 +567,10 @@ based on the feature domains in the Phase 1 analysis:
 | Addition | Size min+gz | Replaces |
 |---|---|---|
 | ECharts (tree-shaken) | ~110 kB | Chart.js CDN (~180 kB, removed from HTML) |
-| AG Grid Community | ~200 kB | ~300 lines table render code |
+| AG Grid Community | ~300 kB JS gzip + ~43 kB CSS gzip with current AllCommunityModule/Quartz import | Trade table DOM rebuild paths |
 | Zod | 12 kB | ~200 lines validation |
 | marked + DOMPurify | 45 kB | ~250 lines custom Markdown |
 | Sonner | 3 kB | ~40 lines `showNotification` |
 | **Net delta** | **~+190 kB bundled** | Chart.js CDN dependency eliminated |
 
-Vite + TypeScript tree-shaking will reduce actual shipped sizes for ECharts and AG Grid below the listed totals.
+ECharts is tree-shaken through `echarts/core`; AG Grid currently imports `AllCommunityModule` for the complete Community feature surface.

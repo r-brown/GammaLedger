@@ -4,7 +4,7 @@
 // live in dedicated modules; they are re-imported here so existing references
 // inside class GammaLedger / LocalInsightsAgent / GeminiInsightsAgent work unchanged.
 
-// --- Global type declarations for CDN-loaded libraries -------------------
+// --- Global type declarations for host-provided libraries -------------------
 
 declare global {
     interface Window {
@@ -15,8 +15,6 @@ declare global {
         showSaveFilePicker?: (options?: Record<string, unknown>) => Promise<FileSystemFileHandle>
         showOpenFilePicker?: (options?: Record<string, unknown>) => Promise<FileSystemFileHandle[]>
     }
-    // Chart.js loaded from CDN
-    const Chart: new (ctx: CanvasRenderingContext2D, config: Record<string, unknown>) => { destroy(): void }
 }
 import {
     APP_CONFIG,
@@ -120,6 +118,11 @@ class GammaLedger {
     declare importSummary: unknown
     declare importMergeSelection: Set<unknown>
     declare tradeMergeSelection: Set<unknown>
+    declare tradesGridApi: unknown
+    declare activePositionsGridApi: unknown
+    declare recentTradesGridApi: unknown
+    declare assignedPositionsGridApi: unknown
+    declare creditPlaybookGridApi: unknown
     declare tradesMergeInitialized: boolean
     declare tradesMergePanelOpen: boolean
     declare currentFilteredTrades: Record<string, unknown>[]
@@ -172,6 +175,11 @@ class GammaLedger {
         this.importSummary = null;
         this.importMergeSelection = new Set();
         this.tradeMergeSelection = new Set();
+        this.tradesGridApi = null;
+        this.activePositionsGridApi = null;
+        this.recentTradesGridApi = null;
+        this.assignedPositionsGridApi = null;
+        this.creditPlaybookGridApi = null;
         this.tradesMergeInitialized = false;
         this.tradesMergePanelOpen = false;
         this.currentFilteredTrades = [];
@@ -1424,6 +1432,10 @@ class GammaLedger {
 
     // UPDATED: table now includes selection column for merge workflow
     renderTradesTable(trades = this.trades) { return tradesTableModule.renderTradesTable.call(this, trades); }
+
+    updateTradesGridMergeColumnVisibility() { return tradesTableModule.updateTradesGridMergeColumnVisibility.call(this); }
+
+    refreshTradesGridSelectionState() { return tradesTableModule.refreshTradesGridSelectionState.call(this); }
 
     toggleTradePayoffDetail(row, detailRow, trade, chartId, footnoteId) { return payoffRenderModule.toggleTradePayoffDetail.call(this, row, detailRow, trade, chartId, footnoteId); }
 

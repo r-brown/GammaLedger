@@ -1,6 +1,8 @@
 // src/ui/views.ts — Wave 9: View switching, form resets, and trade submission.
 // Uses the .call(this, …) delegation pattern.
 
+import { TradeFormInputSchema, formatZodIssues } from '@core/schema'
+
 type TradeRecord = Record<string, unknown>
 
 interface ViewsContext {
@@ -139,26 +141,28 @@ export function handleTradeSubmit(this: ViewsContext): void {
         return;
     }
 
-    const tickerRaw = (formData.get('ticker') || '').toString().trim().toUpperCase();
-    if (!tickerRaw) {
-        this.showNotification('Ticker is required.', 'error');
+    const parsedTrade = TradeFormInputSchema.safeParse({
+        ticker: formData.get('ticker'),
+        strategy: formData.get('strategy'),
+        underlyingType: formData.get('underlyingType'),
+        tradeStatus: formData.get('tradeStatus'),
+        exitReason: formData.get('exitReason'),
+        notes: formData.get('notes')
+    });
+    if (!parsedTrade.success) {
+        this.showNotification(formatZodIssues(parsedTrade.error), 'error');
         return;
     }
 
-    const strategyRaw = (formData.get('strategy') || '').toString().trim();
-    if (!strategyRaw) {
-        this.showNotification('Strategy is required.', 'error');
-        return;
-    }
-
-    const underlyingType = this.normalizeUnderlyingType(formData.get('underlyingType'), { fallback: 'Stock' });
-    const statusOverride = this.normalizeTradeStatusInput(formData.get('tradeStatus'));
+    const formValues = parsedTrade.data;
+    const underlyingType = this.normalizeUnderlyingType(formValues.underlyingType, { fallback: 'Stock' });
+    const statusOverride = this.normalizeTradeStatusInput(formValues.tradeStatus || '');
 
     const tradeData: TradeRecord = {
-        ticker: tickerRaw,
-        strategy: strategyRaw,
-        exitReason: (formData.get('exitReason') || '').toString().trim(),
-        notes: (formData.get('notes') || '').toString().trim(),
+        ticker: formValues.ticker,
+        strategy: formValues.strategy,
+        exitReason: formValues.exitReason,
+        notes: formValues.notes,
         legs,
         underlyingType
     };
@@ -249,5 +253,4 @@ export function updateTickerPreview(this: ViewsContext, ticker: string): void {
         preview.innerHTML = '';
     }
 }
-
 

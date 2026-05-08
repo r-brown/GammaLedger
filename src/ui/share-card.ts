@@ -8,9 +8,7 @@ import {
     SHARE_CARD_CHART_WIDTH_RATIO,
     SHARE_CARD_EXPORT_SIZE
 } from '@core/config'
-
-// Chart is loaded from CDN; declared in vendor.d.ts or the host app scope.
-declare const Chart: { new(ctx: CanvasRenderingContext2D, config: Record<string, unknown>): { destroy(): void } };
+import { disposeChartInstance, renderEChart } from './charts/echarts.js'
 
 type TradeRecord = Record<string, unknown>
 
@@ -24,10 +22,10 @@ interface ShareCardElements {
   button: HTMLElement | null
   root: HTMLElement | null
   card: HTMLElement | null
-  chartCanvas: HTMLCanvasElement | null
+  chartCanvas: HTMLElement | null
   chartTitle: HTMLElement | null
   rangeLabel: HTMLElement | null
-  chart: { destroy(): void } | null
+  chart: unknown | null
   exportSize?: number
   metrics: {
     totalPL: HTMLElement | null
@@ -187,7 +185,7 @@ export function initializeShareCard(this: ShareCardContext): void {
     const button = document.getElementById('share-portfolio-card');
     const root = document.getElementById('share-card-root');
     const card = root?.querySelector('.share-card') as HTMLElement | null;
-    const chartCanvas = document.getElementById('share-card-cumulative-chart') as HTMLCanvasElement | null;
+    const chartCanvas = document.getElementById('share-card-cumulative-chart');
 
     if (!button || !root || !card || !chartCanvas) {
         return;
@@ -437,16 +435,12 @@ export function updateShareCard(this: ShareCardContext, stats: DashboardStats): 
 }
 
 export function refreshShareCardChart(this: ShareCardContext): void {
-    if (!this.shareCard?.chartCanvas) {
+    const chartRoot = this.shareCard?.chartCanvas;
+    if (!chartRoot) {
         return;
     }
 
     this.updateShareCardRangeLabel();
-
-    const ctx = this.shareCard.chartCanvas.getContext('2d');
-    if (!ctx) {
-        return;
-    }
 
     const exportSize = Number(this.shareCard?.exportSize) || SHARE_CARD_EXPORT_SIZE;
     const cardWidth = (this.shareCard.card as HTMLElement | null)?.clientWidth || exportSize;
@@ -456,84 +450,78 @@ export function refreshShareCardChart(this: ShareCardContext): void {
     const canvasWidth = Math.round(Math.max(320, baseSize * SHARE_CARD_CHART_WIDTH_RATIO));
     const canvasHeight = Math.round(Math.max(SHARE_CARD_CHART_MIN_HEIGHT, baseSize * SHARE_CARD_CHART_HEIGHT_RATIO));
 
-    this.shareCard.chartCanvas.width = canvasWidth;
-    this.shareCard.chartCanvas.height = canvasHeight;
+    chartRoot.style.setProperty('width', `${canvasWidth}px`, 'important');
+    chartRoot.style.setProperty('height', `${canvasHeight}px`, 'important');
 
     if (exportMode) {
-        this.shareCard.chartCanvas.style.setProperty('min-height', `${canvasHeight}px`);
+        chartRoot.style.setProperty('min-height', `${canvasHeight}px`);
     } else {
-        this.shareCard.chartCanvas.style.removeProperty('min-height');
-    }
-
-    if (this.shareCard.chart) {
-        this.shareCard.chart.destroy();
-        this.shareCard.chart = null;
+        chartRoot.style.removeProperty('min-height');
     }
 
     const series = this.computeCumulativePLSeries(this.cumulativePLRange);
     const hasData = Boolean(series?.labels?.length && series?.dataPoints?.length);
     const labels = hasData ? (series as CumulativePLSeries).labels : ['No Data'];
     const dataPoints = hasData ? (series as CumulativePLSeries).dataPoints : [0];
-
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-    gradient.addColorStop(0, 'rgba(79, 195, 247, 0.38)');
-    gradient.addColorStop(1, 'rgba(79, 195, 247, 0.05)');
-
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
 
-    this.shareCard.chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Cumulative P&L',
-                data: dataPoints,
-                borderColor: '#4FC3F7',
-                backgroundColor: gradient,
-                fill: true,
-                tension: 0.35,
-                pointRadius: hasData ? 3 : 0,
-                pointHoverRadius: hasData ? 5 : 0,
-                borderWidth: 2
-            }]
+    this.shareCard.chart = renderEChart(chartRoot, this.shareCard.chart, {
+        animation: false,
+        aria: { enabled: true },
+        grid: { top: 10, right: 16, bottom: 26, left: 8, containLabel: true },
+        tooltip: {
+            trigger: 'axis',
+            formatter: (params: unknown) => {
+                const item = Array.isArray(params) ? params[0] as { value?: unknown } : null;
+                return item ? `Cumulative P&L: ${formatCurrencyValue(item.value)}` : '';
+            }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            scales: {
-                x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.58)',
-                        maxRotation: 0,
-                        minRotation: 0,
-                        font: { size: 12 }
-                    }
-                },
-                y: {
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.08)'
-                    },
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.58)',
-                        callback: (value: unknown) => formatCurrencyValue(value, 0),
-                        font: { size: 12 }
-                    }
-                }
+        xAxis: {
+            type: 'category',
+            data: labels,
+            axisTick: { show: false },
+            axisLine: { show: false },
+            axisLabel: {
+                color: 'rgba(255, 255, 255, 0.58)',
+                rotate: 0,
+                fontSize: 12
             },
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (context: { raw: unknown }) => `Cumulative P&L: ${formatCurrencyValue(context.raw)}`
-                    }
+            splitLine: { show: false }
+        },
+        yAxis: {
+            type: 'value',
+            axisLine: { show: false },
+            axisLabel: {
+                color: 'rgba(255, 255, 255, 0.58)',
+                formatter: (value: unknown) => formatCurrencyValue(value, 0),
+                fontSize: 12
+            },
+            splitLine: { lineStyle: { color: 'rgba(255, 255, 255, 0.08)' } }
+        },
+        series: [{
+            type: 'line',
+            name: 'Cumulative P&L',
+            data: dataPoints,
+            showSymbol: hasData,
+            symbolSize: hasData ? 6 : 0,
+            smooth: 0.35,
+            lineStyle: { color: '#4FC3F7', width: 2 },
+            itemStyle: { color: '#4FC3F7' },
+            areaStyle: {
+                color: {
+                    type: 'linear',
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 1,
+                    colorStops: [
+                        { offset: 0, color: 'rgba(79, 195, 247, 0.38)' },
+                        { offset: 1, color: 'rgba(79, 195, 247, 0.05)' }
+                    ]
                 }
             }
-        }
-    } as Record<string, unknown>);
+        }]
+    });
 }
 
 export async function waitForShareCardChartRender(): Promise<void> {
@@ -637,12 +625,14 @@ export async function downloadShareCard(this: ShareCardContext): Promise<void> {
     card.style.maxHeight = previousMaxHeight;
 
     if (this.shareCard.chart) {
-        this.shareCard.chart.destroy();
+        disposeChartInstance(this.shareCard.chart);
         this.shareCard.chart = null;
     }
 
     if (this.shareCard.chartCanvas) {
         this.shareCard.chartCanvas.style.removeProperty('min-height');
+        this.shareCard.chartCanvas.style.removeProperty('width');
+        this.shareCard.chartCanvas.style.removeProperty('height');
     }
 
     if (!canvas) {

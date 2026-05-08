@@ -1,10 +1,19 @@
-// src/ui/tables/active-positions.ts — Wave 9: Active positions table rendering.
+// src/ui/tables/active-positions.ts — Wave 9: Active positions grid rendering.
 // Uses the .call(this, …) delegation pattern.
+
+import {
+  createGrid,
+  type ColDef,
+  type GridApi,
+  type GridOptions,
+  type ICellRendererParams
+} from './ag-grid.js'
 
 type TradeRecord = Record<string, unknown>
 
 interface ActivePositionsContext {
   trades: TradeRecord[]
+  activePositionsGridApi?: GridApi<TradeRecord> | null
   activeQuoteEntries: Map<string, Record<string, unknown>>
   isActiveStatus(status: unknown): boolean
   isWheelOrPmccTrade(trade: TradeRecord): boolean
@@ -20,12 +29,181 @@ interface ActivePositionsContext {
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   getQuoteEntryKey(trade: TradeRecord): string
-  populateQuoteCell(cell: HTMLTableCellElement, trade: TradeRecord, row: HTMLTableRowElement, opts: Record<string, unknown>): void
-  updateExpirationHighlight(cell: HTMLTableCellElement, trade: TradeRecord): void
-  applyResponsiveLabels(row: HTMLTableRowElement, labels: string[]): void
+  populateQuoteCell(cell: HTMLElement | null, trade: TradeRecord, row: HTMLElement | null, opts: Record<string, unknown>): void
+  updateExpirationHighlight(cell: HTMLElement, trade: TradeRecord): void
   rebuildQuoteRefreshSchedule(): void
   startQuoteAutoRefreshIfNeeded(): void
   refreshActivePositionsQuotes(opts: { force: boolean; immediate: boolean }): void
+}
+
+function activeRowKey(trade: TradeRecord): string {
+    return String(trade.id ?? `${trade.ticker || 'active'}-${trade.openedDate || ''}`)
+        .replace(/[^a-zA-Z0-9_-]/g, '-');
+}
+
+function resolveActiveStrike(this: ActivePositionsContext, trade: TradeRecord): number | null {
+    let resolvedStrike = this.parseDecimal(trade.activeStrikePrice, null, { allowNegative: false });
+
+    if (resolvedStrike === null && Array.isArray(trade.legs) && (trade.legs as unknown[]).length > 0) {
+        const strikeSummary = this.summarizeLegs(trade.legs as unknown[]);
+        const summaryStrike = this.getActiveStrikeForDisplay(strikeSummary);
+        if (Number.isFinite(summaryStrike)) {
+            resolvedStrike = summaryStrike;
+        }
+    }
+
+    if (resolvedStrike === null) {
+        resolvedStrike = this.parseDecimal(trade.strikePrice, null, { allowNegative: false });
+    }
+
+    return Number.isFinite(resolvedStrike) ? resolvedStrike : null;
+}
+
+function createQuoteRenderer(
+    this: ActivePositionsContext,
+    quoteEntries: Map<string, Record<string, unknown>>,
+    params: ICellRendererParams<TradeRecord>
+): HTMLElement {
+    const cell = document.createElement('div');
+    cell.className = 'quote-cell';
+    const trade = params.data;
+    if (!trade) {
+        cell.textContent = '—';
+        return cell;
+    }
+
+    const rowProxy = document.createElement('div');
+    const tickerValue = ((trade.ticker ?? '') as string).toString().trim().toUpperCase();
+    const strike = resolveActiveStrike.call(this, trade);
+    const dteValue = this.parseInteger(trade.dte, null, { allowNegative: false });
+
+    rowProxy.dataset.ticker = tickerValue;
+    if (Number.isFinite(strike)) {
+        rowProxy.dataset.strikePrice = String(strike);
+    }
+    if (Number.isFinite(dteValue)) {
+        rowProxy.dataset.dte = String(dteValue);
+    }
+
+    const baseQuoteKey = this.getQuoteEntryKey(trade);
+    const quoteKey = `${baseQuoteKey}|row:${quoteEntries.size}`;
+    rowProxy.dataset.quoteKey = quoteKey;
+    this.populateQuoteCell(cell, trade, rowProxy, { deferNetworkFetch: true });
+    quoteEntries.set(quoteKey, { trade, row: rowProxy, cell, key: quoteKey });
+    return cell;
+}
+
+function buildActivePositionsColumnDefs(
+    this: ActivePositionsContext,
+    quoteEntries: Map<string, Record<string, unknown>>
+): ColDef<TradeRecord>[] {
+    return [
+        {
+            colId: 'ticker',
+            field: 'ticker',
+            headerName: 'Ticker',
+            width: 120,
+            pinned: 'left',
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => {
+                const tickerValue = ((params.value ?? '') as string).toString().trim().toUpperCase();
+                return this.createTickerElement(params.value, 'ticker-pill', {
+                    behavior: 'filter',
+                    onClick: (value: unknown) => this.openTradesFilteredByTicker(value),
+                    title: tickerValue ? `View all trades for ${tickerValue}` : ''
+                });
+            },
+            filter: 'agTextColumnFilter'
+        },
+        {
+            colId: 'strategy',
+            field: 'strategy',
+            headerName: 'Strategy',
+            minWidth: 180,
+            flex: 1,
+            valueFormatter: params => (params.value as string) || '—',
+            filter: 'agTextColumnFilter'
+        },
+        {
+            colId: 'strike',
+            headerName: 'Strike',
+            width: 110,
+            valueGetter: params => params.data ? resolveActiveStrike.call(this, params.data) : null,
+            valueFormatter: params => {
+                const value = Number(params.value);
+                return Number.isFinite(value)
+                    ? (this.formatNumber(value, { style: 'currency', decimals: 2 }) ?? '—')
+                    : '—';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'currentPrice',
+            headerName: 'Current Price',
+            width: 145,
+            sortable: false,
+            filter: false,
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => createQuoteRenderer.call(this, quoteEntries, params)
+        },
+        {
+            colId: 'dte',
+            field: 'dte',
+            headerName: 'DTE',
+            width: 90,
+            valueGetter: params => this.parseInteger(params.data?.dte, null, { allowNegative: false }),
+            valueFormatter: params => Number.isFinite(params.value as number) ? String(params.value) : '—',
+            cellClass: params => {
+                const probe = document.createElement('span');
+                if (params.data) {
+                    this.updateExpirationHighlight(probe, params.data);
+                }
+                return Array.from(probe.classList).join(' ');
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'maxRisk',
+            field: 'maxRisk',
+            headerName: 'Max Risk',
+            width: 125,
+            valueGetter: params => this.parseDecimal(params.data?.maxRisk, null, { allowNegative: false }),
+            valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—',
+            cellClass: params => Number.isFinite(params.value as number) ? 'pl-negative' : 'pl-neutral',
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'notes',
+            field: 'notes',
+            headerName: 'Notes',
+            minWidth: 180,
+            flex: 1,
+            valueFormatter: params => ((params.value || '') as string).trim() || '—',
+            cellClass: 'notes-cell',
+            tooltipValueGetter: params => ((params.value || '') as string).trim()
+        }
+    ];
+}
+
+function createActivePositionsGridOptions(
+    this: ActivePositionsContext,
+    rows: TradeRecord[],
+    quoteEntries: Map<string, Record<string, unknown>>
+): GridOptions<TradeRecord> {
+    return {
+        rowData: rows,
+        columnDefs: buildActivePositionsColumnDefs.call(this, quoteEntries),
+        defaultColDef: {
+            sortable: true,
+            resizable: true,
+            filter: true,
+            minWidth: 90
+        },
+        getRowId: params => activeRowKey(params.data),
+        rowHeight: 46,
+        headerHeight: 44,
+        rowBuffer: 10,
+        animateRows: false,
+        overlayNoRowsTemplate: '<span class="ag-overlay-no-rows-center">No active positions.</span>'
+    };
 }
 
 export function updateActivePositionsTable(
@@ -46,105 +224,32 @@ export function updateActivePositionsTable(
         return false;
     })
 ): void {
-    const tbody = document.querySelector('#active-positions-table tbody') as HTMLTableSectionElement | null;
-
-    if (tbody) {
-        tbody.innerHTML = '';
-
-        const sortedTrades = [...(Array.isArray(openTrades) ? openTrades : [])].sort((a, b) => {
-            const dteA = this.parseInteger(a.dte, Number.POSITIVE_INFINITY, { allowNegative: false }) ?? Number.POSITIVE_INFINITY;
-            const dteB = this.parseInteger(b.dte, Number.POSITIVE_INFINITY, { allowNegative: false }) ?? Number.POSITIVE_INFINITY;
-            return dteA - dteB;
-        });
-
-        const columnLabels = ['Ticker', 'Strategy', 'Strike', 'Current Price', 'DTE', 'Max Risk', 'Notes'];
-        const quoteEntries = new Map<string, Record<string, unknown>>();
-
-        sortedTrades.forEach(trade => {
-            const row = tbody.insertRow();
-            row.dataset.tradeId = String(trade.id ?? '');
-
-            const tickerCell = row.insertCell(0);
-            const tickerValue = ((trade.ticker ?? '') as string).toString().trim().toUpperCase();
-            const tickerLink = this.createTickerElement(trade.ticker, 'ticker-pill', {
-                behavior: 'filter',
-                onClick: (value: unknown) => this.openTradesFilteredByTicker(value),
-                title: tickerValue ? `View all trades for ${tickerValue}` : ''
-            });
-            tickerCell.appendChild(tickerLink);
-
-            row.dataset.ticker = tickerValue;
-
-            row.insertCell(1).textContent = (trade.strategy as string) || '—';
-
-            const strikeCell = row.insertCell(2);
-            let resolvedStrike = this.parseDecimal(trade.activeStrikePrice, null, { allowNegative: false });
-
-            if (resolvedStrike === null && Array.isArray(trade.legs) && (trade.legs as unknown[]).length > 0) {
-                const strikeSummary = this.summarizeLegs(trade.legs as unknown[]);
-                const summaryStrike = this.getActiveStrikeForDisplay(strikeSummary);
-                if (Number.isFinite(summaryStrike)) {
-                    resolvedStrike = summaryStrike;
-                }
-            }
-
-            if (resolvedStrike === null) {
-                resolvedStrike = this.parseDecimal(trade.strikePrice, null, { allowNegative: false });
-            }
-
-            if (Number.isFinite(resolvedStrike)) {
-                const strikeLabel = this.formatNumber(resolvedStrike, { style: 'currency', decimals: 2 });
-                strikeCell.textContent = strikeLabel ?? '—';
-                row.dataset.strikePrice = String(resolvedStrike);
-            } else {
-                strikeCell.textContent = '—';
-                delete row.dataset.strikePrice;
-            }
-
-            const priceCell = row.insertCell(3);
-            priceCell.className = 'quote-cell';
-            const baseQuoteKey = this.getQuoteEntryKey(trade);
-            const quoteKey = `${baseQuoteKey}|row:${quoteEntries.size}`;
-            row.dataset.quoteKey = quoteKey;
-            this.populateQuoteCell(priceCell, trade, row, { deferNetworkFetch: true });
-            quoteEntries.set(quoteKey, { trade, row, cell: priceCell, key: quoteKey });
-
-            const dteValue = this.parseInteger(trade.dte, null, { allowNegative: false });
-            const dteCell = row.insertCell(4);
-            dteCell.textContent = dteValue !== null ? String(dteValue) : '—';
-            if (Number.isFinite(dteValue)) {
-                row.dataset.dte = String(dteValue);
-            } else {
-                delete row.dataset.dte;
-            }
-
-            const maxRiskCell = row.insertCell(5);
-            const maxRiskValue = this.parseDecimal(trade.maxRisk, null, { allowNegative: false });
-            if (maxRiskValue !== null) {
-                maxRiskCell.textContent = this.formatCurrency(maxRiskValue);
-                maxRiskCell.className = 'pl-negative';
-            } else {
-                maxRiskCell.textContent = '—';
-                maxRiskCell.className = 'pl-neutral';
-            }
-
-            const notesCell = row.insertCell(6);
-            const noteText = ((trade.notes || '') as string).trim();
-            notesCell.textContent = noteText || '—';
-            notesCell.classList.add('notes-cell');
-            if (noteText) {
-                notesCell.title = noteText;
-            }
-
-            this.updateExpirationHighlight(dteCell as HTMLTableCellElement, trade);
-
-            this.applyResponsiveLabels(row, columnLabels);
-        });
-
-        this.activeQuoteEntries = quoteEntries;
-        this.rebuildQuoteRefreshSchedule();
-        this.startQuoteAutoRefreshIfNeeded();
-        this.refreshActivePositionsQuotes({ force: true, immediate: true });
+    const gridRoot = document.getElementById('active-positions-table') as HTMLElement | null;
+    if (!gridRoot) {
+        return;
     }
-}
 
+    const sortedTrades = [...(Array.isArray(openTrades) ? openTrades : [])].sort((a, b) => {
+        const dteA = this.parseInteger(a.dte, Number.POSITIVE_INFINITY, { allowNegative: false }) ?? Number.POSITIVE_INFINITY;
+        const dteB = this.parseInteger(b.dte, Number.POSITIVE_INFINITY, { allowNegative: false }) ?? Number.POSITIVE_INFINITY;
+        return dteA - dteB;
+    });
+
+    const quoteEntries = new Map<string, Record<string, unknown>>();
+    if (!this.activePositionsGridApi || this.activePositionsGridApi.isDestroyed()) {
+        this.activePositionsGridApi = createGrid(
+            gridRoot,
+            createActivePositionsGridOptions.call(this, sortedTrades, quoteEntries)
+        );
+    } else {
+        this.activePositionsGridApi.updateGridOptions({
+            columnDefs: buildActivePositionsColumnDefs.call(this, quoteEntries),
+            rowData: sortedTrades
+        });
+    }
+
+    this.activeQuoteEntries = quoteEntries;
+    this.rebuildQuoteRefreshSchedule();
+    this.startQuoteAutoRefreshIfNeeded();
+    this.refreshActivePositionsQuotes({ force: true, immediate: true });
+}

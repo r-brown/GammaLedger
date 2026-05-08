@@ -1,8 +1,7 @@
 // src/ui/charts/cumulative-pl.ts — Wave 9: Cumulative P&L chart.
 // Uses the .call(this, …) delegation pattern.
 
-// Chart is loaded from CDN; declared in vendor.d.ts or the host app scope.
-declare const Chart: { new(ctx: CanvasRenderingContext2D, config: Record<string, unknown>): { destroy(): void } };
+import { renderEChart } from './echarts.js'
 
 interface CumulativePLSeries {
   labels: string[]
@@ -89,119 +88,76 @@ export function syncCumulativePLControls(this: CumulativePLContext): void {
 }
 
 export function updateCumulativePLChart(this: CumulativePLContext): void {
-    const canvas = document.getElementById('cumulativePLChart') as HTMLCanvasElement | null;
-    if (!canvas) {
-        console.error('Cumulative P&L chart canvas not found');
+    const root = document.getElementById('cumulativePLChart');
+    if (!root) {
+        console.error('Cumulative P&L chart root not found');
         return;
-    }
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    if (this.charts.cumulativePL) {
-        this.charts.cumulativePL.destroy();
     }
 
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
-
     const series = this.computeCumulativePLSeries(this.cumulativePLRange);
 
     if (!series || !series.labels.length || !series.dataPoints.length) {
-        this.charts.cumulativePL = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['No Data'],
-                datasets: [{
-                    label: 'Cumulative P&L',
-                    data: [0],
-                    borderColor: '#1FB8CD',
-                    backgroundColor: 'rgba(31, 184, 205, 0.1)',
-                    fill: false,
-                    tension: 0.4
-                }]
+        this.charts.cumulativePL = renderEChart(root, this.charts.cumulativePL, {
+            aria: { enabled: true },
+            grid: { top: 12, right: 18, bottom: 42, left: 10, containLabel: true },
+            tooltip: { show: false },
+            xAxis: {
+                type: 'category',
+                data: ['No Data'],
+                axisTick: { show: false },
+                axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.16)' } },
+                axisLabel: { color: 'rgba(100, 116, 139, 0.9)' }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        ticks: {
-                            callback: (value: unknown) => formatCurrencyValue(value, 0)
-                        }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                }
-            }
-        } as Record<string, unknown>);
+            yAxis: {
+                type: 'value',
+                axisLabel: { color: 'rgba(100, 116, 139, 0.9)', formatter: (value: unknown) => formatCurrencyValue(value, 0) },
+                splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.16)' } }
+            },
+            series: [{
+                type: 'line',
+                name: 'Cumulative P&L',
+                data: [0],
+                showSymbol: false,
+                lineStyle: { color: '#1FB8CD', width: 2 },
+                areaStyle: { color: 'rgba(31, 184, 205, 0.1)' }
+            }]
+        });
         return;
     }
 
-    this.charts.cumulativePL = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: series.labels,
-            datasets: [{
-                label: 'Cumulative P&L',
-                data: series.dataPoints,
-                borderColor: '#1FB8CD',
-                backgroundColor: 'rgba(31, 184, 205, 0.1)',
-                fill: true,
-                tension: 0.4,
-                pointRadius: 3,
-                pointHoverRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    ticks: {
-                        // NOTE: `this` inside this callback refers to Chart.js scale — not our context.
-                        // Using a regular function per Chart.js convention.
-                        callback: function (this: unknown, value: unknown) {
-                            if (typeof value === 'string') {
-                                return value;
-                            }
-
-                            if (typeof value === 'number' && this && typeof (this as Record<string, unknown>).getLabelForValue === 'function') {
-                                const label = (this as { getLabelForValue(v: number): string }).getLabelForValue(value);
-                                if (label) {
-                                    return label;
-                                }
-                            }
-
-                            return '';
-                        },
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
-                },
-                y: {
-                    ticks: {
-                        callback: (value: unknown) => formatCurrencyValue(value, 0)
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        title: function (context: Array<{ label?: string }>) {
-                            return context[0]?.label || '';
-                        },
-                        label: (context: { raw: unknown }) => `Cumulative P&L: ${formatCurrencyValue(context.raw)}`
-                    }
-                }
+    this.charts.cumulativePL = renderEChart(root, this.charts.cumulativePL, {
+        aria: { enabled: true },
+        grid: { top: 12, right: 18, bottom: 54, left: 10, containLabel: true },
+        tooltip: {
+            trigger: 'axis',
+            formatter: (params: unknown) => {
+                const item = Array.isArray(params) ? params[0] as { axisValueLabel?: string; value?: unknown } : null;
+                return item ? `${item.axisValueLabel || ''}<br>Cumulative P&L: ${formatCurrencyValue(item.value)}` : '';
             }
-        }
-    } as Record<string, unknown>);
+        },
+        xAxis: {
+            type: 'category',
+            data: series.labels,
+            axisTick: { show: false },
+            axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.16)' } },
+            axisLabel: { color: 'rgba(100, 116, 139, 0.9)', rotate: 45 }
+        },
+        yAxis: {
+            type: 'value',
+            axisLabel: { color: 'rgba(100, 116, 139, 0.9)', formatter: (value: unknown) => formatCurrencyValue(value, 0) },
+            splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.16)' } }
+        },
+        series: [{
+            type: 'line',
+            name: 'Cumulative P&L',
+            data: series.dataPoints,
+            showSymbol: true,
+            symbolSize: 6,
+            smooth: 0.35,
+            lineStyle: { color: '#1FB8CD', width: 2 },
+            itemStyle: { color: '#1FB8CD' },
+            areaStyle: { color: 'rgba(31, 184, 205, 0.1)' }
+        }]
+    });
 }
-
-

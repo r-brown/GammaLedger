@@ -3,6 +3,34 @@
 
 type AnyRecord = Record<string, any>
 
+function getSelectableVisibleTrades(context: any): AnyRecord[] {
+    const source = Array.isArray(context.currentFilteredTrades)
+        ? context.currentFilteredTrades
+        : context.trades;
+    return (Array.isArray(source) ? source : [])
+        .filter((trade: AnyRecord) => trade && trade.id !== undefined && trade.id !== null);
+}
+
+function hasTradeSelection(context: any, id: unknown): boolean {
+    const key = String(id ?? '');
+    if (!key || !(context.tradeMergeSelection instanceof Set)) {
+        return false;
+    }
+    return Array.from(context.tradeMergeSelection).some(value => String(value) === key);
+}
+
+function removeTradeSelection(context: any, id: unknown): void {
+    const key = String(id ?? '');
+    if (!key || !(context.tradeMergeSelection instanceof Set)) {
+        return;
+    }
+    Array.from(context.tradeMergeSelection).forEach(value => {
+        if (String(value) === key) {
+            context.tradeMergeSelection.delete(value);
+        }
+    });
+}
+
 export function setupImportControls(this: any) {
     if (this.importControlsInitialized) {
         return;
@@ -268,6 +296,10 @@ export function updateMergeColumnVisibility(this: any) {
         (checkbox as HTMLInputElement).disabled = hidden;
         (checkbox as HTMLInputElement).tabIndex = hidden ? -1 : 0;
     });
+
+    if (typeof this.updateTradesGridMergeColumnVisibility === 'function') {
+        this.updateTradesGridMergeColumnVisibility();
+    }
 }
 
 export function refreshTradesMergePanelContents(this: any) {
@@ -345,8 +377,11 @@ export function getImportReviewTrades(this: any) {
 export function syncTradeSelectionCheckboxes(this: any) {
     document.querySelectorAll<HTMLInputElement>('.trade-merge-checkbox').forEach((checkbox) => {
         const id = (checkbox as HTMLElement).dataset.tradeId;
-        checkbox.checked = !!id && this.tradeMergeSelection.has(id);
+        checkbox.checked = !!id && hasTradeSelection(this, id);
     });
+    if (typeof this.refreshTradesGridSelectionState === 'function') {
+        this.refreshTradesGridSelectionState();
+    }
     this.syncSelectAllCheckbox();
 }
 
@@ -356,8 +391,8 @@ export function syncSelectAllCheckbox(this: any) {
         return;
     }
 
-    const checkboxes = Array.from(document.querySelectorAll<HTMLInputElement>('.trade-merge-checkbox'));
-    const mergeEnabled = this.tradesMergePanelOpen && checkboxes.length;
+    const visibleTrades = getSelectableVisibleTrades(this);
+    const mergeEnabled = this.tradesMergePanelOpen && visibleTrades.length;
 
     if (!mergeEnabled) {
         selectAll.checked = false;
@@ -368,15 +403,12 @@ export function syncSelectAllCheckbox(this: any) {
 
     selectAll.disabled = false;
 
-    const selectedVisible = checkboxes.filter((checkbox) => {
-        const id = (checkbox as HTMLElement).dataset.tradeId;
-        return id && this.tradeMergeSelection.has(id);
-    }).length;
+    const selectedVisible = visibleTrades.filter((trade: AnyRecord) => hasTradeSelection(this, trade.id)).length;
 
     if (selectedVisible === 0) {
         selectAll.checked = false;
         selectAll.indeterminate = false;
-    } else if (selectedVisible === checkboxes.length) {
+    } else if (selectedVisible === visibleTrades.length) {
         selectAll.checked = true;
         selectAll.indeterminate = false;
     } else {
@@ -390,24 +422,21 @@ export function handleSelectAllTrades(this: any, checked: boolean) {
         return;
     }
 
-    const checkboxes = Array.from(document.querySelectorAll<HTMLInputElement>('.trade-merge-checkbox'));
-    if (!checkboxes.length) {
+    const visibleTrades = getSelectableVisibleTrades(this);
+    if (!visibleTrades.length) {
         return;
     }
 
-    checkboxes.forEach((checkbox) => {
-        const id = (checkbox as HTMLElement).dataset.tradeId;
-        if (!id) {
-            return;
-        }
+    visibleTrades.forEach((trade: AnyRecord) => {
+        const id = trade.id;
         if (checked) {
             this.tradeMergeSelection.add(id);
         } else {
-            this.tradeMergeSelection.delete(id);
+            removeTradeSelection(this, id);
         }
-        checkbox.checked = checked;
     });
 
+    this.syncTradeSelectionCheckboxes();
     this.syncSelectAllCheckbox();
     this.refreshTradesMergePanelContents();
 }
