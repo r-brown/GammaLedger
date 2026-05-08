@@ -1,6 +1,9 @@
 // Pure DOM helpers — no class state required. Migrated from
 // class GammaLedger (see docs/refactor/phase1-analysis.md §10).
 
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+
 export interface TickerElementOptions {
     behavior?: 'external' | 'filter'
     onClick?: ((ticker: string) => void) | null
@@ -101,9 +104,6 @@ export function applyResponsiveLabels(
 // Markdown rendering — marked + DOMPurify
 // Replaces the prior hand-rolled CommonMark subset. AI chat is the only caller.
 // ---------------------------------------------------------------------------
-
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
 
 marked.use({ gfm: true, breaks: false })
 
