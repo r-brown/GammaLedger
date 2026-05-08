@@ -2612,21 +2612,22 @@ select.form-control {
   text-decoration: underline;
 }
 
-.ai-chat__code {
+.ai-chat__bubble pre {
   background-color: rgba(var(--color-slate-900-rgb), 0.1);
   border-radius: var(--radius-md);
   padding: var(--space-12);
   overflow-x: auto;
   margin: 0 0 var(--space-12);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-base);
   line-height: 1.5;
 }
 
-.ai-chat__code:last-child {
+.ai-chat__bubble pre:last-child {
   margin-bottom: 0;
 }
 
-.ai-chat__quote {
+.ai-chat__bubble blockquote {
   border-left: 3px solid rgba(var(--color-brand-purple-rgb), 0.4);
   margin: 0 0 var(--space-12);
   padding-left: var(--space-12);
@@ -2634,15 +2635,23 @@ select.form-control {
   font-style: italic;
 }
 
-.ai-chat__quote:last-child {
+.ai-chat__bubble blockquote:last-child {
   margin-bottom: 0;
 }
 
-.ai-chat__rule {
+.ai-chat__bubble hr {
   border: none;
   border-top: 1px solid var(--color-border);
   margin: var(--space-12) 0;
 }
+
+/* marked emits real h1/h2/h3 — scale them down inside chat bubbles */
+.ai-chat__bubble h1 { font-size: var(--font-size-lg); margin: var(--space-8) 0; }
+.ai-chat__bubble h2 { font-size: var(--font-size-md); margin: var(--space-8) 0; }
+.ai-chat__bubble h3 { font-size: var(--font-size-base); margin: var(--space-6) 0; font-weight: 600; }
+.ai-chat__bubble h4,
+.ai-chat__bubble h5,
+.ai-chat__bubble h6 { font-size: var(--font-size-base); margin: var(--space-6) 0; font-weight: 600; }
 
 .ai-chat__message--user .ai-chat__bubble {
   background-color: var(--color-brand-purple);
