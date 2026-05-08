@@ -50,8 +50,7 @@
 </head>
 
 <body>
-    <div id="disclaimer-banner" class="disclaimer-banner is-hidden" role="dialog" aria-modal="true"
-        aria-labelledby="disclaimer-title" aria-hidden="true">
+    <dialog id="disclaimer-banner" class="disclaimer-banner" aria-labelledby="disclaimer-title">
         <div class="disclaimer-banner__panel">
             <h2 id="disclaimer-title" class="disclaimer-banner__title">Disclaimer</h2>
             <div class="disclaimer-banner__body" tabindex="0">
@@ -79,10 +78,8 @@
                     data-action="disclaimer-agree">Agree</button>
             </div>
         </div>
-    </div>
-    <div id="ai-coach-consent" class="ai-consent-modal is-hidden" role="dialog" aria-modal="true"
-        aria-labelledby="ai-consent-title" aria-describedby="ai-consent-description">
-        <div class="ai-consent-modal__overlay" data-action="ai-consent-dismiss"></div>
+    </dialog>
+    <dialog id="ai-coach-consent" class="ai-consent-modal" aria-labelledby="ai-consent-title" aria-describedby="ai-consent-description">
         <div class="ai-consent-modal__panel" role="document">
             <button type="button" class="ai-consent-modal__close" data-action="ai-consent-dismiss"
                 aria-label="Close AI Coach consent dialog">×</button>
@@ -105,7 +102,7 @@
                 <button type="button" class="btn btn--primary" data-action="ai-consent-agree">I Understand &amp; Agree</button>
             </div>
         </div>
-    </div>
+    </dialog>
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
