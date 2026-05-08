@@ -128,7 +128,7 @@ class GammaLedger {
     declare currentFilteredTrades: Record<string, unknown>[]
     declare currentSort: { key: string | null; direction: string }
     declare cumulativePLRange: string
-    declare disclaimerBanner: { element: HTMLElement | null; body: HTMLElement | null; agreeButton: HTMLElement | null; agreeHandler: unknown; hideTimeoutId: ReturnType<typeof setTimeout> | null }
+    declare disclaimerBanner: { element: HTMLDialogElement | null; agreeButton: Element | null; agreeHandler: (() => void) | null }
     declare disclaimerFadeMs: number
     declare aiCoachConsent: Record<string, unknown>
     declare finnhub: { apiKey: string; encryptionKey: CryptoKey | null; cache: Map<string, unknown>; cacheTTL: number; outstandingRequests: Map<string, unknown>; rateLimitQueue: Promise<unknown>; maxRequestsPerMinute: number; timestamps: number[]; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; elements: Record<string, unknown> }
@@ -191,10 +191,8 @@ class GammaLedger {
 
         this.disclaimerBanner = {
             element: null,
-            body: null,
             agreeButton: null,
-            agreeHandler: null,
-            hideTimeoutId: null
+            agreeHandler: null
         };
         this.disclaimerFadeMs = 280;
 
@@ -407,9 +405,6 @@ class GammaLedger {
     // Cleanup all resources
     cleanup() {
         // Clear all timeouts
-        if (this.disclaimerBanner?.hideTimeoutId) {
-            clearTimeout(this.disclaimerBanner.hideTimeoutId);
-        }
         if (this.gemini?.statusTimeoutId) {
             clearTimeout(this.gemini.statusTimeoutId);
         }
