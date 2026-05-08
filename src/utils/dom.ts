@@ -98,203 +98,41 @@ export function applyResponsiveLabels(
 }
 
 // ---------------------------------------------------------------------------
-// Markdown rendering helpers
-// Note: these were extracted with this.* calls during Phase 1 extraction;
-// converted to direct function calls during Phase 2 TypeScript migration.
+// Markdown rendering — marked + DOMPurify
+// Replaces the prior hand-rolled CommonMark subset. AI chat is the only caller.
 // ---------------------------------------------------------------------------
 
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+
+marked.use({ gfm: true, breaks: false })
+
+let domPurifyHookInstalled = false
+function ensureDomPurifyHook(): void {
+    if (domPurifyHookInstalled) return
+    DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+        if (node instanceof Element && node.tagName === 'A') {
+            node.setAttribute('target', '_blank')
+            node.setAttribute('rel', 'noopener noreferrer')
+        }
+    })
+    domPurifyHookInstalled = true
+}
+
+const MARKDOWN_ALLOWED_TAGS = [
+    'p', 'br', 'strong', 'em', 'code', 'pre', 'blockquote',
+    'ul', 'ol', 'li',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'hr', 'a',
+]
+const MARKDOWN_ALLOWED_ATTR = ['href']
+
 export function renderMarkdownToHTML(markdown = ''): string {
-    if (!markdown) {
-        return '';
-    }
-
-    const segments: Array<{ type: 'text' | 'code'; value: string }> = [];
-    const codeBlockRegex = /```([\s\S]*?)```/g;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = codeBlockRegex.exec(markdown)) !== null) {
-        if (match.index > lastIndex) {
-            segments.push({ type: 'text', value: markdown.slice(lastIndex, match.index) });
-        }
-        segments.push({ type: 'code', value: match[1] });
-        lastIndex = match.index + match[0].length;
-    }
-
-    if (lastIndex < markdown.length) {
-        segments.push({ type: 'text', value: markdown.slice(lastIndex) });
-    }
-
-    return segments.map(segment => {
-        if (segment.type === 'code') {
-            const code = segment.value.replace(/^\n+|\n+$/g, '');
-            return `<pre class="ai-chat__code"><code>${escapeHTML(code)}</code></pre>`;
-        }
-        return renderMarkdownTextSegment(segment.value);
-    }).join('');
-}
-
-export function renderMarkdownTextSegment(text = ''): string {
-    if (!text) {
-        return '';
-    }
-
-    const lines = text.replace(/\r/g, '').split('\n');
-    const htmlParts: string[] = [];
-    let paragraphBuffer: string[] = [];
-    let inUnordered = false;
-    let inOrdered = false;
-
-    const closeLists = (): void => {
-        if (inUnordered) {
-            htmlParts.push('</ul>');
-            inUnordered = false;
-        }
-        if (inOrdered) {
-            htmlParts.push('</ol>');
-            inOrdered = false;
-        }
-    };
-
-    const flushParagraph = (): void => {
-        if (!paragraphBuffer.length) {
-            return;
-        }
-        const content = paragraphBuffer.join(' ').trim();
-        if (content) {
-            htmlParts.push(`<p>${formatMarkdownInline(content)}</p>`);
-        }
-        paragraphBuffer = [];
-    };
-
-    lines.forEach((lineRaw) => {
-        const trimmed = lineRaw.trim();
-
-        if (!trimmed) {
-            flushParagraph();
-            closeLists();
-            return;
-        }
-
-        const headingMatch = trimmed.match(/^(#{1,3})\s+(.*)$/);
-        if (headingMatch) {
-            flushParagraph();
-            closeLists();
-            const level = Math.min(headingMatch[1].length + 2, 6);
-            htmlParts.push(`<h${level}>${formatMarkdownInline(headingMatch[2])}</h${level}>`);
-            return;
-        }
-
-        if (/^([-*_])\1{2,}$/.test(trimmed)) {
-            flushParagraph();
-            closeLists();
-            htmlParts.push('<hr class="ai-chat__rule">');
-            return;
-        }
-
-        if (trimmed.startsWith('>')) {
-            flushParagraph();
-            closeLists();
-            const quoteText = trimmed.replace(/^>\s?/, '');
-            htmlParts.push(`<blockquote class="ai-chat__quote">${formatMarkdownInline(quoteText)}</blockquote>`);
-            return;
-        }
-
-        const unorderedMatch = trimmed.match(/^[-*]\s+(.*)$/);
-        if (unorderedMatch) {
-            flushParagraph();
-            if (!inUnordered) {
-                closeLists();
-                htmlParts.push('<ul>');
-                inUnordered = true;
-            }
-            htmlParts.push(`<li>${formatMarkdownInline(unorderedMatch[1])}</li>`);
-            return;
-        }
-
-        const orderedMatch = trimmed.match(/^\d+\.\s+(.*)$/);
-        if (orderedMatch) {
-            flushParagraph();
-            if (!inOrdered) {
-                closeLists();
-                htmlParts.push('<ol>');
-                inOrdered = true;
-            }
-            htmlParts.push(`<li>${formatMarkdownInline(orderedMatch[1])}</li>`);
-            return;
-        }
-
-        paragraphBuffer.push(lineRaw);
-    });
-
-    flushParagraph();
-    closeLists();
-
-    return htmlParts.join('');
-}
-
-export function formatMarkdownInline(text = ''): string {
-    if (!text) {
-        return '';
-    }
-
-    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-    let lastIndex = 0;
-    let result = '';
-    let match: RegExpExecArray | null;
-
-    while ((match = linkRegex.exec(text)) !== null) {
-        if (match.index > lastIndex) {
-            const preceding = text.slice(lastIndex, match.index);
-            result += applyBasicInlineFormatting(preceding);
-        }
-
-        const label = applyBasicInlineFormatting(match[1]);
-        const safeUrl = escapeHTML(sanitizeMarkdownUrl(match[2]));
-        result += `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
-        lastIndex = match.index + match[0].length;
-    }
-
-    if (lastIndex < text.length) {
-        result += applyBasicInlineFormatting(text.slice(lastIndex));
-    }
-
-    return result;
-}
-
-export function applyBasicInlineFormatting(text = ''): string {
-    if (!text) {
-        return '';
-    }
-
-    let safe = escapeHTML(text);
-    safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
-    safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    safe = safe.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-    safe = safe.replace(/\*(?!\s)([^*]+?)\*(?!\*)/g, '<em>$1</em>');
-    safe = safe.replace(/_([^_]+)_/g, '<em>$1</em>');
-    return safe;
-}
-
-export function sanitizeMarkdownUrl(url = ''): string {
-    try {
-        const trimmed = url.trim();
-        if (!trimmed) {
-            return '#';
-        }
-        if (trimmed.startsWith('#')) {
-            const anchor = trimmed.slice(1);
-            if (anchor && /^[a-z0-9_-]{1,64}$/i.test(anchor)) {
-                return `#${anchor}`;
-            }
-            return '#';
-        }
-        const lower = trimmed.toLowerCase();
-        if (!lower.startsWith('http://') && !lower.startsWith('https://')) {
-            return '#';
-        }
-        return trimmed;
-    } catch (_error) {
-        return '#';
-    }
+    if (!markdown) return ''
+    ensureDomPurifyHook()
+    const raw = marked.parse(markdown, { async: false }) as string
+    return DOMPurify.sanitize(raw, {
+        ALLOWED_TAGS: MARKDOWN_ALLOWED_TAGS,
+        ALLOWED_ATTR: MARKDOWN_ALLOWED_ATTR,
+    })
 }

@@ -1050,15 +1050,7 @@ class GammaLedger {
 
     renderAIChatMessages() { return aiChatModule.renderAIChatMessages.call(this); }
 
-    renderMarkdownToHTML(markdown = '') { return dom.renderMarkdownToHTML.call(this, markdown); }
-
-    renderMarkdownTextSegment(text = '') { return dom.renderMarkdownTextSegment.call(this, text); }
-
-    formatMarkdownInline(text = '') { return dom.formatMarkdownInline.call(this, text); }
-
-    applyBasicInlineFormatting(text = '') { return dom.applyBasicInlineFormatting.call(this, text); }
-
-    sanitizeMarkdownUrl(url = '') { return dom.sanitizeMarkdownUrl.call(this, url); }
+    renderMarkdownToHTML(markdown = '') { return dom.renderMarkdownToHTML(markdown); }
 
     updateTickerPreview(ticker) { return viewsModule.updateTickerPreview.call(this, ticker); }
 
