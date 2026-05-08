@@ -5,7 +5,7 @@
 > `phase2-analysis.md`, `phase2-domain-objects.md`, `phase2-migrations.md`,
 > `phase2-summary.md`, and `tech-stack.md`.
 >
-> Last updated: 2026-05-08
+> Last updated: 2026-05-08 — Phase 3 prerequisites L4/L5/L6 complete
 
 ---
 
@@ -443,47 +443,49 @@ Verification:
 
 Follow-up scope: consider replacing `AllCommunityModule` with a smaller AG Grid module set once the exact column/filter feature surface settles.
 
-**L4 — Modals use `is-hidden` class-toggle** *(Priority 4)*
-Three modal types with manual `escapeHandler` and partial focus trapping. **Replace with native `<dialog>` element** — no library needed, all evergreen browsers supported:
+**L4 — Modals use `is-hidden` class-toggle** *(Priority 4 — ✅ Complete)*
+Converted `#disclaimer-banner` and `#ai-coach-consent` from `<div role="dialog">` with manual `is-hidden`/`is-visible` toggling to native `<dialog>` elements driven by `showModal()` / `close()`.
 
-```ts
-const el = document.getElementById('trade-modal') as HTMLDialogElement
-el.showModal()   // built-in focus trap, backdrop, Escape key, ARIA role="dialog"
-el.close()
-el.addEventListener('close', cleanupPayoffChart)
-```
+Completed scope:
+- `index.html`: outer elements changed to `<dialog>`; removed the manual `<div class="ai-consent-modal__overlay">` (replaced by native `::backdrop`).
+- `src/styles/app.css`: dropped `.is-hidden { display: none }` rules (`<dialog>` is hidden by default); moved backdrop blur/gradient onto `dialog::backdrop`; kept the panel slide-in transition keyed off `[open].is-visible` so `requestAnimationFrame` fades remain.
+- `src/ui/modals/disclaimer.ts`: rewrote to use `dialog.showModal()` / `dialog.close()`; dropped `body` and `hideTimeoutId` from state.
+- `src/ui/modals/ai-coach-consent.ts`: rewrote to use `dialog.showModal()` / `dialog.close()`; replaced manual `escapeHandler` with native `cancel` event; replaced manual overlay-click dismissal with a click handler that fires when `event.target === dialog`; dropped `restoreFocus` (native).
+- `src/index.ts`: narrowed `disclaimerBanner` and `aiCoachConsent` `declare` types; trimmed init blocks; removed stale `cleanup()` references to dropped fields.
 
-Replaces the `is-hidden` class-toggle hack across all three modal types. Clean boundary for Vue 3 slot-based dialog wrappers.
+Verification:
+- `npm run typecheck`
+- `npm run typecheck:strict`
+- `npm run build`
 
-**L5 — `showNotification` has no queue or ARIA** *(Priority 5)*
-40-line method; no queue, no `role="status"`. **Replace with Sonner** (3 kB, framework-agnostic, ARIA-compliant):
+**L5 — `showNotification` has no queue or ARIA** *(Priority 5 — ✅ Complete)*
+Sonner is React-only, so the project replaced the `alert()` / `console.log` stub with a vanilla queued toast manager that fits the existing CSS token system and preserves the public `showNotification(message, type)` signature.
 
-```bash
-npm install sonner
-```
+Completed scope:
+- Added `<div id="toast-region" role="region" aria-label="Notifications">` to `index.html`.
+- Added `.toast-region`, `.toast`, `.toast--info|success|warning|error`, `.toast__message`, `.toast__close` styles in `src/styles/app.css` (with a `prefers-reduced-motion` guard).
+- Reimplemented `src/ui/notifications.ts`: queue + visible map (max 3 visible), per-toast `setTimeout` auto-dismiss (4 s default, 8 s for `error`), pause-on-hover/focus, manual close button, `role="status"`/`aria-live="polite"` for non-error and `role="alert"`/`aria-live="assertive"` for error.
+- Backwards-compatible: every existing call site keeps its two-argument signature; an optional `options` argument is additive.
 
-```ts
-import { toast } from 'sonner'
-toast.success('Trade saved')
-toast.promise(saveDatabase(), { loading: 'Saving…', success: 'Saved!', error: 'Failed' })
-```
+Verification:
+- `npm run typecheck`
+- `npm run typecheck:strict`
+- `npm run build`
 
-**L6 — Custom Markdown renderer in AI chat** *(Priority 6)*
-250-line hand-rolled parser (handles bold, italic, headings, lists, blockquotes, fenced code; no streaming). **Replace with `marked` + `DOMPurify`**:
+**L6 — Custom Markdown renderer in AI chat** *(Priority 6 — ✅ Complete)*
+Replaced the 200-line hand-rolled CommonMark subset in `src/utils/dom.ts` (`renderMarkdownToHTML`, `renderMarkdownTextSegment`, `formatMarkdownInline`, `applyBasicInlineFormatting`, `sanitizeMarkdownUrl`) with `marked@18` + `dompurify@3`.
 
-```bash
-npm install marked dompurify
-npm install --save-dev @types/marked @types/dompurify
-```
+Completed scope:
+- Installed `marked`, `dompurify`, `@types/dompurify`. (`marked` ships its own types since v5.)
+- New `renderMarkdownToHTML(markdown)` calls `marked.parse(markdown, { async: false })` then `DOMPurify.sanitize(...)` against an `ALLOWED_TAGS` / `ALLOWED_ATTR` whitelist that matches the previous output surface.
+- DOMPurify `afterSanitizeAttributes` hook forces `target="_blank" rel="noopener noreferrer"` on every `<a>` tag.
+- `src/index.ts`: dropped four dead delegators (`renderMarkdownTextSegment`, `formatMarkdownInline`, `applyBasicInlineFormatting`, `sanitizeMarkdownUrl`); simplified the surviving delegator to drop `.call(this, …)` since the helper is now stateless.
+- `src/styles/app.css`: replaced `.ai-chat__code` / `.ai-chat__quote` / `.ai-chat__rule` class selectors (no longer emitted) with scoped `.ai-chat__bubble pre` / `blockquote` / `hr` rules; added `h1`–`h6` size compensation inside chat bubbles (the previous renderer shifted heading levels by two).
 
-```ts
-import { marked } from 'marked'
-import DOMPurify from 'dompurify'
-
-messageEl.innerHTML = DOMPurify.sanitize(marked.parse(content) as string)
-```
-
-`marked` is 25 kB min+gz and CommonMark-compliant. Always sanitize before DOM insertion.
+Verification:
+- `npm run typecheck`
+- `npm run typecheck:strict`
+- `npm run build` (bundle delta: +20.77 kB gzip, well under the 45 kB estimate)
 
 ---
 
@@ -515,9 +517,9 @@ Key pain points by area:
 | Payoff annotations | ECharts `markLine` annotations | Declarative chart options, ready for component wrapper |
 | Tables | All trade-facing tables use AG Grid Community | Ready for `ag-grid-vue3`; custom cell renderers still live in vanilla callbacks |
 | Forms | Leg rows via `insertAdjacentHTML`/`createElement`; Zod validates trade + leg inputs before save | DOM remains imperative; schemas are ready for Vue form bindings |
-| Modals | `is-hidden` class toggle; only disclaimer has a focus trap | Partial a11y; no shared abstraction |
-| Toasts | 40-line method, no queue, no ARIA | Missing `role="status"` |
-| AI chat Markdown | 250-line custom parser | No streaming; CommonMark edge cases |
+| Modals | Native `<dialog>` + `::backdrop`; both modals use `showModal()` / `close()` | Ready for Vue slot-based wrappers |
+| Toasts | Vanilla queued manager (`role="status"` / `role="alert"`, max-3 queue, auto-dismiss) | Ready for Vue composable wrap |
+| AI chat Markdown | `marked` + `DOMPurify` with allow-list sanitizer | CommonMark/GFM compliant |
 
 ### Entry criteria
 
@@ -527,7 +529,9 @@ Key pain points by area:
 | L1 ECharts migration — `vue-echarts` wraps ECharts; migrating Chart.js directly is riskier | ✅ |
 | L2 Zod/Valibot — typed storage schema before Vue binds to data | ✅ |
 | L3 AG Grid migration — `ag-grid-vue3` wraps AG Grid; DOM-rebuild tables + Vue = unmaintainable | ✅ |
-| L4 Native `<dialog>` — clean slot boundary for Vue modal wrappers | ⏳ |
+| L4 Native `<dialog>` — clean slot boundary for Vue modal wrappers | ✅ |
+| L5 Queued ARIA toast manager — clean boundary for Vue composable wrap | ✅ |
+| L6 `marked` + `DOMPurify` for AI chat — replaces hand-rolled Markdown | ✅ |
 
 ### Recommended sequencing
 
@@ -535,9 +539,9 @@ Key pain points by area:
 1. ECharts migration    ✅ Done (npm, built-in types, no destroy-recreate; vue-echarts wrapper ready)
 2. Zod/Valibot          ✅ Done (storage/form schemas; eliminates silent-zero type risks before Vue binds)
 3. AG Grid migration    ✅ Done (trade tables virtualized; column sort/filter/resize; ag-grid-vue3 wrapper ready)
-4. Native <dialog>      (clean slot boundary for Vue wrappers)
-5. marked + DOMPurify   (AI chat; 250 lines removed)
-6. Sonner               (toasts; 40 lines removed)
+4. Native <dialog>      ✅ Done (disclaimer + AI consent on <dialog>; ::backdrop; cancel + click-outside dismiss)
+5. marked + DOMPurify   ✅ Done (AI chat; ~200 lines of custom parser removed; DOMPurify allow-list)
+6. Toast manager        ✅ Done (vanilla queue with ARIA role=status/alert; preserves showNotification API)
 7. Vue 3                (decompose GammaLedger into feature composables + SFCs)
 ```
 
@@ -570,7 +574,7 @@ based on the feature domains in the Phase 1 analysis:
 | AG Grid Community | ~300 kB JS gzip + ~43 kB CSS gzip with current AllCommunityModule/Quartz import | Trade table DOM rebuild paths |
 | Zod | 12 kB | ~200 lines validation |
 | marked + DOMPurify | 45 kB | ~250 lines custom Markdown |
-| Sonner | 3 kB | ~40 lines `showNotification` |
+| Toast manager (in-tree) | ~0 kB | ~7 lines `showNotification` stub (and ~120 LOC added) |
 | **Net delta** | **~+190 kB bundled** | Chart.js CDN dependency eliminated |
 
 ECharts is tree-shaken through `echarts/core`; AG Grid currently imports `AllCommunityModule` for the complete Community feature surface.
