@@ -4855,6 +4855,80 @@ tr.position-itm.position-expiring-critical td {
   text-align: left;
 }
 
+/* Toast notifications --------------------------------------------------- */
+
+.toast-region {
+    position: fixed;
+    top: var(--space-16);
+    right: var(--space-16);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    z-index: 4000;
+    max-width: min(420px, 90vw);
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-12);
+    padding: var(--space-12) var(--space-16);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+    border-left: 4px solid var(--color-text-secondary);
+    pointer-events: auto;
+    opacity: 0;
+    transform: translateX(16px);
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.toast.is-visible {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast--info { border-left-color: var(--color-brand-purple); }
+.toast--success { border-left-color: var(--color-teal-500); }
+.toast--warning { border-left-color: var(--color-orange-400); }
+.toast--error { border-left-color: var(--color-red-500); }
+
+.toast__message {
+    flex: 1;
+    font-size: var(--font-size-base);
+    line-height: 1.4;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.toast__close {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-lg);
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.toast__close:hover,
+.toast__close:focus-visible {
+    color: var(--color-text);
+    background: rgba(0, 0, 0, 0.06);
+    outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast {
+        transition: none;
+        transform: none;
+    }
+}
+
 @media (prefers-color-scheme: dark) {
   .info-icon {
     color: var(--color-teal-300);
