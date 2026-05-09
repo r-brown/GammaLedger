@@ -378,7 +378,7 @@ function buildAssignedColumnDefs(
             cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => {
                 const cell = createQuoteDependentCell('current-price-cell quote-cell quote-dependent');
                 const entry = params.data;
-                if (!entry) {
+                if (!entry || this.isClosedStatus(entry.trade.status)) {
                     return cell;
                 }
                 const quoteEntry = ensureAssignedQuoteEntry.call(this, entry, quoteEntries);
@@ -397,7 +397,7 @@ function buildAssignedColumnDefs(
             cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => {
                 const cell = createQuoteDependentCell('market-value-cell quote-dependent');
                 const entry = params.data;
-                if (entry) {
+                if (entry && !this.isClosedStatus(entry.trade.status)) {
                     const quoteEntry = ensureAssignedQuoteEntry.call(this, entry, quoteEntries);
                     if (quoteEntry) {
                         quoteEntry.marketValueCell = cell;

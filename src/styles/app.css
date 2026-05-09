@@ -4920,7 +4920,7 @@ tr.position-itm.position-expiring-critical td,
   z-index: 9000;
   min-width: 280px;
   max-width: 340px;
-  max-height: 420px;
+  max-height: 600px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
