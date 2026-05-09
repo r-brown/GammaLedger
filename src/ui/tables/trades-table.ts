@@ -587,6 +587,7 @@ function createTradesGridOptions(this: TradesTableContext, trades: TradeRecord[]
             suppressHeaderMenuButton: false
         },
         getRowId: params => tradeRowKey(params.data),
+        domLayout: 'autoHeight',
         rowHeight: 50,
         headerHeight: 46,
         rowBuffer: 20,

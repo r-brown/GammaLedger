@@ -752,6 +752,7 @@ function createCreditPlaybookGridOptions(
             minWidth: 90
         },
         getRowId: params => legPairRowKey(params.data),
+        domLayout: 'autoHeight',
         rowHeight: 46,
         headerHeight: 44,
         rowBuffer: 16,

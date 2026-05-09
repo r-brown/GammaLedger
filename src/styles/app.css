@@ -3342,8 +3342,8 @@ td {
 
 .trades-grid {
   width: 100%;
-  height: min(72vh, 760px);
-  min-height: 520px;
+  height: auto;
+  min-height: 0;
   --ag-font-family: var(--font-family-base);
   --ag-font-size: var(--font-size-sm);
   --ag-background-color: var(--color-surface);
@@ -3463,8 +3463,8 @@ td {
 
 .credit-playbook-grid {
   width: 100%;
-  height: min(70vh, 720px);
-  min-height: 520px;
+  height: auto;
+  min-height: 0;
   --ag-font-family: var(--font-family-base);
   --ag-font-size: var(--font-size-sm);
   --ag-background-color: var(--color-surface);
@@ -4918,8 +4918,8 @@ tr.position-itm.position-expiring-critical td,
 .premium-breakdown-popup {
   position: fixed;
   z-index: 9000;
-  min-width: 280px;
-  max-width: 340px;
+  min-width: 320px;
+  max-width: 420px;
   max-height: 600px;
   overflow: hidden;
   display: flex;
