@@ -10,10 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write
+      contents: read
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
 
     steps:
-      - name: Checkout
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -31,10 +37,23 @@ jobs:
       - name: Build
         run: npx vite build
 
-      - name: Deploy to gh-pages
-        uses: JamesIves/github-pages-deploy-action@v4
+      - name: Checkout gh-pages content
+        uses: actions/checkout@v4
         with:
-          folder: dist
-          branch: gh-pages
-          target-folder: appv2
-          clean: true
+          ref: gh-pages
+          path: _gh_pages
+
+      - name: Merge build into gh-pages content
+        run: |
+          rm -rf _gh_pages/appv2
+          cp -r dist/ _gh_pages/appv2
+          touch _gh_pages/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _gh_pages
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
