@@ -273,15 +273,31 @@ export function calculateAdvancedStats(this: StatsContext) {
         return Number.isFinite(capital) && capital > 0 ? sum + capital : sum;
     }, 0);
 
-    // Realized P&L: Actual profits/losses from fully-realized trades —
-    // closed, expired, and assigned (without remaining open options).
-    const realizedPL = totalPL;
+    // Promoted assigned wheel/PMCC trades live in openTrades but their option-leg
+    // cashflows are already realized cash. Compute per-trade option PL once so we
+    // can add it to realizedPL and subtract it from the unrealizedPL contribution
+    // (where it was embedded via effectiveCostBasis reduction in trade.pl).
+    const promotedAssignedOptionPL = new Map<EnrichedTrade, number>();
+    let promotedAssignedOptionPLTotal = 0;
+    for (const trade of assignedWithActiveOptions) {
+        const optionPL = Number(this.calculateRealizedPL(trade));
+        const finite = Number.isFinite(optionPL) ? optionPL : 0;
+        promotedAssignedOptionPL.set(trade, finite);
+        promotedAssignedOptionPLTotal += finite;
+    }
 
-    // Unrealized P&L: Estimated current P&L on open positions plus
-    // mark-to-market on awaiting-coverage wheel/PMCC stock holdings.
+    // Realized P&L: closed/expired trades + realized option premiums from
+    // in-flight assigned wheels (CSP credit + all CC premiums collected to date).
+    const realizedPL = totalPL + promotedAssignedOptionPLTotal;
+
+    // Unrealized P&L: stock mark-to-market on open positions.
+    // For promoted assigned wheels, subtract the option premium we just moved to
+    // realizedPL — it was embedded in trade.pl via the effectiveCostBasis reduction.
     const unrealizedPL = openTrades.reduce((sum, trade) => {
         const pl = Number(trade.pl);
-        return Number.isFinite(pl) ? sum + pl : sum;
+        if (!Number.isFinite(pl)) return sum;
+        const adjustment = promotedAssignedOptionPL.get(trade) ?? 0;
+        return sum + pl - adjustment;
     }, 0) + awaitingCoverageTrades.reduce((sum, trade) => {
         const pl = Number(trade.unrealizedPL);
         return Number.isFinite(pl) ? sum + pl : sum;
