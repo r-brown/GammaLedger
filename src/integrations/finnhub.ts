@@ -1166,7 +1166,6 @@ export function updateMarketStatusBadge(this: FinnhubContext, payload: FinnhubMa
         link.className = 'link-button link-button--inline';
         link.textContent = 'Market status unavailable →';
         link.addEventListener('click', () => this.showView('settings'));
-        label.textContent = '';
         label.appendChild(link);
         return;
     }
@@ -1213,11 +1212,15 @@ export async function fetchMarketStatus(this: FinnhubContext): Promise<void> {
         return;
     }
 
+    const validSessions = new Set(['pre_market', 'market_hours', 'after_hours', '']);
+    const rawSession = payload.session;
+    if (!validSessions.has(rawSession)) return;
+
     const typed: FinnhubMarketStatusPayload = {
         exchange: typeof payload.exchange === 'string' ? payload.exchange : '',
         holiday: payload.holiday === null || typeof payload.holiday === 'string' ? payload.holiday as string | null : null,
         isOpen: payload.isOpen,
-        session: payload.session as FinnhubMarketStatusPayload['session'],
+        session: rawSession as FinnhubMarketStatusPayload['session'],
         t: typeof payload.t === 'number' ? payload.t : 0,
         timezone: typeof payload.timezone === 'string' ? payload.timezone : ''
     };
