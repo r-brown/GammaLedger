@@ -677,7 +677,6 @@ export function updateMonthlyPLChart(this: DashboardChartsContext): void {
         series: [{
             type: 'bar',
             name: 'Monthly P&L',
-            barMaxWidth: 42,
             data: sortedMonths.map(month => ({
                 value: monthlyData[month],
                 itemStyle: { color: monthlyData[month] >= 0 ? PROFIT_COLOR : LOSS_COLOR }
