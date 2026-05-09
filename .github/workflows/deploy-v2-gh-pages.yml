@@ -3,7 +3,7 @@ name: Deploy v2 to GitHub Pages
 on:
   push:
     branches:
-      - '**'
+      - feature/app/v2
 
 jobs:
   build-and-deploy:
