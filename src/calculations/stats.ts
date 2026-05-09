@@ -290,9 +290,10 @@ export function calculateAdvancedStats(this: StatsContext) {
     // in-flight assigned wheels (CSP credit + all CC premiums collected to date).
     const realizedPL = totalPL + promotedAssignedOptionPLTotal;
 
-    // Unrealized P&L: stock mark-to-market on open positions.
-    // For promoted assigned wheels, subtract the option premium we just moved to
-    // realizedPL — it was embedded in trade.pl via the effectiveCostBasis reduction.
+    // Unrealized P&L: estimated current P&L on open positions plus mark-to-market on
+    // awaiting-coverage wheel/PMCC stock holdings. For promoted assigned wheels, subtract
+    // the option premium moved to realizedPL — it was embedded in trade.pl via the
+    // effectiveCostBasis reduction.
     const unrealizedPL = openTrades.reduce((sum, trade) => {
         const pl = Number(trade.pl);
         if (!Number.isFinite(pl)) return sum;
