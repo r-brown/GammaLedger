@@ -108,6 +108,20 @@ function createCoverageBadge(this: AssignedPositionsContext, entry: AssignmentEn
     return wrapper;
 }
 
+function pbpRow(name: string, value: string, isNeg: boolean): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'pbp-row';
+    const n = document.createElement('span');
+    n.className = 'pbp-row-name';
+    n.textContent = name;
+    const v = document.createElement('span');
+    v.className = isNeg ? 'pbp-row-value pbp-row-value--neg' : 'pbp-row-value pbp-row-value--pos';
+    v.textContent = value;
+    row.appendChild(n);
+    row.appendChild(v);
+    return row;
+}
+
 function createPremiumRenderer(this: AssignedPositionsContext, entry: AssignmentEntry): HTMLElement {
     const {
         premiumCollected,
@@ -117,66 +131,107 @@ function createPremiumRenderer(this: AssignedPositionsContext, entry: Assignment
         longCallCost,
         positionType
     } = entry;
-    const wrapper = document.createElement('span');
-    wrapper.className = 'formula-value-wrapper';
 
-    const premiumText = document.createElement('span');
-    premiumText.textContent = this.formatCurrency(premiumCollected);
-    wrapper.appendChild(premiumText);
+    const wrapper = document.createElement('div');
+    wrapper.className = 'premium-cell-wrapper';
 
-    const icon = document.createElement('span');
-    icon.className = 'formula-info-icon';
-    icon.textContent = 'i';
-    icon.setAttribute('aria-label', 'View premium breakdown');
+    const valueText = document.createElement('span');
+    valueText.className = 'premium-cell-value';
+    valueText.textContent = this.formatCurrency(premiumCollected);
+    wrapper.appendChild(valueText);
 
-    const tooltip = document.createElement('div');
-    tooltip.className = 'formula-tooltip';
-    tooltip.setAttribute('role', 'tooltip');
+    const hint = document.createElement('span');
+    hint.className = 'premium-cell-hint';
+    hint.textContent = '↗';
+    hint.setAttribute('aria-hidden', 'true');
+    wrapper.appendChild(hint);
 
-    const isPmccPosition = positionType === 'pmcc';
-    const componentRows = isPmccPosition
+    const isPmcc = positionType === 'pmcc';
+    const componentRows = isPmcc
         ? [
-            { name: 'LEAP Cost', value: this.formatCurrency(-Math.abs(longCallCost)) },
-            { name: 'Short Calls Net', value: this.formatCurrency(callPremium) }
+            { name: 'LEAP Cost', value: this.formatCurrency(-Math.abs(longCallCost)), neg: true },
+            { name: 'Short Calls Net', value: this.formatCurrency(callPremium), neg: callPremium < 0 }
         ]
         : [
-            { name: 'Initial CSP Net', value: this.formatCurrency(initialPutPremium) },
-            { name: 'Covered Calls Net', value: this.formatCurrency(callPremium) }
+            { name: 'Initial CSP Net', value: this.formatCurrency(initialPutPremium), neg: initialPutPremium < 0 },
+            { name: 'Covered Calls Net', value: this.formatCurrency(callPremium), neg: callPremium < 0 }
         ];
 
-    let tooltipHTML = '<div class="formula-tooltip__title">Premium Breakdown</div>';
-    tooltipHTML += '<div class="formula-tooltip__section">';
-    tooltipHTML += '<div class="formula-tooltip__label">Net Premium Collected</div>';
-    tooltipHTML += `<div class="formula-tooltip__formula">${this.escapeHtml(this.formatCurrency(premiumCollected))}</div>`;
-    tooltipHTML += '</div><div class="formula-tooltip__section">';
-    tooltipHTML += '<div class="formula-tooltip__label">Components</div><div class="formula-tooltip__variables">';
-    componentRows.forEach(row => {
-        tooltipHTML += '<div class="formula-tooltip__variable">';
-        tooltipHTML += `<span class="formula-tooltip__variable-name">${this.escapeHtml(row.name)}</span>`;
-        tooltipHTML += `<span class="formula-tooltip__variable-value">${this.escapeHtml(row.value)}</span>`;
-        tooltipHTML += '</div>';
-    });
-    tooltipHTML += '</div></div><div class="formula-tooltip__section">';
-    tooltipHTML += '<div class="formula-tooltip__label">Activity Log</div>';
-    if (premiumHistory && premiumHistory.length > 0) {
-        tooltipHTML += '<div class="formula-tooltip__variables">';
-        premiumHistory.forEach(item => {
-            tooltipHTML += '<div class="formula-tooltip__variable">';
-            tooltipHTML += `<span class="formula-tooltip__variable-name">${this.escapeHtml(item.label)}</span>`;
-            tooltipHTML += `<span class="formula-tooltip__variable-value">${this.escapeHtml(this.formatCurrency(item.amount))}</span>`;
-            tooltipHTML += '</div>';
-        });
-        tooltipHTML += '</div>';
-    } else {
-        tooltipHTML += '<div class="formula-tooltip__explanation">No option premium activity recorded yet.</div>';
-    }
-    tooltipHTML += '</div>';
-    tooltip.innerHTML = tooltipHTML;
+    const popup = document.createElement('div');
+    popup.className = 'premium-breakdown-popup';
+    popup.setAttribute('role', 'tooltip');
 
-    wrapper.appendChild(icon);
-    wrapper.appendChild(tooltip);
-    wrapper.addEventListener('mouseenter', () => this.positionFormulaTooltip(wrapper, tooltip));
-    wrapper.addEventListener('mouseleave', () => tooltip.removeAttribute('style'));
+    const header = document.createElement('div');
+    header.className = 'pbp-header';
+    const title = document.createElement('span');
+    title.className = 'pbp-title';
+    title.textContent = 'Premium Breakdown';
+    const total = document.createElement('span');
+    total.className = premiumCollected >= 0 ? 'pbp-total pbp-total--pos' : 'pbp-total pbp-total--neg';
+    total.textContent = this.formatCurrency(premiumCollected);
+    header.appendChild(title);
+    header.appendChild(total);
+    popup.appendChild(header);
+
+    const compLabel = document.createElement('div');
+    compLabel.className = 'pbp-section-label';
+    compLabel.textContent = 'Components';
+    popup.appendChild(compLabel);
+
+    const compRows = document.createElement('div');
+    compRows.className = 'pbp-rows';
+    componentRows.forEach(r => compRows.appendChild(pbpRow(r.name, r.value, r.neg)));
+    popup.appendChild(compRows);
+
+    const divider = document.createElement('div');
+    divider.className = 'pbp-divider';
+    popup.appendChild(divider);
+
+    const logLabel = document.createElement('div');
+    logLabel.className = 'pbp-section-label';
+    logLabel.textContent = 'Activity Log';
+    popup.appendChild(logLabel);
+
+    if (premiumHistory && premiumHistory.length > 0) {
+        const logRows = document.createElement('div');
+        logRows.className = 'pbp-rows pbp-log';
+        premiumHistory.forEach(item => logRows.appendChild(pbpRow(item.label, this.formatCurrency(item.amount), item.amount < 0)));
+        popup.appendChild(logRows);
+    } else {
+        const empty = document.createElement('div');
+        empty.className = 'pbp-empty';
+        empty.textContent = 'No option premium activity recorded yet.';
+        popup.appendChild(empty);
+    }
+
+    document.body.appendChild(popup);
+
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const show = () => {
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        popup.classList.add('is-visible');
+        const r = wrapper.getBoundingClientRect();
+        const pw = popup.offsetWidth || 300;
+        const ph = popup.offsetHeight || 200;
+        let top = r.top - ph - 10;
+        let left = r.left;
+        if (top < 8) top = r.bottom + 10;
+        if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+        if (left < 8) left = 8;
+        popup.style.top = `${top}px`;
+        popup.style.left = `${left}px`;
+    };
+
+    const hide = () => {
+        hideTimer = setTimeout(() => popup.classList.remove('is-visible'), 100);
+    };
+
+    wrapper.addEventListener('mouseenter', show);
+    wrapper.addEventListener('mouseleave', hide);
+    popup.addEventListener('mouseenter', () => { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } });
+    popup.addEventListener('mouseleave', hide);
+
     return wrapper;
 }
 
@@ -420,6 +475,8 @@ export function updateAssignedPositionsTable(this: AssignedPositionsContext): vo
         }
         return true;
     });
+
+    document.querySelectorAll('.premium-breakdown-popup').forEach(el => el.remove());
 
     const gridRoot = document.getElementById('assigned-positions-table') as HTMLElement | null;
     if (!gridRoot) {

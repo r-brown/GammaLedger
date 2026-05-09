@@ -334,7 +334,7 @@ export function renderTickerHeatmap(this: DashboardChartsContext): void {
             min: -maxMagnitude,
             max: maxMagnitude,
             inRange: {
-                color: ['rgba(180, 65, 60, 0.74)', 'rgba(148, 163, 184, 0.14)', 'rgba(31, 184, 205, 0.74)']
+                color: ['#c0392b', '#e8ecef', '#0fa8c0']
             }
         },
         series: [{
@@ -346,25 +346,25 @@ export function renderTickerHeatmap(this: DashboardChartsContext): void {
                 formatter: (params: { dataIndex?: number }) => formatItemLabel(params.dataIndex ?? 0),
                 rich: {
                     ticker: {
-                        color: 'rgba(255,255,255,0.92)',
+                        color: '#111827',
                         fontWeight: 700,
                         fontSize: 15,
                         lineHeight: 20
                     },
                     plPos: {
-                        color: '#6ee7b7',
+                        color: '#065f46',
                         fontWeight: 700,
                         fontSize: 16,
                         lineHeight: 22
                     },
                     plNeg: {
-                        color: '#fca5a5',
+                        color: '#7f1d1d',
                         fontWeight: 700,
                         fontSize: 16,
                         lineHeight: 22
                     },
                     meta: {
-                        color: 'rgba(255,255,255,0.70)',
+                        color: '#374151',
                         fontSize: 12,
                         lineHeight: 17
                     }
