@@ -100,7 +100,7 @@ function createCoverageBadge(this: AssignedPositionsContext, entry: AssignmentEn
         badge.title = `${uncoveredShares} of ${shares} shares uncovered\n${activeShortCalls} contract${activeShortCalls !== 1 ? 's' : ''} sold (covers ${coveredShares} shares)`;
     } else {
         badge.classList.add('coverage-none');
-        badge.textContent = 'Uncovered';
+        badge.textContent = '⚡ Uncovered';
         badge.title = `${shares} shares have no active covered call\nSell a call to collect premium and reduce cost basis`;
     }
 
@@ -408,18 +408,45 @@ function buildAssignedColumnDefs(
         },
         {
             colId: 'unrealizedGL',
-            headerName: 'Unrealized Gain/Loss',
+            headerName: 'Gain/Loss',
             width: 210,
             sortable: false,
             filter: false,
             cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => {
-                const cell = createQuoteDependentCell('unrealized-gl-cell quote-dependent');
                 const entry = params.data;
-                if (entry) {
-                    const quoteEntry = ensureAssignedQuoteEntry.call(this, entry, quoteEntries);
-                    if (quoteEntry) {
-                        quoteEntry.unrealizedGLCell = cell;
-                    }
+                if (!entry) {
+                    return createQuoteDependentCell('unrealized-gl-cell quote-dependent');
+                }
+
+                const isClosed = this.isClosedStatus(entry.trade.status);
+                if (isClosed) {
+                    const cell = document.createElement('div');
+                    cell.className = 'unrealized-gl-cell';
+
+                    const realizedGL = Number(entry.trade.pl) || 0;
+                    const basis = Math.abs(entry.effectiveCostBasis);
+                    const realizedPct = basis > 0 ? (realizedGL / basis) * 100 : 0;
+
+                    const absEl = document.createElement('span');
+                    absEl.className = 'gl-absolute';
+                    absEl.textContent = this.formatCurrency(realizedGL);
+                    cell.appendChild(absEl);
+
+                    const pctEl = document.createElement('span');
+                    pctEl.className = 'gl-percent';
+                    const mag = Math.abs(realizedPct);
+                    const pctStr = this.formatNumber(mag, { decimals: 2, useGrouping: true }) ?? mag.toFixed(2);
+                    pctEl.textContent = `${realizedGL > 0 ? '+' : realizedGL < 0 ? '-' : ''}${pctStr}%`;
+                    cell.appendChild(pctEl);
+
+                    cell.classList.add(realizedGL > 0 ? 'pl-positive' : realizedGL < 0 ? 'pl-negative' : 'pl-neutral');
+                    return cell;
+                }
+
+                const cell = createQuoteDependentCell('unrealized-gl-cell quote-dependent');
+                const quoteEntry = ensureAssignedQuoteEntry.call(this, entry, quoteEntries);
+                if (quoteEntry) {
+                    quoteEntry.unrealizedGLCell = cell;
                 }
                 return cell;
             }
