@@ -198,6 +198,7 @@ function createActivePositionsGridOptions(
             minWidth: 90
         },
         getRowId: params => activeRowKey(params.data),
+        domLayout: 'autoHeight',
         rowHeight: 46,
         headerHeight: 44,
         rowBuffer: 10,

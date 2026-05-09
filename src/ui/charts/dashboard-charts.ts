@@ -435,7 +435,7 @@ export function updateTimeInTradeChart(this: DashboardChartsContext): void {
         series: [{
             type: 'bar',
             name: 'Average Days Held',
-            barMaxWidth: 42,
+            barWidth: '55%',
             data: [
                 { value: winners, itemStyle: { color: PROFIT_COLOR } },
                 { value: losers, itemStyle: { color: LOSS_COLOR } }
@@ -700,8 +700,8 @@ export function updateStrategyPerformanceChart(this: DashboardChartsContext): vo
     });
 
     const sortedStrategies = Object.entries(strategyPL)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 8);
+        .sort(([, a], [, b]) => a - b)
+        .slice(-8);
 
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
 
@@ -792,7 +792,7 @@ export function updateWinRateByStrategyChart(this: DashboardChartsContext): void
         },
         series: [{
             type: 'pie',
-            radius: ['54%', '76%'],
+            radius: ['30%', '76%'],
             center: validStrategies.length ? ['38%', '50%'] : ['50%', '50%'],
             avoidLabelOverlap: true,
             label: { show: false },

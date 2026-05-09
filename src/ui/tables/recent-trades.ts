@@ -140,6 +140,7 @@ function createRecentTradesGridOptions(this: RecentTradesContext, rows: TradeRec
             minWidth: 90
         },
         getRowId: params => rowKey(params.data),
+        domLayout: 'autoHeight',
         rowHeight: 46,
         headerHeight: 44,
         rowBuffer: 10,
