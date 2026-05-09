@@ -706,15 +706,9 @@ export function refreshAssignedPositionsQuotes(this: any, { force = false, immed
 
         this.getCurrentPrice(ticker, { forceRefresh: force })
             .then((quote: AnyRecord) => {
-                if (!entryToRefresh.row?.isConnected) {
-                    return;
-                }
                 this.updateAssignedPositionMetrics(entryToRefresh, quote);
             })
             .catch((_error: unknown) => {
-                if (!entryToRefresh.row?.isConnected) {
-                    return;
-                }
                 // Mark as needing refresh on next cycle
                 if (entryToRefresh.currentPriceCell) {
                     entryToRefresh.currentPriceCell.textContent = '—';

@@ -4905,6 +4905,10 @@ tr.position-itm.position-expiring-critical td {
   z-index: 9000;
   min-width: 280px;
   max-width: 340px;
+  max-height: 420px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -4924,6 +4928,7 @@ tr.position-itm.position-expiring-critical td {
 }
 
 .pbp-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4954,6 +4959,7 @@ tr.position-itm.position-expiring-critical td {
 }
 
 .pbp-section-label {
+  flex-shrink: 0;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
@@ -4968,9 +4974,16 @@ tr.position-itm.position-expiring-critical td {
 }
 
 .pbp-rows {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.pbp-rows.pbp-log {
+  flex: 1 1 auto;
+  flex-shrink: 1;
+  overflow-y: auto;
 }
 
 .pbp-row {
@@ -4980,6 +4993,15 @@ tr.position-itm.position-expiring-critical td {
   padding: var(--space-4) var(--space-8);
   border-radius: var(--radius-base);
   background: rgba(var(--color-gray-400-rgb), 0.04);
+}
+
+/* Color-tint component rows by credit/debit */
+.pbp-rows:not(.pbp-log) .pbp-row:has(.pbp-row-value--pos) {
+  background: rgba(var(--color-green-500-rgb, 34, 197, 94), 0.06);
+}
+
+.pbp-rows:not(.pbp-log) .pbp-row:has(.pbp-row-value--neg) {
+  background: rgba(var(--color-red-500-rgb, 239, 68, 68), 0.06);
 }
 
 .pbp-row-name {
@@ -5001,6 +5023,7 @@ tr.position-itm.position-expiring-critical td {
 }
 
 .pbp-divider {
+  flex-shrink: 0;
   height: 1px;
   background: var(--color-border);
   margin: var(--space-12) 0;
