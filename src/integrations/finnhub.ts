@@ -1187,7 +1187,7 @@ export function updateMarketStatusBadge(this: FinnhubContext, payload: FinnhubMa
     }
 }
 
-export function scheduleNextMarketStatusFetch(this: FinnhubContext, session: string): void {
+function scheduleNextMarketStatusFetch(this: FinnhubContext, session: string): void {
     if (this.finnhub.marketStatusTimer !== null) {
         clearTimeout(this.finnhub.marketStatusTimer);
     }
