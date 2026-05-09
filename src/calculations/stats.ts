@@ -293,7 +293,9 @@ export function calculateAdvancedStats(this: StatsContext) {
     // Unrealized P&L: estimated current P&L on open positions plus mark-to-market on
     // awaiting-coverage wheel/PMCC stock holdings. For promoted assigned wheels, subtract
     // the option premium moved to realizedPL — it was embedded in trade.pl via the
-    // effectiveCostBasis reduction.
+    // effectiveCostBasis reduction (priced branch). When no market price is available
+    // trade.pl falls back to raw cashFlow, so the subtraction removes the same premium
+    // that was already added to realizedPL above — consistent either way.
     const unrealizedPL = openTrades.reduce((sum, trade) => {
         const pl = Number(trade.pl);
         if (!Number.isFinite(pl)) return sum;
