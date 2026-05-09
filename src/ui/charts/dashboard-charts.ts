@@ -21,6 +21,7 @@ interface DashboardChartsContext {
   isClosedStatus(status: unknown): boolean
   isFullyRealizedTrade(trade: TradeRecord): boolean
   calculateRealizedPL(trade: TradeRecord): number
+  calculateLegCashFlow(leg: Record<string, unknown>): number
   getClosedTradesInRange(): TradeRecord[]
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
@@ -661,19 +662,55 @@ export function updateMonthlyPLChart(this: DashboardChartsContext): void {
 
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
     const monthlyData: Record<string, number> = {};
-    this.trades
-        .filter(trade => this.isFullyRealizedTrade(trade))
-        .forEach(trade => {
-            // Assigned trades may have closedDate empty — fall back to openedDate
-            // so the realized option premium still buckets into the right month.
-            const dateStr = ((trade.closedDate || trade.openedDate) as string) || '';
+
+    const addToMonth = (monthKey: string, amount: number): void => {
+        if (!monthlyData[monthKey]) monthlyData[monthKey] = 0;
+        monthlyData[monthKey] += amount;
+    };
+
+    this.trades.forEach(trade => {
+        // Include fully-realized trades (closed/expired/assigned-no-options) plus
+        // in-flight assigned wheels (assigned + still has open covered calls).
+        const isFullyRealized = this.isFullyRealizedTrade(trade);
+        const isInFlightAssigned = !isFullyRealized
+            && String(trade.status || '').toLowerCase() === 'assigned';
+        if (!isFullyRealized && !isInFlightAssigned) return;
+
+        const legs = Array.isArray(trade.legs) ? trade.legs as Record<string, unknown>[] : [];
+
+        // Step 1: Attribute each option leg's cashflow to its execution month (cash-basis).
+        // STO credit lands in the month the option was sold; BTC debit in the month
+        // it was bought back. Expired options have only an STO leg — credit stays there.
+        let totalOptionCashFlow = 0;
+        legs.forEach(leg => {
+            const legType = String(leg.type || '').toUpperCase().trim();
+            if (legType === 'STOCK' || legType === 'CASH') return;
+
+            const dateStr = String(leg.executionDate || '');
             if (!dateStr) return;
-            const monthKey = dateStr.substring(0, 7); // YYYY-MM
-            if (!monthlyData[monthKey]) {
-                monthlyData[monthKey] = 0;
+            const monthKey = dateStr.substring(0, 7);
+
+            const cashFlow = this.calculateLegCashFlow(leg);
+            if (Number.isFinite(cashFlow)) {
+                addToMonth(monthKey, cashFlow);
+                totalOptionCashFlow += cashFlow;
             }
-            monthlyData[monthKey] += toFiniteNumber(this.calculateRealizedPL(trade));
         });
+
+        // Step 2: Attribute net stock P&L to the close month (closed trades only).
+        // Stock purchase is capital deployment, not a P&L event — excluded.
+        // Stock gain/loss = total trade P&L minus all option-leg cashflows.
+        if (this.isClosedStatus(trade.status)) {
+            const tradePL = toFiniteNumber(trade.pl);
+            const stockPL = tradePL - totalOptionCashFlow;
+            if (Math.abs(stockPL) > 0.01) {
+                const closedDate = String(trade.closedDate || trade.openedDate || '');
+                if (closedDate) {
+                    addToMonth(closedDate.substring(0, 7), stockPL);
+                }
+            }
+        }
+    });
 
     const sortedMonths = Object.keys(monthlyData).sort();
     const labels = sortedMonths.map(month => {
