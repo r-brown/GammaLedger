@@ -1126,6 +1126,39 @@ select.form-control {
   color: var(--color-text-secondary);
 }
 
+.market-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+  font-size: var(--font-size-sm);
+}
+
+.market-status__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-text-disabled);
+}
+
+.market-status__label { color: var(--color-text-secondary); font-weight: var(--font-weight-medium); }
+.market-status__countdown { color: var(--color-text-disabled); }
+
+/* State modifiers */
+.market-status--open    .market-status__dot { background: var(--color-success); }
+.market-status--open    .market-status__label { color: var(--color-success); }
+.market-status--premarket .market-status__dot { background: var(--color-brand-purple); }
+.market-status--premarket .market-status__label { color: var(--color-brand-purple); }
+.market-status--unavailable .market-status__label { cursor: pointer; text-decoration: underline; }
+
+.file-management__sep {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
 .file-info {
   display: flex;
   align-items: center;
