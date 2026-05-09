@@ -2871,13 +2871,20 @@ select.form-control {
 }
 
 /* Market Value and Unrealized G/L cell styling */
+#assigned-positions-table .unrealized-gl-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.2;
+}
+
 #assigned-positions-table .gl-absolute {
-  display: block;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
 }
 
 #assigned-positions-table .gl-percent {
-  display: block;
   font-size: var(--font-size-xs);
   opacity: 0.85;
 }
@@ -4989,7 +4996,7 @@ tr.position-itm.position-expiring-critical td,
   flex: 1 1 auto;
   flex-shrink: 1;
   overflow-y: auto;
-  min-height: 120px;
+  min-height: 240px;
 }
 
 .pbp-row {

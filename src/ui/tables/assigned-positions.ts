@@ -376,7 +376,7 @@ function buildAssignedColumnDefs(
             sortable: false,
             filter: false,
             cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => {
-                const cell = createQuoteDependentCell('current-price-cell quote-dependent');
+                const cell = createQuoteDependentCell('current-price-cell quote-cell quote-dependent');
                 const entry = params.data;
                 if (!entry) {
                     return cell;
@@ -531,7 +531,33 @@ export function updateAssignedPositionMetrics(
 
     const currentPriceCell = entry.currentPriceCell as HTMLElement | undefined;
     if (currentPriceCell) {
-        currentPriceCell.textContent = this.formatCurrency(currentPrice);
+        currentPriceCell.innerHTML = '';
+
+        const priceSpan = document.createElement('span');
+        priceSpan.className = 'quote-price';
+        priceSpan.textContent = this.formatCurrency(currentPrice);
+        currentPriceCell.appendChild(priceSpan);
+
+        const rawPct = Number((quote as Record<string, unknown>).changePercent);
+        const rawChg = Number((quote as Record<string, unknown>).change);
+        const rawPrev = Number((quote as Record<string, unknown>).previousClose);
+        const changePercent = Number.isFinite(rawPct) ? rawPct
+            : (Number.isFinite(rawChg) && Number.isFinite(rawPrev) && rawPrev !== 0)
+                ? (rawChg / rawPrev) * 100
+                : null;
+
+        if (changePercent !== null) {
+            const changeSpan = document.createElement('span');
+            changeSpan.className = 'quote-change';
+            const mag = Math.abs(changePercent);
+            const pctStr = this.formatNumber(mag, { decimals: 2, useGrouping: true }) ?? mag.toFixed(2);
+            const prefix = changePercent > 0 ? '+' : changePercent < 0 ? '-' : '';
+            changeSpan.textContent = `${prefix}${pctStr}%`;
+            if (changePercent > 0) changeSpan.classList.add('is-up');
+            else if (changePercent < 0) changeSpan.classList.add('is-down');
+            else changeSpan.classList.add('is-flat');
+            currentPriceCell.appendChild(changeSpan);
+        }
     }
 
     const marketValueCell = entry.marketValueCell as HTMLElement | undefined;
