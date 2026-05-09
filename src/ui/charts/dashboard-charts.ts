@@ -20,6 +20,7 @@ interface DashboardChartsContext {
   latestStats: Record<string, unknown> | null
   isClosedStatus(status: unknown): boolean
   isFullyRealizedTrade(trade: TradeRecord): boolean
+  isWheelOrPmccTrade(trade: TradeRecord): boolean
   calculateRealizedPL(trade: TradeRecord): number
   calculateLegCashFlow(leg: Record<string, unknown>): number
   getClosedTradesInRange(): TradeRecord[]
@@ -673,7 +674,8 @@ export function updateMonthlyPLChart(this: DashboardChartsContext): void {
         // in-flight assigned wheels (assigned + still has open covered calls).
         const isFullyRealized = this.isFullyRealizedTrade(trade);
         const isInFlightAssigned = !isFullyRealized
-            && String(trade.status || '').toLowerCase() === 'assigned';
+            && String(trade.status || '').toLowerCase() === 'assigned'
+            && this.isWheelOrPmccTrade(trade);
         if (!isFullyRealized && !isInFlightAssigned) return;
 
         const legs = Array.isArray(trade.legs) ? trade.legs as Record<string, unknown>[] : [];
@@ -701,7 +703,7 @@ export function updateMonthlyPLChart(this: DashboardChartsContext): void {
         // Stock purchase is capital deployment, not a P&L event — excluded.
         // Stock gain/loss = total trade P&L minus all option-leg cashflows.
         if (this.isClosedStatus(trade.status)) {
-            const tradePL = toFiniteNumber(trade.pl);
+            const tradePL = toFiniteNumber(this.calculateRealizedPL(trade));
             const stockPL = tradePL - totalOptionCashFlow;
             if (Math.abs(stockPL) > 0.01) {
                 const closedDate = String(trade.closedDate || trade.openedDate || '');
