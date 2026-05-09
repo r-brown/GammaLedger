@@ -29,7 +29,7 @@ jobs:
         run: npm run typecheck
 
       - name: Build
-        run: npx vite build --base=/appv2/
+        run: npx vite build
 
       - name: Deploy to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
