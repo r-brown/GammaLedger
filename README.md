@@ -12,6 +12,41 @@
 
 ---
 
+## 🚀 What's New — App v2 is Live!
+
+> **[➜ Launch GammaLedger App v2](https://gammaledger.com/appv2/)**
+
+We are excited to announce the release of **GammaLedger App v2** — a major redesign and architectural upgrade of the trading tracker, now available at:
+
+```
+https://gammaledger.com/appv2/
+```
+
+GammaLedger v2 builds on everything that made the original GammaLedger useful and takes it further with a modernized interface, improved strategy tracking, and new AI-powered analysis capabilities.
+
+### Highlights in v2
+
+- **Rebuilt on Vue 3 + Vite** — faster load times, better developer experience, and a more responsive UI
+- **Improved Wheel & PMCC tracker** — enhanced lifecycle state machine for trade sequences, including open, rolled, assigned, and closed states
+- **AI-powered analysis** — integrated support for both Anthropic Claude and Google Gemini to assist with trade review and portfolio commentary
+- **OFX / QFX import** — seamlessly parse brokerage export files (IBKR and others) to auto-populate your positions
+- **Local-first, always** — all data stays in your browser via `localStorage`; no accounts, no servers, no data leaving your device
+- **Multi-strategy support** — track Cash-Secured Puts, Covered Calls, Bull Put Spreads, Bear Call Spreads, PMCCs, and Iron Condors side by side
+
+> **Note:** App v2 is currently in active development. The original app remains accessible at [gammaledger.com/app/](https://gammaledger.com/app/) while v2 stabilizes.
+
+### 💬 Share Your Feedback
+
+Tried GammaLedger v2? We'd love to hear from you. Please open a GitHub issue to:
+
+- [🐛 Report a bug](https://github.com/r-brown/GammaLedger/issues/new?labels=bug&template=bug_report.md&title=%5BBug%5D+)
+- [✨ Request a feature](https://github.com/r-brown/GammaLedger/issues/new?labels=enhancement&template=feature_request.md&title=%5BFeature%5D+)
+- [💡 Share general feedback](https://github.com/r-brown/GammaLedger/issues/new?labels=feedback&title=%5BFeedback%5D+App+v2+)
+
+Your input shapes what gets built next — every issue is read and appreciated.
+
+---
+
 <table align="center">
 <tr>
 <td width="50%" valign="top">
