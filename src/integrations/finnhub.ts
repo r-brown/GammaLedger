@@ -1089,3 +1089,169 @@ export async function enforceFinnhubRateLimit(this: any) {
     // Record this request timestamp
     timestamps.push(Date.now());
 }
+
+// ─── Market Status Badge ───────────────────────────────────────────────────
+
+interface FinnhubMarketStatusPayload {
+    exchange: string
+    holiday: string | null
+    isOpen: boolean
+    session: 'pre_market' | 'market_hours' | 'after_hours' | ''
+    t: number
+    timezone: string
+}
+
+interface FinnhubContext {
+    finnhub: {
+        apiKey: string
+        marketStatusTimer: ReturnType<typeof setTimeout> | null
+        marketStatusCountdownTimer: ReturnType<typeof setInterval> | null
+    }
+    showView(name: string): void
+}
+
+function getNextRefreshMs(session: string): number {
+    const etNow = new Date(
+        new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })
+    );
+    const totalMinutes = etNow.getHours() * 60 + etNow.getMinutes();
+
+    if (session === 'market_hours') {
+        const minsUntilClose = 960 - totalMinutes + 1;
+        return Math.max(minsUntilClose, 1) * 60_000;
+    }
+    if (session === 'pre_market') {
+        const minsUntilOpen = 570 - totalMinutes + 1;
+        return Math.max(minsUntilOpen, 1) * 60_000;
+    }
+    return 30 * 60_000;
+}
+
+function getCountdownText(session: string): string {
+    const etNow = new Date(
+        new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })
+    );
+    const totalMinutes = etNow.getHours() * 60 + etNow.getMinutes();
+
+    if (session === 'market_hours') {
+        const remaining = Math.max(960 - totalMinutes, 0);
+        const h = Math.floor(remaining / 60);
+        const m = remaining % 60;
+        return h > 0 ? `closes in ${h}h ${m}m` : `closes in ${m}m`;
+    }
+    if (session === 'pre_market') {
+        const remaining = Math.max(570 - totalMinutes, 0);
+        const h = Math.floor(remaining / 60);
+        const m = remaining % 60;
+        return h > 0 ? `opens in ${h}h ${m}m` : `opens in ${m}m`;
+    }
+    return '';
+}
+
+export function updateMarketStatusBadge(this: FinnhubContext, payload: FinnhubMarketStatusPayload | null): void {
+    const badge = document.getElementById('market-status');
+    const label = document.getElementById('market-status-label');
+    const countdown = document.getElementById('market-status-countdown');
+    if (!badge || !label || !countdown) return;
+
+    const modifiers = ['--loading', '--open', '--premarket', '--closed', '--unavailable'];
+    modifiers.forEach(m => badge.classList.remove(`market-status${m}`));
+
+    if (!payload) {
+        badge.classList.add('market-status--unavailable');
+        label.textContent = '';
+        countdown.textContent = '';
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.className = 'link-button link-button--inline';
+        link.textContent = 'Market status unavailable →';
+        link.addEventListener('click', () => this.showView('settings'));
+        label.textContent = '';
+        label.appendChild(link);
+        return;
+    }
+
+    countdown.textContent = getCountdownText(payload.session);
+
+    if (payload.session === 'market_hours') {
+        badge.classList.add('market-status--open');
+        label.textContent = 'NYSE Open';
+    } else if (payload.session === 'pre_market') {
+        badge.classList.add('market-status--premarket');
+        label.textContent = 'Pre-market';
+    } else {
+        badge.classList.add('market-status--closed');
+        label.textContent = 'NYSE Closed';
+    }
+}
+
+export function scheduleNextMarketStatusFetch(this: FinnhubContext, session: string): void {
+    if (this.finnhub.marketStatusTimer !== null) {
+        clearTimeout(this.finnhub.marketStatusTimer);
+    }
+    const delay = getNextRefreshMs(session);
+    this.finnhub.marketStatusTimer = setTimeout(() => {
+        fetchMarketStatus.call(this as any);
+    }, delay);
+}
+
+export async function fetchMarketStatus(this: FinnhubContext): Promise<void> {
+    const apiKey = this.finnhub.apiKey;
+    if (!apiKey) return;
+
+    let payload: unknown;
+    try {
+        const url = `https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${encodeURIComponent(apiKey)}`;
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) return;
+        payload = await response.json();
+    } catch {
+        return;
+    }
+
+    if (!isRecord(payload) || typeof payload.isOpen !== 'boolean' || typeof payload.session !== 'string') {
+        return;
+    }
+
+    const typed: FinnhubMarketStatusPayload = {
+        exchange: typeof payload.exchange === 'string' ? payload.exchange : '',
+        holiday: payload.holiday === null || typeof payload.holiday === 'string' ? payload.holiday as string | null : null,
+        isOpen: payload.isOpen,
+        session: payload.session as FinnhubMarketStatusPayload['session'],
+        t: typeof payload.t === 'number' ? payload.t : 0,
+        timezone: typeof payload.timezone === 'string' ? payload.timezone : ''
+    };
+
+    updateMarketStatusBadge.call(this, typed);
+    scheduleNextMarketStatusFetch.call(this, typed.session);
+
+    if (this.finnhub.marketStatusCountdownTimer === null) {
+        this.finnhub.marketStatusCountdownTimer = setInterval(() => {
+            const badge = document.getElementById('market-status');
+            if (!badge) return;
+            const currentSession = badge.classList.contains('market-status--open') ? 'market_hours'
+                : badge.classList.contains('market-status--premarket') ? 'pre_market'
+                : '';
+            const countdown = document.getElementById('market-status-countdown');
+            if (countdown) countdown.textContent = getCountdownText(currentSession);
+        }, 60_000);
+    }
+}
+
+export function initMarketStatus(this: FinnhubContext): void {
+    if (this.finnhub.marketStatusTimer !== null) {
+        clearTimeout(this.finnhub.marketStatusTimer);
+        this.finnhub.marketStatusTimer = null;
+    }
+    if (this.finnhub.marketStatusCountdownTimer !== null) {
+        clearInterval(this.finnhub.marketStatusCountdownTimer);
+        this.finnhub.marketStatusCountdownTimer = null;
+    }
+
+    if (!this.finnhub.apiKey) {
+        updateMarketStatusBadge.call(this, null);
+        return;
+    }
+
+    fetchMarketStatus.call(this as any);
+}
