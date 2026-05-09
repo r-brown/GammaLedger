@@ -409,7 +409,7 @@ function buildAssignedColumnDefs(
         {
             colId: 'unrealizedGL',
             headerName: 'Unrealized Gain/Loss',
-            width: 175,
+            width: 210,
             sortable: false,
             filter: false,
             cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => {

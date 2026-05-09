@@ -850,6 +850,8 @@ export function renderQuoteValue(this: any, cell: HTMLElement | null, row: HTMLE
     if (!Number.isFinite(numeric)) {
         cell.textContent = '—';
         this.applyPositionHighlight(row, trade, null);
+        const agRowNull = cell.closest?.('.ag-row') as HTMLElement | null;
+        if (agRowNull) agRowNull.classList.remove('position-itm');
         return;
     }
 
@@ -893,6 +895,12 @@ export function renderQuoteValue(this: any, cell: HTMLElement | null, row: HTMLE
     }
 
     this.applyPositionHighlight(row, trade, numeric);
+
+    // Apply ITM class to actual AG Grid row element (rowProxy is detached, cell is connected)
+    const agRow = cell.closest?.('.ag-row') as HTMLElement | null;
+    if (agRow) {
+        agRow.classList.toggle('position-itm', row?.classList?.contains('position-itm') ?? false);
+    }
 }
 
 export function getQuoteChangePercent(this: any, quote: AnyRecord) {
