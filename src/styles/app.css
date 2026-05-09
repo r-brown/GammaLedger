@@ -3994,6 +3994,11 @@ tr:hover {
 }
 
 .quote-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   color: var(--color-text);
@@ -4023,16 +4028,14 @@ tr:hover {
 }
 
 .quote-cell .quote-price {
-  display: inline-block;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
 .quote-cell .quote-change {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
-  display: inline-block;
-  margin-left: var(--space-6);
 }
 
 .quote-cell .quote-change.is-up {
@@ -4997,6 +5000,7 @@ tr.position-itm.position-expiring-critical td,
   flex-shrink: 1;
   overflow-y: auto;
   min-height: 240px;
+  padding-bottom: var(--space-8);
 }
 
 .pbp-row {
