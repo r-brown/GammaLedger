@@ -1139,11 +1139,11 @@ select.form-control {
   height: 7px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: var(--color-text-disabled);
+  background: var(--color-text-secondary);
 }
 
 .market-status__label { color: var(--color-text-secondary); font-weight: var(--font-weight-medium); }
-.market-status__countdown { color: var(--color-text-disabled); }
+.market-status__countdown { color: var(--color-text-secondary); }
 
 /* State modifiers */
 .market-status--open    .market-status__dot { background: var(--color-success); }
