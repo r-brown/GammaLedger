@@ -1886,8 +1886,8 @@ select.form-control {
 }
 
 .heatmap-chart {
-  min-height: 220px;
-  height: clamp(220px, 48vw, 320px);
+  min-height: 260px;
+  height: clamp(260px, 52vw, 380px);
 }
 
 .heatmap-card {
@@ -3435,7 +3435,7 @@ td {
 }
 
 .dashboard-ag-grid--assigned {
-  height: 430px;
+  height: auto;
 }
 
 .dashboard-ag-grid .ag-root-wrapper {

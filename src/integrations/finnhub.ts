@@ -630,7 +630,7 @@ export function refreshActivePositionsQuotes(this: any, { force = false, immedia
         this.quoteRefreshCursor = (normalizedCursor + 1) % this.quoteRefreshKeys.length;
         attempts += 1;
 
-        if (!entry || !entry.cell?.isConnected || !entry.row?.isConnected) {
+        if (!entry || !entry.cell?.isConnected) {
             this.activeQuoteEntries.delete(key);
             this.quoteRefreshKeys.splice(normalizedCursor, 1);
             if (this.quoteRefreshKeys.length === 0) {
@@ -666,7 +666,7 @@ export function refreshAssignedPositionsQuotes(this: any, { force = false, immed
 
     // First pass: look for high-priority entries (no price yet, errors, rate-limited)
     for (const [key, entry] of this.assignedPositionsQuoteEntries.entries()) {
-        if (!entry || !entry.row?.isConnected) {
+        if (!entry || !entry.key) {
             this.assignedPositionsQuoteEntries.delete(key);
             continue;
         }
@@ -674,7 +674,7 @@ export function refreshAssignedPositionsQuotes(this: any, { force = false, immed
         // Check if this entry needs a price (no market value displayed or shows error)
         const marketValueText = entry.marketValueCell?.textContent || '';
         const hasNoPrice = !marketValueText || marketValueText === '—' || marketValueText === 'Loading…';
-        
+
         if (hasNoPrice) {
             entryToRefresh = entry;
             keyToRefresh = key;
@@ -685,7 +685,7 @@ export function refreshAssignedPositionsQuotes(this: any, { force = false, immed
     // Second pass: if no high-priority entry found, take any entry for refresh
     if (!entryToRefresh) {
         for (const [key, entry] of this.assignedPositionsQuoteEntries.entries()) {
-            if (!entry || !entry.row?.isConnected) {
+            if (!entry || !entry.key) {
                 this.assignedPositionsQuoteEntries.delete(key);
                 continue;
             }
@@ -743,7 +743,7 @@ export function refreshCreditPlaybookQuotes(this: any, { force = false, immediat
 
     // First pass: look for high-priority entries (no price yet, errors, rate-limited, unavailable)
     for (const [key, entry] of this.creditPlaybookQuoteEntries.entries()) {
-        if (!entry || !entry.cell?.isConnected || !entry.row?.isConnected) {
+        if (!entry || !entry.cell?.isConnected) {
             this.creditPlaybookQuoteEntries.delete(key);
             continue;
         }
@@ -760,7 +760,7 @@ export function refreshCreditPlaybookQuotes(this: any, { force = false, immediat
     // Second pass: if no high-priority entry found, take any ready entry
     if (!entryToRefresh) {
         for (const [key, entry] of this.creditPlaybookQuoteEntries.entries()) {
-            if (!entry || !entry.cell?.isConnected || !entry.row?.isConnected) {
+            if (!entry || !entry.cell?.isConnected) {
                 this.creditPlaybookQuoteEntries.delete(key);
                 continue;
             }

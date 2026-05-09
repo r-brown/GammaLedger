@@ -397,6 +397,7 @@ function createAssignedGridOptions(
             minWidth: 95
         },
         getRowId: params => assignmentRowKey(params.data),
+        domLayout: 'autoHeight',
         rowHeight: 48,
         headerHeight: 44,
         rowBuffer: 10,

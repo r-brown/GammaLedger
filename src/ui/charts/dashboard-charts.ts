@@ -243,7 +243,7 @@ export function updateCommissionImpactChart(this: DashboardChartsContext): void 
         },
         series: [{
             type: 'bar',
-            barMaxWidth: 32,
+            barWidth: '55%',
             data: [
                 { value: netPL, itemStyle: { color: netPL >= 0 ? PROFIT_COLOR : LOSS_COLOR } },
                 { value: totalFees, itemStyle: { color: LOSS_COLOR } }
@@ -293,7 +293,8 @@ export function renderTickerHeatmap(this: DashboardChartsContext): void {
         }
         const tradeCountLabel = this.formatNumber(item.tradeCount, { decimals: 0, useGrouping: true }) ?? String(item.tradeCount ?? 0);
         const winRateLabel = this.formatPercent(item.winRate, '0%', { decimals: 0 });
-        return `{ticker|${item.ticker}}\n{pl|${this.formatCurrency(item.totalPL)}}\n{meta|${tradeCountLabel} trades • Win ${winRateLabel}}`;
+        const plTag = item.totalPL >= 0 ? 'plPos' : 'plNeg';
+        return `{ticker|${item.ticker}}\n{${plTag}|${this.formatCurrency(item.totalPL)}}\n{meta|${tradeCountLabel} trades • Win ${winRateLabel}}`;
     };
 
     renderStoredChart(this.charts, 'tickerHeatmap', root, {
@@ -345,21 +346,27 @@ export function renderTickerHeatmap(this: DashboardChartsContext): void {
                 formatter: (params: { dataIndex?: number }) => formatItemLabel(params.dataIndex ?? 0),
                 rich: {
                     ticker: {
-                        color: '#1f2937',
+                        color: 'rgba(255,255,255,0.92)',
                         fontWeight: 700,
-                        fontSize: 13,
-                        lineHeight: 18
-                    },
-                    pl: {
-                        color: '#111827',
-                        fontWeight: 700,
-                        fontSize: 14,
+                        fontSize: 15,
                         lineHeight: 20
                     },
+                    plPos: {
+                        color: '#6ee7b7',
+                        fontWeight: 700,
+                        fontSize: 16,
+                        lineHeight: 22
+                    },
+                    plNeg: {
+                        color: '#fca5a5',
+                        fontWeight: 700,
+                        fontSize: 16,
+                        lineHeight: 22
+                    },
                     meta: {
-                        color: '#475569',
-                        fontSize: 11,
-                        lineHeight: 16
+                        color: 'rgba(255,255,255,0.70)',
+                        fontSize: 12,
+                        lineHeight: 17
                     }
                 }
             },
