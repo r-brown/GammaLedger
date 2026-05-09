@@ -132,7 +132,7 @@ class GammaLedger {
     declare disclaimerBanner: { element: HTMLDialogElement | null; agreeButton: Element | null; agreeHandler: (() => void) | null }
     declare disclaimerFadeMs: number
     declare aiCoachConsent: AICoachConsentState
-    declare finnhub: { apiKey: string; encryptionKey: CryptoKey | null; cache: Map<string, unknown>; cacheTTL: number; outstandingRequests: Map<string, unknown>; rateLimitQueue: Promise<unknown>; maxRequestsPerMinute: number; timestamps: number[]; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; elements: Record<string, unknown> }
+    declare finnhub: { apiKey: string; encryptionKey: CryptoKey | null; cache: Map<string, unknown>; cacheTTL: number; outstandingRequests: Map<string, unknown>; rateLimitQueue: Promise<unknown>; maxRequestsPerMinute: number; timestamps: number[]; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; elements: Record<string, unknown>; marketStatusTimer: ReturnType<typeof setTimeout> | null; marketStatusCountdownTimer: ReturnType<typeof setInterval> | null }
     declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; maxOutputTokens: number; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
     declare aiAgent: GeminiInsightsAgent | null
     declare aiChatMessages: Record<string, unknown>[]
@@ -221,7 +221,9 @@ class GammaLedger {
             timestamps: [],
             statusTimeoutId: null,
             lastStatus: null,
-            elements: {}
+            elements: {},
+            marketStatusTimer: null,
+            marketStatusCountdownTimer: null
         };
 
         this.gemini = {
@@ -453,6 +455,7 @@ class GammaLedger {
             this.initializeGeminiControls();
             this.initializeAIChat();
             this.initializeFinnhubControls();
+            this.initMarketStatus();
             this.initializeDefaultFeeControls();
             this.initializeDisclaimerBanner();
             this.initializeAICoachConsent();
@@ -1371,6 +1374,12 @@ class GammaLedger {
     async performFinnhubFetch(symbol) { return finnhubModule.performFinnhubFetch.call(this, symbol); }
 
     async enforceFinnhubRateLimit() { return finnhubModule.enforceFinnhubRateLimit.call(this); }
+
+    initMarketStatus() { return finnhubModule.initMarketStatus.call(this); }
+
+    async fetchMarketStatus() { return finnhubModule.fetchMarketStatus.call(this); }
+
+    updateMarketStatusBadge(p: any) { return finnhubModule.updateMarketStatusBadge.call(this, p); }
 
     applyPositionHighlight(row, trade, currentPrice = null) { return highlightsModule.applyPositionHighlight.call(this, row, trade, currentPrice); }
 

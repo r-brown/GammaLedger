@@ -91,6 +91,7 @@ export function initializeFinnhubControls(this: any) {
             this.removeFinnhubConfigFromStorage();
             this.updateFinnhubStatus('API key cleared. Live prices disabled.', 'neutral', 5000);
             this.updateActivePositionsTable();
+            this.initMarketStatus();
             return;
         }
 
@@ -98,6 +99,7 @@ export function initializeFinnhubControls(this: any) {
             this.saveFinnhubConfigToStorage();
             this.updateFinnhubStatus('Finnhub API key saved (unencrypted — Web Crypto unavailable).', 'success', 6000);
             this.updateActivePositionsTable();
+            this.initMarketStatus();
             return;
         }
 
@@ -110,6 +112,7 @@ export function initializeFinnhubControls(this: any) {
         }
 
         this.updateActivePositionsTable();
+        this.initMarketStatus();
     };
 
     saveButton?.addEventListener('click', async (event) => {
