@@ -521,6 +521,10 @@ export function updateAssignedPositionsTable(this: AssignedPositionsContext): vo
             columnDefs: buildAssignedColumnDefs.call(this, quoteEntries),
             rowData: filteredAssignments
         });
+        // AG Grid reuses existing cell DOM elements when colIds are unchanged,
+        // so cellRenderers are not re-called and quoteEntries stays empty.
+        // Force a full cell re-render so new closures register their cells.
+        this.assignedPositionsGridApi.refreshCells({ force: true });
     }
 
     this.assignedPositionsQuoteEntries = quoteEntries;

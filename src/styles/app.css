@@ -5000,7 +5000,13 @@ tr.position-itm.position-expiring-critical td,
   flex-shrink: 1;
   overflow-y: auto;
   min-height: 240px;
-  padding-bottom: var(--space-24);
+}
+
+.pbp-rows.pbp-log::after {
+  content: '';
+  display: block;
+  height: var(--space-16);
+  flex-shrink: 0;
 }
 
 .pbp-row {
