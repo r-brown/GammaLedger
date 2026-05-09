@@ -157,20 +157,28 @@
             <header class="app-header">
                 <div class="header-left">
                     <h1 id="page-title">Options Trading Dashboard</h1>
-                    <div class="share-action">
-                        <button class="icon-button" id="share-portfolio-card" aria-label="Share portfolio snapshot" title="Share portfolio snapshot">
-                            <span aria-hidden="true">⌯⌲</span>
-                        </button>
-                        <span class="share-action__label">Share your portfolio snapshot</span>
+                    <div id="market-status" class="market-status market-status--loading">
+                        <span class="market-status__dot"></span>
+                        <span id="market-status-label" class="market-status__label">Checking market…</span>
+                        <span id="market-status-countdown" class="market-status__countdown"></span>
                     </div>
                 </div>
 
                 <div class="header-right">
                     <div class="file-management">
+                        <div class="share-action">
+                            <button class="icon-button" id="share-portfolio-card"
+                                aria-label="Share portfolio snapshot"
+                                title="Share portfolio snapshot">
+                                <span aria-hidden="true">⌯⌲</span>
+                            </button>
+                            <span class="share-action__label">Share your portfolio snapshot</span>
+                        </div>
+                        <div class="file-management__sep"></div>
                         <button class="btn btn--sm btn--secondary" id="new-database-btn">New Database</button>
                         <button class="btn btn--sm btn--secondary" id="load-database-btn">Load Database</button>
                         <button class="btn btn--sm btn--primary" id="save-database-btn">Save Database</button>
-                        <div id="loading-indicator" class="loading-indicator hidden">Saving...</div>
+                        <div id="loading-indicator" class="loading-indicator hidden">Saving…</div>
                     </div>
                     <div class="file-info">
                         <span id="current-file-name" class="file-name">Unsaved Database</span>
