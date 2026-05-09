@@ -712,6 +712,8 @@ class GammaLedger {
 
     isActiveStatus(status) { return positionsModule.isActiveStatus.call(this, status); }
 
+    isFullyRealizedTrade(trade) { return positionsModule.isFullyRealizedTrade.call(this, trade); }
+
     isAssignmentReason(reason) { return positionsModule.isAssignmentReason.call(this, reason); }
 
     /**
@@ -735,6 +737,8 @@ class GammaLedger {
 
     // Realized P&L derived from leg cash flows
     calculatePL(trade) { return pnlModule.calculatePL.call(this, trade); }
+
+    calculateRealizedPL(trade) { return pnlModule.calculateRealizedPL.call(this, trade); }
 
     // Fixed ROI calculation
     calculateROI(trade) { return pnlModule.calculateROI.call(this, trade); }

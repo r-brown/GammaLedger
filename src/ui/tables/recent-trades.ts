@@ -158,7 +158,11 @@ export function updateRecentTradesTable(
     const desiredRowCount = Math.max(Number.isFinite(normalizedActiveCount) ? normalizedActiveCount : 0, 10);
 
     const recentTrades = [...(Array.isArray(closedTrades) ? closedTrades : [])]
-        .sort((a, b) => new Date(b.closedDate as string).getTime() - new Date(a.closedDate as string).getTime())
+        .sort((a, b) => {
+            const aTime = new Date(((a.closedDate || a.openedDate) as string) || '').getTime();
+            const bTime = new Date(((b.closedDate || b.openedDate) as string) || '').getTime();
+            return (Number.isFinite(bTime) ? bTime : 0) - (Number.isFinite(aTime) ? aTime : 0);
+        })
         .slice(0, desiredRowCount);
 
     const gridRoot = document.getElementById('recent-trades-table') as HTMLElement | null;

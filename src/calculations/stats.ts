@@ -22,11 +22,12 @@ interface StatsContext {
     isClosedStatus(status: string | null | undefined): boolean
     isAssignedStatus(status: string | null | undefined): boolean
     isActiveStatus(status: string | null | undefined): boolean
+    isFullyRealizedTrade(trade: EnrichedTrade): boolean
+    calculateRealizedPL(trade: EnrichedTrade): DollarAmount
 
     // Trade-shape predicates
     isWheelOrPmccTrade(trade: EnrichedTrade): boolean
     isPmccTrade(trade: EnrichedTrade): boolean
-    isAssignedStatus(status: string | null | undefined): boolean
 
     // Open-leg helpers
     hasNetOpenOptionLegs(trade: EnrichedTrade): boolean
@@ -69,7 +70,10 @@ function assertPositiveMultiplier(value: unknown, context: string): number {
 // TODO Phase 5 strict: align Stats type with actual return.
 // ---------------------------------------------------------------------------
 export function calculateAdvancedStats(this: StatsContext) {
-    const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
+    // Fully-realized trades for P&L purposes: closed, expired, and assigned
+    // trades whose option exposure has fully unwound (i.e. not promoted to
+    // active via the wheel/PMCC active-short-calls path).
+    const closedTrades = this.trades.filter(trade => this.isFullyRealizedTrade(trade));
     const assignedTrades = this.trades.filter(trade => this.isAssignedStatus(trade.status));
     // Awaiting-coverage trades (uncovered/partial wheel/PMCC) live only in the
     // Wheel/PMCC tracker — exclude from Active Trades and from "expired" buckets.
@@ -110,25 +114,23 @@ export function calculateAdvancedStats(this: StatsContext) {
         openTrades = Array.from(openTradeMap.values());
     }
 
-    // Exclude assigned trades from P&L calculations as they're transitions to stock positions
-    const winningTrades = closedTrades.filter(trade => trade.pl > 0);
-    const losingTrades = closedTrades.filter(trade => trade.pl < 0);
+    // closedTrades is now the canonical set of realized trades (closed + expired
+    // + assigned-without-active-options). Assigned trades with active short
+    // calls remain promoted to openTrades and contribute to unrealizedPL.
+    //
+    // Use calculateRealizedPL (not trade.pl) so assigned-in-flight trades
+    // contribute only their option-leg P&L, not the stock-leg cost basis.
+    const realizedPLByTrade = new Map<EnrichedTrade, number>();
+    closedTrades.forEach(trade => {
+        const pl = Number(this.calculateRealizedPL(trade));
+        realizedPLByTrade.set(trade, Number.isFinite(pl) ? pl : 0);
+    });
+    const realizedPLOf = (trade: EnrichedTrade): number => realizedPLByTrade.get(trade) ?? 0;
 
-    const totalPL = closedTrades.reduce((sum, trade) => sum + trade.pl, 0);
+    const winningTrades = closedTrades.filter(trade => realizedPLOf(trade) > 0);
+    const losingTrades = closedTrades.filter(trade => realizedPLOf(trade) < 0);
 
-    // Assigned trades have realized option premium P&L (the short option
-    // was closed via assignment).  Include that premium in realized totals.
-    // Exclude assigned trades that were promoted to openTrades (they have
-    // active option legs and their P&L is already counted in unrealizedPL).
-    const activeAssignedIds = new Set(
-        assignedWithActiveOptions.map(t => String(t.id ?? `${t.ticker || ''}-${t.openedDate || ''}`))
-    );
-    const assignedPL = assignedTrades.reduce((sum, trade) => {
-        const key = String(trade.id ?? `${trade.ticker || ''}-${trade.openedDate || ''}`);
-        if (activeAssignedIds.has(key)) return sum; // already in unrealizedPL
-        const pl = Number(trade.pl);
-        return Number.isFinite(pl) ? sum + pl : sum;
-    }, 0);
+    const totalPL = closedTrades.reduce((sum, trade) => sum + realizedPLOf(trade), 0);
 
     const totalMaxRisk = closedTrades.reduce((sum, trade) => {
         const capital = this.getCapitalAtRisk(trade);
@@ -136,8 +138,8 @@ export function calculateAdvancedStats(this: StatsContext) {
     }, 0);
     const winRate = closedTrades.length > 0 ? (winningTrades.length / closedTrades.length) * 100 : 0;
 
-    const totalWins = winningTrades.reduce((sum, trade) => sum + Math.max(trade.pl, 0), 0);
-    const totalLosses = losingTrades.reduce((sum, trade) => sum + Math.abs(trade.pl), 0);
+    const totalWins = winningTrades.reduce((sum, trade) => sum + Math.max(realizedPLOf(trade), 0), 0);
+    const totalLosses = losingTrades.reduce((sum, trade) => sum + Math.abs(realizedPLOf(trade)), 0);
     let profitFactor = 0;
     if (totalLosses > 0) {
         profitFactor = totalWins / totalLosses;
@@ -150,9 +152,13 @@ export function calculateAdvancedStats(this: StatsContext) {
     let peak = 0;
     let cumulativePL = 0;
 
-    const sortedTrades = [...closedTrades].sort((a, b) => new Date(a.closedDate).getTime() - new Date(b.closedDate).getTime());
+    const sortedTrades = [...closedTrades].sort((a, b) => {
+        const aTime = new Date((a.closedDate || a.openedDate) as string).getTime();
+        const bTime = new Date((b.closedDate || b.openedDate) as string).getTime();
+        return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
+    });
     sortedTrades.forEach(trade => {
-        cumulativePL += trade.pl;
+        cumulativePL += realizedPLOf(trade);
         if (cumulativePL > peak) {
             peak = cumulativePL;
         }
@@ -172,7 +178,12 @@ export function calculateAdvancedStats(this: StatsContext) {
     closedTrades.forEach(trade => {
         const collateral = this.getCapitalAtRisk(trade);
         const daysHeld = Math.max(1, Number(trade.daysHeld) || 0);
-        const tradeAnnualizedROI = Number(trade.annualizedROI) || 0;
+        // Compute annualizedROI from realizedPLOf (not trade.annualizedROI) so
+        // assigned-in-flight trades use option-leg P&L, not raw cashFlow that
+        // includes stock-leg debits.
+        const realized = realizedPLOf(trade);
+        const roiPercent = collateral > 0 ? (realized / collateral) * 100 : 0;
+        const tradeAnnualizedROI = (365 * roiPercent) / daysHeld;
 
         if (Number.isFinite(collateral) && collateral > 0 && Number.isFinite(tradeAnnualizedROI)) {
             const tradeWeight = collateral * daysHeld;
@@ -202,23 +213,16 @@ export function calculateAdvancedStats(this: StatsContext) {
 
     const dailyReturns: number[] = closedTrades
         .map(trade => {
-            const roiPercent = Number(trade.roi);
+            // Derive ROI from realizedPLOf so assigned-in-flight trades use
+            // option-leg-only P&L, not the raw cashFlow that includes stock cost.
+            const capital = this.getCapitalAtRisk(trade);
+            const realized = realizedPLOf(trade);
             const daysHeldValue = Math.max(1, Number(trade.daysHeld) || 0);
 
-            if (Number.isFinite(roiPercent)) {
-                const growth = 1 + roiPercent / 100;
-                if (growth > 0) {
-                    return Math.pow(growth, 1 / daysHeldValue) - 1;
-                }
-                return (roiPercent / 100) / daysHeldValue;
-            }
-
-            const capital = this.getCapitalAtRisk(trade);
-            const plValue = Number(trade.pl) || 0;
             if (!(capital > 0)) {
                 return null;
             }
-            const derivedRoi = (plValue / capital) * 100;
+            const derivedRoi = (realized / capital) * 100;
             if (!Number.isFinite(derivedRoi)) {
                 return null;
             }
@@ -269,9 +273,9 @@ export function calculateAdvancedStats(this: StatsContext) {
         return Number.isFinite(capital) && capital > 0 ? sum + capital : sum;
     }, 0);
 
-    // Realized P&L: Actual profits/losses from closed trades plus
-    // option premium realized through assignment (assigned trades).
-    const realizedPL = totalPL + assignedPL;
+    // Realized P&L: Actual profits/losses from fully-realized trades —
+    // closed, expired, and assigned (without remaining open options).
+    const realizedPL = totalPL;
 
     // Unrealized P&L: Estimated current P&L on open positions plus
     // mark-to-market on awaiting-coverage wheel/PMCC stock holdings.
@@ -285,10 +289,10 @@ export function calculateAdvancedStats(this: StatsContext) {
 
     // Calculate average win and average loss
     const avgWin: DollarAmount = winningTrades.length > 0
-        ? winningTrades.reduce((sum, trade) => sum + trade.pl, 0) / winningTrades.length
+        ? winningTrades.reduce((sum, trade) => sum + realizedPLOf(trade), 0) / winningTrades.length
         : 0;
     const avgLoss: DollarAmount = losingTrades.length > 0
-        ? Math.abs(losingTrades.reduce((sum, trade) => sum + trade.pl, 0) / losingTrades.length)
+        ? Math.abs(losingTrades.reduce((sum, trade) => sum + realizedPLOf(trade), 0) / losingTrades.length)
         : 0;
 
     // Calculate expectancy: (Win Rate × Avg Win) - (Loss Rate × Avg Loss)
@@ -739,7 +743,7 @@ export function calculateTickerPerformance(
         }
 
         const entry = map.get(ticker)!;
-        const plValue = Number(trade.pl) || 0;
+        const plValue = Number(this.calculateRealizedPL(trade)) || 0;
         entry.totalPL += plValue;
         entry.tradeCount += 1;
         if (plValue > 0) {

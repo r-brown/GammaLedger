@@ -19,8 +19,10 @@ interface PnlContext {
     calculateROI(trade: EnrichedTrade): number
     calculateDaysHeld(trade: EnrichedTrade): number
     isClosedStatus(status: string | null | undefined): boolean
+    isAssignedStatus(status: string | null | undefined): boolean
     parseDateValue(value: unknown): Date | null
     isPmccTrade(trade: EnrichedTrade): boolean
+    calculateLegCashFlow(leg: Record<string, unknown>): number
     readonly currentDate: Date
 }
 
@@ -37,6 +39,52 @@ export function calculatePL(this: PnlContext, trade: EnrichedTrade | null | unde
     }
 
     return parseFloat(cashFlowValue.toFixed(2));
+}
+
+/**
+ * Realized P&L for spec §4 / §10 purposes. Differs from calculatePL for
+ * assigned-in-flight trades:
+ *
+ *   - Closed / Expired (full cycle done, including any stock leg sale):
+ *     trade.pl is the canonical realized number — includes both option and
+ *     stock realized P&L for closed wheels.
+ *   - Assigned (option leg realized, stock still held):
+ *     return only the OPTION-leg cashflows. The stock leg's debit is the
+ *     cost basis of held shares, not a realized loss.
+ *   - Open / Rolling: 0 (nothing realized).
+ *
+ * This is the value that should feed Monthly P&L charts, win-rate buckets,
+ * and the realizedPL portfolio total.
+ */
+export function calculateRealizedPL(
+    this: PnlContext,
+    trade: EnrichedTrade | null | undefined
+): DollarAmount {
+    if (!trade) return 0;
+
+    if (this.isClosedStatus(trade.status)) {
+        const pl = Number(trade.pl);
+        return Number.isFinite(pl) ? pl : 0;
+    }
+
+    if (!this.isAssignedStatus(trade.status)) {
+        return 0;
+    }
+
+    // Assigned: sum cashflows from option legs only (exclude STOCK / CASH legs).
+    // The stock leg cashflow represents capital deployed into shares, not a
+    // realized loss against the option premium.
+    const legs = Array.isArray(trade.legs) ? trade.legs : [];
+    let optionCashFlow = 0;
+    for (const leg of legs) {
+        const legType = ((leg?.type as string) || '').toString().trim().toUpperCase();
+        if (legType === 'STOCK' || legType === 'CASH') continue;
+        const cashFlow = this.calculateLegCashFlow(leg as unknown as Record<string, unknown>);
+        if (Number.isFinite(cashFlow)) {
+            optionCashFlow += cashFlow;
+        }
+    }
+    return parseFloat(optionCashFlow.toFixed(2));
 }
 
 /** Return on investment as a percentage (e.g. 15.5 = 15.5%). */

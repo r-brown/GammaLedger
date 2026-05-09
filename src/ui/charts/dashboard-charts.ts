@@ -19,6 +19,8 @@ interface DashboardChartsContext {
   trades: TradeRecord[]
   latestStats: Record<string, unknown> | null
   isClosedStatus(status: unknown): boolean
+  isFullyRealizedTrade(trade: TradeRecord): boolean
+  calculateRealizedPL(trade: TradeRecord): number
   getClosedTradesInRange(): TradeRecord[]
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
@@ -203,7 +205,7 @@ export function updateCommissionImpactChart(this: DashboardChartsContext): void 
     let grossTurnover = 0;
     filteredTrades.forEach(trade => {
         const fees = toFiniteNumber(trade.totalFees);
-        const pl = toFiniteNumber(trade.pl);
+        const pl = toFiniteNumber(this.calculateRealizedPL(trade));
         totalFees += fees;
         netPL += pl;
         grossTurnover += Math.abs(pl) + fees;
@@ -660,13 +662,17 @@ export function updateMonthlyPLChart(this: DashboardChartsContext): void {
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
     const monthlyData: Record<string, number> = {};
     this.trades
-        .filter(trade => this.isClosedStatus(trade.status) && trade.closedDate)
+        .filter(trade => this.isFullyRealizedTrade(trade))
         .forEach(trade => {
-            const monthKey = (trade.closedDate as string).substring(0, 7); // YYYY-MM
+            // Assigned trades may have closedDate empty — fall back to openedDate
+            // so the realized option premium still buckets into the right month.
+            const dateStr = ((trade.closedDate || trade.openedDate) as string) || '';
+            if (!dateStr) return;
+            const monthKey = dateStr.substring(0, 7); // YYYY-MM
             if (!monthlyData[monthKey]) {
                 monthlyData[monthKey] = 0;
             }
-            monthlyData[monthKey] += toFiniteNumber(trade.pl);
+            monthlyData[monthKey] += toFiniteNumber(this.calculateRealizedPL(trade));
         });
 
     const sortedMonths = Object.keys(monthlyData).sort();
@@ -720,7 +726,7 @@ export function updateStrategyPerformanceChart(this: DashboardChartsContext): vo
         if (!strategyPL[strategy]) {
             strategyPL[strategy] = 0;
         }
-        strategyPL[strategy] += toFiniteNumber(trade.pl);
+        strategyPL[strategy] += toFiniteNumber(this.calculateRealizedPL(trade));
     });
 
     const sortedStrategies = Object.entries(strategyPL)
@@ -790,7 +796,7 @@ export function updateWinRateByStrategyChart(this: DashboardChartsContext): void
             strategyStats[strategy] = { total: 0, wins: 0 };
         }
         strategyStats[strategy].total++;
-        if (toFiniteNumber(trade.pl) > 0) {
+        if (toFiniteNumber(this.calculateRealizedPL(trade)) > 0) {
             strategyStats[strategy].wins++;
         }
     });

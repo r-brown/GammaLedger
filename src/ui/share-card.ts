@@ -56,6 +56,7 @@ interface ShareCardContext {
   computeCumulativePLSeries(range: string): CumulativePLSeries | null
   getClosedTradesInRange(range?: string): TradeRecord[]
   isClosedStatus(status: unknown): boolean
+  isFullyRealizedTrade(trade: TradeRecord): boolean
   parseDateValue(value: unknown): Date | null
   parseDecimal(value: unknown, fallback: number): number
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
@@ -106,14 +107,17 @@ export function getCumulativePLRangeLabel(this: ShareCardContext, range: string 
 
 export function getClosedTradesInRange(this: ShareCardContext, range: string = this.cumulativePLRange): TradeRecord[] {
     const { start, end } = this.getCumulativePLRangeWindow(range);
-    const closedTrades = this.trades.filter(trade => this.isClosedStatus(trade.status));
+    const closedTrades = this.trades.filter(trade => this.isFullyRealizedTrade(trade));
 
     if (!start && !end) {
         return closedTrades;
     }
 
     return closedTrades.filter(trade => {
-        const exitDateRaw = this.parseDateValue(trade.closedDate as unknown);
+        // Assigned trades may have closedDate empty — fall back to openedDate so
+        // the realized option premium still lands in the correct time bucket.
+        const exitDateRaw = this.parseDateValue(trade.closedDate as unknown)
+            ?? this.parseDateValue(trade.openedDate as unknown);
         if (!exitDateRaw) {
             return false;
         }

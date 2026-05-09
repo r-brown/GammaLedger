@@ -17,8 +17,10 @@ interface PositionsContext {
   isWheelTrade(trade: Record<string, unknown>): boolean
   isWheelOrPmccTrade(trade: Record<string, unknown>): boolean
   isCashSettledTrade(trade: Record<string, unknown>): boolean
+  isClosedStatus(status: unknown): boolean
   isAssignedStatus(status: unknown): boolean
   normalizeStatus(status: unknown): string
+  hasNetOpenOptionLegs(trade: Record<string, unknown>): boolean
   isAssignmentReason(reason: unknown): boolean
   inferTradeDirection(trade: Record<string, unknown>): string
   getTradeType(trade: Record<string, unknown>): string
@@ -133,6 +135,39 @@ export function isActiveStatus(
 ): boolean {
     const normalized = this.normalizeStatus(status);
     return normalized === 'open' || normalized === 'rolling';
+}
+
+/**
+ * True when a trade's option-leg P&L is fully realized — closed, expired, or
+ * assigned without remaining open option exposure.
+ *
+ * Returns true for:
+ *   - Closed / Expired (option premium locked in)
+ *   - Assigned non-wheel/PMCC trades (vanilla CSP-then-stock; option premium
+ *     realized at assignment)
+ *   - Assigned wheel/PMCC trades that are awaiting_coverage (no covered calls
+ *     written yet) — option premium from the assigned put is realized
+ *   - Assigned wheel/PMCC trades with no net open option legs
+ *
+ * Returns false for:
+ *   - Open / Rolling (option premium still mark-to-market)
+ *   - Assigned wheel/PMCC trades with active short calls (cycle still in
+ *     flight; tracked in unrealized via the open-trades promotion path)
+ *
+ * This is the canonical predicate for routing a trade to realized P&L,
+ * monthly P&L buckets, win rate, drawdown, etc.
+ */
+export function isFullyRealizedTrade(
+    this: PositionsContext,
+    trade: Record<string, unknown>
+): boolean {
+    if (!trade) return false;
+    if (this.isClosedStatus(trade.status)) return true;
+    if (!this.isAssignedStatus(trade.status)) return false;
+    const isPromotedToOpen = this.isWheelOrPmccTrade(trade)
+        && trade.lifecycleStatus !== 'awaiting_coverage'
+        && this.hasNetOpenOptionLegs(trade);
+    return !isPromotedToOpen;
 }
 
 export function isAssignmentReason(reason: unknown): boolean {
