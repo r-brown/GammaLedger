@@ -1417,6 +1417,7 @@ class GammaLedger {
     filterTrades() { return filtersModule.filterTrades.call(this); }
 
     openTradesFilteredByTicker(ticker) { return filtersModule.openTradesFilteredByTicker.call(this, ticker); }
+    openTradesFilteredByStrategy(strategy) { return filtersModule.openTradesFilteredByStrategy.call(this, strategy); }
 
     // UPDATED: table now includes selection column for merge workflow
     renderTradesTable(trades = this.trades) { return tradesTableModule.renderTradesTable.call(this, trades); }

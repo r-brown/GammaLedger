@@ -295,6 +295,35 @@ export function openTradesFilteredByTicker(this: FiltersContext, ticker: unknown
     this.filterTrades();
 }
 
+export function openTradesFilteredByStrategy(this: FiltersContext, strategy: unknown): void {
+    const normalizedStrategy = ((strategy ?? '') as string).toString().trim();
+    if (!normalizedStrategy) {
+        return;
+    }
+
+    this.showView('trades-list');
+
+    const searchInput = document.getElementById('search-ticker') as HTMLInputElement | null;
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    const statusSelect = document.getElementById('filter-status') as HTMLSelectElement | null;
+    if (statusSelect) {
+        this.resetFilterSelect(statusSelect);
+    }
+
+    const strategySelect = document.getElementById('filter-strategy') as HTMLSelectElement | null;
+    if (strategySelect) {
+        Array.from(strategySelect.options).forEach(option => {
+            option.selected = option.value === normalizedStrategy;
+        });
+        this.normalizeFilterSelect(strategySelect);
+    }
+
+    this.filterTrades();
+}
+
 export function setupResponsiveFilters(): void {
     const panel = document.getElementById('trades-filters-panel');
     const toggle = document.getElementById('toggle-filters');

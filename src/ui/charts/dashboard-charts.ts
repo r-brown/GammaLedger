@@ -25,6 +25,8 @@ interface DashboardChartsContext {
   formatPercent(value: unknown, fallback: string, opts?: Record<string, unknown>): string
   calculateTickerPerformance(trades: TradeRecord[]): TickerPerformanceResult | null
   generateMonteCarloProjection(dailyReturns: number[], opts?: { periods?: number; simulations?: number }): Record<string, unknown> | null
+  openTradesFilteredByTicker(ticker: unknown): void
+  openTradesFilteredByStrategy(strategy: unknown): void
   renderRatioGauge(opts: RatioGaugeOptions): void
   updateMonthlyPLChart(): void
   updateCumulativePLChart(): void
@@ -297,6 +299,13 @@ export function renderTickerHeatmap(this: DashboardChartsContext): void {
         return `{ticker|${item.ticker}}\n{${plTag}|${this.formatCurrency(item.totalPL)}}\n{meta|${tradeCountLabel} trades • Win ${winRateLabel}}`;
     };
 
+    const heatmapClickHandler = (params: { dataIndex?: number }) => {
+        const item = subset[params.dataIndex ?? -1];
+        if (item?.ticker) {
+            this.openTradesFilteredByTicker(item.ticker);
+        }
+    };
+
     renderStoredChart(this.charts, 'tickerHeatmap', root, {
         aria: { enabled: true },
         grid: { top: 8, right: 8, bottom: 8, left: 8, containLabel: false },
@@ -383,6 +392,14 @@ export function renderTickerHeatmap(this: DashboardChartsContext): void {
             }
         }]
     });
+
+    const heatmapChart = this.charts.tickerHeatmap as { off?: (e: string) => void; on?: (e: string, h: unknown) => void; getDom?: () => HTMLElement } | undefined;
+    if (heatmapChart?.on) {
+        heatmapChart.off?.('click');
+        heatmapChart.on('click', heatmapClickHandler);
+        const dom = heatmapChart.getDom?.();
+        if (dom) dom.style.cursor = 'pointer';
+    }
 }
 
 export function updateTimeInTradeChart(this: DashboardChartsContext): void {
@@ -712,6 +729,12 @@ export function updateStrategyPerformanceChart(this: DashboardChartsContext): vo
 
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
 
+    const strategyClickHandler = (params: { name?: string }) => {
+        if (params.name) {
+            this.openTradesFilteredByStrategy(params.name);
+        }
+    };
+
     renderStoredChart(this.charts, 'strategy', root, {
         aria: { enabled: true },
         grid: { top: 10, right: 18, bottom: 22, left: 10, containLabel: true },
@@ -745,6 +768,14 @@ export function updateStrategyPerformanceChart(this: DashboardChartsContext): vo
             }))
         }]
     });
+
+    const strategyChart = this.charts.strategy as { off?: (e: string) => void; on?: (e: string, h: unknown) => void; getDom?: () => HTMLElement } | undefined;
+    if (strategyChart?.on) {
+        strategyChart.off?.('click');
+        strategyChart.on('click', strategyClickHandler);
+        const dom = strategyChart.getDom?.();
+        if (dom) dom.style.cursor = 'pointer';
+    }
 }
 
 export function updateWinRateByStrategyChart(this: DashboardChartsContext): void {
@@ -772,6 +803,14 @@ export function updateWinRateByStrategyChart(this: DashboardChartsContext): void
             total: s.total
         }))
         .sort((a, b) => b.winRate - a.winRate);
+
+    const winRateClickHandler = (params: { name?: string }) => {
+        // slice name format: "Strategy Name (N)" — strip the count suffix
+        const rawName = (params.name ?? '').replace(/\s*\(\d+\)$/, '').trim();
+        if (rawName && validStrategies.length) {
+            this.openTradesFilteredByStrategy(rawName);
+        }
+    };
 
     const colors = [PROFIT_COLOR, WARNING_COLOR, LOSS_COLOR, '#ECEBD5', '#5D878F', '#DB4545', '#D2BA4C', '#964325', '#944454', '#13343B'];
     const data = validStrategies.length
@@ -812,6 +851,14 @@ export function updateWinRateByStrategyChart(this: DashboardChartsContext): void
             data
         }]
     });
+
+    const winRateChart = this.charts.winRate as { off?: (e: string) => void; on?: (e: string, h: unknown) => void; getDom?: () => HTMLElement } | undefined;
+    if (winRateChart?.on) {
+        winRateChart.off?.('click');
+        winRateChart.on('click', winRateClickHandler);
+        const dom = winRateChart.getDom?.();
+        if (dom) dom.style.cursor = 'pointer';
+    }
 }
 
 export function inferOptionFlavor(trade: TradeRecord = {}): 'call' | 'put' | null {
