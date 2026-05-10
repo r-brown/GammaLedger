@@ -77,6 +77,7 @@ import * as sidebarModule from './ui/sidebar.js';
 import * as disclaimerModule from './ui/modals/disclaimer.js';
 import * as aiCoachConsentModule from './ui/modals/ai-coach-consent.js';
 import type { AICoachConsentState } from './ui/modals/ai-coach-consent.js';
+import type { StockMetrics } from '@types-gl/integrations';
 import * as filtersModule from './ui/filters.js';
 import * as dashboardChartsModule from './ui/charts/dashboard-charts.js';
 import * as cumulativePLModule from './ui/charts/cumulative-pl.js';
@@ -140,7 +141,7 @@ class GammaLedger {
     declare quoteRefreshKeys: string[]
     declare quoteRefreshCursor: number
     declare earningsMap: Map<string, string>
-    declare metricsCache: Map<string, unknown>
+    declare metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
     declare positionHighlightConfig: { expirationWarningDays: number; expirationCriticalDays: number }
     declare creditPlaybookStatus: string
     declare creditPlaybookStrategy: string
