@@ -1266,3 +1266,116 @@ export function initMarketStatus(this: FinnhubContext): void {
 
     fetchMarketStatus.call(this as any);
 }
+
+// ---------------------------------------------------------------------------
+// Earnings calendar — fetched once per session on init()
+// ---------------------------------------------------------------------------
+
+export async function fetchEarningsCalendar(
+    this: any,
+    tickers: string[],
+    toDate: string
+): Promise<void> {
+    const apiKey = this.finnhub?.apiKey;
+    if (!apiKey || !tickers.length) return;
+
+    const from = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const url = new URL('https://finnhub.io/api/v1/calendar/earnings');
+    url.searchParams.set('from', from);
+    url.searchParams.set('to', toDate);
+    url.searchParams.set('token', String(apiKey));
+
+    try {
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            console.warn(`[Finnhub] earnings calendar request failed: ${response.status}`);
+            return;
+        }
+        const data: unknown = await response.json();
+        if (
+            !data ||
+            typeof data !== 'object' ||
+            !Array.isArray((data as Record<string, unknown>).earningsCalendar)
+        ) {
+            console.warn('[Finnhub] unexpected earnings calendar response shape');
+            return;
+        }
+        const events = (data as { earningsCalendar: unknown[] }).earningsCalendar;
+        const tickerSet = new Set(tickers.map(t => t.toUpperCase()));
+
+        for (const event of events) {
+            if (!event || typeof event !== 'object') continue;
+            const e = event as Record<string, unknown>;
+            const symbol = typeof e.symbol === 'string' ? e.symbol.toUpperCase() : null;
+            const date = typeof e.date === 'string' ? e.date : null;
+            if (!symbol || !date || !tickerSet.has(symbol)) continue;
+            // Keep earliest upcoming date per ticker
+            const existing = (this.earningsMap as Map<string, string>).get(symbol);
+            if (!existing || date < existing) {
+                (this.earningsMap as Map<string, string>).set(symbol, date);
+            }
+        }
+    } catch (error) {
+        console.warn('[Finnhub] failed to fetch earnings calendar:', error);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Stock metrics — fetched lazily on first ticker hover
+// ---------------------------------------------------------------------------
+
+export async function fetchStockMetrics(
+    this: any,
+    ticker: string
+): Promise<import('../types/integrations.js').StockMetrics | null> {
+    const apiKey = this.finnhub?.apiKey;
+    if (!apiKey) return null;
+
+    const url = new URL('https://finnhub.io/api/v1/stock/metric');
+    url.searchParams.set('symbol', ticker.toUpperCase());
+    url.searchParams.set('metric', 'all');
+    url.searchParams.set('token', String(apiKey));
+
+    try {
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            console.warn(`[Finnhub] stock/metric request failed for ${ticker}: ${response.status}`);
+            return null;
+        }
+        const data: unknown = await response.json();
+        if (!data || typeof data !== 'object') return null;
+        const m = ((data as Record<string, unknown>).metric ?? {}) as Record<string, unknown>;
+
+        function safeNum(v: unknown): number | null {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        return {
+            beta: safeNum(m['beta']),
+            atr: safeNum(m['atr']),
+            week52High: safeNum(m['52WeekHigh']),
+            week52Low: safeNum(m['52WeekLow']),
+            tenDayAvgVol: safeNum(m['10DayAverageTradingVolume'])
+        };
+    } catch (error) {
+        console.warn(`[Finnhub] failed to fetch stock metrics for ${ticker}:`, error);
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Pure lookup — called by Active Positions DTE cell renderer
+// ---------------------------------------------------------------------------
+
+export function getEarningsDateForTrade(
+    this: any,
+    trade: Record<string, unknown>
+): string | null {
+    const ticker = typeof trade.ticker === 'string' ? trade.ticker.toUpperCase() : null;
+    const expiration = typeof trade.expirationDate === 'string' ? trade.expirationDate : null;
+    if (!ticker || !expiration) return null;
+    const earningsDate = (this.earningsMap as Map<string, string>).get(ticker);
+    if (!earningsDate) return null;
+    return earningsDate <= expiration ? earningsDate : null;
+}
