@@ -9,3 +9,5 @@ tests
 test-results
 .idea
 .claude
+.superpowers
+docs/superpowers

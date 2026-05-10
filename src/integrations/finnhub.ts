@@ -1211,12 +1211,17 @@ export async function fetchMarketStatus(this: FinnhubContext): Promise<void> {
         return;
     }
 
-    if (!isRecord(payload) || typeof payload.isOpen !== 'boolean' || typeof payload.session !== 'string') {
+    // Finnhub returns session: null when the market is closed — allow null or string
+    if (!isRecord(payload) || typeof payload.isOpen !== 'boolean') {
+        return;
+    }
+    if (payload.session !== null && typeof payload.session !== 'string') {
         return;
     }
 
+    // Normalize null → '' (internal "closed" sentinel)
     const validSessions = new Set(['pre_market', 'market_hours', 'after_hours', '']);
-    const rawSession = payload.session;
+    const rawSession: string = payload.session === null ? '' : (payload.session as string);
     if (!validSessions.has(rawSession)) return;
 
     const typed: FinnhubMarketStatusPayload = {
