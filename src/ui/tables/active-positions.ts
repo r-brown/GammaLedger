@@ -34,6 +34,13 @@ interface ActivePositionsContext {
   rebuildQuoteRefreshSchedule(): void
   startQuoteAutoRefreshIfNeeded(): void
   refreshActivePositionsQuotes(opts: { force: boolean; immediate: boolean }): void
+  earningsMap: Map<string, string>
+  metricsCache: Map<string, import('../../types/integrations.js').StockMetrics | 'loading' | 'error'>
+  getEarningsDateForTrade(trade: TradeRecord): string | null
+  fetchStockMetrics(ticker: string): Promise<import('../../types/integrations.js').StockMetrics | null>
+  positionFormulaTooltip(wrapper: HTMLElement, tooltip: HTMLElement): void
+  finnhub: { apiKey: string | null }
+  formatDate(value: unknown): string
 }
 
 function activeRowKey(trade: TradeRecord): string {
@@ -57,6 +64,82 @@ function resolveActiveStrike(this: ActivePositionsContext, trade: TradeRecord): 
     }
 
     return Number.isFinite(resolvedStrike) ? resolvedStrike : null;
+}
+
+type MetricsCacheValue = import('../../types/integrations.js').StockMetrics | 'loading' | 'error';
+
+function createMetricsTooltipEl(ticker: string): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'metrics-tooltip';
+    el.setAttribute('aria-hidden', 'true');
+    el.dataset.metricsFor = ticker;
+    document.body.appendChild(el);
+    return el;
+}
+
+function makeMetricRow(label: string, value: string, extraClass = ''): HTMLElement {
+    const wrapper = document.createElement('div');
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'metrics-tooltip__label';
+    labelEl.textContent = label;
+
+    const valueEl = document.createElement('div');
+    valueEl.className = `metrics-tooltip__value${extraClass ? ` ${extraClass}` : ''}`;
+    valueEl.textContent = value;
+
+    wrapper.appendChild(labelEl);
+    wrapper.appendChild(valueEl);
+    return wrapper;
+}
+
+function renderMetricsTooltipContent(
+    el: HTMLElement,
+    ticker: string,
+    state: MetricsCacheValue
+): void {
+    el.textContent = ''; // safe clear — no innerHTML
+
+    const title = document.createElement('div');
+    title.className = 'metrics-tooltip__title';
+    title.textContent = state === 'loading' || state === 'error' ? ticker : `${ticker} Fundamentals`;
+    el.appendChild(title);
+
+    if (state === 'loading') {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'color:#94a3b8;font-size:12px';
+        msg.textContent = 'Loading…';
+        el.appendChild(msg);
+        return;
+    }
+    if (state === 'error') {
+        const msg = document.createElement('div');
+        msg.style.cssText = 'color:#f87171;font-size:12px';
+        msg.textContent = 'Unavailable';
+        el.appendChild(msg);
+        return;
+    }
+
+    const fmt = (v: number | null, prefix = ''): string =>
+        v !== null
+            ? `${prefix}${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+            : '—';
+
+    const grid = document.createElement('div');
+    grid.className = 'metrics-tooltip__grid';
+    grid.appendChild(makeMetricRow('Beta', fmt(state.beta)));
+    grid.appendChild(makeMetricRow('ATR (14d)', fmt(state.atr, '$')));
+    grid.appendChild(makeMetricRow('52W High', fmt(state.week52High, '$'), 'metrics-tooltip__value--high'));
+    grid.appendChild(makeMetricRow('52W Low', fmt(state.week52Low, '$'), 'metrics-tooltip__value--low'));
+
+    const volRow = makeMetricRow(
+        '10D Avg Volume',
+        state.tenDayAvgVol !== null ? `${state.tenDayAvgVol.toFixed(1)}M` : '—'
+    );
+    volRow.style.gridColumn = '1 / -1';
+    grid.appendChild(volRow);
+
+    el.appendChild(grid);
 }
 
 function createQuoteRenderer(
@@ -106,11 +189,43 @@ function buildActivePositionsColumnDefs(
             pinned: 'left',
             cellRenderer: (params: ICellRendererParams<TradeRecord>) => {
                 const tickerValue = ((params.value ?? '') as string).toString().trim().toUpperCase();
-                return this.createTickerElement(params.value, 'ticker-pill', {
+                const tickerEl = this.createTickerElement(params.value, 'ticker-pill', {
                     behavior: 'filter',
                     onClick: (value: unknown) => this.openTradesFilteredByTicker(value),
                     title: tickerValue ? `View all trades for ${tickerValue}` : ''
                 });
+
+                if (!tickerValue || !this.finnhub?.apiKey) return tickerEl;
+
+                let tooltipEl: HTMLElement | null = null;
+
+                tickerEl.addEventListener('mouseenter', async () => {
+                    if (!tooltipEl) {
+                        tooltipEl = createMetricsTooltipEl(tickerValue);
+                    }
+                    const cached = this.metricsCache.get(tickerValue);
+                    if (!cached) {
+                        this.metricsCache.set(tickerValue, 'loading');
+                        renderMetricsTooltipContent(tooltipEl, tickerValue, 'loading');
+                        tooltipEl.classList.add('is-visible');
+                        this.positionFormulaTooltip(tickerEl, tooltipEl);
+                        const result = await this.fetchStockMetrics(tickerValue);
+                        const newState: MetricsCacheValue = result ?? 'error';
+                        this.metricsCache.set(tickerValue, newState);
+                        renderMetricsTooltipContent(tooltipEl, tickerValue, newState);
+                        this.positionFormulaTooltip(tickerEl, tooltipEl);
+                    } else {
+                        renderMetricsTooltipContent(tooltipEl, tickerValue, cached);
+                        tooltipEl.classList.add('is-visible');
+                        this.positionFormulaTooltip(tickerEl, tooltipEl);
+                    }
+                });
+
+                tickerEl.addEventListener('mouseleave', () => {
+                    tooltipEl?.classList.remove('is-visible');
+                });
+
+                return tickerEl;
             },
             filter: 'agTextColumnFilter'
         },
@@ -148,9 +263,36 @@ function buildActivePositionsColumnDefs(
             colId: 'dte',
             field: 'dte',
             headerName: 'DTE',
-            width: 90,
+            width: 120,
             valueGetter: params => this.parseInteger(params.data?.dte, null, { allowNegative: false }),
-            valueFormatter: params => Number.isFinite(params.value as number) ? String(params.value) : '—',
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => {
+                const trade = params.data;
+                const dteValue = this.parseInteger(trade?.dte, null, { allowNegative: false });
+
+                const cell = document.createElement('div');
+                cell.style.cssText = 'display:flex;align-items:center;gap:4px';
+
+                const dteSpan = document.createElement('span');
+                dteSpan.textContent = Number.isFinite(dteValue) ? String(dteValue) : '—';
+                cell.appendChild(dteSpan);
+
+                if (trade) {
+                    if (params.eGridCell) {
+                        this.updateExpirationHighlight(params.eGridCell as HTMLElement, trade);
+                    }
+                    const earningsDate = this.getEarningsDateForTrade(trade);
+                    if (earningsDate) {
+                        const badge = document.createElement('span');
+                        badge.className = 'earnings-badge';
+                        badge.textContent = '📅 Earnings';
+                        badge.title = `Earnings: ${this.formatDate(earningsDate)}`;
+                        cell.appendChild(badge);
+
+                        params.eGridCell?.closest('.ag-row')?.classList.add('earnings-risk-row');
+                    }
+                }
+                return cell;
+            },
             cellClass: params => {
                 const probe = document.createElement('span');
                 if (params.data) {
