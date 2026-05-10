@@ -142,6 +142,9 @@ class GammaLedger {
     declare quoteRefreshCursor: number
     declare earningsMap: Map<string, string>
     declare metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
+    declare expandedTradeId: string | null
+    declare candleCache: Map<string, import('./types/integrations.js').CandleData | 'loading' | 'error'>
+    declare signalsCache: Map<string, import('./types/integrations.js').SignalsData | 'loading' | 'error'>
     declare positionHighlightConfig: { expirationWarningDays: number; expirationCriticalDays: number }
     declare creditPlaybookStatus: string
     declare creditPlaybookStrategy: string
@@ -187,6 +190,9 @@ class GammaLedger {
         };
         this.earningsMap = new Map();
         this.metricsCache = new Map();
+        this.expandedTradeId = null;
+        this.candleCache = new Map();
+        this.signalsCache = new Map();
         this.cumulativePLRange = 'ALL';
 
         this.disclaimerBanner = {
@@ -1397,6 +1403,8 @@ class GammaLedger {
 
     async fetchEarningsCalendar(tickers: string[], toDate: string) { return finnhubModule.fetchEarningsCalendar.call(this, tickers, toDate); }
     async fetchStockMetrics(ticker: string) { return finnhubModule.fetchStockMetrics.call(this, ticker); }
+    async fetchCandleData(ticker: string) { return finnhubModule.fetchCandleData.call(this, ticker); }
+    async fetchSignalsData(ticker: string) { return finnhubModule.fetchSignalsData.call(this, ticker); }
     getEarningsDateForTrade(trade: Record<string, unknown>) { return finnhubModule.getEarningsDateForTrade.call(this, trade); }
 
     applyPositionHighlight(row, trade, currentPrice = null) { return highlightsModule.applyPositionHighlight.call(this, row, trade, currentPrice); }
