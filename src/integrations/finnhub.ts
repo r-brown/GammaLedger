@@ -1423,3 +1423,160 @@ export function getEarningsDateForTrade(
     if (!earningsDate) return null;
     return earningsDate <= expiration ? earningsDate : null;
 }
+
+// ---------------------------------------------------------------------------
+// Stock candles — fetched lazily on first row expand
+// ---------------------------------------------------------------------------
+
+export async function fetchCandleData(
+    this: any,
+    ticker: string
+): Promise<import('../types/integrations.js').CandleData | null> {
+    const apiKey = this.finnhub?.apiKey;
+    if (!apiKey) return null;
+
+    const now = Math.floor(Date.now() / 1000);
+    const from = now - 90 * 86_400;
+    const url = new URL('https://finnhub.io/api/v1/stock/candle');
+    url.searchParams.set('symbol', ticker.toUpperCase());
+    url.searchParams.set('resolution', 'D');
+    url.searchParams.set('from', String(from));
+    url.searchParams.set('to', String(now));
+    url.searchParams.set('token', String(apiKey));
+
+    try {
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            console.warn(`[Finnhub] stock/candle request failed for ${ticker}: ${response.status}`);
+            return null;
+        }
+        const data: unknown = await response.json();
+        if (!data || typeof data !== 'object') return null;
+        const d = data as Record<string, unknown>;
+        const s = typeof d.s === 'string' ? d.s : 'no_data';
+        if (s === 'no_data') return { t: [], o: [], h: [], l: [], c: [], s: 'no_data' };
+        const t = Array.isArray(d.t) ? (d.t as number[]) : [];
+        const o = Array.isArray(d.o) ? (d.o as number[]) : [];
+        const h = Array.isArray(d.h) ? (d.h as number[]) : [];
+        const l = Array.isArray(d.l) ? (d.l as number[]) : [];
+        const c = Array.isArray(d.c) ? (d.c as number[]) : [];
+        if (t.length === 0) return { t: [], o: [], h: [], l: [], c: [], s: 'no_data' };
+        return { t, o, h, l, c, s };
+    } catch (error) {
+        console.warn(`[Finnhub] failed to fetch candle data for ${ticker}:`, error);
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Signals data — fetched lazily on first row expand via Promise.allSettled
+// ---------------------------------------------------------------------------
+
+export async function fetchSignalsData(
+    this: any,
+    ticker: string
+): Promise<import('../types/integrations.js').SignalsData | null> {
+    const apiKey = this.finnhub?.apiKey;
+    if (!apiKey) return null;
+
+    const sym = ticker.toUpperCase();
+    const token = String(apiKey);
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const from30d = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+
+    function safeNum(v: unknown): number | null {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    const [recResult, ptResult, newsResult, insiderResult, sentResult] = await Promise.allSettled([
+        fetch(`https://finnhub.io/api/v1/stock/recommendation?symbol=${sym}&token=${token}`).then(r => r.ok ? r.json() : null),
+        fetch(`https://finnhub.io/api/v1/stock/price-target?symbol=${sym}&token=${token}`).then(r => r.ok ? r.json() : null),
+        fetch(`https://finnhub.io/api/v1/company-news?symbol=${sym}&from=${from30d}&to=${todayISO}&token=${token}`).then(r => r.ok ? r.json() : null),
+        fetch(`https://finnhub.io/api/v1/stock/insider-transactions?symbol=${sym}&token=${token}`).then(r => r.ok ? r.json() : null),
+        fetch(`https://finnhub.io/api/v1/stock/social-sentiment?symbol=${sym}&token=${token}`).then(r => r.ok ? r.json() : null),
+    ]);
+
+    // Recommendation — results[0] is the most recent period
+    let recommendation: import('../types/integrations.js').RecommendationTrend | null = null;
+    if (recResult.status === 'fulfilled' && Array.isArray(recResult.value) && recResult.value.length > 0) {
+        const r = recResult.value[0] as Record<string, unknown>;
+        recommendation = {
+            period: typeof r.period === 'string' ? r.period : '',
+            strongBuy: Number(r.strongBuy) || 0,
+            buy: Number(r.buy) || 0,
+            hold: Number(r.hold) || 0,
+            sell: Number(r.sell) || 0,
+            strongSell: Number(r.strongSell) || 0,
+        };
+    }
+
+    // Price target
+    let priceTarget: import('../types/integrations.js').PriceTarget | null = null;
+    if (ptResult.status === 'fulfilled' && ptResult.value && typeof ptResult.value === 'object') {
+        const pt = ptResult.value as Record<string, unknown>;
+        priceTarget = {
+            targetMean: safeNum(pt.targetMean),
+            targetHigh: safeNum(pt.targetHigh),
+            targetLow: safeNum(pt.targetLow),
+            targetMedian: safeNum(pt.targetMedian),
+            lastUpdated: typeof pt.lastUpdated === 'string' ? pt.lastUpdated : null,
+        };
+    }
+
+    // News — up to 5 items sorted newest first
+    let news: import('../types/integrations.js').NewsItem[] = [];
+    if (newsResult.status === 'fulfilled' && Array.isArray(newsResult.value)) {
+        news = (newsResult.value as Record<string, unknown>[])
+            .filter(item => item && typeof item === 'object')
+            .sort((a, b) => Number(b.datetime ?? 0) - Number(a.datetime ?? 0))
+            .slice(0, 5)
+            .map(item => ({
+                headline: typeof item.headline === 'string' ? item.headline : '',
+                datetime: Number(item.datetime) || 0,
+                url: typeof item.url === 'string' ? item.url : '',
+                source: typeof item.source === 'string' ? item.source : '',
+            }));
+    }
+
+    // Insider transactions — up to 5 most recent
+    let insiderTransactions: import('../types/integrations.js').InsiderTransaction[] = [];
+    if (insiderResult.status === 'fulfilled' && insiderResult.value && typeof insiderResult.value === 'object') {
+        const data = (insiderResult.value as Record<string, unknown>).data;
+        if (Array.isArray(data)) {
+            insiderTransactions = (data as Record<string, unknown>[])
+                .filter(item => item && typeof item === 'object')
+                .sort((a, b) => String(b.filingDate ?? '').localeCompare(String(a.filingDate ?? '')))
+                .slice(0, 5)
+                .map(item => ({
+                    transactionType: typeof item.transactionType === 'string' ? item.transactionType : '',
+                    name: typeof item.name === 'string' ? item.name : '',
+                    share: safeNum(item.share),
+                    value: safeNum(item.value),
+                    filingDate: typeof item.filingDate === 'string' ? item.filingDate : '',
+                }));
+        }
+    }
+
+    // Social sentiment — average Reddit + StockTwits score
+    let socialSentimentScore: number | null = null;
+    if (sentResult.status === 'fulfilled' && sentResult.value && typeof sentResult.value === 'object') {
+        const sent = sentResult.value as Record<string, unknown>;
+        const redditArr = Array.isArray(sent.reddit) ? sent.reddit as Record<string, unknown>[] : [];
+        const twitterArr = Array.isArray(sent.twitter) ? sent.twitter as Record<string, unknown>[] : [];
+        const redditScore = redditArr.length > 0 ? safeNum(redditArr[0].score) : null;
+        const twitterScore = twitterArr.length > 0 ? safeNum(twitterArr[0].score) : null;
+        if (redditScore !== null && twitterScore !== null) {
+            socialSentimentScore = (redditScore + twitterScore) / 2;
+        } else {
+            socialSentimentScore = redditScore ?? twitterScore;
+        }
+    }
+
+    // Return null only if every endpoint failed
+    const allFailed = [recResult, ptResult, newsResult, insiderResult, sentResult]
+        .every(r => r.status === 'rejected');
+    if (allFailed) return null;
+
+    return { recommendation, priceTarget, news, insiderTransactions, socialSentimentScore };
+}
