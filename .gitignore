@@ -8,3 +8,6 @@ test-results
 .idea
 .claude
 
+.superpowers
+dist
+docs/superpowers
