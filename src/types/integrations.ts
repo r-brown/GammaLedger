@@ -100,6 +100,7 @@ export interface GeminiState {
 export interface EarningsEvent {
   /** ISO date "YYYY-MM-DD" */
   date: string
+  /** Company ticker symbol (e.g., "SPY") */
   ticker: string
   epsEstimate: number | null
   epsActual: number | null
@@ -110,7 +111,9 @@ export interface StockMetrics {
   beta: number | null
   /** 14-day Average True Range */
   atr: number | null
+  /** 52-week high price ($) */
   week52High: number | null
+  /** 52-week low price ($) */
   week52Low: number | null
   /** 10-day average trading volume, in millions */
   tenDayAvgVol: number | null
