@@ -1344,19 +1344,63 @@ export async function fetchStockMetrics(
         }
         const data: unknown = await response.json();
         if (!data || typeof data !== 'object') return null;
+
         const m = ((data as Record<string, unknown>).metric ?? {}) as Record<string, unknown>;
+        const series = ((m as Record<string, unknown>).series ?? {}) as Record<string, unknown>;
+        const annual = ((series as Record<string, unknown>).annual ?? {}) as Record<string, unknown>;
 
         function safeNum(v: unknown): number | null {
             const n = Number(v);
             return Number.isFinite(n) ? n : null;
         }
 
+        function latestSeries(arr: unknown): number | null {
+            if (!Array.isArray(arr) || arr.length === 0) return null;
+            const last = arr[arr.length - 1];
+            if (!last || typeof last !== 'object') return null;
+            return safeNum((last as Record<string, unknown>).v);
+        }
+
+        function parseSeriesArray(arr: unknown): { period: string; v: number }[] {
+            if (!Array.isArray(arr)) return [];
+            return arr
+                .filter(item => item && typeof item === 'object')
+                .map(item => {
+                    const i = item as Record<string, unknown>;
+                    return { period: String(i.period ?? ''), v: Number(i.v ?? 0) };
+                })
+                .filter(item => Number.isFinite(item.v));
+        }
+
+        // Current price from the quote cache
+        const quoteCache = this.finnhub?.cache;
+        const cachedQuote = (quoteCache instanceof Map ? quoteCache.get(ticker.toUpperCase()) : null) as Record<string, unknown> | null;
+        const currentPrice = safeNum(cachedQuote?.c);
+
         return {
+            currentPrice,
             beta: safeNum(m['beta']),
-            atr: safeNum(m['atr']),
+            marketCap: safeNum(m['marketCapitalization']),
+            vol3MonthStd: safeNum(m['3MonthADReturnStd']),
+            return5Day: safeNum(m['5DayPriceReturnDaily']),
+            return52Week: safeNum(m['52WeekPriceReturnDaily']),
             week52High: safeNum(m['52WeekHigh']),
             week52Low: safeNum(m['52WeekLow']),
-            tenDayAvgVol: safeNum(m['10DayAverageTradingVolume'])
+            week52HighDate: typeof m['52WeekHighDate'] === 'string' ? m['52WeekHighDate'] : null,
+            week52LowDate: typeof m['52WeekLowDate'] === 'string' ? m['52WeekLowDate'] : null,
+            peTTM: safeNum(m['peBasicExclExtraTTM']) ?? safeNum(m['peNormalizedAnnual']),
+            forwardPE: safeNum(m['forwardPE']),
+            pfcfTTM: safeNum(m['pfcfShareTTM']),
+            evFCF: safeNum(m['currentEv/freeCashFlowTTM']),
+            grossMarginTTM: safeNum(m['grossMarginTTM']),
+            operatingMarginTTM: safeNum(m['operatingMarginTTM']),
+            netMarginTTM: safeNum(m['netProfitMarginTTM']),
+            fcfMarginLatest: latestSeries(annual['fcfMargin']),
+            revenueGrowthYoY: safeNum(m['revenueGrowthTTMYoy']),
+            epsGrowthYoY: safeNum(m['epsGrowthTTMYoy']),
+            currentRatio: safeNum(m['currentRatioAnnual']),
+            netDebtToEquity: safeNum(m['netDebtToTotalEquityAnnual']),
+            epsAnnual: parseSeriesArray(annual['eps']),
         };
     } catch (error) {
         console.warn(`[Finnhub] failed to fetch stock metrics for ${ticker}:`, error);

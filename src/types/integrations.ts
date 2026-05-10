@@ -108,15 +108,56 @@ export interface EarningsEvent {
 
 /** Parsed subset of GET /stock/metric?metric=all relevant to options traders */
 export interface StockMetrics {
+  // ── Price context ──────────────────────────────────────────
+  /** Current price from the Finnhub quote cache at fetch time. */
+  currentPrice: number | null
   beta: number | null
-  /** 14-day Average True Range */
-  atr: number | null
-  /** 52-week high price ($) */
+  /** Market cap in millions of USD. */
+  marketCap: number | null
+  /** 3-month annualised daily return std-dev (realized vol baseline). */
+  vol3MonthStd: number | null
+  /** 5-day price return, in percent. */
+  return5Day: number | null
+  /** 52-week price return, in percent. */
+  return52Week: number | null
   week52High: number | null
-  /** 52-week low price ($) */
   week52Low: number | null
-  /** 10-day average trading volume, in millions */
-  tenDayAvgVol: number | null
+  /** ISO date string "YYYY-MM-DD" of the 52-week high. */
+  week52HighDate: string | null
+  /** ISO date string "YYYY-MM-DD" of the 52-week low. */
+  week52LowDate: string | null
+
+  // ── Valuation ─────────────────────────────────────────────
+  /** Trailing twelve-month P/E ratio. */
+  peTTM: number | null
+  /** Forward P/E ratio. */
+  forwardPE: number | null
+  /** Trailing twelve-month Price-to-FCF per share. */
+  pfcfTTM: number | null
+  /** Enterprise Value / Free Cash Flow (TTM). */
+  evFCF: number | null
+
+  // ── Quality (margins, all in percent) ─────────────────────
+  grossMarginTTM: number | null
+  operatingMarginTTM: number | null
+  netMarginTTM: number | null
+  /** Most recent annual FCF margin, in percent. */
+  fcfMarginLatest: number | null
+
+  // ── Growth (in percent) ───────────────────────────────────
+  /** Revenue growth year-over-year (TTM), in percent. */
+  revenueGrowthYoY: number | null
+  /** EPS growth year-over-year (TTM), in percent. */
+  epsGrowthYoY: number | null
+
+  // ── Balance sheet ─────────────────────────────────────────
+  currentRatio: number | null
+  /** Net debt / total equity (latest annual). */
+  netDebtToEquity: number | null
+
+  // ── Sparkline ─────────────────────────────────────────────
+  /** Annual EPS series for sparkline rendering. Array of {period, v} sorted oldest→newest. */
+  epsAnnual: { period: string; v: number }[]
 }
 
 // ---------------------------------------------------------------------------

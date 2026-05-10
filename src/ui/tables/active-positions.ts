@@ -128,16 +128,8 @@ function renderMetricsTooltipContent(
     const grid = document.createElement('div');
     grid.className = 'metrics-tooltip__grid';
     grid.appendChild(makeMetricRow('Beta', fmt(state.beta)));
-    grid.appendChild(makeMetricRow('ATR (14d)', fmt(state.atr, '$')));
     grid.appendChild(makeMetricRow('52W High', fmt(state.week52High, '$'), 'metrics-tooltip__value--high'));
     grid.appendChild(makeMetricRow('52W Low', fmt(state.week52Low, '$'), 'metrics-tooltip__value--low'));
-
-    const volRow = makeMetricRow(
-        '10D Avg Volume',
-        state.tenDayAvgVol !== null ? `${state.tenDayAvgVol.toFixed(1)}M` : '—'
-    );
-    volRow.style.gridColumn = '1 / -1';
-    grid.appendChild(volRow);
 
     el.appendChild(grid);
 }
