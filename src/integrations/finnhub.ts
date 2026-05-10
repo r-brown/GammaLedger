@@ -1489,12 +1489,39 @@ export async function fetchSignalsData(
         return Number.isFinite(n) ? n : null;
     }
 
+    // Recommendation
+    const recUrl = new URL('https://finnhub.io/api/v1/stock/recommendation')
+    recUrl.searchParams.set('symbol', sym)
+    recUrl.searchParams.set('token', token)
+
+    // Price target
+    const ptUrl = new URL('https://finnhub.io/api/v1/stock/price-target')
+    ptUrl.searchParams.set('symbol', sym)
+    ptUrl.searchParams.set('token', token)
+
+    // News
+    const newsUrl = new URL('https://finnhub.io/api/v1/company-news')
+    newsUrl.searchParams.set('symbol', sym)
+    newsUrl.searchParams.set('from', from30d)
+    newsUrl.searchParams.set('to', todayISO)
+    newsUrl.searchParams.set('token', token)
+
+    // Insider transactions
+    const insiderUrl = new URL('https://finnhub.io/api/v1/stock/insider-transactions')
+    insiderUrl.searchParams.set('symbol', sym)
+    insiderUrl.searchParams.set('token', token)
+
+    // Social sentiment — average Reddit + Twitter score
+    const sentUrl = new URL('https://finnhub.io/api/v1/stock/social-sentiment')
+    sentUrl.searchParams.set('symbol', sym)
+    sentUrl.searchParams.set('token', token)
+
     const [recResult, ptResult, newsResult, insiderResult, sentResult] = await Promise.allSettled([
-        fetch(`https://finnhub.io/api/v1/stock/recommendation?symbol=${sym}&token=${token}`).then(r => r.ok ? r.json() : null),
-        fetch(`https://finnhub.io/api/v1/stock/price-target?symbol=${sym}&token=${token}`).then(r => r.ok ? r.json() : null),
-        fetch(`https://finnhub.io/api/v1/company-news?symbol=${sym}&from=${from30d}&to=${todayISO}&token=${token}`).then(r => r.ok ? r.json() : null),
-        fetch(`https://finnhub.io/api/v1/stock/insider-transactions?symbol=${sym}&token=${token}`).then(r => r.ok ? r.json() : null),
-        fetch(`https://finnhub.io/api/v1/stock/social-sentiment?symbol=${sym}&token=${token}`).then(r => r.ok ? r.json() : null),
+        fetch(recUrl.toString()).then(r => r.ok ? r.json() : null),
+        fetch(ptUrl.toString()).then(r => r.ok ? r.json() : null),
+        fetch(newsUrl.toString()).then(r => r.ok ? r.json() : null),
+        fetch(insiderUrl.toString()).then(r => r.ok ? r.json() : null),
+        fetch(sentUrl.toString()).then(r => r.ok ? r.json() : null),
     ]);
 
     // Recommendation — results[0] is the most recent period
@@ -1558,7 +1585,6 @@ export async function fetchSignalsData(
         }
     }
 
-    // Social sentiment — average Reddit + StockTwits score
     let socialSentimentScore: number | null = null;
     if (sentResult.status === 'fulfilled' && sentResult.value && typeof sentResult.value === 'object') {
         const sent = sentResult.value as Record<string, unknown>;
