@@ -139,6 +139,8 @@ class GammaLedger {
     declare autoRefreshIntervalMs: number
     declare quoteRefreshKeys: string[]
     declare quoteRefreshCursor: number
+    declare earningsMap: Map<string, string>
+    declare metricsCache: Map<string, unknown>
     declare positionHighlightConfig: { expirationWarningDays: number; expirationCriticalDays: number }
     declare creditPlaybookStatus: string
     declare creditPlaybookStrategy: string
@@ -182,6 +184,8 @@ class GammaLedger {
             key: null,
             direction: 'asc'
         };
+        this.earningsMap = new Map();
+        this.metricsCache = new Map();
         this.cumulativePLRange = 'ALL';
 
         this.disclaimerBanner = {
