@@ -67,30 +67,92 @@ function resolveActiveStrike(this: ActivePositionsContext, trade: TradeRecord): 
 }
 
 type MetricsCacheValue = import('../../types/integrations.js').StockMetrics | 'loading' | 'error';
+type StockMetrics = import('../../types/integrations.js').StockMetrics;
 
 function createMetricsTooltipEl(ticker: string): HTMLElement {
     const el = document.createElement('div');
-    el.className = 'metrics-tooltip';
+    el.className = 'metrics-popup';
     el.setAttribute('aria-hidden', 'true');
     el.dataset.metricsFor = ticker;
     document.body.appendChild(el);
     return el;
 }
 
-function makeMetricRow(label: string, value: string, extraClass = ''): HTMLElement {
-    const wrapper = document.createElement('div');
+function fmtPct(v: number | null, showSign = false): string {
+    if (v === null) return '—';
+    const sign = showSign && v > 0 ? '+' : '';
+    return `${sign}${v.toLocaleString('en-US', { maximumFractionDigits: 1 })}%`;
+}
 
-    const labelEl = document.createElement('div');
-    labelEl.className = 'metrics-tooltip__label';
-    labelEl.textContent = label;
+function fmtCap(millions: number | null): string {
+    if (millions === null) return '—';
+    if (millions >= 1000) return `$${(millions / 1000).toFixed(1)}B`;
+    return `$${millions.toFixed(0)}M`;
+}
 
-    const valueEl = document.createElement('div');
-    valueEl.className = `metrics-tooltip__value${extraClass ? ` ${extraClass}` : ''}`;
-    valueEl.textContent = value;
+function fmtDate(iso: string | null): string {
+    if (!iso) return '';
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+}
 
-    wrapper.appendChild(labelEl);
-    wrapper.appendChild(valueEl);
-    return wrapper;
+function makeKV(label: string, value: string, modifier = ''): HTMLElement {
+    const kv = document.createElement('div');
+    kv.className = 'mp-kv';
+    const l = document.createElement('div');
+    l.className = 'mp-kv-label';
+    l.textContent = label;
+    const v = document.createElement('div');
+    v.className = `mp-kv-value${modifier ? ` ${modifier}` : ''}`;
+    v.textContent = value;
+    kv.appendChild(l);
+    kv.appendChild(v);
+    return kv;
+}
+
+function makeSectionHeader(label: string, colClass = ''): HTMLElement {
+    const h = document.createElement('div');
+    h.className = `mp-section-header${colClass ? ` ${colClass}` : ''}`;
+    h.textContent = label;
+    return h;
+}
+
+function makeDivider(): HTMLElement {
+    const d = document.createElement('div');
+    d.className = 'mp-divider';
+    return d;
+}
+
+function buildSparklineSVG(dataPoints: number[]): SVGSVGElement {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg') as SVGSVGElement;
+    svg.setAttribute('viewBox', '0 0 120 20');
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.style.cssText = 'width:100%;height:20px;display:block';
+
+    const pts = dataPoints.slice(-10);
+    if (pts.length < 2) return svg;
+
+    const minV = Math.min(...pts);
+    const maxV = Math.max(...pts);
+    const range = maxV - minV || 1;
+    const pad = 2;
+
+    const coords = pts.map((v, i) => {
+        const x = (i / (pts.length - 1)) * 120;
+        const y = 20 - pad - ((v - minV) / range) * (20 - 2 * pad);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+
+    const polyline = document.createElementNS(ns, 'polyline');
+    polyline.setAttribute('points', coords);
+    polyline.setAttribute('fill', 'none');
+    polyline.setAttribute('stroke', 'rgba(33,128,141,0.7)');
+    polyline.setAttribute('stroke-width', '1.5');
+    polyline.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(polyline);
+    return svg;
 }
 
 function renderMetricsTooltipContent(
@@ -100,38 +162,209 @@ function renderMetricsTooltipContent(
 ): void {
     el.textContent = ''; // safe clear — no innerHTML
 
-    const title = document.createElement('div');
-    title.className = 'metrics-tooltip__title';
-    title.textContent = state === 'loading' || state === 'error' ? ticker : `${ticker} Fundamentals`;
-    el.appendChild(title);
+    // ── Loading / error states ──────────────────────────────────────
+    if (state === 'loading' || state === 'error') {
+        const hdr = document.createElement('div');
+        hdr.className = 'mp-header';
+        const tb = document.createElement('div');
+        tb.className = 'mp-ticker-block';
+        const t = document.createElement('span');
+        t.className = 'mp-ticker';
+        t.textContent = ticker;
+        tb.appendChild(t);
+        hdr.appendChild(tb);
+        el.appendChild(hdr);
 
-    if (state === 'loading') {
-        const msg = document.createElement('div');
-        msg.style.cssText = 'color:#94a3b8;font-size:12px';
-        msg.textContent = 'Loading…';
-        el.appendChild(msg);
+        const body = document.createElement('div');
+        body.className = `mp-body mp-state-message${state === 'error' ? ' mp-state-message--error' : ''}`;
+        const msg = document.createElement('span');
+        msg.textContent = state === 'loading' ? 'Loading fundamentals…' : 'Fundamentals unavailable';
+        body.appendChild(msg);
+        el.appendChild(body);
         return;
     }
-    if (state === 'error') {
-        const msg = document.createElement('div');
-        msg.style.cssText = 'color:#f87171;font-size:12px';
-        msg.textContent = 'Unavailable';
-        el.appendChild(msg);
-        return;
+
+    const m: StockMetrics = state;
+
+    // ── Header ─────────────────────────────────────────────────────
+    const header = document.createElement('div');
+    header.className = 'mp-header';
+
+    const tickerBlock = document.createElement('div');
+    tickerBlock.className = 'mp-ticker-block';
+    const tickerSpan = document.createElement('span');
+    tickerSpan.className = 'mp-ticker';
+    tickerSpan.textContent = ticker;
+    tickerBlock.appendChild(tickerSpan);
+    if (m.currentPrice !== null) {
+        const priceSpan = document.createElement('span');
+        priceSpan.className = 'mp-price';
+        priceSpan.textContent = `$${m.currentPrice.toFixed(2)}`;
+        tickerBlock.appendChild(priceSpan);
     }
 
-    const fmt = (v: number | null, prefix = ''): string =>
-        v !== null
-            ? `${prefix}${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-            : '—';
+    const headerRight = document.createElement('div');
+    headerRight.className = 'mp-header-right';
 
-    const grid = document.createElement('div');
-    grid.className = 'metrics-tooltip__grid';
-    grid.appendChild(makeMetricRow('Beta', fmt(state.beta)));
-    grid.appendChild(makeMetricRow('52W High', fmt(state.week52High, '$'), 'metrics-tooltip__value--high'));
-    grid.appendChild(makeMetricRow('52W Low', fmt(state.week52Low, '$'), 'metrics-tooltip__value--low'));
+    const pillsRow = document.createElement('div');
+    pillsRow.className = 'mp-meta-row';
+    const pillData: [string, string | null][] = [
+        ['β ', m.beta !== null ? m.beta.toFixed(2) : null],
+        ['Cap ', fmtCap(m.marketCap)],
+        ['σ ', m.vol3MonthStd !== null ? `${m.vol3MonthStd.toFixed(0)}%` : null],
+    ];
+    for (const [prefix, val] of pillData) {
+        if (!val || val === '—') continue;
+        const pill = document.createElement('span');
+        pill.className = 'mp-meta-pill';
+        pill.textContent = prefix + val;
+        pillsRow.appendChild(pill);
+    }
+    if (pillsRow.childNodes.length > 0) headerRight.appendChild(pillsRow);
 
-    el.appendChild(grid);
+    const returnsRow = document.createElement('div');
+    returnsRow.className = 'mp-meta-row';
+    const returnData: [string, number | null][] = [
+        ['5D', m.return5Day],
+        ['52W', m.return52Week],
+    ];
+    let firstReturn = true;
+    for (const [label, val] of returnData) {
+        if (val === null) continue;
+        if (!firstReturn) {
+            const dot = document.createElement('span');
+            dot.style.opacity = '0.4';
+            dot.textContent = '·';
+            returnsRow.appendChild(dot);
+        }
+        firstReturn = false;
+        const span = document.createElement('span');
+        span.textContent = `${label} `;
+        const strong = document.createElement('strong');
+        strong.style.color = val >= 0 ? 'var(--color-success)' : 'var(--color-error)';
+        strong.textContent = fmtPct(val, true);
+        span.appendChild(strong);
+        returnsRow.appendChild(span);
+    }
+    if (returnsRow.childNodes.length > 0) headerRight.appendChild(returnsRow);
+
+    header.appendChild(tickerBlock);
+    header.appendChild(headerRight);
+    el.appendChild(header);
+
+    // ── 52W range bar ──────────────────────────────────────────────
+    if (m.week52Low !== null && m.week52High !== null) {
+        const rangeRow = document.createElement('div');
+        rangeRow.className = 'mp-range-row';
+
+        const lowSpan = document.createElement('span');
+        lowSpan.className = 'mp-range-low';
+        lowSpan.textContent = `$${m.week52Low.toFixed(0)} ▼`;
+        const lowDate = fmtDate(m.week52LowDate);
+        if (lowDate) lowSpan.title = lowDate;
+
+        const track = document.createElement('div');
+        track.className = 'mp-range-track';
+        const gradient = document.createElement('div');
+        gradient.className = 'mp-range-gradient';
+        track.appendChild(gradient);
+
+        if (m.currentPrice !== null) {
+            const rng = m.week52High - m.week52Low;
+            if (rng > 0) {
+                const pct = Math.min(100, Math.max(0, ((m.currentPrice - m.week52Low) / rng) * 100));
+                const dot = document.createElement('div');
+                dot.className = 'mp-range-dot';
+                dot.style.left = `${pct.toFixed(1)}%`;
+                track.appendChild(dot);
+            }
+        }
+
+        const highSpan = document.createElement('span');
+        highSpan.className = 'mp-range-high';
+        highSpan.textContent = `$${m.week52High.toFixed(0)} ▲`;
+        const highDate = fmtDate(m.week52HighDate);
+        if (highDate) highSpan.title = highDate;
+
+        rangeRow.appendChild(lowSpan);
+        rangeRow.appendChild(track);
+        rangeRow.appendChild(highSpan);
+        el.appendChild(rangeRow);
+    }
+
+    // ── Body ───────────────────────────────────────────────────────
+    const body = document.createElement('div');
+    body.className = 'mp-body';
+
+    // Valuation
+    const valSection = document.createElement('div');
+    valSection.className = 'mp-section';
+    valSection.appendChild(makeSectionHeader('Valuation'));
+    valSection.appendChild(makeKV('P/E (TTM)', m.peTTM !== null ? `${m.peTTM.toFixed(1)}×` : '—'));
+    valSection.appendChild(makeKV('Fwd P/E', m.forwardPE !== null ? `${m.forwardPE.toFixed(1)}×` : '—'));
+    valSection.appendChild(makeKV('P/FCF', m.pfcfTTM !== null ? `${m.pfcfTTM.toFixed(1)}×` : '—'));
+    valSection.appendChild(makeKV('EV/FCF', m.evFCF !== null ? `${m.evFCF.toFixed(1)}×` : '—'));
+    body.appendChild(valSection);
+    body.appendChild(makeDivider());
+
+    // Quality
+    const posOrNeg = (v: number | null) => v !== null ? (v >= 0 ? 'mp-kv-value--pos' : 'mp-kv-value--neg') : '';
+    const qualSection = document.createElement('div');
+    qualSection.className = 'mp-section';
+    qualSection.appendChild(makeSectionHeader('Quality'));
+    qualSection.appendChild(makeKV('Gross Margin', fmtPct(m.grossMarginTTM), posOrNeg(m.grossMarginTTM)));
+    qualSection.appendChild(makeKV('FCF Margin', fmtPct(m.fcfMarginLatest), posOrNeg(m.fcfMarginLatest)));
+    qualSection.appendChild(makeKV('Op. Margin', fmtPct(m.operatingMarginTTM), posOrNeg(m.operatingMarginTTM)));
+    qualSection.appendChild(makeKV('Net Margin', fmtPct(m.netMarginTTM), posOrNeg(m.netMarginTTM)));
+    body.appendChild(qualSection);
+    body.appendChild(makeDivider());
+
+    // Growth + Balance Sheet
+    const growthSign = (v: number | null) => v !== null ? (v > 0 ? 'mp-kv-value--pos' : 'mp-kv-value--neg') : '';
+    const gbSection = document.createElement('div');
+    gbSection.className = 'mp-section';
+    gbSection.appendChild(makeSectionHeader('Growth', 'mp-section-header--col1'));
+    gbSection.appendChild(makeSectionHeader('Balance Sheet', 'mp-section-header--col2'));
+    gbSection.appendChild(makeKV('Rev YoY', fmtPct(m.revenueGrowthYoY, true), growthSign(m.revenueGrowthYoY)));
+    gbSection.appendChild(makeKV('Current Ratio', m.currentRatio !== null ? m.currentRatio.toFixed(2) : '—'));
+    gbSection.appendChild(makeKV('EPS YoY', fmtPct(m.epsGrowthYoY, true), growthSign(m.epsGrowthYoY)));
+    gbSection.appendChild(makeKV('Net Debt/Eq', m.netDebtToEquity !== null ? m.netDebtToEquity.toFixed(2) : '—'));
+    body.appendChild(gbSection);
+
+    // EPS sparkline
+    if (m.epsAnnual.length >= 2) {
+        body.appendChild(makeDivider());
+        const trendSection = document.createElement('div');
+        trendSection.className = 'mp-section';
+        trendSection.appendChild(makeSectionHeader('10-Year Trends'));
+        body.appendChild(trendSection);
+
+        const sparkItem = document.createElement('div');
+        sparkItem.className = 'mp-sparkline-item';
+        const sparkLabel = document.createElement('span');
+        sparkLabel.className = 'mp-sparkline-label';
+        sparkLabel.textContent = 'EPS';
+        const svgEl = buildSparklineSVG(m.epsAnnual.map(p => p.v));
+        const lastEPS = m.epsAnnual[m.epsAnnual.length - 1]?.v ?? null;
+        const sparkLast = document.createElement('span');
+        sparkLast.className = 'mp-sparkline-last';
+        sparkLast.textContent = lastEPS !== null ? `$${lastEPS.toFixed(2)}` : '—';
+        sparkItem.appendChild(sparkLabel);
+        sparkItem.appendChild(svgEl);
+        sparkItem.appendChild(sparkLast);
+        body.appendChild(sparkItem);
+    }
+
+    el.appendChild(body);
+
+    // ── Footer ─────────────────────────────────────────────────────
+    const footer = document.createElement('div');
+    footer.className = 'mp-footer';
+    const source = document.createElement('span');
+    source.className = 'mp-source';
+    source.textContent = 'Finnhub · updated on hover';
+    footer.appendChild(source);
+    el.appendChild(footer);
 }
 
 function createQuoteRenderer(
@@ -373,7 +606,7 @@ export function updateActivePositionsTable(
         return dteA - dteB;
     });
 
-    document.querySelectorAll('body > .metrics-tooltip').forEach(el => el.remove());
+    document.querySelectorAll('body > .metrics-popup').forEach(el => el.remove());
 
     const quoteEntries = new Map<string, Record<string, unknown>>();
     if (!this.activePositionsGridApi || this.activePositionsGridApi.isDestroyed()) {

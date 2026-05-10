@@ -2327,52 +2327,250 @@ select.form-control {
   white-space: nowrap;
 }
 
-.metrics-tooltip {
+.metrics-popup {
   position: fixed;
   z-index: 9999;
-  background: #1e293b;
-  color: #f1f5f9;
-  border-radius: var(--radius-md);
-  padding: var(--space-12) var(--space-16);
-  font-size: var(--font-size-sm);
-  min-width: 220px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.14),
+    0 4px 16px rgba(0, 0, 0, 0.08);
+  min-width: 400px;
+  max-width: 480px;
   pointer-events: none;
-  display: none;
+  font-size: var(--font-size-sm);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease, visibility 120ms ease;
 }
 
-.metrics-tooltip.is-visible {
-  display: block;
+.metrics-popup.is-visible {
+  opacity: 1;
+  visibility: visible;
 }
 
-.metrics-tooltip__title {
-  font-weight: var(--font-weight-semibold);
+.mp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.mp-ticker-block {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.mp-ticker {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.mp-price {
   font-size: var(--font-size-base);
-  color: #fff;
-  margin-bottom: var(--space-10);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
 }
 
-.metrics-tooltip__grid {
+.mp-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.mp-meta-row {
+  display: flex;
+  gap: var(--space-6);
+  align-items: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.mp-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(var(--color-teal-500-rgb), 0.08);
+  border: 1px solid rgba(var(--color-teal-500-rgb), 0.15);
+  color: var(--color-teal-500);
+  border-radius: var(--radius-full, 9999px);
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.mp-range-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16) var(--space-10);
+  background: var(--color-background);
+  border-bottom: 1px solid var(--color-card-border);
+  font-size: var(--font-size-xs);
+}
+
+.mp-range-low {
+  color: var(--color-error);
+  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+}
+
+.mp-range-high {
+  color: var(--color-success);
+  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+}
+
+.mp-range-track {
+  flex: 1;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  position: relative;
+}
+
+.mp-range-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(var(--color-error-rgb, 192, 21, 47), 0.25),
+    rgba(var(--color-success-rgb, 33, 128, 141), 0.25)
+  );
+  border-radius: 2px;
+}
+
+.mp-range-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-teal-500);
+  border: 2px solid var(--color-surface);
+  top: -2px;
+  transform: translateX(-50%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.mp-body {
+  padding: var(--space-12) var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+.mp-section {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-8) var(--space-20);
+  gap: var(--space-8) var(--space-16);
 }
 
-.metrics-tooltip__label {
-  color: #94a3b8;
+.mp-section-header {
+  grid-column: 1 / -1;
   font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 2px;
-}
-
-.metrics-tooltip__value {
   font-weight: var(--font-weight-semibold);
-  color: #f1f5f9;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-card-border);
 }
 
-.metrics-tooltip__value--high { color: #4ade80; }
-.metrics-tooltip__value--low  { color: #f87171; }
+.mp-section-header--col1 {
+  grid-column: 1;
+}
+
+.mp-section-header--col2 {
+  grid-column: 2;
+}
+
+.mp-kv {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mp-kv-label {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mp-kv-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.mp-kv-value--pos { color: var(--color-success); }
+.mp-kv-value--neg { color: var(--color-error); }
+
+.mp-divider {
+  height: 1px;
+  background: var(--color-card-border);
+}
+
+.mp-sparkline-item {
+  display: grid;
+  grid-template-columns: 72px 1fr 36px;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.mp-sparkline-label {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mp-sparkline-last {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  text-align: right;
+}
+
+.mp-state-message {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  min-height: 80px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.mp-state-message--error {
+  color: var(--color-error);
+  opacity: 0.8;
+}
+
+.mp-footer {
+  padding: var(--space-8) var(--space-16);
+  border-top: 1px solid var(--color-card-border);
+  background: var(--color-background);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mp-source {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  opacity: 0.6;
+}
 /* end Finnhub risk signals */
 
 /* Risk Metrics */
