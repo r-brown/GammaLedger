@@ -1118,7 +1118,6 @@ select.form-control {
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
-  margin-top: var(--space-10);
 }
 
 .share-action__label {
@@ -4617,7 +4616,8 @@ tr.position-itm.position-expiring-critical td,
   line-height: 1.6;
 }
 
-.formula-value-wrapper:hover .formula-tooltip {
+.formula-value-wrapper:hover .formula-tooltip,
+.formula-tooltip.is-visible {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;

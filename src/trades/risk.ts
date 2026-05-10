@@ -785,12 +785,34 @@ export function createFormulaIcon(
     const content = this.buildFormulaTooltipContent(trade, metricType);
     if (content) {
         tooltip.innerHTML = content;
+
+        // Append to <body> so the tooltip is never clipped by AG Grid's transform
+        // stacking context. A unique ID links wrapper → tooltip for external callers.
+        const tooltipId = `gl-ft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+        tooltip.id = tooltipId;
+        wrapper.dataset.tooltipId = tooltipId;
+        document.body.appendChild(tooltip);
+
+        const showTooltip = () => {
+            this.positionFormulaTooltip(wrapper, tooltip);
+            tooltip.classList.add('is-visible');
+        };
+        const hideTooltip = () => {
+            tooltip.classList.remove('is-visible');
+        };
+
         wrapper.appendChild(icon);
-        wrapper.appendChild(tooltip);
-        wrapper.addEventListener('mouseenter', () => this.positionFormulaTooltip(wrapper, tooltip));
-        const handleScroll = () => { if (wrapper.matches(':hover')) this.positionFormulaTooltip(wrapper, tooltip); };
+        wrapper.addEventListener('mouseenter', showTooltip);
+        wrapper.addEventListener('mouseleave', hideTooltip);
+
+        const handleScroll = () => {
+            if (tooltip.classList.contains('is-visible')) {
+                this.positionFormulaTooltip(wrapper, tooltip);
+            }
+        };
         window.addEventListener('scroll', handleScroll, { passive: true });
         wrapper.addEventListener('mouseleave', () => window.removeEventListener('scroll', handleScroll), { once: true });
+
         return wrapper;
     }
     return null;

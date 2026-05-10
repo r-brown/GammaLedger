@@ -29,6 +29,7 @@ interface TradesTableContext {
   createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
   getDisplayStatus(trade: TradeRecord): string
   createFormulaIcon(trade: TradeRecord, field: string): HTMLElement | null
+  positionFormulaTooltip(wrapper: HTMLElement, tooltip: HTMLElement): void
   toggleTradePayoffDetail(row: HTMLElement | null, detailRow: HTMLElement | null, trade: TradeRecord, chartId: string, footnoteId: string): void
   destroyTradePayoffChart(chartId: string, footnoteId?: string): void
   editTrade(id: unknown): void
@@ -104,6 +105,25 @@ function createMetricElement(
         wrapper.appendChild(formulaIcon);
     }
     return wrapper;
+}
+
+/** Wire cell-level hover so the popup shows on any cell hover, not just the (i) icon. */
+function attachCellHoverTooltip(
+    cellEl: HTMLElement,
+    formulaIcon: HTMLElement,
+    positionFn: (anchor: HTMLElement, tooltip: HTMLElement) => void
+): void {
+    const tooltipId = formulaIcon.dataset.tooltipId;
+    if (!tooltipId) return;
+    const tooltip = document.getElementById(tooltipId);
+    if (!tooltip) return;
+    cellEl.addEventListener('mouseenter', () => {
+        positionFn(formulaIcon, tooltip);
+        tooltip.classList.add('is-visible');
+    });
+    cellEl.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('is-visible');
+    });
 }
 
 function createStatusBadge(this: TradesTableContext, trade: TradeRecord): HTMLElement {
@@ -235,18 +255,6 @@ function createActionsRenderer(
         return wrapper;
     }
 
-    const rowIndex = typeof params.node?.rowIndex === 'number' ? params.node.rowIndex : 0;
-
-    const plButton = document.createElement('button');
-    plButton.type = 'button';
-    plButton.className = 'action-btn action-btn--pl';
-    plButton.textContent = 'P&L';
-    plButton.title = 'View payoff diagram';
-    plButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        toggleTradePayoffPanel.call(this, trade, rowIndex);
-    });
-
     const editButton = document.createElement('button');
     editButton.type = 'button';
     editButton.className = 'action-btn action-btn--edit';
@@ -265,7 +273,7 @@ function createActionsRenderer(
         this.deleteTrade(trade.id);
     });
 
-    wrapper.append(plButton, editButton, deleteButton);
+    wrapper.append(editButton, deleteButton);
     return wrapper;
 }
 
@@ -396,7 +404,11 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
                 const formulaIcon = trade.strategy && (trade.maxRiskLabel || maxRiskValue !== null)
                     ? this.createFormulaIcon(trade, 'maxRisk')
                     : null;
-                return createMetricElement(text, formulaIcon);
+                const metricEl = createMetricElement(text, formulaIcon);
+                if (formulaIcon) {
+                    attachCellHoverTooltip(metricEl, formulaIcon, (anchor, tip) => this.positionFormulaTooltip(anchor, tip));
+                }
+                return metricEl;
             },
             cellClass: params => {
                 const trade = params.data || {};
@@ -423,7 +435,11 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
                 const formulaIcon = trade.strategy && plValue !== null
                     ? this.createFormulaIcon(trade, 'pl')
                     : null;
-                return createMetricElement(text, formulaIcon);
+                const metricEl = createMetricElement(text, formulaIcon);
+                if (formulaIcon) {
+                    attachCellHoverTooltip(metricEl, formulaIcon, (anchor, tip) => this.positionFormulaTooltip(anchor, tip));
+                }
+                return metricEl;
             },
             cellClass: params => {
                 const plValue = safeNumber(params.data?.pl);
@@ -521,8 +537,8 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
         {
             colId: 'actions',
             headerName: 'Actions',
-            width: 176,
-            minWidth: 176,
+            width: 120,
+            minWidth: 120,
             pinned: 'right',
             sortable: false,
             filter: false,
@@ -625,6 +641,9 @@ export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[
     }
 
     closeTradePayoffPanel.call(this);
+
+    // Clean up formula tooltips that were appended to <body> by previous renders
+    document.querySelectorAll('body > .formula-tooltip').forEach(el => el.remove());
 
     if (this.tradeDetailCharts?.size) {
         this.tradeDetailCharts.forEach(chart => {
