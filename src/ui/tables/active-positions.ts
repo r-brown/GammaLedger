@@ -39,7 +39,7 @@ interface ActivePositionsContext {
   getEarningsDateForTrade(trade: TradeRecord): string | null
   fetchStockMetrics(ticker: string): Promise<import('../../types/integrations.js').StockMetrics | null>
   positionFormulaTooltip(wrapper: HTMLElement, tooltip: HTMLElement): void
-  finnhub: { apiKey: string | null }
+  finnhub: { apiKey: string | null; cache: Map<string, { c?: number }> }
   formatDate(value: unknown): string
 }
 
@@ -158,7 +158,8 @@ function buildSparklineSVG(dataPoints: number[]): SVGSVGElement {
 function renderMetricsTooltipContent(
     el: HTMLElement,
     ticker: string,
-    state: MetricsCacheValue
+    state: MetricsCacheValue,
+    livePrice: number | null = null
 ): void {
     el.textContent = ''; // safe clear — no innerHTML
 
@@ -196,10 +197,11 @@ function renderMetricsTooltipContent(
     tickerSpan.className = 'mp-ticker';
     tickerSpan.textContent = ticker;
     tickerBlock.appendChild(tickerSpan);
-    if (m.currentPrice !== null) {
+    const displayPrice = livePrice ?? m.currentPrice;
+    if (displayPrice !== null) {
         const priceSpan = document.createElement('span');
         priceSpan.className = 'mp-price';
-        priceSpan.textContent = `$${m.currentPrice.toFixed(2)}`;
+        priceSpan.textContent = `$${displayPrice.toFixed(2)}`;
         tickerBlock.appendChild(priceSpan);
     }
 
@@ -269,10 +271,11 @@ function renderMetricsTooltipContent(
         gradient.className = 'mp-range-gradient';
         track.appendChild(gradient);
 
-        if (m.currentPrice !== null) {
+        const priceForDot = livePrice ?? m.currentPrice;
+        if (priceForDot !== null) {
             const rng = m.week52High - m.week52Low;
             if (rng > 0) {
-                const pct = Math.min(100, Math.max(0, ((m.currentPrice - m.week52Low) / rng) * 100));
+                const pct = Math.min(100, Math.max(0, ((priceForDot - m.week52Low) / rng) * 100));
                 const dot = document.createElement('div');
                 dot.className = 'mp-range-dot';
                 dot.style.left = `${pct.toFixed(1)}%`;
@@ -356,15 +359,6 @@ function renderMetricsTooltipContent(
     }
 
     el.appendChild(body);
-
-    // ── Footer ─────────────────────────────────────────────────────
-    const footer = document.createElement('div');
-    footer.className = 'mp-footer';
-    const source = document.createElement('span');
-    source.className = 'mp-source';
-    source.textContent = 'Finnhub · updated on hover';
-    footer.appendChild(source);
-    el.appendChild(footer);
 }
 
 function createQuoteRenderer(
@@ -428,21 +422,24 @@ function buildActivePositionsColumnDefs(
                     if (!tooltipEl) {
                         tooltipEl = createMetricsTooltipEl(tickerValue);
                     }
+                    // Read current price from quote cache at render time — not at fetch time
+                    const livePrice = this.finnhub.cache.get(tickerValue)?.c ?? null;
+
                     const cached = this.metricsCache.get(tickerValue);
                     if (!cached) {
                         this.metricsCache.set(tickerValue, 'loading');
-                        renderMetricsTooltipContent(tooltipEl, tickerValue, 'loading');
+                        renderMetricsTooltipContent(tooltipEl, tickerValue, 'loading', livePrice);
                         tooltipEl.classList.add('is-visible');
                         this.positionFormulaTooltip(tickerEl, tooltipEl);
                         const result = await this.fetchStockMetrics(tickerValue);
                         const newState: MetricsCacheValue = result ?? 'error';
                         this.metricsCache.set(tickerValue, newState);
-                        renderMetricsTooltipContent(tooltipEl, tickerValue, newState);
+                        renderMetricsTooltipContent(tooltipEl, tickerValue, newState, livePrice);
                         if (tooltipEl.classList.contains('is-visible')) {
                             this.positionFormulaTooltip(tickerEl, tooltipEl);
                         }
                     } else {
-                        renderMetricsTooltipContent(tooltipEl, tickerValue, cached);
+                        renderMetricsTooltipContent(tooltipEl, tickerValue, cached, livePrice);
                         tooltipEl.classList.add('is-visible');
                         this.positionFormulaTooltip(tickerEl, tooltipEl);
                     }
