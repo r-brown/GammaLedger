@@ -449,6 +449,27 @@ class GammaLedger {
             this.initializeAIChat();
             this.initializeFinnhubControls();
             this.initMarketStatus();
+            // Fetch earnings calendar once — covers all open position expiration windows
+            if (this.finnhub?.apiKey && Array.isArray(this.trades) && this.trades.length > 0) {
+                const openTrades = this.trades.filter((t: any) =>
+                    t.status === 'Open' || t.status === 'Rolling'
+                );
+                const tickers = [
+                    ...new Set(
+                        openTrades
+                            .map((t: any) => String(t.ticker || ''))
+                            .filter(Boolean)
+                    )
+                ] as string[];
+                const maxExpiration = openTrades
+                    .map((t: any) => String(t.expirationDate || ''))
+                    .filter(Boolean)
+                    .sort()
+                    .slice(-1)[0];
+                if (tickers.length && maxExpiration) {
+                    void this.fetchEarningsCalendar(tickers, maxExpiration);
+                }
+            }
             this.initializeDefaultFeeControls();
             this.initializeDisclaimerBanner();
             this.initializeAICoachConsent();
@@ -1373,6 +1394,10 @@ class GammaLedger {
     async fetchMarketStatus() { return finnhubModule.fetchMarketStatus.call(this); }
 
     updateMarketStatusBadge(p: any) { return finnhubModule.updateMarketStatusBadge.call(this, p); }
+
+    async fetchEarningsCalendar(tickers: string[], toDate: string) { return finnhubModule.fetchEarningsCalendar.call(this, tickers, toDate); }
+    async fetchStockMetrics(ticker: string) { return finnhubModule.fetchStockMetrics.call(this, ticker); }
+    getEarningsDateForTrade(trade: Record<string, unknown>) { return finnhubModule.getEarningsDateForTrade.call(this, trade); }
 
     applyPositionHighlight(row, trade, currentPrice = null) { return highlightsModule.applyPositionHighlight.call(this, row, trade, currentPrice); }
 
