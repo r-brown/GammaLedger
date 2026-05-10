@@ -2306,6 +2306,75 @@ select.form-control {
   color: var(--color-white);
 }
 
+/* Finnhub risk signals */
+.earnings-risk-row {
+  background-color: #fffbeb !important;
+}
+
+.earnings-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: var(--space-8);
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  padding: 1px 5px;
+  border-radius: 10px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.metrics-tooltip {
+  position: fixed;
+  z-index: 9999;
+  background: #1e293b;
+  color: #f1f5f9;
+  border-radius: var(--radius-md);
+  padding: var(--space-12) var(--space-16);
+  font-size: var(--font-size-sm);
+  min-width: 220px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  display: none;
+}
+
+.metrics-tooltip.is-visible {
+  display: block;
+}
+
+.metrics-tooltip__title {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  color: #fff;
+  margin-bottom: var(--space-10);
+}
+
+.metrics-tooltip__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8) var(--space-20);
+}
+
+.metrics-tooltip__label {
+  color: #94a3b8;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.metrics-tooltip__value {
+  font-weight: var(--font-weight-semibold);
+  color: #f1f5f9;
+}
+
+.metrics-tooltip__value--high { color: #4ade80; }
+.metrics-tooltip__value--low  { color: #f87171; }
+/* end Finnhub risk signals */
+
 /* Risk Metrics */
 .risk-metrics {
   margin-bottom: var(--space-32);
