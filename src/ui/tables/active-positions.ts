@@ -213,7 +213,9 @@ function buildActivePositionsColumnDefs(
                         const newState: MetricsCacheValue = result ?? 'error';
                         this.metricsCache.set(tickerValue, newState);
                         renderMetricsTooltipContent(tooltipEl, tickerValue, newState);
-                        this.positionFormulaTooltip(tickerEl, tooltipEl);
+                        if (tooltipEl.classList.contains('is-visible')) {
+                            this.positionFormulaTooltip(tickerEl, tooltipEl);
+                        }
                     } else {
                         renderMetricsTooltipContent(tooltipEl, tickerValue, cached);
                         tooltipEl.classList.add('is-visible');
@@ -278,7 +280,7 @@ function buildActivePositionsColumnDefs(
 
                 if (trade) {
                     if (params.eGridCell) {
-                        this.updateExpirationHighlight(params.eGridCell as HTMLElement, trade);
+                        this.updateExpirationHighlight(params.eGridCell, trade);
                     }
                     const earningsDate = this.getEarningsDateForTrade(trade);
                     if (earningsDate) {
@@ -287,8 +289,6 @@ function buildActivePositionsColumnDefs(
                         badge.textContent = '📅 Earnings';
                         badge.title = `Earnings: ${this.formatDate(earningsDate)}`;
                         cell.appendChild(badge);
-
-                        params.eGridCell?.closest('.ag-row')?.classList.add('earnings-risk-row');
                     }
                 }
                 return cell;
@@ -339,6 +339,9 @@ function createActivePositionsGridOptions(
             filter: true,
             minWidth: 90
         },
+        rowClassRules: {
+            'earnings-risk-row': (params: { data?: TradeRecord }) => !!this.getEarningsDateForTrade(params.data ?? {})
+        },
         getRowId: params => activeRowKey(params.data),
         domLayout: 'autoHeight',
         rowHeight: 46,
@@ -377,6 +380,8 @@ export function updateActivePositionsTable(
         const dteB = this.parseInteger(b.dte, Number.POSITIVE_INFINITY, { allowNegative: false }) ?? Number.POSITIVE_INFINITY;
         return dteA - dteB;
     });
+
+    document.querySelectorAll('body > .metrics-tooltip').forEach(el => el.remove());
 
     const quoteEntries = new Map<string, Record<string, unknown>>();
     if (!this.activePositionsGridApi || this.activePositionsGridApi.isDestroyed()) {
