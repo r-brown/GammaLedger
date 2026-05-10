@@ -93,6 +93,30 @@ export interface GeminiState {
 }
 
 // ---------------------------------------------------------------------------
+// Finnhub enrichment types
+// ---------------------------------------------------------------------------
+
+/** One entry from GET /calendar/earnings */
+export interface EarningsEvent {
+  /** ISO date "YYYY-MM-DD" */
+  date: string
+  ticker: string
+  epsEstimate: number | null
+  epsActual: number | null
+}
+
+/** Parsed subset of GET /stock/metric?metric=all relevant to options traders */
+export interface StockMetrics {
+  beta: number | null
+  /** 14-day Average True Range */
+  atr: number | null
+  week52High: number | null
+  week52Low: number | null
+  /** 10-day average trading volume, in millions */
+  tenDayAvgVol: number | null
+}
+
+// ---------------------------------------------------------------------------
 // M2 — Gemini API response types and runtime type guards
 // The API response shape follows the generateContent REST contract.
 // ---------------------------------------------------------------------------
