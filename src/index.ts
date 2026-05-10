@@ -66,10 +66,6 @@ import * as finnhubModule from './integrations/finnhub.js';
 import * as geminiIntegrationModule from './integrations/gemini.js';
 import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
-import * as payoffSeriesModule from './payoff/series.js';
-import * as payoffPricingModule from './payoff/pricing.js';
-import * as payoffSummaryModule from './payoff/summary.js';
-import * as payoffRenderModule from './payoff/render.js';
 import * as importControlsModule from './imports/controls.js';
 import * as importLogModule from './imports/log.js';
 import * as importMergeModule from './imports/merge.js';
@@ -107,7 +103,6 @@ class GammaLedger {
     declare currentView: string
     declare sortDirection: Record<string, unknown>
     declare charts: Record<string, unknown>
-    declare tradeDetailCharts: Map<string, unknown>
     declare latestStats: unknown
     declare currentFileHandle: FileSystemFileHandle | null
     declare currentFileName: string
@@ -164,8 +159,7 @@ class GammaLedger {
         this.currentView = 'dashboard';
         this.sortDirection = {};
         this.charts = {};
-        this.tradeDetailCharts = new Map();
-        this.latestStats = null;
+            this.latestStats = null;
         this.currentFileHandle = null;
         this.currentFileName = 'Unsaved Database';
         this.hasUnsavedChanges = false;
@@ -426,12 +420,6 @@ class GammaLedger {
             this.destroyChart(this.charts[key]);
         });
         this.charts = {};
-        
-        // Clear trade detail charts
-        if (this.tradeDetailCharts) {
-            this.tradeDetailCharts.forEach(chart => this.destroyChart(chart));
-            this.tradeDetailCharts.clear();
-        }
         
         // Destroy share card chart
         if (this.shareCard?.chart) {
@@ -1438,46 +1426,6 @@ class GammaLedger {
     updateTradesGridMergeColumnVisibility() { return tradesTableModule.updateTradesGridMergeColumnVisibility.call(this); }
 
     refreshTradesGridSelectionState() { return tradesTableModule.refreshTradesGridSelectionState.call(this); }
-
-    toggleTradePayoffDetail(row, detailRow, trade, chartId, footnoteId) { return payoffRenderModule.toggleTradePayoffDetail.call(this, row, detailRow, trade, chartId, footnoteId); }
-
-    async renderTradePayoffChart(trade: Record<string, unknown>, chartId: string, footnoteId: string) { return payoffRenderModule.renderTradePayoffChart.call(this, trade, chartId, footnoteId); }
-
-    destroyTradePayoffChart(chartId, footnoteId) { return payoffRenderModule.destroyTradePayoffChart.call(this, chartId, footnoteId); }
-
-    async getUnderlyingPriceForPayoff(trade: Record<string, unknown> = {}) { return payoffPricingModule.getUnderlyingPriceForPayoff.call(this, trade); }
-
-    getFallbackUnderlyingPrice(trade = {}) { return payoffSeriesModule.getFallbackUnderlyingPrice.call(this, trade); }
-
-    calculatePayoffSeries(trade) { return payoffSeriesModule.calculatePayoffSeries.call(this, trade); }
-
-    determinePayoffModel(trade) { return payoffSeriesModule.determinePayoffModel.call(this, trade); }
-
-    analyzeMultiLegStrategy(trade, activeLegs, strategy) { return payoffPricingModule.analyzeMultiLegStrategy.call(this, trade, activeLegs, strategy); }
-
-    calculateSingleLegSeries(trade, model) { return payoffSeriesModule.calculateSingleLegSeries.call(this, trade, model); }
-
-    calculateMultiLegSeries(trade, model) { return payoffSeriesModule.calculateMultiLegSeries.call(this, trade, model); }
-
-    calculateVerticalSpreadSeries(trade, model) { return payoffSeriesModule.calculateVerticalSpreadSeries.call(this, trade, model); }
-
-    calculateCoveredCallSeries(trade) { return payoffSeriesModule.calculateCoveredCallSeries.call(this, trade); }
-
-    calculatePmccSeries(trade, model) { return payoffSeriesModule.calculatePmccSeries.call(this, trade, model); }
-
-    calculateSpreadBreakeven({ model, shortStrike, longStrike, entryPrice }) { return payoffPricingModule.calculateSpreadBreakeven.call(this, { model, shortStrike, longStrike, entryPrice }); }
-
-    optionIntrinsic(optionType, price, strike) { return payoffPricingModule.optionIntrinsic.call(this, optionType, price, strike); }
-
-    extractPmccLegs(trade = {}) { return payoffPricingModule.extractPmccLegs.call(this, trade); }
-
-    buildPriceRange(options = {}) { return payoffPricingModule.buildPriceRange.call(this, options); }
-
-    buildPayoffSummary(options) { return payoffSummaryModule.buildPayoffSummary.call(this, options); }
-
-    formatPayoffFooter(payoff, formatter) { return payoffSummaryModule.formatPayoffFooter.call(this, payoff, formatter); }
-
-    getTradePayoffMeta(trade) { return payoffSummaryModule.getTradePayoffMeta.call(this, trade); }
 
     sortTrades(sortBy) { return tradesTableModule.sortTrades.call(this, sortBy); }
 

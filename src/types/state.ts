@@ -85,8 +85,6 @@ export interface AppState {
   // ---- Charts ----
   /** Dashboard chart instances keyed by chart name. */
   charts: Record<string, unknown>
-  /** Per-trade payoff charts. */
-  tradeDetailCharts: Map<string, unknown>
 
   // ---- Imports / merge ----
   importControlsInitialized: boolean

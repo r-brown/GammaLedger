@@ -7,7 +7,6 @@ import {
   type GridApi,
   type GridOptions,
   type ICellRendererParams,
-  type RowClickedEvent,
   type SortChangedEvent
 } from './ag-grid.js'
 
@@ -21,7 +20,6 @@ interface TradesTableContext {
   tradesGridApi?: GridApi<TradeRecord> | null
   tradesMergePanelOpen: boolean
   tradeMergeSelection: Set<unknown>
-  tradeDetailCharts: Map<string, { destroy(): void }> | null
   isClosedStatus(status: unknown): boolean
   formatDate(value: unknown): string
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
@@ -30,8 +28,6 @@ interface TradesTableContext {
   getDisplayStatus(trade: TradeRecord): string
   createFormulaIcon(trade: TradeRecord, field: string): HTMLElement | null
   positionFormulaTooltip(wrapper: HTMLElement, tooltip: HTMLElement): void
-  toggleTradePayoffDetail(row: HTMLElement | null, detailRow: HTMLElement | null, trade: TradeRecord, chartId: string, footnoteId: string): void
-  destroyTradePayoffChart(chartId: string, footnoteId?: string): void
   editTrade(id: unknown): void
   deleteTrade(id: unknown): void
   applyResponsiveLabels(row: HTMLTableRowElement, labels: string[]): void
@@ -61,7 +57,6 @@ interface TradesTableContext {
   escapeHtml(value: string): string
 }
 
-const GRID_DETAIL_ID = 'trades-grid-detail';
 const MERGE_COLUMN_ID = 'mergeSelect';
 
 function safeNumber(value: unknown): number | null {
@@ -135,75 +130,6 @@ function createStatusBadge(this: TradesTableContext, trade: TradeRecord): HTMLEl
     return badge;
 }
 
-function createPayoffPanelContent(trade: TradeRecord, chartId: string, footnoteId: string): HTMLElement {
-    const diagramContainer = document.createElement('div');
-    diagramContainer.className = 'trade-diagram';
-    diagramContainer.setAttribute('data-chart-container', chartId);
-
-    const canvasWrapper = document.createElement('div');
-    canvasWrapper.className = 'trade-diagram__canvas';
-
-    const chartRoot = document.createElement('div');
-    chartRoot.id = chartId;
-    chartRoot.className = 'echarts-chart';
-    chartRoot.setAttribute('role', 'img');
-    chartRoot.setAttribute('aria-label', `Payoff diagram for ${(trade.ticker as string) || 'trade'}`);
-    chartRoot.setAttribute('aria-hidden', 'true');
-
-    const footnote = document.createElement('p');
-    footnote.className = 'trade-diagram__footnote';
-    footnote.id = footnoteId;
-    footnote.textContent = 'Tap or click the trade row to generate the payoff diagram.';
-
-    canvasWrapper.appendChild(chartRoot);
-    diagramContainer.appendChild(canvasWrapper);
-    diagramContainer.appendChild(footnote);
-    return diagramContainer;
-}
-
-function closeTradePayoffPanel(this: TradesTableContext): void {
-    const panel = document.getElementById(GRID_DETAIL_ID);
-    if (!panel) {
-        return;
-    }
-    const chartId = panel.dataset.chartId;
-    const footnoteId = panel.dataset.footnoteId;
-    if (chartId) {
-        this.destroyTradePayoffChart(chartId, footnoteId);
-    }
-    panel.classList.remove('is-open');
-    panel.style.display = 'none';
-    panel.setAttribute('aria-hidden', 'true');
-    delete panel.dataset.chartId;
-    delete panel.dataset.footnoteId;
-    delete panel.dataset.tradeId;
-    panel.innerHTML = '';
-}
-
-function toggleTradePayoffPanel(this: TradesTableContext, trade: TradeRecord, index = 0): void {
-    const panel = document.getElementById(GRID_DETAIL_ID);
-    if (!panel) {
-        return;
-    }
-
-    const rowKey = tradeRowKey(trade, `${(trade.ticker as string) || 'trade'}-${index}`);
-    const chartId = `trade-pl-${rowKey}`;
-    const footnoteId = `${chartId}-footnote`;
-    const isSameOpenTrade = panel.classList.contains('is-open') && panel.dataset.tradeId === rowKey;
-
-    if (isSameOpenTrade) {
-        this.toggleTradePayoffDetail(null, panel, trade, chartId, footnoteId);
-        return;
-    }
-
-    closeTradePayoffPanel.call(this);
-
-    panel.dataset.tradeId = rowKey;
-    panel.dataset.chartId = chartId;
-    panel.dataset.footnoteId = footnoteId;
-    panel.appendChild(createPayoffPanelContent(trade, chartId, footnoteId));
-    this.toggleTradePayoffDetail(null, panel, trade, chartId, footnoteId);
-}
 
 function createMergeCheckboxRenderer(
     this: TradesTableContext,
@@ -610,15 +536,6 @@ function createTradesGridOptions(this: TradesTableContext, trades: TradeRecord[]
         animateRows: false,
         suppressCellFocus: false,
         maintainColumnOrder: true,
-        onRowClicked: (event: RowClickedEvent<TradeRecord>) => {
-            const target = event.event?.target as HTMLElement | null;
-            if (target?.closest('button, a, input, select, textarea, .trade-diagram')) {
-                return;
-            }
-            if (event.data) {
-                toggleTradePayoffPanel.call(this, event.data, event.rowIndex ?? 0);
-            }
-        },
         onSortChanged: (event: SortChangedEvent<TradeRecord>) => syncSortFromGrid.call(this, event),
         overlayNoRowsTemplate: '<span class="ag-overlay-no-rows-center">No trades match the current filters.</span>'
     };
@@ -640,21 +557,8 @@ export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[
         this.setupTradesMergeControls();
     }
 
-    closeTradePayoffPanel.call(this);
-
     // Clean up formula tooltips that were appended to <body> by previous renders
     document.querySelectorAll('body > .formula-tooltip').forEach(el => el.remove());
-
-    if (this.tradeDetailCharts?.size) {
-        this.tradeDetailCharts.forEach(chart => {
-            try {
-                chart.destroy();
-            } catch (error) {
-                console.warn('Failed to destroy payoff chart:', error);
-            }
-        });
-        this.tradeDetailCharts.clear();
-    }
 
     this.pruneTradeMergeSelection();
 
