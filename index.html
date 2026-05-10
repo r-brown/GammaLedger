@@ -50,6 +50,17 @@
 </head>
 
 <body>
+    <!-- v1 BANNER — remove this block when v2 goes live -->
+    <div id="v1-banner" class="v1-banner">
+        <span class="v1-banner__message">
+            ✨&nbsp; Welcome to <strong>GammaLedger v2</strong> — early access!
+            Prefer the classic experience?
+            <a class="v1-banner__link" href="https://gammaledger.com/app/">Back to v1 →</a>
+        </span>
+        <button class="v1-banner__dismiss" aria-label="Dismiss">✕</button>
+    </div>
+    <!-- end v1 banner -->
+
     <dialog id="disclaimer-banner" class="disclaimer-banner" aria-labelledby="disclaimer-title">
         <div class="disclaimer-banner__panel">
             <h2 id="disclaimer-title" class="disclaimer-banner__title">Disclaimer</h2>
@@ -926,6 +937,15 @@
 
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script type="module" src="/src/index.js"></script>
+
+    <!-- v1 BANNER SCRIPT — remove when v2 goes live -->
+    <script>
+        document.querySelector('.v1-banner__dismiss')
+            .addEventListener('click', function () {
+                document.getElementById('v1-banner').classList.add('v1-banner--hidden');
+            });
+    </script>
+    <!-- end v1 banner script -->
 </body>
 
 </html>
