@@ -1220,8 +1220,12 @@ export async function fetchMarketStatus(this: FinnhubContext): Promise<void> {
     }
 
     // Normalize null → '' (internal "closed" sentinel)
+    // Finnhub has historically returned both 'pre-market' and 'pre_market' spellings;
+    // normalise hyphens → underscores so downstream comparisons are consistent.
+    const rawSession: string = payload.session === null
+        ? ''
+        : (payload.session as string).replace(/-/g, '_');
     const validSessions = new Set(['pre_market', 'market_hours', 'after_hours', '']);
-    const rawSession: string = payload.session === null ? '' : (payload.session as string);
     if (!validSessions.has(rawSession)) return;
 
     const typed: FinnhubMarketStatusPayload = {
