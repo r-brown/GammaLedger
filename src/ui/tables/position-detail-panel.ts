@@ -9,6 +9,9 @@ export interface PositionDetailPanelContext {
   candleCache: Map<string, CandleData | 'loading' | 'error'>
   metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
   signalsCache: Map<string, SignalsData | 'loading' | 'error'>
+  candlePromiseMap: Map<string, Promise<CandleData | null>>
+  metricsPromiseMap: Map<string, Promise<StockMetrics | null>>
+  signalsPromiseMap: Map<string, Promise<SignalsData | null>>
   fetchCandleData(ticker: string): Promise<CandleData | null>
   fetchSignalsData(ticker: string): Promise<SignalsData | null>
   fetchStockMetrics(ticker: string): Promise<StockMetrics | null>
@@ -436,13 +439,29 @@ function triggerDataFetch(
         setChart(c)
       })
     }
-  } else if (cachedCandle !== 'loading') {
+  } else if (cachedCandle === 'loading') {
+    // Attach to the in-flight promise so this panel renders when data arrives
+    context.candlePromiseMap.get(ticker)?.then(data => {
+      if (!chartArea?.isConnected) return
+      if (data) {
+        requestAnimationFrame(() => {
+          if (!chartArea.isConnected) return
+          const c = renderChartColumn(chartArea, ticker, data, livePrice)
+          setChart(c)
+        })
+      }
+    })
+  } else {
     context.candleCache.set(ticker, 'loading')
-    context.fetchCandleData(ticker).then(data => {
+    const promise = context.fetchCandleData(ticker)
+    context.candlePromiseMap.set(ticker, promise)
+    promise.then(data => {
+      context.candlePromiseMap.delete(ticker)
       if (data) {
         context.candleCache.set(ticker, data)
         if (chartArea?.isConnected) {
           requestAnimationFrame(() => {
+            if (!chartArea.isConnected) return
             const c = renderChartColumn(chartArea, ticker, data, livePrice)
             setChart(c)
           })
@@ -463,9 +482,16 @@ function triggerDataFetch(
   const cachedMetrics = context.metricsCache.get(ticker)
   if (cachedMetrics && cachedMetrics !== 'loading' && cachedMetrics !== 'error') {
     if (fundCard) renderFundamentalsColumn(fundCard, cachedMetrics, livePrice)
-  } else if (!cachedMetrics || cachedMetrics === 'error') {
+  } else if (cachedMetrics === 'loading') {
+    context.metricsPromiseMap.get(ticker)?.then(data => {
+      if (fundCard?.isConnected && data) renderFundamentalsColumn(fundCard, data, livePrice)
+    })
+  } else {
     context.metricsCache.set(ticker, 'loading')
-    context.fetchStockMetrics(ticker).then(data => {
+    const promise = context.fetchStockMetrics(ticker)
+    context.metricsPromiseMap.set(ticker, promise)
+    promise.then(data => {
+      context.metricsPromiseMap.delete(ticker)
       if (data) {
         context.metricsCache.set(ticker, data)
         if (fundCard?.isConnected) renderFundamentalsColumn(fundCard, data, livePrice)
@@ -485,9 +511,16 @@ function triggerDataFetch(
   const cachedSignals = context.signalsCache.get(ticker)
   if (cachedSignals && cachedSignals !== 'loading' && cachedSignals !== 'error') {
     if (sigCard) renderSignalsColumn(sigCard, cachedSignals, livePrice)
-  } else if (!cachedSignals || cachedSignals === 'error') {
+  } else if (cachedSignals === 'loading') {
+    context.signalsPromiseMap.get(ticker)?.then(data => {
+      if (sigCard?.isConnected && data) renderSignalsColumn(sigCard, data, livePrice)
+    })
+  } else {
     context.signalsCache.set(ticker, 'loading')
-    context.fetchSignalsData(ticker).then(data => {
+    const promise = context.fetchSignalsData(ticker)
+    context.signalsPromiseMap.set(ticker, promise)
+    promise.then(data => {
+      context.signalsPromiseMap.delete(ticker)
       if (data) {
         context.signalsCache.set(ticker, data)
         if (sigCard?.isConnected) renderSignalsColumn(sigCard, data, livePrice)

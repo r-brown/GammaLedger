@@ -146,6 +146,9 @@ class GammaLedger {
     declare activePositionsTrades: Record<string, unknown>[]
     declare candleCache: Map<string, import('./types/integrations.js').CandleData | 'loading' | 'error'>
     declare signalsCache: Map<string, import('./types/integrations.js').SignalsData | 'loading' | 'error'>
+    declare candlePromiseMap: Map<string, Promise<import('./types/integrations.js').CandleData | null>>
+    declare metricsPromiseMap: Map<string, Promise<import('./types/integrations.js').StockMetrics | null>>
+    declare signalsPromiseMap: Map<string, Promise<import('./types/integrations.js').SignalsData | null>>
     declare positionHighlightConfig: { expirationWarningDays: number; expirationCriticalDays: number }
     declare creditPlaybookStatus: string
     declare creditPlaybookStrategy: string
@@ -195,6 +198,9 @@ class GammaLedger {
         this.activePositionsTrades = [];
         this.candleCache = new Map();
         this.signalsCache = new Map();
+        this.candlePromiseMap = new Map();
+        this.metricsPromiseMap = new Map();
+        this.signalsPromiseMap = new Map();
         this.cumulativePLRange = 'ALL';
 
         this.disclaimerBanner = {
