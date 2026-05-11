@@ -2344,6 +2344,15 @@ select.form-control {
 
 .pdp-header { display: flex; align-items: center; gap: var(--space-8); width: 100%; flex-shrink: 0; }
 .pdp-header-ticker { font-weight: var(--font-weight-bold); font-size: var(--font-size-base); color: var(--color-text); }
+.pdp-header-identity { display: flex; align-items: center; gap: var(--space-6); flex: 1; min-width: 0; }
+.pdp-company-logo { border-radius: 3px; flex-shrink: 0; object-fit: contain; }
+.pdp-company-name { font-weight: var(--font-weight-bold); font-size: var(--font-size-base); color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pdp-industry-badge { font-size: 10px; color: var(--color-text-secondary); background: var(--color-border); border-radius: var(--radius-sm); padding: 1px 6px; white-space: nowrap; flex-shrink: 0; }
+.pdp-header-scores { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; flex-wrap: wrap; }
+.pdp-score-pill { font-size: 10px; font-weight: var(--font-weight-semibold); padding: 2px 8px; border-radius: 10px; white-space: nowrap; cursor: default; }
+.pdp-score-pill--bull { background: #dcfce7; color: #15803d; }
+.pdp-score-pill--neut { background: var(--color-border); color: var(--color-text-secondary); }
+.pdp-score-pill--bear { background: #fee2e2; color: #b91c1c; }
 
 .pdp-fund-col { flex: 1.2; display: flex; flex-direction: column; min-width: 0; }
 .pdp-signals-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -2374,13 +2383,23 @@ select.form-control {
 .pdp-kv-value--pos { color: var(--color-success); }
 .pdp-kv-value--neg { color: var(--color-error); }
 
+.pdp-range-price-label { font-size: 11px; font-weight: var(--font-weight-semibold); color: var(--color-text); margin-bottom: 2px; }
 .pdp-range-row { display: flex; align-items: center; gap: var(--space-6); margin-bottom: var(--space-8); }
 .pdp-range-label { font-size: 10px; color: var(--color-text-secondary); white-space: nowrap; }
 .pdp-range-track { flex: 1; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--color-error), var(--color-success)); position: relative; }
 .pdp-range-dot { position: absolute; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--color-primary); border: 2px solid var(--color-surface); transform: translateX(-50%); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.pdp-range-strike { position: absolute; top: -5px; width: 2px; height: 14px; border-radius: 1px; background: var(--color-warning, #f59e0b); border: 1px solid var(--color-surface); transform: translateX(-50%); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
 
 .pdp-sparkline-row { margin-top: var(--space-6); }
 .pdp-sparkline-label { font-size: 10px; color: var(--color-text-secondary); margin-bottom: 2px; }
+
+.pdp-meta-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: var(--space-4); }
+.pdp-meta-label { font-size: 10px; color: var(--color-text-secondary); }
+.pdp-meta-value { font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--color-text); }
+.pdp-meta-value--pos { color: var(--color-success); }
+.pdp-meta-value--neg { color: var(--color-error); }
+.pdp-meta-value--warn { color: var(--color-warning, #f59e0b); }
+.pdp-meta-value--muted { color: var(--color-text-secondary); }
 
 .pdp-signal-row {
   display: flex;
@@ -2399,6 +2418,14 @@ select.form-control {
 .pdp-analyst-bar__h  { background: #e2e8f0; }
 .pdp-analyst-bar__s  { background: #fca5a5; }
 .pdp-analyst-bar__ss { background: #dc2626; }
+
+.pdp-earnings-header { font-size: 10px; color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-4); }
+.pdp-earnings-grid { display: flex; gap: var(--space-6); margin-bottom: var(--space-8); }
+.pdp-earnings-cell { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.pdp-earnings-period { font-size: 9px; color: var(--color-text-secondary); margin-bottom: 2px; }
+.pdp-earnings-beat { font-size: 10px; font-weight: var(--font-weight-bold); color: var(--color-success); }
+.pdp-earnings-miss { font-size: 10px; font-weight: var(--font-weight-bold); color: var(--color-error); }
+.pdp-earnings-neutral { font-size: 10px; color: var(--color-text-secondary); }
 
 
 .pdp-loading, .pdp-error {
