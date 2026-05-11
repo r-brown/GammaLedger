@@ -266,6 +266,10 @@ export function buildMCPTrade(this: any, trade: AnyRecord, { isOpen = false }: {
         return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
     };
     const out: Record<string, unknown> = {
+        id: trade.id,
+        ticker: trade.ticker,
+        strategy: trade.strategy,
+        status: trade.status,
         direction: trade.tradeDirection,
 
         opened: trade.openedDate,
