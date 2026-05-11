@@ -160,17 +160,6 @@ export interface StockMetrics {
   epsAnnual: { period: string; v: number }[]
 }
 
-export interface CandleData {
-  /** Unix timestamps (seconds). */
-  t: number[]
-  o: number[]
-  h: number[]
-  l: number[]
-  c: number[]
-  /** 'ok' | 'no_data' */
-  s: string
-}
-
 export interface RecommendationTrend {
   /** ISO date "YYYY-MM-DD" */
   period: string
@@ -179,14 +168,6 @@ export interface RecommendationTrend {
   hold: number
   sell: number
   strongSell: number
-}
-
-export interface PriceTarget {
-  targetMean: number | null
-  targetHigh: number | null
-  targetLow: number | null
-  targetMedian: number | null
-  lastUpdated: string | null
 }
 
 export interface NewsItem {
@@ -210,13 +191,10 @@ export interface InsiderTransaction {
 export interface SignalsData {
   /** Most recent analyst recommendation period. null if unavailable. */
   recommendation: RecommendationTrend | null
-  priceTarget: PriceTarget | null
   /** Up to 5 articles sorted newest first. */
   news: NewsItem[]
   /** Up to 5 transactions sorted newest first. */
   insiderTransactions: InsiderTransaction[]
-  /** -100..+100 averaged from Reddit + StockTwits. null if unavailable. */
-  socialSentimentScore: number | null
 }
 
 // ---------------------------------------------------------------------------

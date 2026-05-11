@@ -1,18 +1,14 @@
-import type { CandleData, StockMetrics, SignalsData } from '../../types/integrations.js'
-import * as echarts from 'echarts'
+import type { StockMetrics, SignalsData } from '../../types/integrations.js'
 
 // ---------------------------------------------------------------------------
 // Context interface — structural typing over GammaLedger instance
 // ---------------------------------------------------------------------------
 
 export interface PositionDetailPanelContext {
-  candleCache: Map<string, CandleData | 'loading' | 'error'>
   metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
   signalsCache: Map<string, SignalsData | 'loading' | 'error'>
-  candlePromiseMap: Map<string, Promise<CandleData | null>>
   metricsPromiseMap: Map<string, Promise<StockMetrics | null>>
   signalsPromiseMap: Map<string, Promise<SignalsData | null>>
-  fetchCandleData(ticker: string): Promise<CandleData | null>
   fetchSignalsData(ticker: string): Promise<SignalsData | null>
   fetchStockMetrics(ticker: string): Promise<StockMetrics | null>
   finnhub: { apiKey: string | null; cache: Map<string, { c?: number }> }
@@ -120,19 +116,11 @@ function buildSparklineSVG(dataPoints: number[]): SVGSVGElement {
 function buildPanelSkeleton(ticker: string): HTMLElement {
   const panel = el('div', 'position-detail-panel')
 
-  // Chart column
-  const chartCol = el('div', 'pdp-chart-col')
-  const chartHeader = el('div', 'pdp-chart-header')
-  const tickerSpan = el('span', 'pdp-chart-ticker')
+  // Header row with ticker
+  const header = el('div', 'pdp-header')
+  const tickerSpan = el('span', 'pdp-header-ticker')
   tickerSpan.appendChild(txt(ticker))
-  chartHeader.appendChild(tickerSpan)
-  const chartArea = el('div', 'pdp-chart-area')
-  chartArea.dataset.role = 'chart'
-  const chartLoading = el('div', 'pdp-loading')
-  chartLoading.appendChild(txt('Loading chart…'))
-  chartArea.appendChild(chartLoading)
-  chartCol.appendChild(chartHeader)
-  chartCol.appendChild(chartArea)
+  header.appendChild(tickerSpan)
 
   // Fundamentals column
   const fundCol = el('div', 'pdp-fund-col')
@@ -152,7 +140,7 @@ function buildPanelSkeleton(ticker: string): HTMLElement {
   sigCard.appendChild(sigLoading)
   sigCol.appendChild(sigCard)
 
-  panel.appendChild(chartCol)
+  panel.appendChild(header)
   panel.appendChild(fundCol)
   panel.appendChild(sigCol)
   return panel
@@ -161,72 +149,6 @@ function buildPanelSkeleton(ticker: string): HTMLElement {
 // ---------------------------------------------------------------------------
 // Column renderers
 // ---------------------------------------------------------------------------
-
-function renderChartColumn(
-  container: HTMLElement,
-  ticker: string,
-  candles: CandleData,
-  livePrice: number | null
-): echarts.ECharts | null {
-  container.textContent = ''
-  if (candles.s !== 'ok' || candles.t.length === 0) {
-    const msg = el('div', 'pdp-error')
-    msg.appendChild(txt('No price history available'))
-    container.appendChild(msg)
-    return null
-  }
-
-  const chartCol = container.parentElement
-  const header = chartCol?.querySelector('.pdp-chart-header')
-  if (header && livePrice !== null) {
-    const priceEl = el('span', 'pdp-chart-price')
-    priceEl.appendChild(txt(`$${livePrice.toFixed(2)}`))
-    const prevClose = candles.c[candles.c.length - 2] ?? candles.c[candles.c.length - 1]
-    if (prevClose) {
-      const chg = ((livePrice - prevClose) / prevClose) * 100
-      const chgEl = el('span', chg >= 0 ? 'pdp-chart-change--up' : 'pdp-chart-change--down')
-      chgEl.appendChild(txt(`${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`))
-      header.appendChild(priceEl)
-      header.appendChild(chgEl)
-    } else {
-      header.appendChild(priceEl)
-    }
-  }
-
-  const chart = echarts.init(container)
-  chart.setOption({
-    grid: { top: 6, bottom: 22, left: 44, right: 8 },
-    xAxis: {
-      type: 'category',
-      data: candles.t.map((ts: number) =>
-        new Date(ts * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      ),
-      axisLabel: { fontSize: 9, interval: Math.floor(candles.t.length / 6) },
-      axisLine: { lineStyle: { color: '#e2e8f0' } },
-      splitLine: { show: false },
-    },
-    yAxis: {
-      type: 'value',
-      scale: true,
-      axisLabel: { fontSize: 9, formatter: (v: number) => `$${v.toFixed(0)}` },
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
-    },
-    series: [{
-      type: 'candlestick',
-      data: candles.t.map((_: number, i: number) => [
-        candles.o[i], candles.c[i], candles.l[i], candles.h[i]
-      ]),
-      itemStyle: {
-        color: '#22c55e',
-        color0: '#ef4444',
-        borderColor: '#16a34a',
-        borderColor0: '#dc2626',
-      },
-    }],
-  })
-  return chart
-}
 
 function renderFundamentalsColumn(
   container: HTMLElement,
@@ -353,20 +275,6 @@ function renderSignalsColumn(
     addSignalRow('📊', 'Analyst consensus', '—')
   }
 
-  // Price target
-  if (signals.priceTarget?.targetMean !== null && signals.priceTarget?.targetMean !== undefined) {
-    const pt = signals.priceTarget
-    const upside = livePrice && pt.targetMean !== null
-      ? ` (${((pt.targetMean - livePrice) / livePrice * 100) > 0 ? '+' : ''}${((pt.targetMean - livePrice) / livePrice * 100).toFixed(0)}%)`
-      : ''
-    const range = (pt.targetLow !== null && pt.targetHigh !== null)
-      ? ` · $${pt.targetLow.toFixed(0)}–$${pt.targetHigh.toFixed(0)}`
-      : ''
-    addSignalRow('🎯', `Target $${pt.targetMean?.toFixed(2)}${upside}`, range)
-  } else {
-    addSignalRow('🎯', 'Price target', '—')
-  }
-
   // News (first item)
   const newsToShow = signals.news.slice(0, 3)
   if (newsToShow.length > 0) {
@@ -392,24 +300,6 @@ function renderSignalsColumn(
     addSignalRow('👤', 'Insider activity', '—')
   }
 
-  // Social sentiment
-  if (signals.socialSentimentScore !== null) {
-    const score = signals.socialSentimentScore
-    const pillClass = score >= 20 ? 'pdp-sentiment--bull' : score <= -20 ? 'pdp-sentiment--bear' : 'pdp-sentiment--neut'
-    const pillLabel = score >= 20 ? 'Bullish' : score <= -20 ? 'Bearish' : 'Neutral'
-    const row = el('div', 'pdp-signal-row')
-    const iconEl = el('span', 'pdp-signal-icon')
-    iconEl.appendChild(txt('🌐'))
-    const body = el('span')
-    const pill = el('span', `pdp-sentiment ${pillClass}`)
-    pill.appendChild(txt(`${pillLabel} ${score > 0 ? '+' : ''}${score.toFixed(0)}`))
-    body.appendChild(pill)
-    row.appendChild(iconEl)
-    row.appendChild(body)
-    container.appendChild(row)
-  } else {
-    addSignalRow('🌐', 'Social sentiment', '—')
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -419,64 +309,12 @@ function renderSignalsColumn(
 function triggerDataFetch(
   context: PositionDetailPanelContext,
   ticker: string,
-  panelEl: HTMLElement,
-  getChart: () => echarts.ECharts | null,
-  setChart: (c: echarts.ECharts | null) => void
+  panelEl: HTMLElement
 ): void {
-  const chartArea = panelEl.querySelector('[data-role="chart"]') as HTMLElement | null
   const fundCard = panelEl.querySelector('[data-role="fundamentals"]') as HTMLElement | null
   const sigCard = panelEl.querySelector('[data-role="signals"]') as HTMLElement | null
 
   const livePrice = context.finnhub.cache.get(ticker)?.c ?? null
-
-  // Candle chart
-  const cachedCandle = context.candleCache.get(ticker)
-  if (cachedCandle && cachedCandle !== 'loading' && cachedCandle !== 'error') {
-    if (chartArea) {
-      requestAnimationFrame(() => {
-        if (!chartArea.isConnected) return
-        const c = renderChartColumn(chartArea, ticker, cachedCandle, livePrice)
-        setChart(c)
-      })
-    }
-  } else if (cachedCandle === 'loading') {
-    // Attach to the in-flight promise so this panel renders when data arrives
-    context.candlePromiseMap.get(ticker)?.then(data => {
-      if (!chartArea?.isConnected) return
-      if (data) {
-        requestAnimationFrame(() => {
-          if (!chartArea.isConnected) return
-          const c = renderChartColumn(chartArea, ticker, data, livePrice)
-          setChart(c)
-        })
-      }
-    })
-  } else {
-    context.candleCache.set(ticker, 'loading')
-    const promise = context.fetchCandleData(ticker)
-    context.candlePromiseMap.set(ticker, promise)
-    promise.then(data => {
-      context.candlePromiseMap.delete(ticker)
-      if (data) {
-        context.candleCache.set(ticker, data)
-        if (chartArea?.isConnected) {
-          requestAnimationFrame(() => {
-            if (!chartArea.isConnected) return
-            const c = renderChartColumn(chartArea, ticker, data, livePrice)
-            setChart(c)
-          })
-        }
-      } else {
-        context.candleCache.set(ticker, 'error')
-        if (chartArea?.isConnected) {
-          chartArea.textContent = ''
-          const errEl = el('div', 'pdp-error')
-          errEl.appendChild(txt('Unavailable'))
-          chartArea.appendChild(errEl)
-        }
-      }
-    })
-  }
 
   // Fundamentals
   const cachedMetrics = context.metricsCache.get(ticker)
@@ -546,19 +384,12 @@ export function createPositionDetailPanelRenderer(
 ) {
   return class {
     private container!: HTMLElement
-    private echartsInstance: echarts.ECharts | null = null
 
     init(params: { node: { data: Record<string, unknown> } }) {
       const trade = params.node.data._parentTrade as Record<string, unknown>
       const ticker = String(trade.ticker ?? '').toUpperCase()
       this.container = buildPanelSkeleton(ticker)
-      triggerDataFetch(
-        context,
-        ticker,
-        this.container,
-        () => this.echartsInstance,
-        (c) => { this.echartsInstance = c }
-      )
+      triggerDataFetch(context, ticker, this.container)
     }
 
     getGui(): HTMLElement {
@@ -566,10 +397,7 @@ export function createPositionDetailPanelRenderer(
     }
 
     destroy(): void {
-      if (this.echartsInstance) {
-        this.echartsInstance.dispose()
-        this.echartsInstance = null
-      }
+      // no ECharts instance to dispose
     }
   }
 }

@@ -6,7 +6,7 @@ import type {
 import type { EnrichedTrade } from './trade'
 import type { Stats } from './stats'
 import type { FilterState, QuoteEntry, PositionHighlightConfig, CreditPlaybookEntry } from './ui'
-import type { FinnhubState, GeminiState, StockMetrics, CandleData, SignalsData } from './integrations'
+import type { FinnhubState, GeminiState, StockMetrics, SignalsData } from './integrations'
 import type { Message } from './ai'
 import type { ImportLogEntry, ImportSummary } from './imports'
 
@@ -120,8 +120,6 @@ export interface AppState {
   metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
   /** ID of the currently expanded trade row. null = all collapsed. */
   expandedTradeId: string | null
-  /** ticker → CandleData | 'loading' | 'error'. Populated lazily on first row expand. */
-  candleCache: Map<string, CandleData | 'loading' | 'error'>
   /** ticker → SignalsData | 'loading' | 'error'. Populated lazily on first row expand. */
   signalsCache: Map<string, SignalsData | 'loading' | 'error'>
 

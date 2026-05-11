@@ -2330,7 +2330,9 @@ select.form-control {
 /* ── Position detail panel (row-expand) ──────────────────────────── */
 .position-detail-panel {
   display: flex;
-  gap: var(--space-12);
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--space-8) var(--space-12);
   padding: var(--space-12) var(--space-16);
   background: var(--color-surface);
   border-top: 2px solid var(--color-primary);
@@ -2340,14 +2342,8 @@ select.form-control {
   overflow: hidden;
 }
 
-.pdp-chart-col { flex: 2; display: flex; flex-direction: column; gap: var(--space-8); min-width: 0; }
-.pdp-chart-header { display: flex; align-items: baseline; gap: var(--space-8); flex-wrap: wrap; }
-.pdp-chart-ticker { font-weight: var(--font-weight-bold); font-size: var(--font-size-base); color: var(--color-text); }
-.pdp-chart-company { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
-.pdp-chart-price { font-weight: var(--font-weight-semibold); color: var(--color-text); margin-left: var(--space-4); }
-.pdp-chart-change--up { color: var(--color-success); font-size: var(--font-size-xs); margin-left: var(--space-4); }
-.pdp-chart-change--down { color: var(--color-error); font-size: var(--font-size-xs); margin-left: var(--space-4); }
-.pdp-chart-area { flex: 1; min-height: 0; border-radius: var(--radius-sm); overflow: hidden; }
+.pdp-header { display: flex; align-items: center; gap: var(--space-8); width: 100%; flex-shrink: 0; }
+.pdp-header-ticker { font-weight: var(--font-weight-bold); font-size: var(--font-size-base); color: var(--color-text); }
 
 .pdp-fund-col { flex: 1.2; display: flex; flex-direction: column; min-width: 0; }
 .pdp-signals-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -2404,10 +2400,6 @@ select.form-control {
 .pdp-analyst-bar__s  { background: #fca5a5; }
 .pdp-analyst-bar__ss { background: #dc2626; }
 
-.pdp-sentiment { display: inline-block; font-size: 10px; font-weight: var(--font-weight-semibold); padding: 2px 8px; border-radius: 10px; }
-.pdp-sentiment--bull { background: #dcfce7; color: #15803d; }
-.pdp-sentiment--bear { background: #fee2e2; color: #b91c1c; }
-.pdp-sentiment--neut { background: var(--color-border); color: var(--color-text-secondary); }
 
 .pdp-loading, .pdp-error {
   display: flex;

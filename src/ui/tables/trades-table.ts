@@ -544,7 +544,7 @@ function createTradesGridOptions(this: TradesTableContext, trades: TradeRecord[]
         },
         isFullWidthRow: params => !!(params.rowNode.data as Record<string, unknown>)?._isDetailRow,
         fullWidthCellRenderer: createPositionDetailPanelRenderer(context as unknown as PositionDetailPanelContext),
-        getRowHeight: params => (params.data as Record<string, unknown>)?._isDetailRow ? 340 : 50,
+        getRowHeight: params => (params.data as Record<string, unknown>)?._isDetailRow ? 220 : 50,
         onRowClicked: params => {
             const data = params.data;
             if ((data as Record<string, unknown>)?._isDetailRow) return;

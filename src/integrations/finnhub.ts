@@ -1425,50 +1425,6 @@ export function getEarningsDateForTrade(
 }
 
 // ---------------------------------------------------------------------------
-// Stock candles — fetched lazily on first row expand
-// ---------------------------------------------------------------------------
-
-export async function fetchCandleData(
-    this: any,
-    ticker: string
-): Promise<import('../types/integrations.js').CandleData | null> {
-    const apiKey = this.finnhub?.apiKey;
-    if (!apiKey) return null;
-
-    const now = Math.floor(Date.now() / 1000);
-    const from = now - 90 * 86_400;
-    const url = new URL('https://finnhub.io/api/v1/stock/candle');
-    url.searchParams.set('symbol', ticker.toUpperCase());
-    url.searchParams.set('resolution', 'D');
-    url.searchParams.set('from', String(from));
-    url.searchParams.set('to', String(now));
-    url.searchParams.set('token', String(apiKey));
-
-    try {
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            console.warn(`[Finnhub] stock/candle request failed for ${ticker}: ${response.status}`);
-            return null;
-        }
-        const data: unknown = await response.json();
-        if (!data || typeof data !== 'object') return null;
-        const d = data as Record<string, unknown>;
-        const s = typeof d.s === 'string' ? d.s : 'no_data';
-        if (s === 'no_data') return { t: [], o: [], h: [], l: [], c: [], s: 'no_data' };
-        const t = Array.isArray(d.t) ? (d.t as number[]) : [];
-        const o = Array.isArray(d.o) ? (d.o as number[]) : [];
-        const h = Array.isArray(d.h) ? (d.h as number[]) : [];
-        const l = Array.isArray(d.l) ? (d.l as number[]) : [];
-        const c = Array.isArray(d.c) ? (d.c as number[]) : [];
-        if (t.length === 0) return { t: [], o: [], h: [], l: [], c: [], s: 'no_data' };
-        return { t, o, h, l, c, s };
-    } catch (error) {
-        console.warn(`[Finnhub] failed to fetch candle data for ${ticker}:`, error);
-        return null;
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Signals data — fetched lazily on first row expand via Promise.allSettled
 // ---------------------------------------------------------------------------
 
@@ -1494,11 +1450,6 @@ export async function fetchSignalsData(
     recUrl.searchParams.set('symbol', sym)
     recUrl.searchParams.set('token', token)
 
-    // Price target
-    const ptUrl = new URL('https://finnhub.io/api/v1/stock/price-target')
-    ptUrl.searchParams.set('symbol', sym)
-    ptUrl.searchParams.set('token', token)
-
     // News
     const newsUrl = new URL('https://finnhub.io/api/v1/company-news')
     newsUrl.searchParams.set('symbol', sym)
@@ -1511,17 +1462,10 @@ export async function fetchSignalsData(
     insiderUrl.searchParams.set('symbol', sym)
     insiderUrl.searchParams.set('token', token)
 
-    // Social sentiment — average Reddit + Twitter score
-    const sentUrl = new URL('https://finnhub.io/api/v1/stock/social-sentiment')
-    sentUrl.searchParams.set('symbol', sym)
-    sentUrl.searchParams.set('token', token)
-
-    const [recResult, ptResult, newsResult, insiderResult, sentResult] = await Promise.allSettled([
+    const [recResult, newsResult, insiderResult] = await Promise.allSettled([
         fetch(recUrl.toString()).then(r => r.ok ? r.json() : null),
-        fetch(ptUrl.toString()).then(r => r.ok ? r.json() : null),
         fetch(newsUrl.toString()).then(r => r.ok ? r.json() : null),
         fetch(insiderUrl.toString()).then(r => r.ok ? r.json() : null),
-        fetch(sentUrl.toString()).then(r => r.ok ? r.json() : null),
     ]);
 
     // Recommendation — results[0] is the most recent period
@@ -1535,19 +1479,6 @@ export async function fetchSignalsData(
             hold: Number(r.hold) || 0,
             sell: Number(r.sell) || 0,
             strongSell: Number(r.strongSell) || 0,
-        };
-    }
-
-    // Price target
-    let priceTarget: import('../types/integrations.js').PriceTarget | null = null;
-    if (ptResult.status === 'fulfilled' && ptResult.value && typeof ptResult.value === 'object') {
-        const pt = ptResult.value as Record<string, unknown>;
-        priceTarget = {
-            targetMean: safeNum(pt.targetMean),
-            targetHigh: safeNum(pt.targetHigh),
-            targetLow: safeNum(pt.targetLow),
-            targetMedian: safeNum(pt.targetMedian),
-            lastUpdated: typeof pt.lastUpdated === 'string' ? pt.lastUpdated : null,
         };
     }
 
@@ -1585,24 +1516,10 @@ export async function fetchSignalsData(
         }
     }
 
-    let socialSentimentScore: number | null = null;
-    if (sentResult.status === 'fulfilled' && sentResult.value && typeof sentResult.value === 'object') {
-        const sent = sentResult.value as Record<string, unknown>;
-        const redditArr = Array.isArray(sent.reddit) ? sent.reddit as Record<string, unknown>[] : [];
-        const twitterArr = Array.isArray(sent.twitter) ? sent.twitter as Record<string, unknown>[] : [];
-        const redditScore = redditArr.length > 0 ? safeNum(redditArr[0].score) : null;
-        const twitterScore = twitterArr.length > 0 ? safeNum(twitterArr[0].score) : null;
-        if (redditScore !== null && twitterScore !== null) {
-            socialSentimentScore = (redditScore + twitterScore) / 2;
-        } else {
-            socialSentimentScore = redditScore ?? twitterScore;
-        }
-    }
-
     // Return null only if every endpoint failed
-    const allFailed = [recResult, ptResult, newsResult, insiderResult, sentResult]
+    const allFailed = [recResult, newsResult, insiderResult]
         .every(r => r.status === 'rejected');
     if (allFailed) return null;
 
-    return { recommendation, priceTarget, news, insiderTransactions, socialSentimentScore };
+    return { recommendation, news, insiderTransactions };
 }
