@@ -2,6 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { AI_COACH_CONSENT_STORAGE_KEY } from '@core/config'
+import { safeLocalStorage } from '@core/storage'
 
 export interface AICoachConsentState {
   element: HTMLDialogElement | null
@@ -162,23 +163,13 @@ export function hasAICoachConsent(this: AICoachConsentContext): boolean {
 }
 
 export function getAICoachConsent(): string | null {
-    try {
-        const value = localStorage.getItem(AI_COACH_CONSENT_STORAGE_KEY)
-        return value || null
-    } catch (error) {
-        console.warn('Failed to read AI Coach consent from storage:', error)
-        return null
-    }
+    return safeLocalStorage.getItem(AI_COACH_CONSENT_STORAGE_KEY) || null
 }
 
 export function setAICoachConsent(value: string | null): void {
-    try {
-        if (!value) {
-            localStorage.removeItem(AI_COACH_CONSENT_STORAGE_KEY)
-            return
-        }
-        localStorage.setItem(AI_COACH_CONSENT_STORAGE_KEY, value)
-    } catch (error) {
-        console.warn('Failed to persist AI Coach consent:', error)
+    if (!value) {
+        safeLocalStorage.removeItem(AI_COACH_CONSENT_STORAGE_KEY)
+        return
     }
+    safeLocalStorage.setItem(AI_COACH_CONSENT_STORAGE_KEY, value)
 }

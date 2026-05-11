@@ -59,8 +59,9 @@ mcp/                 # GammaLedger MCP server (Python, uv-managed)
   src/gammaledger_mcp/  server.py, database.py, prompts/
   tests/
 tests/               # Reference JSON fixtures for manual smoke testing
-docs/refactor/
-  MIGRATION_PROGRESS.md  # Phase 1/2/3 log — authoritative open-items tracker
+docs/superpowers/
+  plans/                 # Feature implementation plans
+  specs/                 # Feature design specs
 ```
 
 ---
@@ -490,7 +491,7 @@ Contains: `portfolio`, `activePositions`, `wheelPmccPositions`, `recentClosedTra
 
 These are hard constraints. Any plan review must flag violations before execution begins.
 
-- **No React / Vue / UI frameworks** — Phase 3 item; see `docs/refactor/MIGRATION_PROGRESS.md`
+- **No React / Vue / UI frameworks in the current vanilla app** — only introduce framework code when executing the documented Phase 3 migration plan in `docs/superpowers/Feature_02__Vue3_Migration.md`
 - **No new CDN `<script>` tags** without documenting them in this file
 - **No `Infinity` as a financial sentinel** — use the `RiskValue` tagged union
 - **No direct `localStorage`** — always use `safeLocalStorage` from `@core/storage`

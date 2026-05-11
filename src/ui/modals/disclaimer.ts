@@ -2,6 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { DISCLAIMER_STORAGE_KEY } from '@core/config'
+import { safeLocalStorage } from '@core/storage'
 
 interface DisclaimerBannerState {
   element: HTMLDialogElement | null
@@ -76,23 +77,13 @@ export function acceptDisclaimer(this: DisclaimerContext): void {
 }
 
 export function getDisclaimerAcceptance(): string | null {
-    try {
-        const value = localStorage.getItem(DISCLAIMER_STORAGE_KEY)
-        return value || null
-    } catch (error) {
-        console.warn('Failed to read disclaimer acceptance from storage:', error)
-        return null
-    }
+    return safeLocalStorage.getItem(DISCLAIMER_STORAGE_KEY) || null
 }
 
 export function setDisclaimerAcceptance(value: string | null): void {
-    try {
-        if (!value) {
-            localStorage.removeItem(DISCLAIMER_STORAGE_KEY)
-            return
-        }
-        localStorage.setItem(DISCLAIMER_STORAGE_KEY, value)
-    } catch (error) {
-        console.warn('Failed to persist disclaimer acceptance:', error)
+    if (!value) {
+        safeLocalStorage.removeItem(DISCLAIMER_STORAGE_KEY)
+        return
     }
+    safeLocalStorage.setItem(DISCLAIMER_STORAGE_KEY, value)
 }

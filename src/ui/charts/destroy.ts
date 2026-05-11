@@ -5,4 +5,3 @@ import { disposeChartInstance } from './echarts.js'
 export function destroyChart(chart: unknown): void {
     disposeChartInstance(chart);
 }
-// Populated in waves per docs/refactor/phase1-module-map.md.

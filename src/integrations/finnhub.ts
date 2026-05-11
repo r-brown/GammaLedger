@@ -3,7 +3,9 @@
 
 import {
     DEFAULT_FINNHUB_RATE_LIMIT,
-    FINNHUB_RATE_LIMIT_STORAGE_KEY
+    FINNHUB_RATE_LIMIT_STORAGE_KEY,
+    FINNHUB_SECRET_STORAGE_KEY,
+    FINNHUB_STORAGE_KEY
 } from '@core/config'
 
 type AnyRecord = Record<string, any>
@@ -211,36 +213,24 @@ export function updateFinnhubRateStatus(this: any, element: HTMLElement | null, 
 }
 
 export function loadFinnhubRateLimitFromStorage(this: any) {
-    try {
-        const stored = localStorage.getItem(FINNHUB_RATE_LIMIT_STORAGE_KEY);
-        if (stored !== null) {
-            const value = parseInt(stored, 10);
-            if (Number.isFinite(value) && value > 0) {
-                return value;
-            }
+    const stored = this.safeLocalStorage.getItem(FINNHUB_RATE_LIMIT_STORAGE_KEY);
+    if (stored !== null) {
+        const value = parseInt(stored, 10);
+        if (Number.isFinite(value) && value > 0) {
+            return value;
         }
-    } catch (error) {
-        console.warn('Failed to load Finnhub rate limit from storage:', error);
     }
     return DEFAULT_FINNHUB_RATE_LIMIT;
 }
 
 export function saveFinnhubRateLimitToStorage(this: any) {
-    try {
-        if (this.finnhub?.maxRequestsPerMinute) {
-            localStorage.setItem(FINNHUB_RATE_LIMIT_STORAGE_KEY, String(this.finnhub.maxRequestsPerMinute));
-        }
-    } catch (error) {
-        console.warn('Failed to save Finnhub rate limit to storage:', error);
+    if (this.finnhub?.maxRequestsPerMinute) {
+        this.safeLocalStorage.setItem(FINNHUB_RATE_LIMIT_STORAGE_KEY, String(this.finnhub.maxRequestsPerMinute));
     }
 }
 
 export function removeFinnhubRateLimitFromStorage(this: any) {
-    try {
-        localStorage.removeItem(FINNHUB_RATE_LIMIT_STORAGE_KEY);
-    } catch (error) {
-        console.warn('Failed to remove Finnhub rate limit from storage:', error);
-    }
+    this.safeLocalStorage.removeItem(FINNHUB_RATE_LIMIT_STORAGE_KEY);
 }
 
 export function updateFinnhubStatus(this: any, message: string, variant = 'neutral', autoClearMs = 0) {
@@ -299,13 +289,13 @@ export function setFinnhubApiKey(this: any, value: string, { persist = false, up
 }
 
 export function getFinnhubStorageKey(this: any) {
-    return 'GammaLedgerFinnhubConfig';
+    return FINNHUB_STORAGE_KEY;
 }
 
 export function saveFinnhubConfigToStorage(this: any) {
     try {
         const payload = { apiKey: this.finnhub.apiKey };
-        localStorage.setItem(this.getFinnhubStorageKey(), JSON.stringify(payload));
+        this.safeLocalStorage.setItem(this.getFinnhubStorageKey(), JSON.stringify(payload));
     } catch (error) {
         console.warn('Failed to save Finnhub configuration:', error);
     }
@@ -313,19 +303,19 @@ export function saveFinnhubConfigToStorage(this: any) {
 
 export function removeFinnhubConfigFromStorage(this: any) {
     try {
-        localStorage.removeItem(this.getFinnhubStorageKey());
+        this.safeLocalStorage.removeItem(this.getFinnhubStorageKey());
     } catch (error) {
         console.warn('Failed to remove Finnhub configuration:', error);
     }
 }
 
 export function getFinnhubSecretStorageKey(this: any) {
-    return 'GammaLedgerFinnhubSecret';
+    return FINNHUB_SECRET_STORAGE_KEY;
 }
 
 export async function loadFinnhubConfigFromStorage(this: any) {
     try {
-        const raw = localStorage.getItem(this.getFinnhubStorageKey());
+        const raw = this.safeLocalStorage.getItem(this.getFinnhubStorageKey());
         if (!raw) {
             return;
         }
@@ -375,11 +365,11 @@ export async function ensureFinnhubEncryptionKey(this: any, cryptoApi = this.get
         return this.finnhub.encryptionKey;
     }
 
-    let rawKeyB64 = localStorage.getItem(this.getFinnhubSecretStorageKey()) || '';
+    let rawKeyB64 = this.safeLocalStorage.getItem(this.getFinnhubSecretStorageKey()) || '';
     if (!rawKeyB64) {
         const raw = cryptoApi.getRandomValues(new Uint8Array(32));
         rawKeyB64 = String(this.arrayBufferToBase64(raw.buffer));
-        localStorage.setItem(this.getFinnhubSecretStorageKey(), rawKeyB64);
+        this.safeLocalStorage.setItem(this.getFinnhubSecretStorageKey(), rawKeyB64);
     }
 
     const rawKey = new Uint8Array(this.base64ToArrayBuffer(rawKeyB64));
@@ -405,7 +395,7 @@ export async function encryptAndStoreFinnhubApiKey(this: any, cryptoApi = this.g
         }
 
         const payload = await this.encryptString(apiKey, cryptoApi, key);
-        localStorage.setItem(this.getFinnhubStorageKey(), JSON.stringify({ enc: true, payload }));
+        this.safeLocalStorage.setItem(this.getFinnhubStorageKey(), JSON.stringify({ enc: true, payload }));
         return true;
     } catch (error) {
         console.warn('Failed to encrypt Finnhub API key:', error);
@@ -1219,12 +1209,20 @@ export async function fetchMarketStatus(this: FinnhubContext): Promise<void> {
         return;
     }
 
-    // Normalize null → '' (internal "closed" sentinel)
-    // Finnhub has historically returned both 'pre-market' and 'pre_market' spellings;
-    // normalise hyphens → underscores so downstream comparisons are consistent.
+    // Normalise Finnhub session string → internal sentinel
+    //   Finnhub canonical values (per API docs): "pre-market" | "regular" | "post-market" | null
+    //   Internal sentinels used by this module:  "pre_market" | "market_hours" | "after_hours" | ""
+    const SESSION_MAP: Record<string, string> = {
+        'pre-market':  'pre_market',
+        'pre_market':  'pre_market',   // defensive: underscore variant
+        'regular':     'market_hours',
+        'market_hours':'market_hours', // defensive: already-internal variant
+        'post-market': 'after_hours',
+        'after_hours': 'after_hours',  // defensive: already-internal variant
+    };
     const rawSession: string = payload.session === null
         ? ''
-        : (payload.session as string).replace(/-/g, '_');
+        : (SESSION_MAP[payload.session as string] ?? '');
     const validSessions = new Set(['pre_market', 'market_hours', 'after_hours', '']);
     if (!validSessions.has(rawSession)) return;
 

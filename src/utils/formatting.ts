@@ -1,5 +1,5 @@
 // Pure formatting / parsing helpers — no class state required.
-// Migrated from class GammaLedger (see docs/refactor/phase1-analysis.md §10).
+// Migrated from class GammaLedger during the TypeScript module split.
 
 import type { DollarAmount } from '@types-gl/common'
 
@@ -225,4 +225,3 @@ export function formatCurrency(amount: unknown, options: FormatCurrencyOptions =
         maximumFractionDigits: decimals
     }).format(value);
 }
-

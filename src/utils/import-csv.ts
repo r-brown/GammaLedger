@@ -1,6 +1,6 @@
 // src/utils/import-csv.ts
 // Generic CSV row parser — handles quoted values with embedded commas and "" escapes.
-// Migrated from class GammaLedger (see docs/refactor/phase1-analysis.md §10).
+// Migrated from class GammaLedger during the TypeScript module split.
 
 export function parseCsvRow(line: string): string[] {
     const values: string[] = [];
@@ -35,4 +35,3 @@ export function parseCsvRow(line: string): string[] {
 
     return values;
 }
-

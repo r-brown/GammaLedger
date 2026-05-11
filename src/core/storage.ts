@@ -1,5 +1,5 @@
 // Safe localStorage wrappers that gracefully handle quota and private-mode errors.
-// Migrated from class GammaLedger (see docs/refactor/phase1-analysis.md §3).
+// Migrated from class GammaLedger during the TypeScript module split.
 
 export interface SafeLocalStorage {
     getItem(key: string): string | null
@@ -40,4 +40,3 @@ export const safeLocalStorage: SafeLocalStorage = {
         }
     }
 };
-

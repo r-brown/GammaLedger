@@ -9,6 +9,7 @@ import {
     CURRENT_STORAGE_VERSION
 } from '@core/config'
 import { parseStorageSchema } from '@core/migration'
+import { safeLocalStorage } from '@core/storage'
 
 type TradeRecord = Record<string, unknown>
 type StorageSnapshot = Record<string, unknown>
@@ -580,10 +581,13 @@ export function saveToStorage(this: PersistContext, metadata: Record<string, unk
             trades: this.getStorageTrades(),
             mcpContext: this.buildMCPContext()
         });
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
+        const saved = safeLocalStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
+        if (!saved) {
+            return;
+        }
         LEGACY_STORAGE_KEYS.forEach(key => {
             if (key && key !== LOCAL_STORAGE_KEY) {
-                localStorage.removeItem(key);
+                safeLocalStorage.removeItem(key);
             }
         });
     } catch (e) {
@@ -593,7 +597,7 @@ export function saveToStorage(this: PersistContext, metadata: Record<string, unk
 
 export async function loadFromStorage(this: PersistContext): Promise<boolean> {
     try {
-        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        const stored = safeLocalStorage.getItem(LOCAL_STORAGE_KEY);
         if (stored) {
             const raw = JSON.parse(stored);
             const hasPrimaryTrades = Array.isArray(raw)
@@ -626,7 +630,7 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
                 continue;
             }
 
-            const legacy = localStorage.getItem(key);
+            const legacy = safeLocalStorage.getItem(key);
             if (!legacy) {
                 continue;
             }

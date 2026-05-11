@@ -569,34 +569,22 @@ export async function encryptAndStoreGeminiApiKey(this: any, cryptoApi = this.ge
 }
 
 export function loadGeminiMaxTokensFromStorage(this: any) {
-    try {
-        const stored = localStorage.getItem(GEMINI_MAX_TOKENS_STORAGE_KEY);
-        if (stored !== null) {
-            const value = parseInt(stored, 10);
-            if (Number.isFinite(value) && value > 0) {
-                return value;
-            }
+    const stored = this.safeLocalStorage.getItem(GEMINI_MAX_TOKENS_STORAGE_KEY);
+    if (stored !== null) {
+        const value = parseInt(stored, 10);
+        if (Number.isFinite(value) && value > 0) {
+            return value;
         }
-    } catch (error) {
-        console.warn('Failed to load Gemini max tokens from storage:', error);
     }
     return DEFAULT_GEMINI_MAX_TOKENS;
 }
 
 export function saveGeminiMaxTokensToStorage(this: any) {
-    try {
-        if (this.gemini?.maxOutputTokens) {
-            localStorage.setItem(GEMINI_MAX_TOKENS_STORAGE_KEY, String(this.gemini.maxOutputTokens));
-        }
-    } catch (error) {
-        console.warn('Failed to save Gemini max tokens to storage:', error);
+    if (this.gemini?.maxOutputTokens) {
+        this.safeLocalStorage.setItem(GEMINI_MAX_TOKENS_STORAGE_KEY, String(this.gemini.maxOutputTokens));
     }
 }
 
 export function removeGeminiMaxTokensFromStorage(this: any) {
-    try {
-        localStorage.removeItem(GEMINI_MAX_TOKENS_STORAGE_KEY);
-    } catch (error) {
-        console.warn('Failed to remove Gemini max tokens from storage:', error);
-    }
+    this.safeLocalStorage.removeItem(GEMINI_MAX_TOKENS_STORAGE_KEY);
 }

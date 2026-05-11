@@ -1,5 +1,5 @@
 // Pure DOM helpers — no class state required. Migrated from
-// class GammaLedger (see docs/refactor/phase1-analysis.md §10).
+// class GammaLedger during the TypeScript module split.
 
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'

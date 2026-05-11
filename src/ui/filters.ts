@@ -143,7 +143,8 @@ export function getSortableValue(this: FiltersContext, trade: TradeRecord, sortK
 }
 
 export function compareSortableValues(a: unknown, b: unknown): number {
-    const isInvalid = (value: unknown) => value === null || value === undefined || value === '';
+    const isInvalid = (value: unknown) => value === null || value === undefined || value === ''
+        || (typeof value === 'number' && Number.isNaN(value));
     const aInvalid = isInvalid(a);
     const bInvalid = isInvalid(b);
 
@@ -368,4 +369,3 @@ export function setupResponsiveFilters(): void {
 
     evaluateBreakpoint(true);
 }
-

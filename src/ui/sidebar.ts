@@ -2,6 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { SIDEBAR_COLLAPSED_STORAGE_KEY } from '@core/config'
+import { safeLocalStorage } from '@core/storage'
 
 interface SidebarState {
   container: Element | null
@@ -69,21 +70,11 @@ export function initializeSidebarToggle(this: SidebarContext): void {
 }
 
 export function getSidebarCollapsedPreference(): boolean {
-    try {
-        const value = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
-        return value === 'true';
-    } catch (error) {
-        console.warn('Failed to read sidebar preference from storage:', error);
-        return false;
-    }
+    return safeLocalStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
 }
 
 export function setSidebarCollapsedPreference(collapsed: boolean): void {
-    try {
-        localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(Boolean(collapsed)));
-    } catch (error) {
-        console.warn('Failed to persist sidebar preference:', error);
-    }
+    safeLocalStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(Boolean(collapsed)));
 }
 
 export function setSidebarCollapsed(

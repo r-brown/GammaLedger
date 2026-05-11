@@ -127,7 +127,7 @@ Let's see who writes the next best hack — you, or the machine?
 
 ### 🏠 Local-First Data Architecture
 - **Complete Privacy**: All data stays on your device - no cloud storage or external servers
-- **IndexedDB Integration**: Persistent local storage with fast query performance  
+- **Browser Local Storage**: Persistent local database saved under GammaLedger's browser storage keys
 - **File System Access API**: Direct file operations for import/export without browser limitations
 - **Offline Capable**: Nearly all features work flawlessly without an internet connection
 
@@ -255,7 +255,7 @@ The Wiki covers key areas, including:
 ## ❓ FAQ
 
 ### Is my data safe?
-Yes! GammaLedger uses local-first architecture. All data is stored in your browser's IndexedDB. **Nothing is sent to external servers.** Your trading data never leaves your device, ensuring complete privacy.
+Yes! GammaLedger uses local-first architecture. Trade data is stored in your browser's local storage and can be exported as a JSON database file. **Nothing is sent to external servers.** Your trading data never leaves your device, ensuring complete privacy.
 
 ### How do I backup my data?
 JSON database is already stored locally on your device. No explicit backup needed. For extra safety, consider backing up JSON file by creating a copy in cloud storage or an external drive.

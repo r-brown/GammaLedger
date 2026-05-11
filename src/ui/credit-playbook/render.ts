@@ -12,6 +12,16 @@ import {
 
 type TradeRecord = Record<string, unknown>
 type LegRecord = Record<string, unknown>
+const SORT_LOW_VALUE = -Number.MAX_SAFE_INTEGER
+const SORT_HIGH_VALUE = Number.MAX_SAFE_INTEGER
+
+function numericSortValue(value: unknown, fallback: number): number {
+    if (value === null || value === undefined || value === '') {
+        return fallback;
+    }
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+}
 
 interface LegPair {
   tradeId?: string
@@ -510,32 +520,32 @@ export function applyCreditPlaybookSortToLegPairs(this: CreditPlaybookRenderCont
                 bVal = b.isAssigned ? -1 : (b.isRolling ? 0 : (b.isExpired && b.isOpen ? 2 : (b.isOpen ? 1 : 3)));
                 break;
             case 'quantity':
-                aVal = Number(a.quantity) || 0;
-                bVal = Number(b.quantity) || 0;
+                aVal = numericSortValue(a.quantity, 0);
+                bVal = numericSortValue(b.quantity, 0);
                 break;
             case 'pricePerContract':
-                aVal = Number(a.pricePerContract) || 0;
-                bVal = Number(b.pricePerContract) || 0;
+                aVal = numericSortValue(a.pricePerContract, 0);
+                bVal = numericSortValue(b.pricePerContract, 0);
                 break;
             case 'fees':
-                aVal = Number(a.fees) || 0;
-                bVal = Number(b.fees) || 0;
+                aVal = numericSortValue(a.fees, 0);
+                bVal = numericSortValue(b.fees, 0);
                 break;
             case 'premium':
-                aVal = Number(a.premium) || 0;
-                bVal = Number(b.premium) || 0;
+                aVal = numericSortValue(a.premium, 0);
+                bVal = numericSortValue(b.premium, 0);
                 break;
             case 'pl':
-                aVal = Number(a.pl) || 0;
-                bVal = Number(b.pl) || 0;
+                aVal = numericSortValue(a.pl, 0);
+                bVal = numericSortValue(b.pl, 0);
                 break;
             case 'roi':
-                aVal = Number(a.roi) ?? -Infinity;
-                bVal = Number(b.roi) ?? -Infinity;
+                aVal = numericSortValue(a.roi, SORT_LOW_VALUE);
+                bVal = numericSortValue(b.roi, SORT_LOW_VALUE);
                 break;
             case 'currentPrice':
-                aVal = Number(a.currentPrice) || 0;
-                bVal = Number(b.currentPrice) || 0;
+                aVal = numericSortValue(a.currentPrice, 0);
+                bVal = numericSortValue(b.currentPrice, 0);
                 break;
             case 'entryDate':
                 aVal = a.entryDate instanceof Date ? (a.entryDate as Date).getTime() : 0;
@@ -546,16 +556,16 @@ export function applyCreditPlaybookSortToLegPairs(this: CreditPlaybookRenderCont
                 bVal = b.expirationDate ? new Date(b.expirationDate as string).getTime() : 0;
                 break;
             case 'dte':
-                aVal = Number(a.dte) ?? Infinity;
-                bVal = Number(b.dte) ?? Infinity;
+                aVal = numericSortValue(a.dte, SORT_HIGH_VALUE);
+                bVal = numericSortValue(b.dte, SORT_HIGH_VALUE);
                 break;
             case 'exitDate':
                 aVal = a.exitDate instanceof Date ? (a.exitDate as Date).getTime() : 0;
                 bVal = b.exitDate instanceof Date ? (b.exitDate as Date).getTime() : 0;
                 break;
             case 'daysHeld':
-                aVal = Number(a.daysHeld) ?? 0;
-                bVal = Number(b.daysHeld) ?? 0;
+                aVal = numericSortValue(a.daysHeld, 0);
+                bVal = numericSortValue(b.daysHeld, 0);
                 break;
             default:
                 aVal = a[sortKey];

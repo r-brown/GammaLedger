@@ -2,6 +2,7 @@
 // Uses the .call(this, …) delegation pattern so all this.* refs work.
 
 import { DEFAULT_FEE_STORAGE_KEY } from '../core/config.js';
+import { safeLocalStorage } from '@core/storage'
 
 interface DefaultFeeContext {
     defaultFeePerContract: number | null
@@ -23,7 +24,7 @@ export function initializeDefaultFeeControls(this: DefaultFeeContext): void {
     const clearButton = document.getElementById('default-fee-clear') as HTMLButtonElement | null;
     const status = document.getElementById('default-fee-status');
 
-    // Load saved value from localStorage
+    // Load saved value from durable browser storage.
     this.loadDefaultFeeFromStorage();
 
     // Initialize input with saved value
@@ -73,35 +74,23 @@ export function initializeDefaultFeeControls(this: DefaultFeeContext): void {
 }
 
 export function loadDefaultFeeFromStorage(this: DefaultFeeContext): void {
-    try {
-        const stored = localStorage.getItem(DEFAULT_FEE_STORAGE_KEY);
-        if (stored !== null) {
-            const value = parseFloat(stored);
-            if (Number.isFinite(value) && value >= 0) {
-                this.defaultFeePerContract = value;
-            }
+    const stored = safeLocalStorage.getItem(DEFAULT_FEE_STORAGE_KEY);
+    if (stored !== null) {
+        const value = parseFloat(stored);
+        if (Number.isFinite(value) && value >= 0) {
+            this.defaultFeePerContract = value;
         }
-    } catch (error) {
-        console.warn('Failed to load default fee from storage:', error);
     }
 }
 
 export function saveDefaultFeeToStorage(this: DefaultFeeContext): void {
-    try {
-        if (this.defaultFeePerContract !== null) {
-            localStorage.setItem(DEFAULT_FEE_STORAGE_KEY, String(this.defaultFeePerContract));
-        }
-    } catch (error) {
-        console.warn('Failed to save default fee to storage:', error);
+    if (this.defaultFeePerContract !== null) {
+        safeLocalStorage.setItem(DEFAULT_FEE_STORAGE_KEY, String(this.defaultFeePerContract));
     }
 }
 
 export function removeDefaultFeeFromStorage(this: DefaultFeeContext): void {
-    try {
-        localStorage.removeItem(DEFAULT_FEE_STORAGE_KEY);
-    } catch (error) {
-        console.warn('Failed to remove default fee from storage:', error);
-    }
+    safeLocalStorage.removeItem(DEFAULT_FEE_STORAGE_KEY);
 }
 
 export function updateDefaultFeeStatus(
@@ -143,6 +132,5 @@ export function getDefaultFeeForQuantity(this: DefaultFeeContext, quantity = 1):
     const qty = Math.abs(Number(quantity) || 1);
     return this.defaultFeePerContract * qty;
 }
-
 
 

@@ -1,6 +1,6 @@
 // src/utils/crypto.ts
 // Pure crypto helpers — no class state required. Migrated from
-// class GammaLedger (see docs/refactor/phase1-analysis.md §10).
+// class GammaLedger during the TypeScript module split.
 
 interface EncryptedPayload {
     iv: string
@@ -53,4 +53,3 @@ export async function decryptString(payload: EncryptedPayload, cryptoApi: Crypto
     const dec = new TextDecoder();
     return dec.decode(plainBuffer);
 }
-

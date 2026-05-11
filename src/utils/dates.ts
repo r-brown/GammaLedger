@@ -1,5 +1,5 @@
 // Pure date helpers — no class state required. Migrated from
-// class GammaLedger (see docs/refactor/phase1-analysis.md §10).
+// class GammaLedger during the TypeScript module split.
 
 import type { ISODate } from '@types-gl/common'
 

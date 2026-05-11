@@ -108,7 +108,7 @@ gammaledger/
 │   │   ├── share-card.js   ← Portfolio snapshot card
 │   │   ├── sidebar.js      ← Sidebar nav
 │   │   ├── views.js        ← View switching
-│   │   ├── charts/         ← Chart.js wrappers
+│   │   ├── charts/         ← ECharts wrappers
 │   │   ├── credit-playbook/← Credit Playbook view
 │   │   ├── modals/         ← Modal components
 │   │   └── tables/         ← Table renderers
@@ -149,18 +149,17 @@ gammaledger/
 │   ├── gammaledger-logo-32x32.png
 │   └── gammaledger-logo-64x64.png
 │
-├── docs/refactor/          ← Refactor analysis docs (phase1, phase2)
+├── docs/superpowers/       ← Feature plans and implementation specs
 ├── tests/                  ← Reference JSON fixtures and OFX samples
 └── mcp/                    ← MCP server (Python, separate from the browser app)
 ```
 
 ### CDN dependencies
 
-Two libraries are loaded from CDN directly in `index.html` — they are **not** npm packages:
+One library is loaded from CDN directly in `index.html` — it is **not** an npm package:
 
 | Library | Usage |
 |---------|-------|
-| `chart.js` (jsdelivr) | All dashboard and payoff charts |
 | `html2canvas` (jsdelivr) | Portfolio snapshot share card |
 
 ---
@@ -281,9 +280,9 @@ The output in `dist/` is:
 
 ### Bundle size
 
-The build is a single-page app with no npm runtime dependencies.
-Chart.js and html2canvas are loaded from CDN and are **not** bundled.
-Typical bundle sizes after Phase 1: ~350 KB JS (uncompressed), ~60 KB CSS.
+The build is a single-page app with npm dependencies bundled by Vite.
+Apache ECharts and AG Grid are bundled from npm; html2canvas is the only CDN runtime.
+Current production bundle size is roughly 2.24 MB JS and 367 KB CSS uncompressed.
 
 ---
 
@@ -485,4 +484,3 @@ Run after any non-trivial change and before every PR:
 - [ ] All modals open and close correctly
 - [ ] `npm run build` completes with no errors
 - [ ] `npm run preview` — production build loads at http://localhost:4173
-
