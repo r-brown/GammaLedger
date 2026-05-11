@@ -6,7 +6,7 @@ import type {
 import type { EnrichedTrade } from './trade'
 import type { Stats } from './stats'
 import type { FilterState, QuoteEntry, PositionHighlightConfig, CreditPlaybookEntry } from './ui'
-import type { FinnhubState, GeminiState, StockMetrics, SignalsData, CompanyProfile } from './integrations'
+import type { FinnhubState, GeminiState, StockMetrics, SignalsData, CompanyProfile, EarningsSurprise } from './integrations'
 import type { Message } from './ai'
 import type { ImportLogEntry, ImportSummary } from './imports'
 
@@ -124,6 +124,8 @@ export interface AppState {
   signalsCache: Map<string, SignalsData | 'loading' | 'error'>
   /** ticker → CompanyProfile | 'loading' | 'error'. Fetched lazily on first expand. */
   profileCache: Map<string, CompanyProfile | 'loading' | 'error'>
+  /** ticker → EarningsSurprise[] | 'loading' | 'error'. Last 4 quarters, newest first. */
+  earningsCache: Map<string, EarningsSurprise[] | 'loading' | 'error'>
 
   // ---- Credit playbook ----
   creditPlaybook: CreditPlaybookState

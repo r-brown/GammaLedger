@@ -1469,6 +1469,52 @@ export async function fetchCompanyProfile(
 }
 
 // ---------------------------------------------------------------------------
+// Earnings surprise history — last 4 quarters
+// ---------------------------------------------------------------------------
+
+export async function fetchEarningsSurprise(
+    this: any,
+    ticker: string
+): Promise<import('../types/integrations.js').EarningsSurprise[] | null> {
+    const apiKey = this.finnhub?.apiKey;
+    if (!apiKey) return null;
+
+    const url = new URL('https://finnhub.io/api/v1/stock/earnings');
+    url.searchParams.set('symbol', ticker.toUpperCase());
+    url.searchParams.set('token', String(apiKey));
+
+    function safeNum(v: unknown): number | null {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    try {
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            console.warn(`[Finnhub] stock/earnings failed for ${ticker}: ${response.status}`);
+            return null;
+        }
+        const data: unknown = await response.json();
+        if (!Array.isArray(data) || data.length === 0) return null;
+
+        return (data as Record<string, unknown>[])
+            .filter(item => item && typeof item === 'object')
+            .slice(0, 4)
+            .map(item => ({
+                period: typeof item.period === 'string' ? item.period : '',
+                quarter: Number(item.quarter) || 0,
+                year: Number(item.year) || 0,
+                actual: safeNum(item.actual),
+                estimate: safeNum(item.estimate),
+                surprisePercent: safeNum(item.surprisePercent),
+            }));
+    } catch (error) {
+        console.warn(`[Finnhub] failed to fetch earnings for ${ticker}:`, error);
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Signals data — fetched lazily on first row expand via Promise.allSettled
 // ---------------------------------------------------------------------------
 

@@ -216,6 +216,17 @@ export interface CompanyProfile {
   exchange: string
 }
 
+export interface EarningsSurprise {
+  /** ISO date of earnings period end, e.g. "2023-03-31". */
+  period: string
+  quarter: number
+  year: number
+  actual: number | null
+  estimate: number | null
+  /** Surprise as a percentage of estimate. Positive = beat. */
+  surprisePercent: number | null
+}
+
 // ---------------------------------------------------------------------------
 // M2 — Gemini API response types and runtime type guards
 // The API response shape follows the generateContent REST contract.
