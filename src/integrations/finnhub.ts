@@ -1431,6 +1431,44 @@ export function getEarningsDateForTrade(
 }
 
 // ---------------------------------------------------------------------------
+// Company profile — fetched lazily on first row expand, cached permanently
+// ---------------------------------------------------------------------------
+
+export async function fetchCompanyProfile(
+    this: any,
+    ticker: string
+): Promise<import('../types/integrations.js').CompanyProfile | null> {
+    const apiKey = this.finnhub?.apiKey;
+    if (!apiKey) return null;
+
+    const url = new URL('https://finnhub.io/api/v1/stock/profile2');
+    url.searchParams.set('symbol', ticker.toUpperCase());
+    url.searchParams.set('token', String(apiKey));
+
+    try {
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            console.warn(`[Finnhub] company-profile2 failed for ${ticker}: ${response.status}`);
+            return null;
+        }
+        const data: unknown = await response.json();
+        if (!data || typeof data !== 'object') return null;
+        const d = data as Record<string, unknown>;
+        const name = typeof d.name === 'string' ? d.name : '';
+        if (!name) return null;
+        return {
+            name,
+            industry: typeof d.finnhubIndustry === 'string' ? d.finnhubIndustry : '',
+            logo: typeof d.logo === 'string' ? d.logo : '',
+            exchange: typeof d.exchange === 'string' ? d.exchange : '',
+        };
+    } catch (error) {
+        console.warn(`[Finnhub] failed to fetch company profile for ${ticker}:`, error);
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Signals data — fetched lazily on first row expand via Promise.allSettled
 // ---------------------------------------------------------------------------
 

@@ -205,6 +205,17 @@ export interface SignalsData {
   insiderTransactions: InsiderTransaction[]
 }
 
+export interface CompanyProfile {
+  /** Full company name, e.g. "Apple Inc". */
+  name: string
+  /** Finnhub industry category, e.g. "Technology". */
+  industry: string
+  /** URL to company logo PNG (from Finnhub CDN). May be empty string. */
+  logo: string
+  /** Exchange name, e.g. "NASDAQ/NMS (GLOBAL MARKET)". */
+  exchange: string
+}
+
 // ---------------------------------------------------------------------------
 // M2 — Gemini API response types and runtime type guards
 // The API response shape follows the generateContent REST contract.
