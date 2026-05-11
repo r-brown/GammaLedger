@@ -399,7 +399,6 @@ export function addLegFormRow(
     }
 
     const baseUnderlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
-    const legUnderlyingType = this.normalizeUnderlyingType(leg?.underlyingType, { fallback: baseUnderlyingType });
 
     const quantityInput = row.querySelector('[data-leg-field="quantity"]') as HTMLInputElement | null;
     if (quantityInput) {
@@ -461,7 +460,7 @@ export function addLegFormRow(
     if (multiplierInput) {
         const providedMultiplier = Number.isFinite(Number(leg?.multiplier)) && Number(leg!.multiplier) > 0
             ? Number(leg!.multiplier)
-            : this.getDefaultMultiplierForLegType(normalizedType, legUnderlyingType);
+            : this.getDefaultMultiplierForLegType(normalizedType, baseUnderlyingType);
         multiplierInput.value = String(providedMultiplier);
         ['change', 'input'].forEach((eventName) => {
             multiplierInput.addEventListener(eventName, () => {
@@ -656,7 +655,6 @@ export function collectLegsFromForm(this: LegFormContext): Record<string, unknow
 
     const legs: Record<string, unknown>[] = [];
     const errors: string[] = [];
-    const tradeUnderlyingType = this.getSelectedUnderlyingType({ fallback: 'Stock' });
 
     rows.forEach((row, index) => {
         const getFieldValue = (name: string): string => {
@@ -679,7 +677,6 @@ export function collectLegsFromForm(this: LegFormContext): Record<string, unknow
             premium: getFieldValue('premium'),
             fees: getFieldValue('fees'),
             underlyingPrice: getFieldValue('underlyingPrice'),
-            underlyingType: tradeUnderlyingType
         });
 
         if (!parsed.success) {
@@ -690,7 +687,7 @@ export function collectLegsFromForm(this: LegFormContext): Record<string, unknow
         const parsedLeg = parsed.data;
         const multiplier = Number.isFinite(parsedLeg.multiplier)
             ? parsedLeg.multiplier as number
-            : this.getDefaultMultiplierForLegType(parsedLeg.type, tradeUnderlyingType);
+            : this.getDefaultMultiplierForLegType(parsedLeg.type);
 
         const legData: Record<string, unknown> = {
             ...parsedLeg,

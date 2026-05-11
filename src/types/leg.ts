@@ -58,8 +58,6 @@ export interface PersistedLeg {
   /** Underlying spot price at execution. Null if not recorded. */
   underlyingPrice: DollarAmount | null
 
-  /** Per-leg underlying type (overrides trade-level when present). */
-  underlyingType: UnderlyingType
 
   /**
    * External broker ID for import deduplication.
@@ -131,8 +129,6 @@ export interface NormalizedLeg {
   /** NaN-safe; null if original was non-finite. */
   underlyingPrice: DollarAmount | null
 
-  /** Defaulted to 'Stock' when missing. */
-  underlyingType: UnderlyingType
 
   /**
    * External broker ID for the leg.

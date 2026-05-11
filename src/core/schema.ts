@@ -148,7 +148,6 @@ export const PersistedLegSchema = z.object({
     premium: OptionalFiniteNumberSchema,
     fees: OptionalFiniteNumberSchema,
     underlyingPrice: OptionalFiniteNumberSchema,
-    underlyingType: UnderlyingTypeSchema.nullish(),
     externalId: OptionalNullableTextSchema,
     importGroupId: OptionalNullableTextSchema,
     importSource: OptionalNullableTextSchema,
@@ -200,7 +199,6 @@ export const NormalizedLegInputSchema = z.object({
     premium: z.preprocess(parseFiniteNumber, z.number().finite().optional()),
     fees: z.preprocess(parseFiniteNumber, z.number().finite().optional()),
     underlyingPrice: z.preprocess(parseFiniteNumber, z.number().finite().optional()),
-    underlyingType: OptionalTextSchema,
     externalId: OptionalNullableTextSchema,
     importGroupId: OptionalNullableTextSchema,
     importSource: OptionalNullableTextSchema
@@ -265,8 +263,7 @@ export const LegFormInputSchema = z.object({
         field: 'Underlying price',
         defaultValue: null,
         allowNegative: false
-    }),
-    underlyingType: UnderlyingTypeSchema
+    })
 });
 
 export const TradeFormInputSchema = z.object({

@@ -63,7 +63,7 @@ interface LegsContext {
     getNetOpenShortCalls(legs: unknown[]): { contracts: number; details: unknown[] }
     // External helpers
     normalizeUnderlyingType(type: unknown, opts?: { fallback?: string }): string
-    getDefaultMultiplierForLegType(type: string, underlyingType: string): number
+    getDefaultMultiplierForLegType(type: string, underlyingType?: string): number
     computeMaxRiskUsingFormula(trade: Record<string, unknown>, summary: LegSummary): number
     parseDateValue(value: unknown): Date | null
     normalizeStatus(status: unknown): string
@@ -225,8 +225,8 @@ export function getLegMultiplier(
     if (type === 'STOCK' || type === 'CASH') {
         return 1;
     }
-    const underlyingType = this.normalizeUnderlyingType(leg?.underlyingType, { fallback: 'Stock' });
-    return this.getDefaultMultiplierForLegType(type, underlyingType);
+    // getDefaultMultiplierForLegType always returns 100 for option legs regardless of underlyingType
+    return this.getDefaultMultiplierForLegType(type);
 }
 
 export function normalizeLeg(
@@ -259,7 +259,6 @@ export function normalizeLeg(
         premium: parsedLeg.premium ?? 0,
         fees: parsedLeg.fees ?? 0,
         underlyingPrice: parsedLeg.underlyingPrice ?? null,
-        underlyingType: this.normalizeUnderlyingType(parsedLeg.underlyingType, { fallback: 'Stock' }) as NormalizedLeg['underlyingType'],
         externalId: externalIdValue ?? null,
         importGroupId: importGroupIdValue ?? null,
         importSource: importSourceValue ?? null
