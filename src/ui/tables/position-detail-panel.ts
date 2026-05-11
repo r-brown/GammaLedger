@@ -358,13 +358,37 @@ function renderFundamentalsColumn(
 function renderSignalsColumn(
   container: HTMLElement,
   signals: SignalsData,
-  livePrice: number | null
+  livePrice: number | null,
+  earnings: EarningsSurprise[] | null = null
 ): void {
   container.textContent = ''
 
   const header = el('div', 'pdp-section-header')
   header.appendChild(txt('Signals'))
   container.appendChild(header)
+
+  // ── Earnings surprise history (last 4Q) ───────────────────
+  if (earnings && earnings.length > 0) {
+    const earnHeader = el('div', 'pdp-earnings-header')
+    earnHeader.appendChild(txt('Earnings surprises'))
+    container.appendChild(earnHeader)
+    const earnGrid = el('div', 'pdp-earnings-grid')
+    for (const q of earnings) {
+      const cell = el('div', 'pdp-earnings-cell')
+      const periodEl = el('div', 'pdp-earnings-period')
+      periodEl.appendChild(txt(`Q${q.quarter}'${String(q.year).slice(-2)}`))
+      const surpriseEl = el('div', q.surprisePercent === null ? 'pdp-earnings-neutral'
+        : q.surprisePercent >= 0 ? 'pdp-earnings-beat' : 'pdp-earnings-miss')
+      const sign = q.surprisePercent !== null && q.surprisePercent > 0 ? '+' : ''
+      surpriseEl.appendChild(txt(
+        q.surprisePercent !== null ? `${sign}${q.surprisePercent.toFixed(1)}%` : '—'
+      ))
+      cell.appendChild(periodEl)
+      cell.appendChild(surpriseEl)
+      earnGrid.appendChild(cell)
+    }
+    container.appendChild(earnGrid)
+  }
 
   function addSignalRow(icon: string, label: string, detail: string): void {
     const row = el('div', 'pdp-signal-row')
@@ -496,10 +520,10 @@ function triggerDataFetch(
   // Signals
   const cachedSignals = context.signalsCache.get(ticker)
   if (cachedSignals && cachedSignals !== 'loading' && cachedSignals !== 'error') {
-    if (sigCard) renderSignalsColumn(sigCard, cachedSignals, livePrice)
+    if (sigCard) renderSignalsColumn(sigCard, cachedSignals, livePrice, null)
   } else if (cachedSignals === 'loading') {
     context.signalsPromiseMap.get(ticker)?.then(data => {
-      if (sigCard?.isConnected && data) renderSignalsColumn(sigCard, data, livePrice)
+      if (sigCard?.isConnected && data) renderSignalsColumn(sigCard, data, livePrice, null)
     })
   } else {
     context.signalsCache.set(ticker, 'loading')
@@ -509,7 +533,7 @@ function triggerDataFetch(
       context.signalsPromiseMap.delete(ticker)
       if (data) {
         context.signalsCache.set(ticker, data)
-        if (sigCard?.isConnected) renderSignalsColumn(sigCard, data, livePrice)
+        if (sigCard?.isConnected) renderSignalsColumn(sigCard, data, livePrice, null)
       } else {
         context.signalsCache.set(ticker, 'error')
         if (sigCard?.isConnected) {
