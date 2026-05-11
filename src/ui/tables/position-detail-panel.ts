@@ -190,13 +190,17 @@ function computeValuationScore(m: StockMetrics): { grade: ValuationGrade; detail
 function buildPanelSkeleton(ticker: string): HTMLElement {
   const panel = el('div', 'position-detail-panel')
 
-  // Header row with ticker
   const header = el('div', 'pdp-header')
+  const identity = el('div', 'pdp-header-identity')
+  identity.dataset.role = 'identity'
   const tickerSpan = el('span', 'pdp-header-ticker')
   tickerSpan.appendChild(txt(ticker))
-  header.appendChild(tickerSpan)
+  identity.appendChild(tickerSpan)
+  const scores = el('div', 'pdp-header-scores')
+  scores.dataset.role = 'scores'
+  header.appendChild(identity)
+  header.appendChild(scores)
 
-  // Fundamentals column
   const fundCol = el('div', 'pdp-fund-col')
   const fundCard = el('div', 'pdp-card')
   fundCard.dataset.role = 'fundamentals'
@@ -205,7 +209,6 @@ function buildPanelSkeleton(ticker: string): HTMLElement {
   fundCard.appendChild(fundLoading)
   fundCol.appendChild(fundCard)
 
-  // Signals column
   const sigCol = el('div', 'pdp-signals-col')
   const sigCard = el('div', 'pdp-card')
   sigCard.dataset.role = 'signals'
@@ -474,6 +477,66 @@ function renderSignalsColumn(
 }
 
 // ---------------------------------------------------------------------------
+// Header helpers — profile identity and score pills
+// ---------------------------------------------------------------------------
+
+function renderProfileHeader(identityEl: HTMLElement, ticker: string, profile: CompanyProfile): void {
+  identityEl.textContent = ''
+  if (profile.logo) {
+    const img = document.createElement('img')
+    img.src = profile.logo
+    img.className = 'pdp-company-logo'
+    img.alt = ''
+    img.width = 20
+    img.height = 20
+    identityEl.appendChild(img)
+  }
+  const nameSpan = el('span', 'pdp-company-name')
+  nameSpan.appendChild(txt(profile.name || ticker))
+  identityEl.appendChild(nameSpan)
+  if (profile.industry) {
+    const badge = el('span', 'pdp-industry-badge')
+    badge.appendChild(txt(profile.industry))
+    identityEl.appendChild(badge)
+  }
+}
+
+function renderScorePills(scoresEl: HTMLElement, metrics: StockMetrics): void {
+  scoresEl.textContent = ''
+
+  const momentum = computeMomentumScore(metrics)
+  const health = computeBalanceSheetScore(metrics)
+  const valuation = computeValuationScore(metrics)
+
+  const momentumConfig: Record<MomentumGrade, { label: string; cls: string }> = {
+    bullish: { label: '🟢 Bullish', cls: 'pdp-score-pill pdp-score-pill--bull' },
+    neutral: { label: '🟡 Neutral', cls: 'pdp-score-pill pdp-score-pill--neut' },
+    bearish: { label: '🔴 Bearish', cls: 'pdp-score-pill pdp-score-pill--bear' },
+  }
+  const healthConfig: Record<HealthGrade, { label: string; cls: string }> = {
+    healthy: { label: '✅ Balance Sheet', cls: 'pdp-score-pill pdp-score-pill--bull' },
+    ok: { label: '⚠️ Balance Sheet', cls: 'pdp-score-pill pdp-score-pill--neut' },
+    weak: { label: '❌ Balance Sheet', cls: 'pdp-score-pill pdp-score-pill--bear' },
+  }
+  const valConfig: Record<ValuationGrade, { label: string; cls: string }> = {
+    cheap: { label: '💚 Cheap', cls: 'pdp-score-pill pdp-score-pill--bull' },
+    fair: { label: '🟡 Fair Value', cls: 'pdp-score-pill pdp-score-pill--neut' },
+    expensive: { label: '🔴 Expensive', cls: 'pdp-score-pill pdp-score-pill--bear' },
+  }
+
+  for (const [cfg, detail] of [
+    [momentumConfig[momentum.grade], momentum.detail] as const,
+    [healthConfig[health.grade], health.detail] as const,
+    [valConfig[valuation.grade], valuation.detail] as const,
+  ]) {
+    const pill = el('span', cfg.cls)
+    pill.appendChild(txt(cfg.label))
+    pill.title = detail
+    scoresEl.appendChild(pill)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Data fetch orchestration
 // ---------------------------------------------------------------------------
 
@@ -485,16 +548,27 @@ function triggerDataFetch(
 ): void {
   const fundCard = panelEl.querySelector('[data-role="fundamentals"]') as HTMLElement | null
   const sigCard = panelEl.querySelector('[data-role="signals"]') as HTMLElement | null
+  const identityEl = panelEl.querySelector('[data-role="identity"]') as HTMLElement | null
+  const scoresEl = panelEl.querySelector('[data-role="scores"]') as HTMLElement | null
 
   const livePrice = context.finnhub.cache.get(ticker)?.c ?? null
 
-  // Fundamentals
+  function reRenderSignals(signals: SignalsData): void {
+    if (!sigCard?.isConnected) return
+    const earned = context.earningsCache.get(ticker)
+    const earnings = (earned && earned !== 'loading' && earned !== 'error') ? earned : null
+    renderSignalsColumn(sigCard, signals, livePrice, earnings)
+  }
+
+  // ── Fundamentals (metrics) ────────────────────────────────
   const cachedMetrics = context.metricsCache.get(ticker)
   if (cachedMetrics && cachedMetrics !== 'loading' && cachedMetrics !== 'error') {
     if (fundCard) renderFundamentalsColumn(fundCard, cachedMetrics, livePrice, activeStrike)
+    if (scoresEl) renderScorePills(scoresEl, cachedMetrics)
   } else if (cachedMetrics === 'loading') {
     context.metricsPromiseMap.get(ticker)?.then(data => {
       if (fundCard?.isConnected && data) renderFundamentalsColumn(fundCard, data, livePrice, activeStrike)
+      if (scoresEl?.isConnected && data) renderScorePills(scoresEl, data)
     })
   } else {
     context.metricsCache.set(ticker, 'loading')
@@ -505,6 +579,7 @@ function triggerDataFetch(
       if (data) {
         context.metricsCache.set(ticker, data)
         if (fundCard?.isConnected) renderFundamentalsColumn(fundCard, data, livePrice, activeStrike)
+        if (scoresEl?.isConnected) renderScorePills(scoresEl, data)
       } else {
         context.metricsCache.set(ticker, 'error')
         if (fundCard?.isConnected) {
@@ -517,13 +592,13 @@ function triggerDataFetch(
     })
   }
 
-  // Signals
+  // ── Signals ───────────────────────────────────────────────
   const cachedSignals = context.signalsCache.get(ticker)
   if (cachedSignals && cachedSignals !== 'loading' && cachedSignals !== 'error') {
-    if (sigCard) renderSignalsColumn(sigCard, cachedSignals, livePrice, null)
+    if (sigCard) reRenderSignals(cachedSignals)
   } else if (cachedSignals === 'loading') {
     context.signalsPromiseMap.get(ticker)?.then(data => {
-      if (sigCard?.isConnected && data) renderSignalsColumn(sigCard, data, livePrice, null)
+      if (sigCard?.isConnected && data) reRenderSignals(data)
     })
   } else {
     context.signalsCache.set(ticker, 'loading')
@@ -533,7 +608,7 @@ function triggerDataFetch(
       context.signalsPromiseMap.delete(ticker)
       if (data) {
         context.signalsCache.set(ticker, data)
-        if (sigCard?.isConnected) renderSignalsColumn(sigCard, data, livePrice, null)
+        if (sigCard?.isConnected) reRenderSignals(data)
       } else {
         context.signalsCache.set(ticker, 'error')
         if (sigCard?.isConnected) {
@@ -542,6 +617,57 @@ function triggerDataFetch(
           errEl.appendChild(txt('Unavailable'))
           sigCard.appendChild(errEl)
         }
+      }
+    })
+  }
+
+  // ── Company profile ───────────────────────────────────────
+  const cachedProfile = context.profileCache.get(ticker)
+  if (cachedProfile && cachedProfile !== 'loading' && cachedProfile !== 'error') {
+    if (identityEl) renderProfileHeader(identityEl, ticker, cachedProfile)
+  } else if (cachedProfile === 'loading') {
+    context.profilePromiseMap.get(ticker)?.then(data => {
+      if (identityEl?.isConnected && data) renderProfileHeader(identityEl, ticker, data)
+    })
+  } else {
+    context.profileCache.set(ticker, 'loading')
+    const promise = context.fetchCompanyProfile(ticker)
+    context.profilePromiseMap.set(ticker, promise)
+    promise.then(data => {
+      context.profilePromiseMap.delete(ticker)
+      if (data) {
+        context.profileCache.set(ticker, data)
+        if (identityEl?.isConnected) renderProfileHeader(identityEl, ticker, data)
+      } else {
+        context.profileCache.set(ticker, 'error')
+      }
+    })
+  }
+
+  // ── Earnings surprises ────────────────────────────────────
+  const cachedEarnings = context.earningsCache.get(ticker)
+  if (cachedEarnings && cachedEarnings !== 'loading' && cachedEarnings !== 'error') {
+    const cs = context.signalsCache.get(ticker)
+    if (cs && cs !== 'loading' && cs !== 'error' && sigCard?.isConnected) {
+      reRenderSignals(cs)
+    }
+  } else if (cachedEarnings === 'loading') {
+    context.earningsPromiseMap.get(ticker)?.then(data => {
+      if (!data || !sigCard?.isConnected) return
+      const cs = context.signalsCache.get(ticker)
+      if (cs && cs !== 'loading' && cs !== 'error') reRenderSignals(cs)
+    })
+  } else {
+    context.earningsCache.set(ticker, 'loading')
+    const promise = context.fetchEarningsSurprise(ticker)
+    context.earningsPromiseMap.set(ticker, promise)
+    promise.then(data => {
+      context.earningsPromiseMap.delete(ticker)
+      const result = data ?? 'error'
+      context.earningsCache.set(ticker, result)
+      if (data && sigCard?.isConnected) {
+        const cs = context.signalsCache.get(ticker)
+        if (cs && cs !== 'loading' && cs !== 'error') reRenderSignals(cs)
       }
     })
   }
