@@ -1,4 +1,4 @@
-import type { StockMetrics, SignalsData } from '../../types/integrations.js'
+import type { StockMetrics, SignalsData, CompanyProfile, EarningsSurprise } from '../../types/integrations.js'
 
 // ---------------------------------------------------------------------------
 // Context interface — structural typing over GammaLedger instance
@@ -107,6 +107,74 @@ function buildSparklineSVG(dataPoints: number[]): SVGSVGElement {
   polyline.setAttribute('stroke-linejoin', 'round')
   svg.appendChild(polyline)
   return svg
+}
+
+// ---------------------------------------------------------------------------
+// Score computation — pure functions, no DOM access
+// ---------------------------------------------------------------------------
+
+type MomentumGrade = 'bullish' | 'neutral' | 'bearish'
+type HealthGrade = 'healthy' | 'ok' | 'weak'
+type ValuationGrade = 'cheap' | 'fair' | 'expensive'
+
+function computeMomentumScore(m: StockMetrics): { grade: MomentumGrade; detail: string } {
+  const fields: (number | null)[] = [m.return5Day, m.return13Week, m.return52Week]
+  const weights = [0.2, 0.4, 0.4]
+  let sum = 0, wSum = 0
+  for (let i = 0; i < 3; i++) {
+    const v = fields[i]
+    if (v !== null) { sum += v * weights[i]; wSum += weights[i] }
+  }
+  if (wSum === 0) return { grade: 'neutral', detail: '—' }
+  const score = sum / wSum
+  const detail = [
+    m.return5Day !== null ? `5D ${fmtPct(m.return5Day, true)}` : null,
+    m.return13Week !== null ? `13W ${fmtPct(m.return13Week, true)}` : null,
+    m.return52Week !== null ? `52W ${fmtPct(m.return52Week, true)}` : null,
+  ].filter(Boolean).join(' · ')
+  if (score > 5) return { grade: 'bullish', detail }
+  if (score < -5) return { grade: 'bearish', detail }
+  return { grade: 'neutral', detail }
+}
+
+function computeBalanceSheetScore(m: StockMetrics): { grade: HealthGrade; detail: string } {
+  const cr = m.currentRatio
+  const de = m.debtToEquity
+  const ic = m.interestCoverage
+  if (cr === null && de === null) return { grade: 'ok', detail: '—' }
+  const weak = (cr !== null && cr < 1.0) || (de !== null && de > 2.0)
+  const healthy = (cr === null || cr >= 1.5) && (de === null || de < 0.5) && (ic === null || ic > 5)
+  const detail = [
+    cr !== null ? `CR ${cr.toFixed(1)}` : null,
+    de !== null ? `D/E ${de.toFixed(1)}` : null,
+    ic !== null ? `IC ${ic.toFixed(0)}×` : null,
+  ].filter(Boolean).join(' · ')
+  if (weak) return { grade: 'weak', detail }
+  if (healthy) return { grade: 'healthy', detail }
+  return { grade: 'ok', detail }
+}
+
+function computeValuationScore(m: StockMetrics): { grade: ValuationGrade; detail: string } {
+  const series = m.peAnnualSeries
+  const currentPE = m.peTTM
+  if (series.length >= 4 && currentPE !== null && currentPE > 0) {
+    const vals = series.map(s => s.v).filter(v => v > 0).sort((a, b) => a - b)
+    if (vals.length >= 4) {
+      const rank = vals.filter(v => v <= currentPE).length
+      const pct = rank / vals.length
+      const pctLabel = `${Math.round(pct * 100)}th %ile`
+      const detail = `PE ${currentPE.toFixed(0)}× · ${pctLabel}`
+      if (pct <= 0.25) return { grade: 'cheap', detail }
+      if (pct >= 0.75) return { grade: 'expensive', detail }
+      return { grade: 'fair', detail }
+    }
+  }
+  const fpe = m.forwardPE
+  if (fpe === null || fpe <= 0) return { grade: 'fair', detail: '—' }
+  const detail = `Fwd P/E ${fpe.toFixed(0)}×`
+  if (fpe < 13) return { grade: 'cheap', detail }
+  if (fpe > 25) return { grade: 'expensive', detail }
+  return { grade: 'fair', detail }
 }
 
 // ---------------------------------------------------------------------------
