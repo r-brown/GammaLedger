@@ -2337,9 +2337,9 @@ select.form-control {
   background: var(--color-surface);
   border-top: 2px solid var(--color-primary);
   border-bottom: 1px solid var(--color-border);
-  height: 100%;
+  min-height: 700px;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .pdp-header { display: flex; align-items: center; gap: var(--space-8); width: 100%; flex-shrink: 0; }
@@ -2353,17 +2353,27 @@ select.form-control {
 .pdp-score-pill--bull { background: #dcfce7; color: #15803d; }
 .pdp-score-pill--neut { background: var(--color-border); color: var(--color-text-secondary); }
 .pdp-score-pill--bear { background: #fee2e2; color: #b91c1c; }
+.pdp-score-pill--risk { font-size: 11px; padding: 3px 10px; font-weight: var(--font-weight-bold); }
 
-.pdp-fund-col { flex: 1.2; display: flex; flex-direction: column; min-width: 0; }
-.pdp-signals-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+/* Momentum Traffic Light — individual colored period dots */
+.pdp-momentum-dots { display: flex; align-items: center; gap: var(--space-8); padding: 2px 0; }
+.pdp-momentum-item { display: flex; align-items: center; gap: 3px; font-size: 10px; font-weight: var(--font-weight-semibold); }
+.pdp-momentum-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.pdp-momentum-dot--pos { background: var(--color-success, #16a34a); }
+.pdp-momentum-dot--neg { background: var(--color-error, #dc2626); }
+.pdp-momentum-dot--neut { background: var(--color-text-secondary); }
+.pdp-momentum-label { color: var(--color-text-secondary); }
+
+.pdp-fund-col { flex: 1.2; display: flex; flex-direction: column; min-width: 280px; }
+.pdp-signals-col { flex: 1; display: flex; flex-direction: column; min-width: 220px; }
+.pdp-news-col { flex: 0.9; display: flex; flex-direction: column; min-width: 200px; }
 
 .pdp-card {
   background: var(--color-background);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-10) var(--space-12);
-  flex: 1;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .pdp-section-header {
@@ -2377,11 +2387,24 @@ select.form-control {
   border-bottom: 1px solid var(--color-border);
 }
 
-.pdp-kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4) var(--space-10); }
+.pdp-sub-header {
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: var(--space-8) 0 var(--space-4);
+  padding-bottom: 3px;
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.pdp-kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4) var(--space-10); margin-bottom: var(--space-4); }
 .pdp-kv-label { font-size: 10px; color: var(--color-text-secondary); }
 .pdp-kv-value { font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--color-text); }
 .pdp-kv-value--pos { color: var(--color-success); }
 .pdp-kv-value--neg { color: var(--color-error); }
+.pdp-kv-value--warn { color: var(--color-warning, #f59e0b); }
+.pdp-kv-value--muted { color: var(--color-text-secondary); }
 
 .pdp-range-price-label { font-size: 11px; font-weight: var(--font-weight-semibold); color: var(--color-text); margin-bottom: 2px; }
 .pdp-range-row { display: flex; align-items: center; gap: var(--space-6); margin-bottom: var(--space-8); }
@@ -2413,19 +2436,72 @@ select.form-control {
 .pdp-signal-detail { color: var(--color-text-secondary); font-size: 10px; }
 
 .pdp-analyst-bar { display: flex; height: 5px; border-radius: 3px; overflow: hidden; margin-top: var(--space-4); gap: 1px; }
+.pdp-analyst-bar--tall { height: 7px; margin-top: var(--space-6); border-radius: 4px; }
 .pdp-analyst-bar__sb { background: #16a34a; }
 .pdp-analyst-bar__b  { background: #86efac; }
 .pdp-analyst-bar__h  { background: #e2e8f0; }
 .pdp-analyst-bar__s  { background: #fca5a5; }
 .pdp-analyst-bar__ss { background: #dc2626; }
 
-.pdp-earnings-header { font-size: 10px; color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-4); }
-.pdp-earnings-grid { display: flex; gap: var(--space-6); margin-bottom: var(--space-8); }
-.pdp-earnings-cell { display: flex; flex-direction: column; align-items: center; flex: 1; }
-.pdp-earnings-period { font-size: 9px; color: var(--color-text-secondary); margin-bottom: 2px; }
-.pdp-earnings-beat { font-size: 10px; font-weight: var(--font-weight-bold); color: var(--color-success); }
-.pdp-earnings-miss { font-size: 10px; font-weight: var(--font-weight-bold); color: var(--color-error); }
-.pdp-earnings-neutral { font-size: 10px; color: var(--color-text-secondary); }
+/* Analyst sentiment block */
+.pdp-sentiment-block { margin-bottom: var(--space-8); }
+.pdp-sentiment-top { display: flex; justify-content: space-between; align-items: baseline; }
+.pdp-sentiment-label { font-size: var(--font-size-xs); font-weight: var(--font-weight-bold); }
+.pdp-sentiment--bull { color: var(--color-success, #16a34a); }
+.pdp-sentiment--neut { color: var(--color-text-secondary); }
+.pdp-sentiment--bear { color: var(--color-error, #dc2626); }
+.pdp-sentiment-meta { font-size: 10px; color: var(--color-text-secondary); }
+.pdp-sentiment-counts { font-size: 9px; color: var(--color-text-secondary); margin-top: var(--space-4); letter-spacing: 0.02em; }
+
+/* Insider activity */
+.pdp-insider-header { font-size: 10px; color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); text-transform: uppercase; letter-spacing: 0.04em; margin: var(--space-8) 0 var(--space-4); }
+.pdp-insider-summary { display: flex; align-items: baseline; gap: 0; font-size: var(--font-size-xs); margin-bottom: var(--space-6); }
+.pdp-insider-buy { color: var(--color-success, #16a34a); font-weight: var(--font-weight-semibold); }
+.pdp-insider-sell { color: var(--color-error, #dc2626); font-weight: var(--font-weight-semibold); }
+.pdp-insider-muted { color: var(--color-text-secondary); }
+.pdp-insider-sep { color: var(--color-text-secondary); }
+.pdp-insider-net-buy { color: var(--color-success, #16a34a); font-weight: var(--font-weight-semibold); }
+.pdp-insider-net-sell { color: var(--color-error, #dc2626); font-weight: var(--font-weight-semibold); }
+.pdp-insider-row { display: flex; align-items: center; gap: var(--space-6); font-size: var(--font-size-xs); margin-bottom: 4px; }
+.pdp-insider-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.pdp-insider-dot--buy { background: var(--color-success, #16a34a); }
+.pdp-insider-dot--sell { background: var(--color-error, #dc2626); }
+.pdp-insider-dot--mech { background: var(--color-text-secondary); }
+.pdp-insider-name { flex: 1; color: var(--color-text); font-weight: var(--font-weight-semibold); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdp-insider-type-buy { font-size: 10px; color: var(--color-success, #16a34a); white-space: nowrap; }
+.pdp-insider-type-sell { font-size: 10px; color: var(--color-error, #dc2626); white-space: nowrap; }
+.pdp-insider-type-mech { font-size: 10px; color: var(--color-text-secondary); white-space: nowrap; }
+.pdp-insider-shares { font-size: 10px; color: var(--color-text-secondary); white-space: nowrap; }
+.pdp-insider-val-buy { color: var(--color-success, #16a34a); font-weight: var(--font-weight-semibold); white-space: nowrap; }
+.pdp-insider-val-sell { color: var(--color-error, #dc2626); font-weight: var(--font-weight-semibold); white-space: nowrap; }
+.pdp-insider-val-mech { color: var(--color-text-secondary); white-space: nowrap; }
+.pdp-insider-derivative { font-size: 9px; color: var(--color-text-secondary); background: var(--color-border); border-radius: 3px; padding: 1px 4px; white-space: nowrap; }
+.pdp-insider-date { color: var(--color-text-secondary); font-size: 10px; white-space: nowrap; }
+.pdp-insider-empty { font-size: var(--font-size-xs); color: var(--color-text-secondary); }
+
+/* Earnings dot-plot block */
+.pdp-earn-block { margin-bottom: var(--space-8); }
+.pdp-earn-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--space-6); }
+.pdp-earn-title { font-size: 10px; font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.pdp-earn-summary { font-size: 10px; color: var(--color-text-secondary); }
+.pdp-earn-legend { display: flex; align-items: center; gap: var(--space-10); margin-top: var(--space-4); justify-content: center; }
+.pdp-earn-legend-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+.pdp-earn-legend-dot--actual { background: #16a34a; }
+.pdp-earn-legend-dot--estimate { background: var(--color-surface, #fff); border: 1.5px solid #94a3b8; }
+.pdp-earn-legend { font-size: 9px; color: var(--color-text-secondary); }
+
+/* News cards */
+.pdp-news-header { font-size: 10px; color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); text-transform: uppercase; letter-spacing: 0.04em; margin: var(--space-8) 0 var(--space-4); }
+.pdp-news-card { display: block; padding: var(--space-6) var(--space-4); margin-bottom: 2px; border-radius: var(--radius-sm); text-decoration: none; color: inherit; cursor: pointer; transition: background 0.15s; }
+.pdp-news-card:hover { background: var(--color-border); }
+.pdp-news-card--nolink { cursor: default; }
+.pdp-news-card--nolink:hover { background: transparent; }
+.pdp-news-meta { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+.pdp-news-source { font-size: 10px; font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); }
+.pdp-news-time { font-size: 10px; color: var(--color-text-secondary); }
+.pdp-news-headline { font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); color: var(--color-text); line-height: 1.35; margin-bottom: 2px; }
+.pdp-news-summary { font-size: 10px; color: var(--color-text-secondary); line-height: 1.4; }
+.pdp-news-empty { font-size: var(--font-size-xs); color: var(--color-text-secondary); padding: var(--space-4) 0; }
 
 
 .pdp-loading, .pdp-error {

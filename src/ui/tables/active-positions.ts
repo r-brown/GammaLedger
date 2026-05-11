@@ -249,7 +249,7 @@ function createActivePositionsGridOptions(
         fullWidthCellRenderer: createPositionDetailPanelRenderer(context),
         getRowHeight: params => {
             const row = params.node.data as TradeRecord & { _isDetailRow?: boolean };
-            return row?._isDetailRow ? 300 : 46;
+            return row?._isDetailRow ? 800 : 46;
         },
         onRowClicked: params => {
             const row = params.data as TradeRecord & { _isDetailRow?: boolean };

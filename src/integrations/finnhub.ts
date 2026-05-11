@@ -1584,6 +1584,7 @@ export async function fetchSignalsData(
                 datetime: Number(item.datetime) || 0,
                 url: typeof item.url === 'string' ? item.url : '',
                 source: typeof item.source === 'string' ? item.source : '',
+                summary: typeof item.summary === 'string' ? item.summary : '',
             }));
     }
 
@@ -1598,6 +1599,8 @@ export async function fetchSignalsData(
                 .slice(0, 5)
                 .map(item => ({
                     transactionType: typeof item.transactionType === 'string' ? item.transactionType : '',
+                    transactionCode: typeof item.transactionCode === 'string' ? item.transactionCode : null,
+                    isDerivative: item.isDerivative === true,
                     name: typeof item.name === 'string' ? item.name : '',
                     share: safeNum(item.share),
                     value: safeNum(item.value),

@@ -184,12 +184,23 @@ export interface NewsItem {
   datetime: number
   url: string
   source: string
+  /** Article summary / lead paragraph from Finnhub. May be empty. */
+  summary: string
 }
 
 export interface InsiderTransaction {
   /** 'Buy' | 'Sell' */
   transactionType: string
+  /**
+   * SEC transaction code: P=Open Market Purchase, S=Open Market Sale,
+   * A=Award/Grant, M=Exercise/Conversion, F=Tax Withholding (share surrender),
+   * D=Other Disposition, C=Conversion, W=Gift/Will, I=Discretionary
+   */
+  transactionCode: string | null
+  /** True when the transaction involves a derivative (option/warrant) rather than shares. */
+  isDerivative: boolean
   name: string
+  /** Number of shares transacted. */
   share: number | null
   /** Dollar value of transaction */
   value: number | null

@@ -1705,7 +1705,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Global error handlers for improved stability
 window.addEventListener('error', (event) => {
-    console.error('Global error caught:', event.error);
+    // event.error is null for resource-load failures (img/script 404s, CORS blocks)
+    // — those are non-fatal; suppress them to avoid console noise.
+    if (event.error !== null && event.error !== undefined) {
+        console.error('Global error caught:', event.error);
+    }
     // Prevent the error from breaking the app completely
     event.preventDefault();
 });
