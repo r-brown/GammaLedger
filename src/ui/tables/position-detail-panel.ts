@@ -228,7 +228,7 @@ function renderFundamentalsColumn(
   container: HTMLElement,
   metrics: StockMetrics,
   livePrice: number | null,
-  activeStrike?: number | null
+  activeStrike: number | null = null
 ): void {
   container.textContent = ''
 
@@ -236,19 +236,41 @@ function renderFundamentalsColumn(
   header.appendChild(txt('Fundamentals'))
   container.appendChild(header)
 
+  // ── 52W Range bar ──────────────────────────────────────────
   const price = livePrice ?? metrics.currentPrice
-  if (metrics.week52High !== null && metrics.week52Low !== null && price !== null) {
+  if (metrics.week52High !== null && metrics.week52Low !== null) {
     const rng = metrics.week52High - metrics.week52Low
-    const pct = rng > 0
-      ? Math.min(100, Math.max(0, ((price - metrics.week52Low) / rng) * 100))
-      : 50
+
+    if (price !== null) {
+      const priceLabel = el('div', 'pdp-range-price-label')
+      priceLabel.appendChild(txt(`$${price.toFixed(2)}`))
+      container.appendChild(priceLabel)
+    }
+
     const rangeRow = el('div', 'pdp-range-row')
     const lowLabel = el('span', 'pdp-range-label')
     lowLabel.appendChild(txt(`$${metrics.week52Low.toFixed(0)}`))
+
     const track = el('div', 'pdp-range-track')
-    const dot = el('div', 'pdp-range-dot')
-    dot.style.left = `${pct}%`
-    track.appendChild(dot)
+
+    if (price !== null && rng > 0) {
+      const pct = Math.min(100, Math.max(0, ((price - metrics.week52Low) / rng) * 100))
+      const dot = el('div', 'pdp-range-dot')
+      dot.style.left = `${pct}%`
+      track.appendChild(dot)
+    }
+
+    if (activeStrike !== null && rng > 0) {
+      const strikePct = ((activeStrike - metrics.week52Low) / rng) * 100
+      if (strikePct >= -5 && strikePct <= 105) {
+        const clampedPct = Math.min(100, Math.max(0, strikePct))
+        const strikeMarker = el('div', 'pdp-range-strike')
+        strikeMarker.style.left = `${clampedPct}%`
+        strikeMarker.title = `Strike: $${activeStrike.toFixed(2)}`
+        track.appendChild(strikeMarker)
+      }
+    }
+
     const highLabel = el('span', 'pdp-range-label')
     highLabel.appendChild(txt(`$${metrics.week52High.toFixed(0)}`))
     rangeRow.appendChild(lowLabel)
@@ -257,28 +279,78 @@ function renderFundamentalsColumn(
     container.appendChild(rangeRow)
   }
 
+  // ── KV Grid ────────────────────────────────────────────────
   const grid = el('div', 'pdp-kv-grid')
-  const kvRows: [string, string, boolean, boolean][] = [
-    ['Beta', metrics.beta !== null ? metrics.beta.toFixed(2) : '—', false, false],
-    ['Mkt Cap', fmtCap(metrics.marketCap), false, false],
-    ['P/E TTM', metrics.peTTM !== null ? `${metrics.peTTM.toFixed(0)}×` : '—', false, false],
-    ['Fwd P/E', metrics.forwardPE !== null ? `${metrics.forwardPE.toFixed(0)}×` : '—', false, false],
-    ['Net Margin', fmtPct(metrics.netMarginTTM), (metrics.netMarginTTM ?? 0) > 0, (metrics.netMarginTTM ?? 0) < 0],
-    ['Op Margin', fmtPct(metrics.operatingMarginTTM), (metrics.operatingMarginTTM ?? 0) > 0, (metrics.operatingMarginTTM ?? 0) < 0],
-    ['Rev Growth', fmtPct(metrics.revenueGrowthYoY, true), (metrics.revenueGrowthYoY ?? 0) > 0, (metrics.revenueGrowthYoY ?? 0) < 0],
-    ['EPS Growth', fmtPct(metrics.epsGrowthYoY, true), (metrics.epsGrowthYoY ?? 0) > 0, (metrics.epsGrowthYoY ?? 0) < 0],
-  ]
-  for (const [label, value, pos, neg] of kvRows) {
-    grid.appendChild(makeKV(label, value, pos, neg))
-  }
+
+  grid.appendChild(makeKV('Beta', metrics.beta !== null ? metrics.beta.toFixed(2) : '—'))
+  const hv30 = metrics.vol3MonthStd
+  grid.appendChild(makeKV('HV30', hv30 !== null ? `${hv30.toFixed(0)}%` : '—'))
+
+  grid.appendChild(makeKV('Mkt Cap', fmtCap(metrics.marketCap)))
+  grid.appendChild(makeKV('ROE', fmtPct(metrics.roeTTM), (metrics.roeTTM ?? 0) > 0, false))
+
+  grid.appendChild(makeKV('P/E TTM', metrics.peTTM !== null ? `${metrics.peTTM.toFixed(0)}×` : '—'))
+  grid.appendChild(makeKV('Fwd P/E', metrics.forwardPE !== null ? `${metrics.forwardPE.toFixed(0)}×` : '—'))
+
+  grid.appendChild(makeKV('Net Margin', fmtPct(metrics.netMarginTTM), (metrics.netMarginTTM ?? 0) > 0, (metrics.netMarginTTM ?? 0) < 0))
+  grid.appendChild(makeKV('Op Margin', fmtPct(metrics.operatingMarginTTM), (metrics.operatingMarginTTM ?? 0) > 0, (metrics.operatingMarginTTM ?? 0) < 0))
+
+  grid.appendChild(makeKV('Rev Growth', fmtPct(metrics.revenueGrowthYoY, true), (metrics.revenueGrowthYoY ?? 0) > 0, (metrics.revenueGrowthYoY ?? 0) < 0))
+  grid.appendChild(makeKV('EPS Growth', fmtPct(metrics.epsGrowthYoY, true), (metrics.epsGrowthYoY ?? 0) > 0, (metrics.epsGrowthYoY ?? 0) < 0))
+
   container.appendChild(grid)
 
+  // ── Volume trend ───────────────────────────────────────────
+  if (metrics.vol10DayAvg !== null && metrics.vol3MonthAvg !== null && metrics.vol3MonthAvg > 0) {
+    const ratio = metrics.vol10DayAvg / metrics.vol3MonthAvg
+    const volRow = el('div', 'pdp-meta-row')
+    const volLabel = el('span', 'pdp-meta-label')
+    volLabel.appendChild(txt('Vol 10D'))
+    const volVal = el('span', `pdp-meta-value${ratio > 1.3 ? ' pdp-meta-value--warn' : ratio < 0.7 ? ' pdp-meta-value--muted' : ''}`)
+    volVal.appendChild(txt(`${ratio.toFixed(2)}× avg`))
+    volRow.appendChild(volLabel)
+    volRow.appendChild(volVal)
+    container.appendChild(volRow)
+  }
+
+  // ── vs S&P 500 (13W) ──────────────────────────────────────
+  if (metrics.priceRelToSP500_13W !== null) {
+    const spRow = el('div', 'pdp-meta-row')
+    const spLabel = el('span', 'pdp-meta-label')
+    spLabel.appendChild(txt('vs SPX 13W'))
+    const v = metrics.priceRelToSP500_13W
+    const spVal = el('span', `pdp-meta-value${v > 0 ? ' pdp-meta-value--pos' : ' pdp-meta-value--neg'}`)
+    spVal.appendChild(txt(fmtPct(v, true)))
+    spRow.appendChild(spLabel)
+    spRow.appendChild(spVal)
+    container.appendChild(spRow)
+  }
+
+  // ── Sparklines ─────────────────────────────────────────────
   if (metrics.epsAnnual.length >= 2) {
     const spRow = el('div', 'pdp-sparkline-row')
     const spLabel = el('div', 'pdp-sparkline-label')
     spLabel.appendChild(txt('EPS (annual)'))
     spRow.appendChild(spLabel)
     spRow.appendChild(buildSparklineSVG(metrics.epsAnnual.map(p => p.v)))
+    container.appendChild(spRow)
+  }
+
+  if (metrics.grossMarginSeries.length >= 2) {
+    const spRow = el('div', 'pdp-sparkline-row')
+    const spLabel = el('div', 'pdp-sparkline-label')
+    spLabel.appendChild(txt('Gross Margin (annual)'))
+    spRow.appendChild(spLabel)
+    spRow.appendChild(buildSparklineSVG(metrics.grossMarginSeries.map(p => p.v)))
+    container.appendChild(spRow)
+  }
+
+  if (metrics.fcfPerShareSeries.length >= 2) {
+    const spRow = el('div', 'pdp-sparkline-row')
+    const spLabel = el('div', 'pdp-sparkline-label')
+    spLabel.appendChild(txt('FCF/Share (annual)'))
+    spRow.appendChild(spLabel)
+    spRow.appendChild(buildSparklineSVG(metrics.fcfPerShareSeries.map(p => p.v)))
     container.appendChild(spRow)
   }
 }
