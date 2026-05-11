@@ -109,55 +109,63 @@ export interface EarningsEvent {
 /** Parsed subset of GET /stock/metric?metric=all relevant to options traders */
 export interface StockMetrics {
   // ── Price context ──────────────────────────────────────────
-  /** Current price from the Finnhub quote cache at fetch time. */
   currentPrice: number | null
   beta: number | null
-  /** Market cap in millions of USD. */
   marketCap: number | null
-  /** 3-month annualised daily return std-dev (realized vol baseline). */
   vol3MonthStd: number | null
-  /** 5-day price return, in percent. */
   return5Day: number | null
-  /** 52-week price return, in percent. */
+  /** 13-week price return, in percent. */
+  return13Week: number | null
   return52Week: number | null
   week52High: number | null
   week52Low: number | null
-  /** ISO date string "YYYY-MM-DD" of the 52-week high. */
   week52HighDate: string | null
-  /** ISO date string "YYYY-MM-DD" of the 52-week low. */
   week52LowDate: string | null
+  /** 10-day average daily trading volume (thousands of shares). */
+  vol10DayAvg: number | null
+  /** 3-month average daily trading volume (thousands of shares). */
+  vol3MonthAvg: number | null
+  /** Price return relative to S&P 500 over 13 weeks, in percent. */
+  priceRelToSP500_13W: number | null
 
   // ── Valuation ─────────────────────────────────────────────
-  /** Trailing twelve-month P/E ratio. */
   peTTM: number | null
-  /** Forward P/E ratio. */
   forwardPE: number | null
-  /** Trailing twelve-month Price-to-FCF per share. */
+  /** Forward PEG ratio (forward PE / expected EPS growth). Near 1.0 = fair value. */
+  forwardPEG: number | null
   pfcfTTM: number | null
-  /** Enterprise Value / Free Cash Flow (TTM). */
   evFCF: number | null
+  /** EV / EBITDA (TTM). */
+  evEbitda: number | null
 
   // ── Quality (margins, all in percent) ─────────────────────
   grossMarginTTM: number | null
   operatingMarginTTM: number | null
   netMarginTTM: number | null
-  /** Most recent annual FCF margin, in percent. */
   fcfMarginLatest: number | null
+  /** Return on equity, TTM, in percent. */
+  roeTTM: number | null
 
   // ── Growth (in percent) ───────────────────────────────────
-  /** Revenue growth year-over-year (TTM), in percent. */
   revenueGrowthYoY: number | null
-  /** EPS growth year-over-year (TTM), in percent. */
   epsGrowthYoY: number | null
 
   // ── Balance sheet ─────────────────────────────────────────
   currentRatio: number | null
-  /** Net debt / total equity (latest annual). */
   netDebtToEquity: number | null
+  /** Total debt / total equity (annual). */
+  debtToEquity: number | null
+  /** Net interest coverage ratio (annual). */
+  interestCoverage: number | null
 
-  // ── Sparkline ─────────────────────────────────────────────
-  /** Annual EPS series for sparkline rendering. Array of {period, v} sorted oldest→newest. */
+  // ── Sparkline series (sorted oldest → newest) ─────────────
   epsAnnual: { period: string; v: number }[]
+  /** Annual P/E series for historical percentile computation. */
+  peAnnualSeries: { period: string; v: number }[]
+  /** Annual gross margin series for sparkline. */
+  grossMarginSeries: { period: string; v: number }[]
+  /** Annual FCF-per-share series for sparkline. */
+  fcfPerShareSeries: { period: string; v: number }[]
 }
 
 export interface RecommendationTrend {
