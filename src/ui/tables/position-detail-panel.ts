@@ -431,6 +431,7 @@ function triggerDataFetch(
   if (cachedCandle && cachedCandle !== 'loading' && cachedCandle !== 'error') {
     if (chartArea) {
       requestAnimationFrame(() => {
+        if (!chartArea.isConnected) return
         const c = renderChartColumn(chartArea, ticker, cachedCandle, livePrice)
         setChart(c)
       })

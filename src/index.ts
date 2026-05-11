@@ -143,6 +143,7 @@ class GammaLedger {
     declare earningsMap: Map<string, string>
     declare metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
     declare expandedTradeId: string | null
+    declare activePositionsTrades: Record<string, unknown>[]
     declare candleCache: Map<string, import('./types/integrations.js').CandleData | 'loading' | 'error'>
     declare signalsCache: Map<string, import('./types/integrations.js').SignalsData | 'loading' | 'error'>
     declare positionHighlightConfig: { expirationWarningDays: number; expirationCriticalDays: number }
@@ -191,6 +192,7 @@ class GammaLedger {
         this.earningsMap = new Map();
         this.metricsCache = new Map();
         this.expandedTradeId = null;
+        this.activePositionsTrades = [];
         this.candleCache = new Map();
         this.signalsCache = new Map();
         this.cumulativePLRange = 'ALL';
