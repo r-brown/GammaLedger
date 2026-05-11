@@ -6,7 +6,7 @@ import type {
 import type { EnrichedTrade } from './trade'
 import type { Stats } from './stats'
 import type { FilterState, QuoteEntry, PositionHighlightConfig, CreditPlaybookEntry } from './ui'
-import type { FinnhubState, GeminiState, StockMetrics, SignalsData, CompanyProfile, EarningsSurprise } from './integrations'
+import type { FinnhubState, GeminiState, StockMetrics, SignalsData, CompanyProfile, EarningsSurprise, EarningsCalendarEntry } from './integrations'
 import type { Message } from './ai'
 import type { ImportLogEntry, ImportSummary } from './imports'
 
@@ -114,8 +114,8 @@ export interface AppState {
   gemini: GeminiState
 
   // ---- Finnhub enrichment caches ----
-  /** ticker → earliest upcoming earnings ISO date within any open position's expiration window. Populated once on init(). */
-  earningsMap: Map<string, string>
+  /** ticker → earliest upcoming earnings entry within any open position's expiration window. Populated once on init(). */
+  earningsMap: Map<string, EarningsCalendarEntry>
   /** ticker → StockMetrics | 'loading' | 'error'. Populated lazily on first ticker hover. */
   metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
   /** ID of the currently expanded trade row. null = all collapsed. */

@@ -1312,9 +1312,16 @@ export async function fetchEarningsCalendar(
             const date = typeof e.date === 'string' ? e.date : null;
             if (!symbol || !date || !tickerSet.has(symbol)) continue;
             // Keep earliest upcoming date per ticker
-            const existing = (this.earningsMap as Map<string, string>).get(symbol);
-            if (!existing || date < existing) {
-                (this.earningsMap as Map<string, string>).set(symbol, date);
+            const existing = (this.earningsMap as Map<string, import('../types/integrations.js').EarningsCalendarEntry>).get(symbol);
+            if (!existing || date < existing.date) {
+                const safeN = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+                (this.earningsMap as Map<string, import('../types/integrations.js').EarningsCalendarEntry>).set(symbol, {
+                    date,
+                    hour: typeof e.hour === 'string' ? e.hour : '',
+                    quarter: safeN(e.quarter),
+                    year: safeN(e.year),
+                    epsEstimate: safeN(e.epsEstimate),
+                });
             }
         }
     } catch (error) {
@@ -1423,13 +1430,13 @@ export async function fetchStockMetrics(
 export function getEarningsDateForTrade(
     this: any,
     trade: Record<string, unknown>
-): string | null {
+): import('../types/integrations.js').EarningsCalendarEntry | null {
     const ticker = typeof trade.ticker === 'string' ? trade.ticker.toUpperCase() : null;
     const expiration = typeof trade.expirationDate === 'string' ? trade.expirationDate : null;
     if (!ticker || !expiration) return null;
-    const earningsDate = (this.earningsMap as Map<string, string>).get(ticker);
-    if (!earningsDate) return null;
-    return earningsDate <= expiration ? earningsDate : null;
+    const entry = (this.earningsMap as Map<string, import('../types/integrations.js').EarningsCalendarEntry>).get(ticker);
+    if (!entry) return null;
+    return entry.date <= expiration ? entry : null;
 }
 
 // ---------------------------------------------------------------------------

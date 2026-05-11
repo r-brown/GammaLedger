@@ -227,6 +227,24 @@ export interface CompanyProfile {
   exchange: string
 }
 
+/** An upcoming earnings event from Finnhub's earnings calendar. */
+export interface EarningsCalendarEntry {
+  /** ISO date of earnings announcement, e.g. "2026-05-14". */
+  date: string
+  /**
+   * Timing of the announcement:
+   * "bmo" = before market open, "amc" = after market close,
+   * "dmh" = during market hours, "" = unspecified.
+   */
+  hour: string
+  /** Fiscal quarter (1–4). */
+  quarter: number | null
+  /** Fiscal year. */
+  year: number | null
+  /** Consensus EPS estimate for this quarter. */
+  epsEstimate: number | null
+}
+
 export interface EarningsSurprise {
   /** ISO date of earnings period end, e.g. "2023-03-31". */
   period: string

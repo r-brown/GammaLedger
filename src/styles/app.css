@@ -2314,17 +2314,140 @@ select.form-control {
 .earnings-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
-  margin-left: var(--space-8);
+  gap: 3px;
+  margin-left: var(--space-6);
   background: #fef3c7;
   border: 1px solid #f59e0b;
   color: #92400e;
-  font-size: 10px;
-  font-weight: var(--font-weight-semibold);
-  padding: 1px 5px;
-  border-radius: 10px;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  padding: 2px 5px;
+  border-radius: 4px;
   cursor: default;
   white-space: nowrap;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.earnings-badge svg {
+  flex-shrink: 0;
+}
+
+/* ── Earnings popup ─────────────────────────────────────────────────── */
+.earnings-popup {
+  position: fixed;
+  z-index: 9000;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 3px 10px rgba(0, 0, 0, 0.08);
+  padding: var(--space-14) var(--space-16);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 120ms var(--ease-standard), transform 120ms var(--ease-standard);
+  visibility: hidden;
+}
+
+.earnings-popup.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+/* Header: title + ticker pill */
+.earnings-popup__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-bottom: var(--space-10);
+  padding-bottom: var(--space-10);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.earnings-popup__title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.earnings-popup__ticker {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  background: var(--color-primary-subtle, rgba(99,102,241,0.08));
+  border-radius: 4px;
+  padding: 1px 6px;
+  letter-spacing: 0.04em;
+}
+
+/* Prominent date block */
+.earnings-popup__date-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-8) var(--space-10);
+  margin-bottom: var(--space-10);
+}
+
+.earnings-popup__date-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.earnings-popup__date-sub {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.3;
+}
+
+/* Details rows */
+.earnings-popup__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.earnings-popup__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  padding: 2px 0;
+}
+
+.earnings-popup__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.earnings-popup__value {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  text-align: right;
+}
+
+.earnings-popup__value--pos { color: var(--color-profit); }
+.earnings-popup__value--neg { color: var(--color-loss); }
+
+.earnings-popup__divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-8) 0;
 }
 
 /* ── Position detail panel (row-expand) ──────────────────────────── */

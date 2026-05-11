@@ -140,7 +140,7 @@ class GammaLedger {
     declare autoRefreshIntervalMs: number
     declare quoteRefreshKeys: string[]
     declare quoteRefreshCursor: number
-    declare earningsMap: Map<string, string>
+    declare earningsMap: Map<string, import('./types/integrations.js').EarningsCalendarEntry>
     declare metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
     declare expandedTradeId: string | null
     declare activePositionsTrades: Record<string, unknown>[]
@@ -485,7 +485,11 @@ class GammaLedger {
                     .sort()
                     .slice(-1)[0];
                 if (tickers.length && maxExpiration) {
-                    void this.fetchEarningsCalendar(tickers, maxExpiration);
+                    this.fetchEarningsCalendar(tickers, maxExpiration).then(() => {
+                        // Refresh the active positions table after earnings data is available
+                        // so that earnings badges appear on the DTE cells.
+                        this.updateActivePositionsTable();
+                    }).catch(() => { /* ignore fetch errors — table already rendered without badges */ });
                 }
             }
             this.initializeDefaultFeeControls();
@@ -1117,7 +1121,7 @@ class GammaLedger {
     calculateTickerPerformance(trades = []) { return statsModule.calculateTickerPerformance.call(this, trades); }
 
 
-    updateActivePositionsTable(openTrades) { return activePositionsModule.updateActivePositionsTable.call(this, openTrades); }
+    updateActivePositionsTable(openTrades?: any[]) { return activePositionsModule.updateActivePositionsTable.call(this, openTrades as any); }
 
     updateRecentTradesTable(closedTrades, activeCount) { return recentTradesModule.updateRecentTradesTable.call(this, closedTrades, activeCount); }
 

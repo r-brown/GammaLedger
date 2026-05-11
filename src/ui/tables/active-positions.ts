@@ -13,6 +13,7 @@ import {
   createPositionDetailPanelRenderer,
   type PositionDetailPanelContext
 } from './position-detail-panel.js'
+import type { EarningsCalendarEntry } from '../../types/integrations.js'
 
 type TradeRecord = Record<string, unknown>
 
@@ -41,8 +42,9 @@ interface ActivePositionsContext extends PositionDetailPanelContext {
   rebuildQuoteRefreshSchedule(): void
   startQuoteAutoRefreshIfNeeded(): void
   refreshActivePositionsQuotes(opts: { force: boolean; immediate: boolean }): void
-  earningsMap: Map<string, string>
-  getEarningsDateForTrade(trade: TradeRecord): string | null
+  earningsMap: Map<string, EarningsCalendarEntry>
+  getEarningsDateForTrade(trade: TradeRecord): EarningsCalendarEntry | null
+  formatDate(d: string): string
 }
 
 function activeRowKey(trade: TradeRecord): string {
@@ -66,6 +68,171 @@ function resolveActiveStrike(this: ActivePositionsContext, trade: TradeRecord): 
     }
 
     return Number.isFinite(resolvedStrike) ? resolvedStrike : null;
+}
+
+function buildEarningsBadge(
+    this: ActivePositionsContext,
+    entry: EarningsCalendarEntry,
+    ticker?: string
+): HTMLElement {
+    const badge = document.createElement('span');
+    badge.className = 'earnings-badge';
+
+    // Small calendar icon
+    const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    iconSvg.setAttribute('width', '9');
+    iconSvg.setAttribute('height', '9');
+    iconSvg.setAttribute('viewBox', '0 0 24 24');
+    iconSvg.setAttribute('fill', 'none');
+    iconSvg.setAttribute('stroke', 'currentColor');
+    iconSvg.setAttribute('stroke-width', '2.5');
+    iconSvg.setAttribute('stroke-linecap', 'round');
+    iconSvg.setAttribute('stroke-linejoin', 'round');
+    iconSvg.setAttribute('aria-hidden', 'true');
+    const rectEl = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rectEl.setAttribute('x', '3'); rectEl.setAttribute('y', '4');
+    rectEl.setAttribute('width', '18'); rectEl.setAttribute('height', '18');
+    rectEl.setAttribute('rx', '2');
+    const l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l1.setAttribute('x1', '16'); l1.setAttribute('y1', '2'); l1.setAttribute('x2', '16'); l1.setAttribute('y2', '6');
+    const l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l2.setAttribute('x1', '8'); l2.setAttribute('y1', '2'); l2.setAttribute('x2', '8'); l2.setAttribute('y2', '6');
+    const l3 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l3.setAttribute('x1', '3'); l3.setAttribute('y1', '10'); l3.setAttribute('x2', '21'); l3.setAttribute('y2', '10');
+    iconSvg.appendChild(rectEl); iconSvg.appendChild(l1); iconSvg.appendChild(l2); iconSvg.appendChild(l3);
+
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = 'Earnings';
+
+    badge.appendChild(iconSvg);
+    badge.appendChild(labelSpan);
+
+    // ── popup ──────────────────────────────────────────────────────────────
+    const popup = document.createElement('div');
+    popup.className = 'earnings-popup';
+    popup.setAttribute('role', 'tooltip');
+
+    // Header row: title + optional ticker
+    const header = document.createElement('div');
+    header.className = 'earnings-popup__header';
+    const title = document.createElement('span');
+    title.className = 'earnings-popup__title';
+    title.textContent = 'Upcoming Earnings';
+    header.appendChild(title);
+    if (ticker) {
+        const tickerPill = document.createElement('span');
+        tickerPill.className = 'earnings-popup__ticker';
+        tickerPill.textContent = ticker;
+        header.appendChild(tickerPill);
+    }
+    popup.appendChild(header);
+
+    // Date block — prominent
+    const dateBlock = document.createElement('div');
+    dateBlock.className = 'earnings-popup__date-block';
+    const dateVal = document.createElement('span');
+    dateVal.className = 'earnings-popup__date-value';
+    dateVal.textContent = this.formatDate(entry.date);
+    dateBlock.appendChild(dateVal);
+
+    if (entry.hour) {
+        const hourLabels: Record<string, string> = {
+            bmo: '🌅 Before market open',
+            amc: '🌆 After market close',
+            dmh: '📈 During market hours',
+        };
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'earnings-popup__date-sub';
+        timeSpan.textContent = hourLabels[entry.hour] ?? entry.hour;
+        dateBlock.appendChild(timeSpan);
+    }
+    popup.appendChild(dateBlock);
+
+    // Details grid: period + EPS
+    const hasDetails = (entry.quarter !== null && entry.year !== null) || entry.epsEstimate !== null;
+    if (hasDetails) {
+        const divider = document.createElement('div');
+        divider.className = 'earnings-popup__divider';
+        popup.appendChild(divider);
+
+        const details = document.createElement('div');
+        details.className = 'earnings-popup__details';
+
+        if (entry.quarter !== null && entry.year !== null) {
+            const periodRow = document.createElement('div');
+            periodRow.className = 'earnings-popup__row';
+            const periodLabel = document.createElement('span');
+            periodLabel.className = 'earnings-popup__label';
+            periodLabel.textContent = 'Period';
+            const periodVal = document.createElement('span');
+            periodVal.className = 'earnings-popup__value';
+            periodVal.textContent = `Q${entry.quarter} ${entry.year}`;
+            periodRow.appendChild(periodLabel);
+            periodRow.appendChild(periodVal);
+            details.appendChild(periodRow);
+        }
+
+        if (entry.epsEstimate !== null) {
+            const epsRow = document.createElement('div');
+            epsRow.className = 'earnings-popup__row';
+            const epsLabel = document.createElement('span');
+            epsLabel.className = 'earnings-popup__label';
+            epsLabel.textContent = 'EPS Est.';
+            const epsVal = document.createElement('span');
+            epsVal.className = `earnings-popup__value ${entry.epsEstimate >= 0 ? 'earnings-popup__value--pos' : 'earnings-popup__value--neg'}`;
+            epsVal.textContent = (entry.epsEstimate >= 0 ? '+' : '') + entry.epsEstimate.toFixed(2);
+            epsRow.appendChild(epsLabel);
+            epsRow.appendChild(epsVal);
+            details.appendChild(epsRow);
+        }
+
+        popup.appendChild(details);
+    }
+
+    document.body.appendChild(popup);
+
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const show = () => {
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        // Measure off-screen first so max-content width is resolved before positioning
+        popup.style.visibility = 'hidden';
+        popup.style.opacity = '0';
+        popup.style.top = '-9999px';
+        popup.style.left = '-9999px';
+        popup.style.display = 'flex';
+        // Force layout to get accurate dimensions
+        const pw = popup.offsetWidth || 280;
+        const ph = popup.offsetHeight || 160;
+        // Restore normal positioning
+        popup.style.removeProperty('display');
+        popup.style.removeProperty('top');
+        popup.style.removeProperty('left');
+        popup.style.removeProperty('visibility');
+        popup.style.removeProperty('opacity');
+
+        const r = badge.getBoundingClientRect();
+        let top = r.top - ph - 8;
+        let left = r.left;
+        if (top < 8) top = r.bottom + 8;
+        // Clamp horizontally — prefer aligning to badge's left, shift left if it overflows right edge
+        if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+        if (left < 8) left = 8;
+        popup.style.top = `${top}px`;
+        popup.style.left = `${left}px`;
+        popup.classList.add('is-visible');
+    };
+
+    const hide = () => {
+        hideTimer = setTimeout(() => popup.classList.remove('is-visible'), 100);
+    };
+
+    badge.addEventListener('mouseenter', show);
+    badge.addEventListener('mouseleave', hide);
+    popup.addEventListener('mouseenter', () => { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } });
+    popup.addEventListener('mouseleave', hide);
+
+    return badge;
 }
 
 function createQuoteRenderer(
@@ -174,13 +341,10 @@ function buildActivePositionsColumnDefs(
                     if (params.eGridCell) {
                         this.updateExpirationHighlight(params.eGridCell, trade);
                     }
-                    const earningsDate = this.getEarningsDateForTrade(trade);
-                    if (earningsDate) {
-                        const badge = document.createElement('span');
-                        badge.className = 'earnings-badge';
-                        badge.textContent = '📅 Earnings';
-                        badge.title = `Earnings: ${this.formatDate(earningsDate)}`;
-                        cell.appendChild(badge);
+                    const entry = this.getEarningsDateForTrade(trade);
+                    if (entry) {
+                        const tickerStr = typeof trade.ticker === 'string' ? trade.ticker : undefined;
+                        cell.appendChild(buildEarningsBadge.call(this, entry, tickerStr));
                     }
                 }
                 return cell;
