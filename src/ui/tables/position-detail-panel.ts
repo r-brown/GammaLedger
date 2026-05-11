@@ -7,10 +7,16 @@ import type { StockMetrics, SignalsData, CompanyProfile, EarningsSurprise } from
 export interface PositionDetailPanelContext {
   metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
   signalsCache: Map<string, SignalsData | 'loading' | 'error'>
+  profileCache: Map<string, CompanyProfile | 'loading' | 'error'>
+  earningsCache: Map<string, EarningsSurprise[] | 'loading' | 'error'>
   metricsPromiseMap: Map<string, Promise<StockMetrics | null>>
   signalsPromiseMap: Map<string, Promise<SignalsData | null>>
+  profilePromiseMap: Map<string, Promise<CompanyProfile | null>>
+  earningsPromiseMap: Map<string, Promise<EarningsSurprise[] | null>>
   fetchSignalsData(ticker: string): Promise<SignalsData | null>
   fetchStockMetrics(ticker: string): Promise<StockMetrics | null>
+  fetchCompanyProfile(ticker: string): Promise<CompanyProfile | null>
+  fetchEarningsSurprise(ticker: string): Promise<EarningsSurprise[] | null>
   finnhub: { apiKey: string | null; cache: Map<string, { c?: number }> }
   formatCurrency(v: unknown): string
   formatDate(v: unknown): string
@@ -221,7 +227,8 @@ function buildPanelSkeleton(ticker: string): HTMLElement {
 function renderFundamentalsColumn(
   container: HTMLElement,
   metrics: StockMetrics,
-  livePrice: number | null
+  livePrice: number | null,
+  activeStrike?: number | null
 ): void {
   container.textContent = ''
 
@@ -377,7 +384,8 @@ function renderSignalsColumn(
 function triggerDataFetch(
   context: PositionDetailPanelContext,
   ticker: string,
-  panelEl: HTMLElement
+  panelEl: HTMLElement,
+  activeStrike: number | null
 ): void {
   const fundCard = panelEl.querySelector('[data-role="fundamentals"]') as HTMLElement | null
   const sigCard = panelEl.querySelector('[data-role="signals"]') as HTMLElement | null
@@ -387,10 +395,10 @@ function triggerDataFetch(
   // Fundamentals
   const cachedMetrics = context.metricsCache.get(ticker)
   if (cachedMetrics && cachedMetrics !== 'loading' && cachedMetrics !== 'error') {
-    if (fundCard) renderFundamentalsColumn(fundCard, cachedMetrics, livePrice)
+    if (fundCard) renderFundamentalsColumn(fundCard, cachedMetrics, livePrice, activeStrike)
   } else if (cachedMetrics === 'loading') {
     context.metricsPromiseMap.get(ticker)?.then(data => {
-      if (fundCard?.isConnected && data) renderFundamentalsColumn(fundCard, data, livePrice)
+      if (fundCard?.isConnected && data) renderFundamentalsColumn(fundCard, data, livePrice, activeStrike)
     })
   } else {
     context.metricsCache.set(ticker, 'loading')
@@ -400,7 +408,7 @@ function triggerDataFetch(
       context.metricsPromiseMap.delete(ticker)
       if (data) {
         context.metricsCache.set(ticker, data)
-        if (fundCard?.isConnected) renderFundamentalsColumn(fundCard, data, livePrice)
+        if (fundCard?.isConnected) renderFundamentalsColumn(fundCard, data, livePrice, activeStrike)
       } else {
         context.metricsCache.set(ticker, 'error')
         if (fundCard?.isConnected) {
@@ -457,7 +465,10 @@ export function createPositionDetailPanelRenderer(
       const trade = params.node.data._parentTrade as Record<string, unknown>
       const ticker = String(trade.ticker ?? '').toUpperCase()
       this.container = buildPanelSkeleton(ticker)
-      triggerDataFetch(context, ticker, this.container)
+      const activeStrike = typeof trade.activeStrikePrice === 'number'
+        ? trade.activeStrikePrice
+        : (typeof trade.strikePrice === 'number' ? trade.strikePrice : null)
+      triggerDataFetch(context, ticker, this.container, activeStrike)
     }
 
     getGui(): HTMLElement {
