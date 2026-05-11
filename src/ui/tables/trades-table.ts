@@ -9,12 +9,18 @@ import {
   type ICellRendererParams,
   type SortChangedEvent
 } from './ag-grid.js'
+import {
+  buildRowsWithDetail,
+  createPositionDetailPanelRenderer,
+  type PositionDetailPanelContext
+} from './position-detail-panel.js'
 
 type TradeRecord = Record<string, unknown>
 
-interface TradesTableContext {
+interface TradesTableContext extends PositionDetailPanelContext {
   trades: TradeRecord[]
   currentFilteredTrades: TradeRecord[]
+  expandedTradeId: string | null
   currentSort: { key: string | null; direction: string } | null
   sortDirection: Record<string, string>
   tradesGridApi?: GridApi<TradeRecord> | null
@@ -518,8 +524,9 @@ function syncSortFromGrid(this: TradesTableContext, event: SortChangedEvent<Trad
 }
 
 function createTradesGridOptions(this: TradesTableContext, trades: TradeRecord[]): GridOptions<TradeRecord> {
+    const context = this;
     return {
-        rowData: trades,
+        rowData: buildRowsWithDetail(trades, this.expandedTradeId),
         columnDefs: buildTradeColumnDefs.call(this),
         defaultColDef: {
             sortable: true,
@@ -528,9 +535,25 @@ function createTradesGridOptions(this: TradesTableContext, trades: TradeRecord[]
             minWidth: 90,
             suppressHeaderMenuButton: false
         },
-        getRowId: params => tradeRowKey(params.data),
+        getRowId: params => {
+            const row = params.data as TradeRecord & { _isDetailRow?: boolean; _parentTrade?: TradeRecord };
+            if (row._isDetailRow && row._parentTrade) {
+                return `detail-${tradeRowKey(row._parentTrade)}`;
+            }
+            return tradeRowKey(params.data);
+        },
+        isFullWidthRow: params => !!(params.rowNode.data as Record<string, unknown>)?._isDetailRow,
+        fullWidthCellRenderer: createPositionDetailPanelRenderer(context as unknown as PositionDetailPanelContext),
+        getRowHeight: params => (params.data as Record<string, unknown>)?._isDetailRow ? 340 : 50,
+        onRowClicked: params => {
+            const data = params.data;
+            if ((data as Record<string, unknown>)?._isDetailRow) return;
+            const id = typeof data?.id === 'string' ? data.id : null;
+            if (!id) return;
+            context.expandedTradeId = context.expandedTradeId === id ? null : id;
+            params.api.setGridOption('rowData', buildRowsWithDetail(context.currentFilteredTrades, context.expandedTradeId));
+        },
         domLayout: 'autoHeight',
-        rowHeight: 50,
         headerHeight: 46,
         rowBuffer: 20,
         animateRows: false,
@@ -552,6 +575,7 @@ export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[
 
     const tradesToRender = Array.isArray(trades) ? trades.slice() : [];
     this.currentFilteredTrades = tradesToRender;
+    this.expandedTradeId = null;
 
     if (typeof this.setupTradesMergeControls === 'function') {
         this.setupTradesMergeControls();
@@ -567,7 +591,7 @@ export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[
         applyGridSortState.call(this);
     } else {
         this.tradesGridApi.updateGridOptions({
-            rowData: tradesToRender
+            rowData: buildRowsWithDetail(tradesToRender, this.expandedTradeId)
         });
         applyGridSortState.call(this);
     }
