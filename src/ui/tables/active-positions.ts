@@ -195,32 +195,27 @@ function buildEarningsBadge(
 
     const show = () => {
         if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-        // Measure off-screen first so max-content width is resolved before positioning
-        popup.style.visibility = 'hidden';
-        popup.style.opacity = '0';
-        popup.style.top = '-9999px';
-        popup.style.left = '-9999px';
-        popup.style.display = 'flex';
-        // Force layout to get accurate dimensions
-        const pw = popup.offsetWidth || 280;
-        const ph = popup.offsetHeight || 160;
-        // Restore normal positioning
-        popup.style.removeProperty('display');
-        popup.style.removeProperty('top');
-        popup.style.removeProperty('left');
-        popup.style.removeProperty('visibility');
-        popup.style.removeProperty('opacity');
+
+        // Place off-screen with full CSS visibility so the browser resolves
+        // `width: max-content` and gives us accurate offsetWidth/offsetHeight.
+        popup.style.cssText = 'top:-9999px;left:-9999px;visibility:hidden;opacity:0;pointer-events:none;';
+        popup.classList.add('is-visible');          // activate display-affecting styles
+        void popup.offsetWidth;                     // force reflow
+
+        const pw = popup.offsetWidth;
+        const ph = popup.offsetHeight;
+
+        // Reset inline styles, keep .is-visible for the transition
+        popup.style.cssText = '';
 
         const r = badge.getBoundingClientRect();
         let top = r.top - ph - 8;
         let left = r.left;
         if (top < 8) top = r.bottom + 8;
-        // Clamp horizontally — prefer aligning to badge's left, shift left if it overflows right edge
         if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
         if (left < 8) left = 8;
         popup.style.top = `${top}px`;
         popup.style.left = `${left}px`;
-        popup.classList.add('is-visible');
     };
 
     const hide = () => {
