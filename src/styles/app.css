@@ -3272,6 +3272,7 @@ select.form-control {
   border: 1px solid var(--color-card-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 #credit-playbook-table {
@@ -3788,8 +3789,12 @@ td {
   --ag-header-foreground-color: var(--color-text);
   --ag-border-color: var(--color-card-border);
   --ag-row-hover-color: rgba(var(--color-teal-500-rgb), 0.08);
-  --ag-wrapper-border-radius: var(--radius-base);
+  --ag-wrapper-border-radius: 0;
   --ag-cell-horizontal-padding: 10px;
+}
+
+.credit-playbook-grid .ag-root-wrapper {
+  border: none;
 }
 
 .credit-playbook-grid .ag-cell {
