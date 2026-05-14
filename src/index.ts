@@ -144,6 +144,10 @@ class GammaLedger {
     declare metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
     declare expandedTradeId: string | null
     declare activePositionsTrades: Record<string, unknown>[]
+    declare expandedRecentTradeId: string | null
+    declare recentClosedTrades: Record<string, unknown>[]
+    declare expandedAssignedTradeId: string | null
+    declare filteredAssignmentEntries: Record<string, unknown>[]
     declare signalsCache: Map<string, import('./types/integrations.js').SignalsData | 'loading' | 'error'>
     declare metricsPromiseMap: Map<string, Promise<import('./types/integrations.js').StockMetrics | null>>
     declare signalsPromiseMap: Map<string, Promise<import('./types/integrations.js').SignalsData | null>>
@@ -198,6 +202,10 @@ class GammaLedger {
         this.metricsCache = new Map();
         this.expandedTradeId = null;
         this.activePositionsTrades = [];
+        this.expandedRecentTradeId = null;
+        this.recentClosedTrades = [];
+        this.expandedAssignedTradeId = null;
+        this.filteredAssignmentEntries = [];
         this.signalsCache = new Map();
         this.metricsPromiseMap = new Map();
         this.signalsPromiseMap = new Map();

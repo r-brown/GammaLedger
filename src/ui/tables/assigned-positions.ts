@@ -8,8 +8,17 @@ import {
   type GridOptions,
   type ICellRendererParams
 } from './ag-grid.js'
+import {
+  createPositionDetailPanelRenderer,
+  type PositionDetailPanelContext
+} from './position-detail-panel.js'
 
 type TradeRecord = Record<string, unknown>
+
+// Union type that allows mixing regular AssignmentEntry rows with synthetic detail rows.
+// AG Grid never calls column renderers for full-width (detail) rows so the omitted
+// AssignmentEntry fields are safe at runtime.
+type AssignedGridRow = AssignmentEntry & { _isDetailRow?: boolean; _parentTrade?: TradeRecord }
 
 interface AssignmentEntry {
   trade: TradeRecord
@@ -31,13 +40,14 @@ interface AssignmentEntry {
   coverageStatus: string
 }
 
-interface AssignedPositionsContext {
+interface AssignedPositionsContext extends PositionDetailPanelContext {
   latestStats: Record<string, unknown> | null
-  assignedPositionsGridApi?: GridApi<AssignmentEntry> | null
+  assignedPositionsGridApi?: GridApi<AssignedGridRow> | null
   assignedPositionsStatusFilter: string
   assignedPositionsQuoteEntries?: Map<string, Record<string, unknown>>
   activeQuoteEntries: Map<string, Record<string, unknown>>
-  finnhub: { apiKey?: string }
+  expandedAssignedTradeId: string | null
+  filteredAssignmentEntries: Record<string, unknown>[]
   isClosedStatus(status: unknown): boolean
   createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
   openTradesFilteredByTicker(ticker: unknown): void
@@ -51,6 +61,21 @@ interface AssignedPositionsContext {
   startQuoteAutoRefreshIfNeeded(): void
   refreshAssignedPositionsQuotes(opts: { immediate: boolean }): void
   updateAssignedPositionMetrics(entry: Record<string, unknown>, quote: Record<string, unknown>): void
+}
+
+// Builds rowData with an optional synthetic detail row inserted after the expanded entry.
+function buildAssignedRowsWithDetail(
+    entries: AssignmentEntry[],
+    expandedId: string | null
+): AssignedGridRow[] {
+    const rows: AssignedGridRow[] = [];
+    for (const entry of entries) {
+        rows.push(entry as AssignedGridRow);
+        if (expandedId !== null && String(entry.trade.id ?? '') === expandedId) {
+            rows.push({ _isDetailRow: true, _parentTrade: entry.trade } as unknown as AssignedGridRow);
+        }
+    }
+    return rows;
 }
 
 function assignmentRowKey(entry: AssignmentEntry): string {
@@ -272,15 +297,15 @@ function ensureAssignedQuoteEntry(
 function buildAssignedColumnDefs(
     this: AssignedPositionsContext,
     quoteEntries: Map<string, Record<string, unknown>>
-): ColDef<AssignmentEntry>[] {
+): ColDef<AssignedGridRow>[] {
     return [
         {
             colId: 'ticker',
             headerName: 'Ticker',
             width: 120,
             pinned: 'left',
-            valueGetter: params => params.data?.trade.ticker || '',
-            cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => {
+            valueGetter: params => (params.data as AssignmentEntry)?.trade?.ticker || '',
+            cellRenderer: (params: ICellRendererParams<AssignedGridRow>) => {
                 const tickerValue = ((params.value ?? '') as string).toString().trim().toUpperCase();
                 return this.createTickerElement(params.value, 'ticker-pill', {
                     behavior: 'filter',
@@ -295,7 +320,7 @@ function buildAssignedColumnDefs(
             headerName: 'Strategy',
             minWidth: 180,
             flex: 1,
-            valueGetter: params => params.data?.trade.strategy || '',
+            valueGetter: params => (params.data as AssignmentEntry)?.trade?.strategy || '',
             valueFormatter: params => (params.value as string) || '—',
             filter: 'agTextColumnFilter'
         },
@@ -303,20 +328,25 @@ function buildAssignedColumnDefs(
             colId: 'status',
             headerName: 'Status',
             width: 105,
-            valueGetter: params => params.data ? (this.isClosedStatus(params.data.trade.status) ? 'Closed' : 'Open') : '',
-            cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => params.data
-                ? createStatusBadge(!this.isClosedStatus(params.data.trade.status))
-                : '—',
+            valueGetter: params => {
+                const entry = params.data as AssignmentEntry | undefined;
+                return entry?.trade ? (this.isClosedStatus(entry.trade.status) ? 'Closed' : 'Open') : '';
+            },
+            cellRenderer: (params: ICellRendererParams<AssignedGridRow>) => {
+                const entry = params.data as AssignmentEntry | undefined;
+                return entry?.trade ? createStatusBadge(!this.isClosedStatus(entry.trade.status)) : '—';
+            },
             filter: 'agTextColumnFilter'
         },
         {
             colId: 'coverage',
             headerName: 'Coverage',
             width: 145,
-            valueGetter: params => params.data?.coverageStatus || '',
-            cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => params.data
-                ? createCoverageBadge.call(this, params.data)
-                : '—',
+            valueGetter: params => (params.data as AssignmentEntry)?.coverageStatus || '',
+            cellRenderer: (params: ICellRendererParams<AssignedGridRow>) => {
+                const entry = params.data as AssignmentEntry | undefined;
+                return entry?.trade ? createCoverageBadge.call(this, entry) : '—';
+            },
             filter: 'agTextColumnFilter'
         },
         {
@@ -356,9 +386,10 @@ function buildAssignedColumnDefs(
             field: 'premiumCollected',
             headerName: 'Premium Collected',
             width: 170,
-            cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => params.data
-                ? createPremiumRenderer.call(this, params.data)
-                : '—',
+            cellRenderer: (params: ICellRendererParams<AssignedGridRow>) => {
+                const entry = params.data as AssignmentEntry | undefined;
+                return entry?.trade ? createPremiumRenderer.call(this, entry) : '—';
+            },
             filter: 'agNumberColumnFilter'
         },
         {
@@ -375,10 +406,10 @@ function buildAssignedColumnDefs(
             width: 130,
             sortable: false,
             filter: false,
-            cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => {
+            cellRenderer: (params: ICellRendererParams<AssignedGridRow>) => {
                 const cell = createQuoteDependentCell('current-price-cell quote-cell quote-dependent');
-                const entry = params.data;
-                if (!entry || this.isClosedStatus(entry.trade.status)) {
+                const entry = params.data as AssignmentEntry | undefined;
+                if (!entry?.trade || this.isClosedStatus(entry.trade.status)) {
                     return cell;
                 }
                 const quoteEntry = ensureAssignedQuoteEntry.call(this, entry, quoteEntries);
@@ -394,10 +425,10 @@ function buildAssignedColumnDefs(
             width: 135,
             sortable: false,
             filter: false,
-            cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => {
+            cellRenderer: (params: ICellRendererParams<AssignedGridRow>) => {
                 const cell = createQuoteDependentCell('market-value-cell quote-dependent');
-                const entry = params.data;
-                if (entry && !this.isClosedStatus(entry.trade.status)) {
+                const entry = params.data as AssignmentEntry | undefined;
+                if (entry?.trade && !this.isClosedStatus(entry.trade.status)) {
                     const quoteEntry = ensureAssignedQuoteEntry.call(this, entry, quoteEntries);
                     if (quoteEntry) {
                         quoteEntry.marketValueCell = cell;
@@ -412,9 +443,9 @@ function buildAssignedColumnDefs(
             width: 210,
             sortable: false,
             filter: false,
-            cellRenderer: (params: ICellRendererParams<AssignmentEntry>) => {
-                const entry = params.data;
-                if (!entry) {
+            cellRenderer: (params: ICellRendererParams<AssignedGridRow>) => {
+                const entry = params.data as AssignmentEntry | undefined;
+                if (!entry?.trade) {
                     return createQuoteDependentCell('unrealized-gl-cell quote-dependent');
                 }
 
@@ -456,7 +487,7 @@ function buildAssignedColumnDefs(
             headerName: 'Notes',
             minWidth: 180,
             flex: 1,
-            valueGetter: params => params.data?.trade.notes || '',
+            valueGetter: params => (params.data as AssignmentEntry)?.trade?.notes || '',
             valueFormatter: params => ((params.value || '') as string) || '—',
             cellClass: 'notes-col',
             tooltipValueGetter: params => ((params.value || '') as string)
@@ -468,9 +499,10 @@ function createAssignedGridOptions(
     this: AssignedPositionsContext,
     rows: AssignmentEntry[],
     quoteEntries: Map<string, Record<string, unknown>>
-): GridOptions<AssignmentEntry> {
+): GridOptions<AssignedGridRow> {
+    const context = this;
     return {
-        rowData: rows,
+        rowData: buildAssignedRowsWithDetail(rows, this.expandedAssignedTradeId),
         columnDefs: buildAssignedColumnDefs.call(this, quoteEntries),
         defaultColDef: {
             sortable: true,
@@ -478,9 +510,32 @@ function createAssignedGridOptions(
             filter: true,
             minWidth: 95
         },
-        getRowId: params => assignmentRowKey(params.data),
+        getRowId: params => {
+            const row = params.data as AssignedGridRow;
+            if (row._isDetailRow && row._parentTrade) {
+                return `detail-${assignmentRowKey({ trade: row._parentTrade } as AssignmentEntry)}`;
+            }
+            return assignmentRowKey(params.data as AssignmentEntry);
+        },
+        isFullWidthRow: params => !!(params.rowNode.data as AssignedGridRow)?._isDetailRow,
+        fullWidthCellRenderer: createPositionDetailPanelRenderer(context, { threeCol: true }),
+        getRowHeight: params => {
+            const row = params.node.data as AssignedGridRow;
+            return row?._isDetailRow ? 800 : 48;
+        },
+        onRowClicked: params => {
+            const row = params.data as AssignedGridRow;
+            if (row?._isDetailRow) return;
+            const entry = row as AssignmentEntry;
+            const tradeId = String(entry?.trade?.id ?? '');
+            if (!tradeId) return;
+            context.expandedAssignedTradeId = context.expandedAssignedTradeId === tradeId ? null : tradeId;
+            params.api.setGridOption(
+                'rowData',
+                buildAssignedRowsWithDetail(context.filteredAssignmentEntries as unknown as AssignmentEntry[], context.expandedAssignedTradeId)
+            );
+        },
         domLayout: 'autoHeight',
-        rowHeight: 48,
         headerHeight: 44,
         rowBuffer: 10,
         animateRows: false,
@@ -510,6 +565,9 @@ export function updateAssignedPositionsTable(this: AssignedPositionsContext): vo
         return;
     }
 
+    this.expandedAssignedTradeId = null;
+    this.filteredAssignmentEntries = filteredAssignments as unknown as Record<string, unknown>[];
+
     const quoteEntries = new Map<string, Record<string, unknown>>();
     if (!this.assignedPositionsGridApi || this.assignedPositionsGridApi.isDestroyed()) {
         this.assignedPositionsGridApi = createGrid(
@@ -519,7 +577,7 @@ export function updateAssignedPositionsTable(this: AssignedPositionsContext): vo
     } else {
         this.assignedPositionsGridApi.updateGridOptions({
             columnDefs: buildAssignedColumnDefs.call(this, quoteEntries),
-            rowData: filteredAssignments
+            rowData: buildAssignedRowsWithDetail(filteredAssignments, null)
         });
         // AG Grid reuses existing cell DOM elements when colIds are unchanged,
         // so cellRenderers are not re-called and quoteEntries stays empty.

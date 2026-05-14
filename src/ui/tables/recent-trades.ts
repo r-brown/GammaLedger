@@ -8,12 +8,19 @@ import {
   type GridOptions,
   type ICellRendererParams
 } from './ag-grid.js'
+import {
+  buildRowsWithDetail,
+  createPositionDetailPanelRenderer,
+  type PositionDetailPanelContext
+} from './position-detail-panel.js'
 
 type TradeRecord = Record<string, unknown>
 
-interface RecentTradesContext {
+interface RecentTradesContext extends PositionDetailPanelContext {
   trades: TradeRecord[]
   recentTradesGridApi?: GridApi<TradeRecord> | null
+  recentClosedTrades: TradeRecord[]
+  expandedRecentTradeId: string | null
   isClosedStatus(status: unknown): boolean
   isActiveStatus(status: unknown): boolean
   formatDate(value: unknown): string
@@ -130,8 +137,9 @@ function buildRecentTradesColumnDefs(this: RecentTradesContext): ColDef<TradeRec
 }
 
 function createRecentTradesGridOptions(this: RecentTradesContext, rows: TradeRecord[]): GridOptions<TradeRecord> {
+    const context = this;
     return {
-        rowData: rows,
+        rowData: buildRowsWithDetail(rows, this.expandedRecentTradeId),
         columnDefs: buildRecentTradesColumnDefs.call(this),
         defaultColDef: {
             sortable: true,
@@ -139,9 +147,28 @@ function createRecentTradesGridOptions(this: RecentTradesContext, rows: TradeRec
             filter: true,
             minWidth: 90
         },
-        getRowId: params => rowKey(params.data),
+        getRowId: params => {
+            const row = params.data as TradeRecord & { _isDetailRow?: boolean; _parentTrade?: TradeRecord };
+            if (row._isDetailRow && row._parentTrade) {
+                return `detail-${rowKey(row._parentTrade)}`;
+            }
+            return rowKey(params.data);
+        },
+        isFullWidthRow: params => !!(params.rowNode.data as TradeRecord & { _isDetailRow?: boolean })?._isDetailRow,
+        fullWidthCellRenderer: createPositionDetailPanelRenderer(context),
+        getRowHeight: params => {
+            const row = params.node.data as TradeRecord & { _isDetailRow?: boolean };
+            return row?._isDetailRow ? 800 : 46;
+        },
+        onRowClicked: params => {
+            const row = params.data as TradeRecord & { _isDetailRow?: boolean };
+            if (row?._isDetailRow) return;
+            const tradeId = String(params.data?.id ?? '');
+            if (!tradeId) return;
+            context.expandedRecentTradeId = context.expandedRecentTradeId === tradeId ? null : tradeId;
+            params.api.setGridOption('rowData', buildRowsWithDetail(context.recentClosedTrades, context.expandedRecentTradeId));
+        },
         domLayout: 'autoHeight',
-        rowHeight: 46,
         headerHeight: 44,
         rowBuffer: 10,
         animateRows: false,
@@ -170,9 +197,12 @@ export function updateRecentTradesTable(
         return;
     }
 
+    this.expandedRecentTradeId = null;
+    this.recentClosedTrades = recentTrades;
+
     if (!this.recentTradesGridApi || this.recentTradesGridApi.isDestroyed()) {
         this.recentTradesGridApi = createGrid(gridRoot, createRecentTradesGridOptions.call(this, recentTrades));
     } else {
-        this.recentTradesGridApi.updateGridOptions({ rowData: recentTrades });
+        this.recentTradesGridApi.updateGridOptions({ rowData: buildRowsWithDetail(recentTrades, null) });
     }
 }
