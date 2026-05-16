@@ -518,7 +518,7 @@ function createAssignedGridOptions(
             return assignmentRowKey(params.data as AssignmentEntry);
         },
         isFullWidthRow: params => !!(params.rowNode.data as AssignedGridRow)?._isDetailRow,
-        fullWidthCellRenderer: createPositionDetailPanelRenderer(context, { threeCol: true }),
+        fullWidthCellRenderer: createPositionDetailPanelRenderer(context, { threeCol: true, tradeBreakdown: true }),
         getRowHeight: params => {
             const row = params.node.data as AssignedGridRow;
             return row?._isDetailRow ? 800 : 48;
