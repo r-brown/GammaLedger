@@ -1,9 +1,10 @@
 name: Deploy v1 to GitHub Pages
 
 # Push-based deploy for the feature/app/v1 branch.
-# Publishes to gammaledger.com/appv1/ via a direct git push to the gh-pages branch —
-# no GitHub Pages environment protection rules apply.
-# NOTE: release-based deployments for this branch are also handled by the smart
+# v1 is the original vanilla JS app (src/app.js + index.html + style.css) — no build
+# step required. Files are copied directly to gammaledger.com/appv1/ via a git push
+# to the gh-pages branch; no GitHub Pages environment protection rules apply.
+# NOTE: release-based deployments for this branch are also covered by the smart
 # deploy-gh-pages.yml workflow on main (which reads target_commitish).
 
 on:
@@ -26,22 +27,6 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type check
-        run: npm run typecheck
-
-      - name: Build
-        # --base ensures /appv1/ is baked into all asset URLs.
-        run: npx vite build --base /appv1/
-
       - name: Checkout gh-pages content
         id: checkout-gh-pages
         uses: actions/checkout@v4
@@ -59,10 +44,12 @@ jobs:
           git checkout --orphan gh-pages
           git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
-      - name: Merge build into gh-pages content
+      - name: Merge v1 source into gh-pages content
         run: |
+          # v1 is a static vanilla JS app — deploy src/ files directly, no build needed.
           rm -rf _gh_pages/appv1
-          cp -r dist/ _gh_pages/appv1
+          mkdir -p _gh_pages/appv1
+          cp -r src/. _gh_pages/appv1/
           touch _gh_pages/.nojekyll
 
       - name: Commit and push to gh-pages
