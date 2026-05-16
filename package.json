@@ -1,0 +1,50 @@
+{
+  "name": "gammaledger",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-only, privacy-first, open-source options portfolio tracker.",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit && npm run typecheck:strict",
+    "typecheck:strict": "npm run typecheck:strict:calculations && npm run typecheck:strict:core && npm run typecheck:strict:trades && npm run typecheck:strict:utils && npm run typecheck:strict:ui && npm run typecheck:strict:imports && npm run typecheck:strict:integrations",
+    "typecheck:strict:calculations": "tsc -p src/calculations/tsconfig.json",
+    "typecheck:strict:core": "tsc -p src/core/tsconfig.json",
+    "typecheck:strict:trades": "tsc -p src/trades/tsconfig.json",
+    "typecheck:strict:utils": "tsc -p src/utils/tsconfig.json",
+    "typecheck:strict:ui": "tsc -p src/ui/tsconfig.json",
+    "typecheck:strict:imports": "tsc -p src/imports/tsconfig.json",
+    "typecheck:strict:integrations": "tsc -p src/integrations/tsconfig.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r-brown/gammaledger.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/r-brown/gammaledger/issues"
+  },
+  "homepage": "https://gammaledger.com",
+  "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10",
+    "vite-plugin-checker": "^0.13.0"
+  },
+  "dependencies": {
+    "ag-grid-community": "^35.2.1",
+    "dompurify": "^3.4.2",
+    "echarts": "^6.0.0",
+    "marked": "^18.0.3",
+    "zod": "^4.4.3"
+  }
+}

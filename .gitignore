@@ -2,12 +2,12 @@ gammaledger.json
 *.ofx
 _drafts
 node_modules
+dist
+.vite
 playwright-report
 tests
 test-results
 .idea
 .claude
-
 .superpowers
-dist
 docs/superpowers

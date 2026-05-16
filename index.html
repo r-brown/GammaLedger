@@ -23,14 +23,14 @@
     <meta property="og:title" content="GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely">
     <meta property="og:description" content="Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.">
     <meta property="og:url" content="https://gammaledger.com/app/">
-    <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
+    <meta property="og:image" content="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/images/gammaledger-stage-01.jpg">
     <meta property="og:image:alt" content="GammaLedger options analytics dashboard">
     <meta property="og:locale" content="en_US">
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely">
     <meta name="twitter:description" content="Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.">
-    <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/images/gammaledger-stage-01.jpg">
     <meta name="twitter:image:alt" content="GammaLedger options analytics dashboard">
     <!-- Dublin Core -->
     <meta name="DC.Title" content="GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely">
@@ -42,27 +42,26 @@
     <meta name="DC.Format" content="text/html">
     <meta name="DC.Language" content="en">
     <meta name="DC.Date" content="2025-10-23">
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="icon" type="image/png" href="gammaledger-logo-16x16.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="gammaledger-logo-16x16.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="gammaledger-logo-32x32.png">
-    <link rel="icon" type="image/png" sizes="64x64" href="gammaledger-logo-64x64.png">
+    <link rel="stylesheet" href="/src/styles/app.css">
+    <link rel="icon" type="image/png" href="/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/gammaledger-logo-32x32.png">
+    <link rel="icon" type="image/png" sizes="64x64" href="/gammaledger-logo-64x64.png">
 </head>
 
 <body>
-    <!-- v2 BANNER — remove this block once v2 goes live -->
-    <div id="v2-banner" class="v2-banner">
-        <span class="v2-banner__message">
-            ✨&nbsp; <strong>GammaLedger v2</strong> is now available in early access — a cleaner, smarter way to track options strategies!
-            <a class="v2-banner__link" href="https://gammaledger.com/appv2/">Try v2 →</a>
+    <!-- v1 BANNER — remove this block when v2 goes live -->
+    <div id="v1-banner" class="v1-banner">
+        <span class="v1-banner__message">
+            ✨&nbsp; Welcome to <strong>GammaLedger v2</strong> — early access!
+            Prefer the classic experience?
+            <a class="v1-banner__link" href="https://gammaledger.com/app/">Back to v1 →</a>
         </span>
-        <button class="v2-banner__dismiss" aria-label="Dismiss">✕</button>
+        <button class="v1-banner__dismiss" aria-label="Dismiss">✕</button>
     </div>
-    <!-- end v2 banner -->
+    <!-- end v1 banner -->
 
-    <div id="disclaimer-banner" class="disclaimer-banner is-hidden" role="dialog" aria-modal="true"
-        aria-labelledby="disclaimer-title" aria-hidden="true">
+    <dialog id="disclaimer-banner" class="disclaimer-banner" aria-labelledby="disclaimer-title">
         <div class="disclaimer-banner__panel">
             <h2 id="disclaimer-title" class="disclaimer-banner__title">Disclaimer</h2>
             <div class="disclaimer-banner__body" tabindex="0">
@@ -90,10 +89,8 @@
                     data-action="disclaimer-agree">Agree</button>
             </div>
         </div>
-    </div>
-    <div id="ai-coach-consent" class="ai-consent-modal is-hidden" role="dialog" aria-modal="true"
-        aria-labelledby="ai-consent-title" aria-describedby="ai-consent-description">
-        <div class="ai-consent-modal__overlay" data-action="ai-consent-dismiss"></div>
+    </dialog>
+    <dialog id="ai-coach-consent" class="ai-consent-modal" aria-labelledby="ai-consent-title" aria-describedby="ai-consent-description">
         <div class="ai-consent-modal__panel" role="document">
             <button type="button" class="ai-consent-modal__close" data-action="ai-consent-dismiss"
                 aria-label="Close AI Coach consent dialog">×</button>
@@ -116,7 +113,7 @@
                 <button type="button" class="btn btn--primary" data-action="ai-consent-agree">I Understand &amp; Agree</button>
             </div>
         </div>
-    </div>
+    </dialog>
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
@@ -171,20 +168,28 @@
             <header class="app-header">
                 <div class="header-left">
                     <h1 id="page-title">Options Trading Dashboard</h1>
-                    <div class="share-action">
-                        <button class="icon-button" id="share-portfolio-card" aria-label="Share portfolio snapshot" title="Share portfolio snapshot">
-                            <span aria-hidden="true">⌯⌲</span>
-                        </button>
-                        <span class="share-action__label">Share your portfolio snapshot</span>
+                    <div id="market-status" class="market-status market-status--loading">
+                        <span class="market-status__dot"></span>
+                        <span id="market-status-label" class="market-status__label">Checking market…</span>
+                        <span id="market-status-countdown" class="market-status__countdown"></span>
                     </div>
                 </div>
 
                 <div class="header-right">
                     <div class="file-management">
+                        <div class="share-action">
+                            <button class="icon-button" id="share-portfolio-card"
+                                aria-label="Share portfolio snapshot"
+                                title="Share portfolio snapshot">
+                                <span aria-hidden="true">⌯⌲</span>
+                            </button>
+                            <span class="share-action__label">Share your portfolio snapshot</span>
+                        </div>
+                        <div class="file-management__sep"></div>
                         <button class="btn btn--sm btn--secondary" id="new-database-btn">New Database</button>
                         <button class="btn btn--sm btn--secondary" id="load-database-btn">Load Database</button>
                         <button class="btn btn--sm btn--primary" id="save-database-btn">Save Database</button>
-                        <div id="loading-indicator" class="loading-indicator hidden">Saving...</div>
+                        <div id="loading-indicator" class="loading-indicator hidden">Saving…</div>
                     </div>
                     <div class="file-info">
                         <span id="current-file-name" class="file-name">Unsaved Database</span>
@@ -279,7 +284,7 @@
                     <div class="chart-container chart-full-width">
                         <h3>Monthly P&L Performance</h3>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
-                            <canvas id="monthlyPLChart"></canvas>
+                            <div id="monthlyPLChart" class="echarts-chart" role="img" aria-label="Monthly profit and loss chart"></div>
                         </div>
                     </div>
                 </div>
@@ -298,7 +303,7 @@
                             <button type="button" class="chart-range__button" data-range="ALL">All</button>
                         </div>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <canvas id="cumulativePLChart"></canvas>
+                            <div id="cumulativePLChart" class="echarts-chart" role="img" aria-label="Cumulative profit and loss chart"></div>
                         </div>
                     </div>
                 </div>
@@ -308,13 +313,13 @@
                     <div class="chart-container">
                         <h3>Strategy Performance</h3>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <canvas id="strategyChart"></canvas>
+                            <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
                         </div>
                     </div>
                     <div class="chart-container">
                         <h3>Win Rate by Strategy</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <canvas id="winRateChart"></canvas>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
+                            <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
                         </div>
                     </div>
                 </div>
@@ -324,13 +329,13 @@
                     <div class="chart-container">
                         <h3>Commission Impact</h3>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
-                            <canvas id="commissionImpactChart"></canvas>
+                            <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
                         </div>
                         <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
                     </div>
                     <div class="chart-container heatmap-container">
                         <h3>Ticker Performance Heatmap</h3>
-                        <div id="tickerHeatmap" class="heatmap-grid" aria-live="polite"></div>
+                        <div id="tickerHeatmap" class="echarts-chart heatmap-chart" role="img" aria-label="Ticker performance heatmap" aria-live="polite"></div>
                     </div>
                 </div>
 
@@ -339,13 +344,13 @@
                     <div class="chart-container">
                         <h3>Time in Trade (Average Days)</h3>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
-                            <canvas id="timeInTradeChart"></canvas>
+                            <div id="timeInTradeChart" class="echarts-chart" role="img" aria-label="Average time in trade chart"></div>
                         </div>
                     </div>
                     <div class="chart-container">
                         <h3>Monte Carlo Projection (60 Days)</h3>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <canvas id="monteCarloChart"></canvas>
+                            <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
                         </div>
                         <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
                     </div>
@@ -357,7 +362,7 @@
                     <div class="chart-container gauge-card">
                         <h3>Sharpe Ratio</h3>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--compact">
-                            <canvas id="sharpeGaugeChart"></canvas>
+                            <div id="sharpeGaugeChart" class="echarts-chart" role="img" aria-label="Sharpe ratio gauge"></div>
                         </div>
                         <p class="chart-metric" id="sharpeGaugeValue">—</p>
                         <p class="chart-subtext">Risk-adjusted return</p>
@@ -365,7 +370,7 @@
                     <div class="chart-container gauge-card">
                         <h3>Sortino Ratio</h3>
                         <div class="chart-responsive-wrapper chart-responsive-wrapper--compact">
-                            <canvas id="sortinoGaugeChart"></canvas>
+                            <div id="sortinoGaugeChart" class="echarts-chart" role="img" aria-label="Sortino ratio gauge"></div>
                         </div>
                         <p class="chart-metric" id="sortinoGaugeValue">—</p>
                         <p class="chart-subtext">Focus on downside risk</p>
@@ -377,41 +382,15 @@
                 <div class="dashboard-tables">
                     <div class="active-positions">
                         <h3>Active Positions</h3>
-                        <div class="table-container stackable-table-container">
-                            <table id="active-positions-table" class="stackable-table">
-                                <thead>
-                                    <tr>
-                                        <th>Ticker</th>
-                                        <th>Strategy</th>
-                                        <th>Strike</th>
-                                        <th>Current Price</th>
-                                        <th>DTE</th>
-                                        <th>Max Risk</th>
-                                        <th class="notes-col">Notes</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+                        <div class="table-container dashboard-grid-container">
+                            <div id="active-positions-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Active positions"></div>
                         </div>
                     </div>
 
                     <div class="recent-trades">
                         <h3>Recent Closed Trades</h3>
-                        <div class="table-container stackable-table-container">
-                            <table id="recent-trades-table" class="stackable-table">
-                                <thead>
-                                    <tr>
-                                        <th>Ticker</th>
-                                        <th>Strategy</th>
-                                        <th>Exit Date</th>
-                                        <th>Days Held</th>
-                                        <th>P&L</th>
-                                        <th>ROI</th>
-                                        <th>Weekly ROI</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+                        <div class="table-container dashboard-grid-container">
+                            <div id="recent-trades-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Recent closed trades"></div>
                         </div>
                     </div>
 
@@ -423,28 +402,8 @@
                             <button type="button" class="chart-range__button is-active" data-status="open">Open</button>
                             <button type="button" class="chart-range__button" data-status="closed">Closed</button>
                         </div>
-                        <div class="table-container stackable-table-container">
-                            <table id="assigned-positions-table" class="stackable-table">
-                                <thead>
-                                    <tr>
-                                        <th>Ticker</th>
-                                        <th>Strategy</th>
-                                        <th>Status</th>
-                                        <th>Coverage</th>
-                                        <th>Assignment Date</th>
-                                        <th>Shares</th>
-                                        <th>Strike Price</th>
-                                        <th>Assignment Cost Basis</th>
-                                        <th>Premium Collected</th>
-                                        <th>Eff. Cost Basis</th>
-                                        <th>Current Price</th>
-                                        <th>Market Value</th>
-                                        <th>Unrealized Gain/Loss</th>
-                                        <th class="notes-col">Notes</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+                        <div class="table-container dashboard-grid-container">
+                            <div id="assigned-positions-table" class="dashboard-ag-grid dashboard-ag-grid--assigned ag-theme-quartz" aria-label="Wheel and PMCC tracker"></div>
                         </div>
                     </div>
                 </div>
@@ -646,32 +605,14 @@
                     </header>
                     <div id="trades-merge-groups" class="trades-merge-groups"></div>
                 </section>
-                <div class="table-container stackable-table-container">
-                    <table id="trades-table" class="stackable-table">
-                        <thead>
-                            <tr>
-                                <th class="trade-select-header is-hidden"><input type="checkbox" id="trades-select-all" aria-label="Select all visible trades" disabled></th>
-                                <th class="sortable" data-sort="ticker">Ticker</th>
-                                <th class="sortable" data-sort="strategy">Strategy</th>
-                                <th class="sortable" data-sort="strikePrice">Strike</th>
-                                <th class="sortable" data-sort="quantity">Qty</th>
-                                <th class="sortable" data-sort="entryDate">Entry Date</th>
-                                <th class="sortable" data-sort="expirationDate">Expiration Date</th>
-                                <th class="sortable" data-sort="dte">DTE</th>
-                                <th class="sortable" data-sort="exitDate">Exit Date</th>
-                                <th class="sortable" data-sort="daysHeld">Days Held</th>
-                                <th class="sortable" data-sort="maxRisk">Max Risk</th>
-                                <th class="sortable" data-sort="pl">P&L</th>
-                                <th class="sortable" data-sort="roi">ROI</th>
-                                <th class="sortable" data-sort="weeklyROI">Weekly ROI</th>
-                                <th class="sortable" data-sort="monthlyROI">Monthly ROI</th>
-                                <th class="sortable" data-sort="annualizedROI">Annual ROI</th>
-                                <th class="sortable" data-sort="status">Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                <div class="table-container trades-grid-container">
+                    <div class="trades-grid-toolbar trade-select-header is-hidden" aria-hidden="true">
+                        <label class="trades-grid-select-all">
+                            <input type="checkbox" id="trades-select-all" aria-label="Select all visible trades" disabled>
+                            <span>Select visible trades</span>
+                        </label>
+                    </div>
+                    <div id="trades-table" class="trades-grid ag-theme-quartz" aria-label="All trades"></div>
                 </div>
             </div>
 
@@ -779,31 +720,8 @@
                     </div>
                 </section>
 
-                <div class="table-container credit-playbook-table-container">
-                    <table id="credit-playbook-table" class="stackable-table">
-                        <thead>
-                            <tr>
-                                <th class="sortable" data-sort="ticker" data-sort-context="credit-playbook">Ticker</th>
-                                <th class="sortable" data-sort="strategy" data-sort-context="credit-playbook">Strategy</th>
-                                <th class="sortable" data-sort="type" data-sort-context="credit-playbook">Type</th>
-                                <th class="sortable" data-sort="strike" data-sort-context="credit-playbook">Strike Price</th>
-                                <th class="sortable" data-sort="status" data-sort-context="credit-playbook">Status</th>
-                                <th class="sortable" data-sort="quantity" data-sort-context="credit-playbook">Contracts</th>
-                                <th class="sortable" data-sort="pricePerContract" data-sort-context="credit-playbook">Price/Contract</th>
-                                <th class="sortable" data-sort="fees" data-sort-context="credit-playbook">Fees</th>
-                                <th class="sortable" data-sort="premium" data-sort-context="credit-playbook">Premium</th>
-                                <th class="sortable" data-sort="pl" data-sort-context="credit-playbook">P&amp;L</th>
-                                <th class="sortable" data-sort="roi" data-sort-context="credit-playbook">ROI</th>
-                                <th class="sortable" data-sort="currentPrice" data-sort-context="credit-playbook">Current Price</th>
-                                <th class="sortable" data-sort="entryDate" data-sort-context="credit-playbook">Entry Date</th>
-                                <th class="sortable" data-sort="expirationDate" data-sort-context="credit-playbook">Expiration Date</th>
-                                <th class="sortable" data-sort="dte" data-sort-context="credit-playbook">DTE</th>
-                                <th class="sortable" data-sort="exitDate" data-sort-context="credit-playbook">Exit Date</th>
-                                <th class="sortable" data-sort="daysHeld" data-sort-context="credit-playbook">Days Held</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+                <div class="credit-playbook-table-container">
+                    <div id="credit-playbook-table" class="credit-playbook-grid ag-theme-quartz" aria-label="Credit playbook positions"></div>
                 </div>
             </div>
 
@@ -1007,7 +925,7 @@
             </div>
             <div class="share-card__chart">
                 <h3 class="share-card__chart-title">Cumulative P&amp;L</h3>
-                <canvas id="share-card-cumulative-chart" width="880" height="360" role="img" aria-label="Cumulative P and L chart"></canvas>
+                <div id="share-card-cumulative-chart" class="echarts-chart" role="img" aria-label="Cumulative P and L chart"></div>
             </div>
             <footer class="share-card__footer">
                 <span class="share-card__footnote">Generated with GammaLedger.com</span>
@@ -1015,17 +933,19 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="app.js"></script>
+    <div id="toast-region" class="toast-region" aria-label="Notifications" role="region"></div>
 
-    <!-- v2 BANNER SCRIPT — remove once v2 goes live -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script type="module" src="/src/index.js"></script>
+
+    <!-- v1 BANNER SCRIPT — remove when v2 goes live -->
     <script>
-        document.querySelector('.v2-banner__dismiss')
+        document.querySelector('.v1-banner__dismiss')
             .addEventListener('click', function () {
-                document.getElementById('v2-banner').classList.add('v2-banner--hidden');
+                document.getElementById('v1-banner').classList.add('v1-banner--hidden');
             });
     </script>
-    <!-- end v2 banner script -->
+    <!-- end v1 banner script -->
 </body>
 
 </html>
