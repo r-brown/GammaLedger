@@ -455,7 +455,13 @@ function attachScorePillTooltip(
 // Panel skeleton — three-column DOM structure with loading placeholders
 // ---------------------------------------------------------------------------
 
-function buildPanelSkeleton(ticker: string, threeCol = false): HTMLElement {
+interface PanelSkeletonOptions {
+  threeCol?: boolean
+  tradeBreakdown?: boolean
+}
+
+function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = {}): HTMLElement {
+  const { threeCol = false, tradeBreakdown = false } = opts
   const panel = el('div', 'position-detail-panel')
 
   const header = el('div', 'pdp-header')
@@ -498,6 +504,14 @@ function buildPanelSkeleton(ticker: string, threeCol = false): HTMLElement {
     newsCard.appendChild(newsLoading)
     newsCol.appendChild(newsCard)
     panel.appendChild(newsCol)
+  }
+
+  if (tradeBreakdown) {
+    const tbCol = el('div', 'pdp-trade-col')
+    const tbCard = el('div', 'pdp-card')
+    tbCard.dataset.role = 'trade-breakdown'
+    tbCol.appendChild(tbCard)
+    panel.appendChild(tbCol)
   }
 
   return panel
@@ -1401,9 +1415,9 @@ function triggerDataFetch(
 
 export function createPositionDetailPanelRenderer(
   context: PositionDetailPanelContext,
-  opts: { threeCol?: boolean } = {}
+  opts: { threeCol?: boolean; tradeBreakdown?: boolean } = {}
 ) {
-  const { threeCol = false } = opts
+  const { threeCol = false, tradeBreakdown = false } = opts
   return class {
     private container!: HTMLElement
     private ro: ResizeObserver | null = null
@@ -1411,7 +1425,7 @@ export function createPositionDetailPanelRenderer(
     init(params: { node: { data: Record<string, unknown>; rowHeight?: number; setRowHeight(h: number): void }; api: { onRowHeightChanged(): void } }) {
       const trade = params.node.data._parentTrade as Record<string, unknown>
       const ticker = String(trade.ticker ?? '').toUpperCase()
-      this.container = buildPanelSkeleton(ticker, threeCol)
+      this.container = buildPanelSkeleton(ticker, { threeCol, tradeBreakdown })
       const activeStrike = typeof trade.activeStrikePrice === 'number'
         ? trade.activeStrikePrice
         : (typeof trade.strikePrice === 'number' ? trade.strikePrice : null)
