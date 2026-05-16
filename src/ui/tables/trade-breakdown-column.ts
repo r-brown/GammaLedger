@@ -51,6 +51,38 @@ function round2(v: number): number {
   return Math.round(v * 100) / 100
 }
 
+function el(tag: string, className?: string): HTMLElement {
+  const e = document.createElement(tag)
+  if (className) e.className = className
+  return e
+}
+
+function txt(s: string): Text {
+  return document.createTextNode(s)
+}
+
+function actionChipClass(action: string): string {
+  if (CREDIT_ACTIONS.has(action)) return 'pdp-tb-chip--action-credit'
+  if (DEBIT_ACTIONS.has(action)) return 'pdp-tb-chip--action-debit'
+  return 'pdp-tb-chip--action-neutral'
+}
+
+function typeChipClass(legType: string): string {
+  switch (legType) {
+    case 'CALL':  return 'pdp-tb-chip--type-call'
+    case 'PUT':   return 'pdp-tb-chip--type-put'
+    case 'STOCK': return 'pdp-tb-chip--type-stock'
+    case 'CASH':  return 'pdp-tb-chip--type-cash'
+    default:      return 'pdp-tb-chip--type-other'
+  }
+}
+
+function cashClass(v: number): string {
+  if (v > 0.005) return 'pdp-kv-value--pos'
+  if (v < -0.005) return 'pdp-kv-value--neg'
+  return ''
+}
+
 export function buildBreakdownRows(legs: PersistedLeg[] | undefined): BreakdownRow[] {
   if (!Array.isArray(legs) || legs.length === 0) return []
 
@@ -92,9 +124,126 @@ export function buildBreakdownRows(legs: PersistedLeg[] | undefined): BreakdownR
 }
 
 export function renderTradeBreakdownColumn(
-  _container: HTMLElement,
-  _trade: BreakdownTrade,
-  _formatters: BreakdownFormatters
+  container: HTMLElement,
+  trade: BreakdownTrade,
+  formatters: BreakdownFormatters
 ): void {
-  throw new Error('not implemented')
+  container.textContent = ''
+
+  const header = el('div', 'pdp-section-header')
+  header.appendChild(txt('Trade Breakdown'))
+  container.appendChild(header)
+
+  const rows = buildBreakdownRows(trade.legs)
+
+  const meta = el('div', 'pdp-tb-meta')
+  const ticker = (trade.ticker ?? '').toString()
+  const strategy = (trade.strategy ?? '').toString()
+  const tradeId = (trade.id ?? '').toString()
+  const parts: string[] = []
+  parts.push(`${rows.length} ${rows.length === 1 ? 'leg' : 'legs'}`)
+  if (tradeId) parts.push(tradeId)
+  if (ticker || strategy) parts.push(`${ticker}${ticker && strategy ? ' ' : ''}${strategy}`.trim())
+  meta.appendChild(txt(parts.join(' · ')))
+  container.appendChild(meta)
+
+  if (rows.length === 0) {
+    const empty = el('div', 'pdp-tb-empty')
+    empty.appendChild(txt('No legs recorded for this trade.'))
+    container.appendChild(empty)
+    return
+  }
+
+  const wrap = el('div', 'pdp-tb-table-wrap')
+  if (rows.length > 8) wrap.classList.add('pdp-tb-table-wrap--scroll')
+
+  const table = el('table', 'pdp-tb-table') as HTMLTableElement
+  const thead = el('thead') as HTMLTableSectionElement
+  const headRow = el('tr')
+  for (const label of ['#', 'Date', 'Action', 'Type', 'Strike', 'Qty', 'Net Cash', 'Cum.']) {
+    const th = el('th')
+    th.appendChild(txt(label))
+    headRow.appendChild(th)
+  }
+  thead.appendChild(headRow)
+  table.appendChild(thead)
+
+  const tbody = el('tbody') as HTMLTableSectionElement
+  let opensCount = 0
+  let feesTotal = 0
+  for (const r of rows) {
+    if (CREDIT_ACTIONS.has(r.action) && (r.action === 'STO')) opensCount += r.qty
+    if (r.action === 'BTO') opensCount += r.qty
+    feesTotal += r.fees
+
+    const tr = el('tr', 'pdp-tb-row')
+
+    const numCell = el('td', 'pdp-tb-cell pdp-tb-cell--num')
+    numCell.appendChild(txt(String(r.num)))
+    tr.appendChild(numCell)
+
+    const dateCell = el('td', 'pdp-tb-cell')
+    dateCell.appendChild(txt(r.dateSortKey ? formatters.formatDate(r.dateSortKey) : '—'))
+    tr.appendChild(dateCell)
+
+    const actionCell = el('td', 'pdp-tb-cell')
+    const actionChip = el('span', `pdp-tb-chip ${actionChipClass(r.action)}`)
+    actionChip.appendChild(txt(r.action || '—'))
+    actionCell.appendChild(actionChip)
+    tr.appendChild(actionCell)
+
+    const typeCell = el('td', 'pdp-tb-cell')
+    const typeChip = el('span', `pdp-tb-chip ${typeChipClass(r.legType)}`)
+    typeChip.appendChild(txt(r.legType || '—'))
+    typeCell.appendChild(typeChip)
+    tr.appendChild(typeCell)
+
+    const strikeCell = el('td', 'pdp-tb-cell')
+    strikeCell.appendChild(txt(r.strike !== null ? formatters.formatCurrency(r.strike) : '—'))
+    tr.appendChild(strikeCell)
+
+    const qtyCell = el('td', 'pdp-tb-cell pdp-tb-cell--num')
+    qtyCell.appendChild(txt(String(r.qty)))
+    tr.appendChild(qtyCell)
+
+    const cashCell = el('td', `pdp-tb-cell pdp-tb-cell--cash ${cashClass(r.netCash)}`)
+    cashCell.appendChild(txt(formatters.formatCurrency(r.netCash)))
+    tr.appendChild(cashCell)
+
+    const cumCell = el('td', `pdp-tb-cell pdp-tb-cell--cash pdp-tb-cell--cum ${cashClass(r.cumulative)}`)
+    cumCell.appendChild(txt(formatters.formatCurrency(r.cumulative)))
+    tr.appendChild(cumCell)
+
+    tbody.appendChild(tr)
+  }
+  table.appendChild(tbody)
+  wrap.appendChild(table)
+  container.appendChild(wrap)
+
+  const footer = el('div', 'pdp-tb-footer')
+  const cumulativeFinal = rows[rows.length - 1].cumulative
+
+  const line1 = el('div', 'pdp-tb-footer-line')
+  line1.appendChild(txt(`Opens: ${opensCount} · Net Cash: ${formatters.formatCurrency(cumulativeFinal)}`))
+  footer.appendChild(line1)
+
+  const line2 = el('div', 'pdp-tb-footer-line pdp-tb-footer-line--muted')
+  line2.appendChild(txt(`Fees: ${formatters.formatCurrency(feesTotal)}`))
+  footer.appendChild(line2)
+
+  if (typeof trade.cashFlow === 'number' && Number.isFinite(trade.cashFlow) &&
+      Math.abs(cumulativeFinal - trade.cashFlow) > 0.01) {
+    const line3 = el('div', 'pdp-tb-footer-line pdp-tb-footer-line--muted')
+    line3.appendChild(txt(`Realized P&L: ${formatters.formatCurrency(trade.cashFlow)}`))
+    footer.appendChild(line3)
+    if (trade.lifecycleStatus === 'closed') {
+      // Dev-only divergence warning; never throws.
+      // eslint-disable-next-line no-console
+      console.warn('[trade-breakdown] cumulative diverges from trade.cashFlow', {
+        tradeId: trade.id, cumulative: cumulativeFinal, cashFlow: trade.cashFlow
+      })
+    }
+  }
+
+  container.appendChild(footer)
 }
