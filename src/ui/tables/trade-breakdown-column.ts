@@ -163,8 +163,18 @@ export function renderTradeBreakdownColumn(
   const table = el('table', 'pdp-tb-table')
   const thead = el('thead')
   const headRow = el('tr')
-  for (const label of ['#', 'Date', 'Action', 'Type', 'Strike', 'Qty', 'Net Cash', 'Cum.']) {
-    const th = el('th')
+  const headers = [
+    { label: '#', className: 'pdp-tb-head--num pdp-tb-head--narrow' },
+    { label: 'Date' },
+    { label: 'Action' },
+    { label: 'Type' },
+    { label: 'Strike', className: 'pdp-tb-head--cash' },
+    { label: 'Qty', className: 'pdp-tb-head--num pdp-tb-head--narrow' },
+    { label: 'Net Cash', className: 'pdp-tb-head--cash' },
+    { label: 'Cum.', className: 'pdp-tb-head--cash' }
+  ]
+  for (const { label, className } of headers) {
+    const th = el('th', className)
     th.appendChild(txt(label))
     headRow.appendChild(th)
   }
@@ -200,7 +210,7 @@ export function renderTradeBreakdownColumn(
     typeCell.appendChild(typeChip)
     tr.appendChild(typeCell)
 
-    const strikeCell = el('td', 'pdp-tb-cell')
+    const strikeCell = el('td', 'pdp-tb-cell pdp-tb-cell--amount')
     strikeCell.appendChild(txt(r.strike !== null ? formatters.formatCurrency(r.strike) : '—'))
     tr.appendChild(strikeCell)
 

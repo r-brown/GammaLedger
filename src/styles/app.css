@@ -2503,7 +2503,10 @@ select.form-control {
   margin-bottom: var(--space-6);
 }
 
-.pdp-tb-table-wrap { width: 100%; }
+.pdp-tb-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
 .pdp-tb-table-wrap--scroll {
   max-height: 280px;
   overflow-y: auto;
@@ -2511,14 +2514,34 @@ select.form-control {
 
 .pdp-tb-table {
   width: 100%;
+  min-width: 440px;
   border-collapse: collapse;
   font-size: var(--font-size-xs);
+  table-layout: fixed;
 }
+.pdp-tb-table th:nth-child(1),
+.pdp-tb-table td:nth-child(1) { width: 6.36%; }
+.pdp-tb-table th:nth-child(2),
+.pdp-tb-table td:nth-child(2) { width: 14.55%; }
+.pdp-tb-table th:nth-child(3),
+.pdp-tb-table td:nth-child(3) { width: 10.91%; }
+.pdp-tb-table th:nth-child(4),
+.pdp-tb-table td:nth-child(4) { width: 11.82%; }
+.pdp-tb-table th:nth-child(5),
+.pdp-tb-table td:nth-child(5) { width: 14.09%; }
+.pdp-tb-table th:nth-child(6),
+.pdp-tb-table td:nth-child(6) { width: 7.73%; }
+.pdp-tb-table th:nth-child(7),
+.pdp-tb-table td:nth-child(7) { width: 17.27%; }
+.pdp-tb-table th:nth-child(8),
+.pdp-tb-table td:nth-child(8) { width: 17.27%; }
 .pdp-tb-table thead th {
   position: sticky;
   top: 0;
   background: var(--color-background);
+  vertical-align: middle;
   font-size: 9px;
+  line-height: 1.1;
   font-weight: var(--font-weight-bold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -2526,6 +2549,20 @@ select.form-control {
   text-align: left;
   padding: 4px 6px;
   border-bottom: 1px solid var(--color-border);
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.pdp-tb-table thead th.pdp-tb-head--num,
+.pdp-tb-table thead th.pdp-tb-head--cash {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+#trades-table .pdp-tb-table thead th {
+  text-align: left;
+}
+#trades-table .pdp-tb-table thead th.pdp-tb-head--num,
+#trades-table .pdp-tb-table thead th.pdp-tb-head--cash {
+  text-align: right;
 }
 .pdp-tb-row { border-bottom: 1px dashed var(--color-border); }
 .pdp-tb-row:last-child { border-bottom: none; }
@@ -2533,11 +2570,16 @@ select.form-control {
   padding: 4px 6px;
   vertical-align: middle;
   color: var(--color-text);
+  box-sizing: border-box;
 }
 .pdp-tb-cell--num {
   font-variant-numeric: tabular-nums;
   text-align: right;
   color: var(--color-text-secondary);
+}
+.pdp-tb-cell--amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 .pdp-tb-cell--cash {
   font-variant-numeric: tabular-nums;
@@ -3722,7 +3764,6 @@ td {
   vertical-align: middle;
 }
 
-#trades-table th:last-child,
 #trades-table td.actions-cell {
   width: 170px;
   min-width: 170px;
