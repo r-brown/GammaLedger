@@ -543,7 +543,7 @@ function createTradesGridOptions(this: TradesTableContext, trades: TradeRecord[]
             return tradeRowKey(params.data);
         },
         isFullWidthRow: params => !!(params.rowNode.data as Record<string, unknown>)?._isDetailRow,
-        fullWidthCellRenderer: createPositionDetailPanelRenderer(context as unknown as PositionDetailPanelContext, { threeCol: true }),
+        fullWidthCellRenderer: createPositionDetailPanelRenderer(context as unknown as PositionDetailPanelContext, { threeCol: true, tradeBreakdown: true }),
         getRowHeight: params => (params.data as Record<string, unknown>)?._isDetailRow ? 800 : 50,
         onRowClicked: params => {
             const data = params.data;
