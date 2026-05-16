@@ -14,12 +14,12 @@
 
 ## 🚀 What's New — App v2 is Live!
 
-> **[➜ Launch GammaLedger App v2](https://gammaledger.com/appv2/)**
+> **[➜ Launch GammaLedger App v2](https://gammaledger.com/app/)**
 
 We are excited to announce the release of **GammaLedger App v2** — a major redesign and architectural upgrade of the trading tracker, now available at:
 
 ```
-https://gammaledger.com/appv2/
+https://gammaledger.com/app/
 ```
 
 GammaLedger v2 builds on everything that made the original GammaLedger useful and takes it further with a modernized interface, improved strategy tracking, and new AI-powered analysis capabilities.
