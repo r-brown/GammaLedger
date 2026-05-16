@@ -376,7 +376,7 @@ directly from grid callbacks.
 - **Import JSON**: full database restore, validated by `parseStorageSchema()`
 - **Export JSON**: full backup (trades + settings + mcpContext) → `src/database/persist.ts`
 - **Export CSV**: `src/utils/export.ts`
-- **Share Card**: 1080×1080px PNG → `src/ui/share-card.ts` (requires `window.html2canvas`)
+- **Share Card**: 1080×1080px PNG → `src/ui/share-card.ts` (renders directly with Canvas API)
 
 ---
 
@@ -413,11 +413,11 @@ Font: **Inter** (Google Fonts CDN). All sizing in `rem`. Layout: CSS Grid + Flex
 
 ## External Dependencies
 
-### CDN (loaded in `index.html`, NOT bundled — no npm equivalent)
+### Browser APIs
 
-- **html2canvas 1.4.1** — `cdn.jsdelivr.net/npm/html2canvas@1.4.1/…` — Share Card PNG export
+- **Canvas API** — browser-native Share Card PNG export
 
-Guard CDN globals before use: `if (window.html2canvas) { … }`.
+Import browser libraries through Vite/npm instead of CDN globals.
 
 ### npm (bundled)
 
@@ -510,7 +510,7 @@ These are hard constraints. Any plan review must flag violations before executio
 - `trade.status` can be `'Rolling'` (lifecycle-computed) — never assume only four statuses
 - File System Access API is Chrome/Edge only — app falls back to `<a download>` gracefully; do not assume availability
 - Gemini calls require the `AI_COACH_CONSENT_STORAGE_KEY` flag — gate every call
-- Share Card requires `window.html2canvas` (CDN) — guard with `if (window.html2canvas)` before calling
+- Share Card renders directly with Canvas API; keep the export path free of CDN and iframe-based DOM capture dependencies for local release builds
 - `index.html` references `/src/index.js` — Vite resolves this to `src/index.ts`; do not rename the HTML reference
 - AG Grid tables use `theme: 'legacy'` — do not change; the app loads `ag-grid.css` + `ag-theme-quartz.css` directly
 - ECharts: always update via `renderEChart(...)` so instances are reused; do not create new chart instances for existing chart roots

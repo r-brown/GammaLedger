@@ -1,18 +1,24 @@
 name: GammaLedger MCP — Release
 
-# Triggered by tags: mcp-1.2.3 or mcp-1.2.3-rc.1
 on:
-  push:
-    tags:
-      - "mcp-[0-9]+.[0-9]+.[0-9]+"      # mcp-1.2.3
-      - "mcp-[0-9]+.[0-9]+.[0-9]+-*"    # mcp-1.2.3-rc.1, mcp-1.2.3-beta.2
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "MCP package version (for example, 1.2.3 or mcp-1.2.3)"
+        required: true
+        type: string
+      release_notes:
+        description: "Release notes (leave blank to auto-generate from commits)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: mcp-release-${{ github.ref }}
+  group: mcp-release-${{ inputs.version }}
   cancel-in-progress: false
 
 jobs:
@@ -74,10 +80,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Strip the "mcp-" prefix to get the bare semver (e.g. mcp-1.2.3 → 1.2.3)
-      - name: Derive version from tag
+      - name: Resolve release version
         id: version
-        run: echo "number=${GITHUB_REF_NAME#mcp-}" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${INPUT_VERSION#mcp-}"
+          VERSION="${VERSION#v}"
+
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Invalid MCP release version: ${VERSION}" >&2
+            exit 1
+          fi
+
+          echo "number=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=mcp-${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved MCP release version: ${VERSION}"
         working-directory: .
 
       - name: Install uv
@@ -117,31 +135,64 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Derive version from tag
+      - name: Resolve release version
         id: version
-        run: echo "number=${GITHUB_REF_NAME#mcp-}" >> "$GITHUB_OUTPUT"
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${INPUT_VERSION#mcp-}"
+          VERSION="${VERSION#v}"
 
-      - name: Create Release
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Invalid MCP release version: ${VERSION}" >&2
+            exit 1
+          fi
+
+          echo "number=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=mcp-${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Resolved MCP release version: ${VERSION}"
+
+      - name: Build release body
+        id: body
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+          VERSION: ${{ steps.version.outputs.number }}
+        run: |
+          BODY_FILE="$(mktemp)"
+
+          if [ -n "${RELEASE_NOTES}" ]; then
+            printf '%s\n\n' "${RELEASE_NOTES}" >> "${BODY_FILE}"
+          fi
+
+          cat >> "${BODY_FILE}" <<EOF
+          ## GammaLedger MCP v${VERSION}
+
+          | Registry | Package |
+          |---|---|
+          | PyPI | [\`gammaledger-mcp==${VERSION}\`](https://pypi.org/project/gammaledger-mcp/${VERSION}/) |
+
+          ## Install
+
+          \`\`\`bash
+          # pip
+          pip install gammaledger-mcp==${VERSION}
+
+          # uvx (recommended - no install needed)
+          uvx gammaledger-mcp --db-path ~/gammaledger.json
+
+          # Claude Code
+          claude mcp add gammaledger -- uvx gammaledger-mcp --db-path ~/gammaledger.json
+          \`\`\`
+          EOF
+
+          echo "path=${BODY_FILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          body_path: ${{ steps.body.outputs.path }}
+          generate_release_notes: ${{ inputs.release_notes == '' }}
           append_body: true
-          body: |
-            ## GammaLedger MCP v${{ steps.version.outputs.number }}
-
-            | Registry | Package |
-            |---|---|
-            | PyPI | [`gammaledger-mcp==${{ steps.version.outputs.number }}`](https://pypi.org/project/gammaledger-mcp/${{ steps.version.outputs.number }}/) |
-
-            ## Install
-
-            ```bash
-            # pip
-            pip install gammaledger-mcp==${{ steps.version.outputs.number }}
-
-            # uvx (recommended — no install needed)
-            uvx gammaledger-mcp --db-path ~/gammaledger.json
-
-            # Claude Code
-            claude mcp add gammaledger -- uvx gammaledger-mcp --db-path ~/gammaledger.json
-            ```
+          target_commitish: ${{ github.sha }}

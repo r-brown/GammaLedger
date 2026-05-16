@@ -9,8 +9,6 @@
 declare global {
     interface Window {
         tracker: GammaLedger
-        // html2canvas loaded from CDN
-        html2canvas: (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>
         // File System Access API (not yet in all TS lib versions)
         showSaveFilePicker?: (options?: Record<string, unknown>) => Promise<FileSystemFileHandle>
         showOpenFilePicker?: (options?: Record<string, unknown>) => Promise<FileSystemFileHandle[]>

@@ -75,10 +75,6 @@ interface ShareCardContext {
   showNotification(message: string, variant?: string): void
 }
 
-interface Html2CanvasWindow {
-  html2canvas?: (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>
-}
-
 export function normalizeCumulativePLRange(range: unknown): string {
     const value = ((range || '') as string).toString().trim().toUpperCase();
     return CUMULATIVE_PL_RANGES.includes(value) ? value : 'ALL';
@@ -545,19 +541,319 @@ export async function waitForShareCardChartRender(): Promise<void> {
     });
 }
 
-export async function downloadShareCard(this: ShareCardContext): Promise<void> {
-    const button = this.shareCard?.button;
-    const root = this.shareCard?.root;
-    const card = this.shareCard?.card;
+function formatShareCardPercent(this: ShareCardContext, value: unknown, decimals = 2): string {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+        return 'Infinite';
+    }
+    const formatted = this.formatNumber(numeric, { decimals, useGrouping: true });
+    return formatted ? `${formatted}%` : `${numeric.toFixed(decimals)}%`;
+}
 
-    if (!button || !root || !card) {
-        this.showNotification('Sharing is unavailable right now.', 'error');
-        return;
+function drawRoundedRect(
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number
+): void {
+    const safeRadius = Math.max(0, Math.min(radius, width / 2, height / 2));
+    context.beginPath();
+    context.moveTo(x + safeRadius, y);
+    context.lineTo(x + width - safeRadius, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+    context.lineTo(x + width, y + height - safeRadius);
+    context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+    context.lineTo(x + safeRadius, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+    context.lineTo(x, y + safeRadius);
+    context.quadraticCurveTo(x, y, x + safeRadius, y);
+    context.closePath();
+}
+
+function setCanvasFont(
+    context: CanvasRenderingContext2D,
+    weight: number,
+    size: number,
+    lineHeight = 1.2
+): void {
+    context.font = `${weight} ${size}px/${lineHeight} Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+}
+
+function drawFittedText(
+    context: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    maxWidth: number,
+    options: { weight: number; size: number; minSize?: number; color: string; align?: CanvasTextAlign }
+): void {
+    const minSize = options.minSize ?? 22;
+    let size = options.size;
+    setCanvasFont(context, options.weight, size);
+    while (size > minSize && context.measureText(text).width > maxWidth) {
+        size -= 2;
+        setCanvasFont(context, options.weight, size);
+    }
+    context.fillStyle = options.color;
+    context.textAlign = options.align || 'left';
+    context.fillText(text, x, y);
+}
+
+function createShareCardCanvas(this: ShareCardContext, stats: DashboardStats, exportSize: number): HTMLCanvasElement {
+    const pixelRatio = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(exportSize * pixelRatio);
+    canvas.height = Math.round(exportSize * pixelRatio);
+    canvas.style.width = `${exportSize}px`;
+    canvas.style.height = `${exportSize}px`;
+
+    const context = canvas.getContext('2d');
+    if (!context) {
+        throw new Error('Canvas rendering is unavailable.');
     }
 
-    const html2canvas = (window as unknown as Html2CanvasWindow).html2canvas;
-    if (typeof html2canvas !== 'function') {
-        this.showNotification('Image export library failed to load. Please refresh and try again.', 'error');
+    context.scale(pixelRatio, pixelRatio);
+    context.textBaseline = 'alphabetic';
+
+    const background = context.createLinearGradient(0, 0, exportSize, exportSize);
+    background.addColorStop(0, '#07101f');
+    background.addColorStop(0.52, '#050b1a');
+    background.addColorStop(1, '#071826');
+    context.fillStyle = background;
+    context.fillRect(0, 0, exportSize, exportSize);
+
+    context.fillStyle = 'rgba(79, 195, 247, 0.08)';
+    context.beginPath();
+    context.arc(940, 120, 240, 0, Math.PI * 2);
+    context.fill();
+
+    const padding = 72;
+    const rangeLabel = this.getCumulativePLRangeLabel(this.cumulativePLRange);
+    const timestamp = new Date().toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    setCanvasFont(context, 800, 54, 1.05);
+    context.fillStyle = '#f8fbff';
+    context.textAlign = 'left';
+    context.fillText('Portfolio Snapshot', padding, 120);
+
+    setCanvasFont(context, 600, 25);
+    context.fillStyle = 'rgba(255, 255, 255, 0.72)';
+    context.fillText(`Range: ${rangeLabel}`, padding, 164);
+
+    setCanvasFont(context, 600, 22);
+    context.textAlign = 'right';
+    context.fillStyle = 'rgba(255, 255, 255, 0.62)';
+    context.fillText(timestamp, exportSize - padding, 108);
+
+    setCanvasFont(context, 800, 28);
+    context.fillStyle = '#4fc3f7';
+    context.fillText('GammaLedger', exportSize - padding, 154);
+
+    const metricGap = 20;
+    const metricY = 228;
+    const metricWidth = (exportSize - padding * 2 - metricGap) / 2;
+    const metricHeight = 126;
+    const metrics = [
+        {
+            label: 'Realized P&L',
+            value: this.formatCurrency(stats.realizedPL || 0),
+            color: Number(stats.realizedPL) >= 0 ? '#6ee7b7' : '#fca5a5'
+        },
+        {
+            label: 'Win Rate',
+            value: formatShareCardPercent.call(this, stats.winRate, 1),
+            color: '#f8fbff'
+        },
+        {
+            label: 'Profit Factor',
+            value: Number.isFinite(Number(stats.profitFactor)) ? Number(stats.profitFactor).toFixed(2) : 'Infinite',
+            color: '#f8fbff'
+        },
+        {
+            label: 'Total ROI',
+            value: formatShareCardPercent.call(this, stats.totalROI, 2),
+            color: Number(stats.totalROI) >= 0 ? '#6ee7b7' : '#fca5a5'
+        }
+    ];
+
+    metrics.forEach((metric, index) => {
+        const x = padding + (index % 2) * (metricWidth + metricGap);
+        const y = metricY + Math.floor(index / 2) * (metricHeight + metricGap);
+        drawRoundedRect(context, x, y, metricWidth, metricHeight, 8);
+        context.fillStyle = 'rgba(255, 255, 255, 0.075)';
+        context.fill();
+        context.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        context.lineWidth = 1;
+        context.stroke();
+
+        setCanvasFont(context, 700, 21);
+        context.fillStyle = 'rgba(255, 255, 255, 0.62)';
+        context.textAlign = 'left';
+        context.fillText(metric.label, x + 28, y + 42);
+        drawFittedText(context, metric.value, x + 28, y + 91, metricWidth - 56, {
+            weight: 800,
+            size: 42,
+            minSize: 26,
+            color: metric.color
+        });
+    });
+
+    const chartX = padding;
+    const chartY = 548;
+    const chartWidth = exportSize - padding * 2;
+    const chartHeight = 380;
+    drawRoundedRect(context, chartX, chartY, chartWidth, chartHeight, 8);
+    context.fillStyle = 'rgba(255, 255, 255, 0.06)';
+    context.fill();
+    context.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    context.stroke();
+
+    setCanvasFont(context, 800, 28);
+    context.fillStyle = '#f8fbff';
+    context.textAlign = 'left';
+    context.fillText(`Cumulative P&L (${rangeLabel})`, chartX + 32, chartY + 52);
+
+    const series = this.computeCumulativePLSeries(this.cumulativePLRange);
+    const hasData = Boolean(series?.dataPoints?.length);
+    const plot = {
+        x: chartX + 78,
+        y: chartY + 92,
+        width: chartWidth - 118,
+        height: chartHeight - 156
+    };
+
+    context.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+    context.lineWidth = 1;
+    for (let i = 0; i <= 4; i += 1) {
+        const y = plot.y + (plot.height / 4) * i;
+        context.beginPath();
+        context.moveTo(plot.x, y);
+        context.lineTo(plot.x + plot.width, y);
+        context.stroke();
+    }
+
+    if (hasData && series) {
+        const values = series.dataPoints;
+        let min = Math.min(0, ...values);
+        let max = Math.max(0, ...values);
+        if (min === max) {
+            min -= 1;
+            max += 1;
+        }
+        const paddingValue = (max - min) * 0.12;
+        min -= paddingValue;
+        max += paddingValue;
+
+        const xFor = (index: number): number => {
+            if (values.length === 1) {
+                return plot.x + plot.width / 2;
+            }
+            return plot.x + (plot.width * index) / (values.length - 1);
+        };
+        const yFor = (value: number): number => plot.y + plot.height - ((value - min) / (max - min)) * plot.height;
+        const zeroY = yFor(0);
+
+        context.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+        context.beginPath();
+        context.moveTo(plot.x, zeroY);
+        context.lineTo(plot.x + plot.width, zeroY);
+        context.stroke();
+
+        const areaGradient = context.createLinearGradient(0, plot.y, 0, plot.y + plot.height);
+        areaGradient.addColorStop(0, 'rgba(79, 195, 247, 0.34)');
+        areaGradient.addColorStop(1, 'rgba(79, 195, 247, 0.02)');
+        context.beginPath();
+        values.forEach((value, index) => {
+            const x = xFor(index);
+            const y = yFor(value);
+            if (index === 0) {
+                context.moveTo(x, y);
+            } else {
+                context.lineTo(x, y);
+            }
+        });
+        context.lineTo(xFor(values.length - 1), plot.y + plot.height);
+        context.lineTo(xFor(0), plot.y + plot.height);
+        context.closePath();
+        context.fillStyle = areaGradient;
+        context.fill();
+
+        context.beginPath();
+        values.forEach((value, index) => {
+            const x = xFor(index);
+            const y = yFor(value);
+            if (index === 0) {
+                context.moveTo(x, y);
+            } else {
+                context.lineTo(x, y);
+            }
+        });
+        context.strokeStyle = '#4fc3f7';
+        context.lineWidth = 5;
+        context.lineJoin = 'round';
+        context.lineCap = 'round';
+        context.stroke();
+
+        if (values.length <= 16) {
+            values.forEach((value, index) => {
+                context.beginPath();
+                context.arc(xFor(index), yFor(value), 6, 0, Math.PI * 2);
+                context.fillStyle = '#4fc3f7';
+                context.fill();
+                context.strokeStyle = '#050b1a';
+                context.lineWidth = 3;
+                context.stroke();
+            });
+        }
+
+        setCanvasFont(context, 600, 18);
+        context.fillStyle = 'rgba(255, 255, 255, 0.56)';
+        context.textAlign = 'right';
+        context.fillText(this.formatCurrency(max, { decimals: 0 }), plot.x - 14, plot.y + 6);
+        context.fillText(this.formatCurrency(0, { decimals: 0 }), plot.x - 14, zeroY + 6);
+        context.fillText(this.formatCurrency(min, { decimals: 0 }), plot.x - 14, plot.y + plot.height);
+
+        const labelIndexes = Array.from(new Set([
+            0,
+            Math.floor((series.labels.length - 1) / 2),
+            series.labels.length - 1
+        ])).filter(index => index >= 0 && index < series.labels.length);
+        context.textAlign = 'center';
+        labelIndexes.forEach(index => {
+            context.fillText(series.labels[index], xFor(index), plot.y + plot.height + 38);
+        });
+    } else {
+        setCanvasFont(context, 700, 27);
+        context.textAlign = 'center';
+        context.fillStyle = 'rgba(255, 255, 255, 0.62)';
+        context.fillText('No closed trades in this range', chartX + chartWidth / 2, chartY + 220);
+    }
+
+    setCanvasFont(context, 700, 22);
+    context.textAlign = 'left';
+    context.fillStyle = 'rgba(255, 255, 255, 0.56)';
+    context.fillText('Generated with GammaLedger.com', padding, exportSize - 74);
+
+    context.textAlign = 'right';
+    context.fillStyle = 'rgba(79, 195, 247, 0.84)';
+    context.fillText('Options portfolio analytics', exportSize - padding, exportSize - 74);
+
+    return canvas;
+}
+
+export async function downloadShareCard(this: ShareCardContext): Promise<void> {
+    const button = this.shareCard?.button;
+
+    if (!button) {
+        this.showNotification('Sharing is unavailable right now.', 'error');
         return;
     }
 
@@ -569,75 +865,18 @@ export async function downloadShareCard(this: ShareCardContext): Promise<void> {
     btn.setAttribute('aria-busy', 'true');
     btn.blur();
 
-    const previousExportFlag = card.dataset.exportMode;
-    const previousWidth = card.style.width;
-    const previousHeight = card.style.height;
-    const previousMaxWidth = card.style.maxWidth;
-    const previousMaxHeight = card.style.maxHeight;
-
-    // Force the card into a deterministic square frame for export.
-    card.dataset.exportMode = 'true';
-    card.style.width = `${exportSize}px`;
-    card.style.height = `${exportSize}px`;
-    card.style.maxWidth = `${exportSize}px`;
-    card.style.maxHeight = `${exportSize}px`;
-
-    this.updateShareCard(this.latestStats || this.calculateAdvancedStats());
-    root.classList.add('is-active');
-    root.setAttribute('aria-hidden', 'false');
-
-    await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-            this.refreshShareCardChart();
-            setTimeout(resolve, 220);
-        });
-    });
-
-    await this.waitForShareCardChartRender();
-
+    const stats = this.latestStats || this.calculateAdvancedStats();
+    this.updateShareCard(stats);
     let canvas: HTMLCanvasElement | null = null;
     try {
-        const scale = Math.max(2, Math.min(3, window.devicePixelRatio || 2));
-        canvas = await html2canvas(card, {
-            width: exportSize,
-            height: exportSize,
-            scale,
-            useCORS: true,
-            logging: false,
-            backgroundColor: '#050b1a'
-        });
+        canvas = createShareCardCanvas.call(this, stats, exportSize);
     } catch (error) {
         console.error('Failed to capture share card:', error);
         this.showNotification('Unable to prepare the share card image. Please try again.', 'error');
     }
 
-    root.classList.remove('is-active');
-    root.setAttribute('aria-hidden', 'true');
     btn.removeAttribute('aria-busy');
     btn.disabled = previousDisabled;
-
-    if (previousExportFlag) {
-        card.dataset.exportMode = previousExportFlag;
-    } else {
-        delete card.dataset.exportMode;
-    }
-
-    // Restore the card's natural sizing after capture.
-    card.style.width = previousWidth;
-    card.style.height = previousHeight;
-    card.style.maxWidth = previousMaxWidth;
-    card.style.maxHeight = previousMaxHeight;
-
-    if (this.shareCard.chart) {
-        disposeChartInstance(this.shareCard.chart);
-        this.shareCard.chart = null;
-    }
-
-    if (this.shareCard.chartCanvas) {
-        this.shareCard.chartCanvas.style.removeProperty('min-height');
-        this.shareCard.chartCanvas.style.removeProperty('width');
-        this.shareCard.chartCanvas.style.removeProperty('height');
-    }
 
     if (!canvas) {
         return;

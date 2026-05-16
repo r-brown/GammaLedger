@@ -154,13 +154,13 @@ gammaledger/
 └── mcp/                    ← MCP server (Python, separate from the browser app)
 ```
 
-### CDN dependencies
+### Browser APIs
 
-One library is loaded from CDN directly in `index.html` — it is **not** an npm package:
+The share-card PNG export uses browser-native Canvas APIs, not a CDN runtime:
 
 | Library | Usage |
 |---------|-------|
-| `html2canvas` (jsdelivr) | Portfolio snapshot share card |
+| Canvas API | Portfolio snapshot PNG export |
 
 ---
 
@@ -281,7 +281,7 @@ The output in `dist/` is:
 ### Bundle size
 
 The build is a single-page app with npm dependencies bundled by Vite.
-Apache ECharts and AG Grid are bundled from npm; html2canvas is the only CDN runtime.
+Apache ECharts and AG Grid are bundled from npm; share-card PNG export uses the browser Canvas API.
 Current production bundle size is roughly 2.24 MB JS and 367 KB CSS uncompressed.
 
 ---
@@ -307,99 +307,52 @@ would serve — use this before any deployment to verify the production artefact
 
 ## Deploying to GitHub Pages
 
-GammaLedger is a fully static site — the `dist/` folder can be hosted anywhere.
-Below are two approaches for GitHub Pages.
+GammaLedger is a fully static site. The app release workflow builds both the
+downloadable local ZIP and the GitHub Pages deployment for `/app/`.
 
 ### Option A — Manual deploy (one-off or controlled)
 
 ```bash
-# Build
-npm run build
+# Build for the production /app/ path
+npx vite build --base /app/
 
-# Push dist/ to the gh-pages branch using the gh-pages utility
-npx gh-pages -d dist
+# Replace the app/ directory on gh-pages with dist/
+# Prefer the automated workflow for normal releases.
 ```
 
-The app will then be live at `https://<username>.github.io/<repo>/`.
+The app will then be live at `https://gammaledger.com/app/`.
 
-#### ⚠️ Base path for subdirectory deployments
+#### Base path
 
-If the repo is deployed to a subdirectory (e.g. `https://example.github.io/gammaledger/`
-rather than a custom domain at `/`), set the `base` option in `vite.config.ts`:
+Production Pages deployment is intentionally served from `/app/`. Keep the
+default Vite `base` in `vite.config.ts` aligned with that path:
 
 ```ts
 // vite.config.ts
 export default defineConfig({
-  base: '/gammaledger/',   // ← set to your repo name
+  base: '/app/',
   // ...rest of config
 })
 ```
 
-When using a custom domain (e.g. `gammaledger.com`) pointed at the Pages site,
-`base` should remain `'/'` (the default).
+Use `--base ./` only for local downloadable ZIP releases.
 
-### Option B — Automated deploy via GitHub Actions
+### Automated release and deploy
 
-Create `.github/workflows/deploy.yml`:
+Run `.github/workflows/app-release.yml` manually from GitHub Actions on `main`.
 
-```yaml
-name: Deploy to GitHub Pages
+The workflow:
 
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
+1. Resolves the app version from the supplied input or semver bump.
+2. Runs `npm ci` and `npm run typecheck`.
+3. Builds a local ZIP package with `--base ./`.
+4. Rebuilds the app with `--base /app/`.
+5. Replaces only `app/` on the `gh-pages` branch and copies `404.html` to the
+   Pages root for direct-link fallback.
+6. Publishes the GitHub Release with the local ZIP and checksum.
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type-check
-        run: npm run typecheck
-
-      - name: Build
-        run: npm run build
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-```
-
-Then in the GitHub repository settings → **Pages** → set Source to
-**GitHub Actions**.
-
-Every push to `main` will type-check, build, and deploy automatically.
+There is no separate release-triggered Pages workflow and no appv1 deployment
+path. GitHub Pages should use the `gh-pages` branch as its source.
 
 ---
 

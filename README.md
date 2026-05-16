@@ -14,13 +14,9 @@
 
 ## 🚀 What's New — App v2 is Live!
 
-> **[➜ Launch GammaLedger App v2](https://gammaledger.com/appv2/)**
+> **[➜ Launch GammaLedger App v2](https://gammaledger.com/app/)**
 
 We are excited to announce the release of **GammaLedger App v2** — a major redesign and architectural upgrade of the trading tracker, now available at:
-
-```
-https://gammaledger.com/appv2/
-```
 
 GammaLedger v2 builds on everything that made the original GammaLedger useful and takes it further with a modernized interface, improved strategy tracking, and new AI-powered analysis capabilities.
 
@@ -32,8 +28,6 @@ GammaLedger v2 builds on everything that made the original GammaLedger useful an
 - **OFX / QFX import** — seamlessly parse brokerage export files (IBKR and others) to auto-populate your positions
 - **Local-first, always** — all data stays in your browser via `localStorage`; no accounts, no servers, no data leaving your device
 - **Multi-strategy support** — track Cash-Secured Puts, Covered Calls, Bull Put Spreads, Bear Call Spreads, PMCCs, and Iron Condors side by side
-
-> **Note:** App v2 is currently in active development. The original app remains accessible at [gammaledger.com/app/](https://gammaledger.com/app/) while v2 stabilizes.
 
 ### 💬 Share Your Feedback
 
