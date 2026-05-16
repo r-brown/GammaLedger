@@ -135,11 +135,14 @@ export function renderTradeBreakdownColumn(
   container.appendChild(header)
 
   const rows = buildBreakdownRows(trade.legs)
+  for (const r of rows) {
+    r.date = r.dateSortKey ? formatters.formatDate(r.dateSortKey) : '—'
+  }
 
   const meta = el('div', 'pdp-tb-meta')
-  const ticker = (trade.ticker ?? '').toString()
-  const strategy = (trade.strategy ?? '').toString()
-  const tradeId = (trade.id ?? '').toString()
+  const ticker = String(trade.ticker ?? '')
+  const strategy = String(trade.strategy ?? '')
+  const tradeId = String(trade.id ?? '')
   const parts: string[] = []
   parts.push(`${rows.length} ${rows.length === 1 ? 'leg' : 'legs'}`)
   if (tradeId) parts.push(tradeId)
@@ -157,8 +160,8 @@ export function renderTradeBreakdownColumn(
   const wrap = el('div', 'pdp-tb-table-wrap')
   if (rows.length > 8) wrap.classList.add('pdp-tb-table-wrap--scroll')
 
-  const table = el('table', 'pdp-tb-table') as HTMLTableElement
-  const thead = el('thead') as HTMLTableSectionElement
+  const table = el('table', 'pdp-tb-table')
+  const thead = el('thead')
   const headRow = el('tr')
   for (const label of ['#', 'Date', 'Action', 'Type', 'Strike', 'Qty', 'Net Cash', 'Cum.']) {
     const th = el('th')
@@ -168,12 +171,11 @@ export function renderTradeBreakdownColumn(
   thead.appendChild(headRow)
   table.appendChild(thead)
 
-  const tbody = el('tbody') as HTMLTableSectionElement
+  const tbody = el('tbody')
   let opensCount = 0
   let feesTotal = 0
   for (const r of rows) {
-    if (CREDIT_ACTIONS.has(r.action) && (r.action === 'STO')) opensCount += r.qty
-    if (r.action === 'BTO') opensCount += r.qty
+    if (r.action === 'STO' || r.action === 'BTO') opensCount += r.qty
     feesTotal += r.fees
 
     const tr = el('tr', 'pdp-tb-row')
@@ -183,7 +185,7 @@ export function renderTradeBreakdownColumn(
     tr.appendChild(numCell)
 
     const dateCell = el('td', 'pdp-tb-cell')
-    dateCell.appendChild(txt(r.dateSortKey ? formatters.formatDate(r.dateSortKey) : '—'))
+    dateCell.appendChild(txt(r.date))
     tr.appendChild(dateCell)
 
     const actionCell = el('td', 'pdp-tb-cell')
@@ -216,6 +218,7 @@ export function renderTradeBreakdownColumn(
 
     tbody.appendChild(tr)
   }
+  feesTotal = Math.round(feesTotal * 100) / 100
   table.appendChild(tbody)
   wrap.appendChild(table)
   container.appendChild(wrap)
