@@ -1,4 +1,5 @@
 import type { StockMetrics, SignalsData, CompanyProfile, EarningsSurprise } from '../../types/integrations.js'
+import { renderTradeBreakdownColumn, type BreakdownTrade } from './trade-breakdown-column.js'
 
 // ---------------------------------------------------------------------------
 // Context interface — structural typing over GammaLedger instance
@@ -1430,6 +1431,16 @@ export function createPositionDetailPanelRenderer(
         ? trade.activeStrikePrice
         : (typeof trade.strikePrice === 'number' ? trade.strikePrice : null)
       triggerDataFetch(context, ticker, this.container, activeStrike, threeCol)
+
+      if (tradeBreakdown) {
+        const tbCard = this.container.querySelector('[data-role="trade-breakdown"]') as HTMLElement | null
+        if (tbCard) {
+          renderTradeBreakdownColumn(tbCard, trade as BreakdownTrade, {
+            formatCurrency: (v: unknown) => context.formatCurrency(v),
+            formatDate: (v: unknown) => context.formatDate(v)
+          })
+        }
+      }
 
       // Auto-size row height to actual rendered content.
       // The panel has no fixed height (min-height only), so offsetHeight = actual content height.
