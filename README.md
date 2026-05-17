@@ -22,7 +22,7 @@ GammaLedger v2 builds on everything that made the original GammaLedger useful an
 
 ### Highlights in v2
 
-- **Rebuilt on Vue 3 + Vite** — faster load times, better developer experience, and a more responsive UI
+- **Rebuilt on Vite** — faster load times, better developer experience, and a more responsive UI
 - **Improved Wheel & PMCC tracker** — enhanced lifecycle state machine for trade sequences, including open, rolled, assigned, and closed states
 - **AI-powered analysis** — integrated support for both Anthropic Claude and Google Gemini to assist with trade review and portfolio commentary
 - **OFX / QFX import** — seamlessly parse brokerage export files (IBKR and others) to auto-populate your positions
@@ -76,7 +76,6 @@ Your input shapes what gets built next — every issue is read and appreciated.
 
 [![Reddit](https://img.shields.io/badge/ReddIt-FF0000?style=for-the-badge&logo=reddit&logoColor=white)](https://www.reddit.com/r/GammaLedger/)
 [![Twitter](https://img.shields.io/badge/X.com-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/GammaLedger)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/GammaLedger)
 
 </div>
 
@@ -309,14 +308,6 @@ When you roll an options position (close one and open another at a different str
 
 ### Can I track options on cryptocurrencies?
 Not currently. GammaLedger focuses on equity options from traditional brokers. Crypto options support may be considered for future releases.
-
-
-## 🗺️ Roadmap
-
-Vote on features or submit your ideas in [GitHub Discussions](https://github.com/r-brown/GammaLedger/discussions)
-
-Want to see a feature? Open an issue or contribute code!
-
 
 ## 🤝 Contributing
 
