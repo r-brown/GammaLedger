@@ -59,14 +59,20 @@ function localReleaseBundle(): import('vite').Plugin {
             `<script[^>]*\\ssrc="${escapeRegExp(fullPath)}"[^>]*>\\s*</script>`,
             'i'
           )
-          html = html.replace(re, `<script>${safeContent}</script>`)
+          const srcAttr = new RegExp(`\\s+src="${escapeRegExp(fullPath)}"`, 'i')
+          html = html.replace(re, (tag) => {
+            const openTag = tag
+              .replace(srcAttr, '')
+              .replace(/>\s*<\/script>$/i, '>')
+            return `${openTag}${safeContent}</script>`
+          })
         } else {
           const safeContent = content.replace(/<\/style/gi, '<\\/style')
           const re = new RegExp(
             `<link[^>]*\\shref="${escapeRegExp(fullPath)}"[^>]*>`,
             'i'
           )
-          html = html.replace(re, `<style>${safeContent}</style>`)
+          html = html.replace(re, () => `<style>${safeContent}</style>`)
         }
 
         // Remove the now-inlined asset file from disk

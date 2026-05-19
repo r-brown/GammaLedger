@@ -131,6 +131,7 @@ jobs:
         run: |
           test -f dist/index.html
           test -f dist/404.html
+          npm run verify:artifact:local
           find dist -maxdepth 2 -type f | sort
 
       - name: Create package
@@ -222,6 +223,9 @@ jobs:
         run: npx vite build --base /app/
         env:
           VITE_APP_VERSION: ${{ steps.version.outputs.value }}
+
+      - name: Verify GitHub Pages app output
+        run: npm run verify:artifact:pages
 
       - name: Inject release.json into GitHub Pages build
         env:
