@@ -258,11 +258,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Remove everything except .git and files that must be preserved
+          # Remove everything except .git; CNAME is re-written from the repo copy below
           cd _gh_pages
           find . -mindepth 1 -maxdepth 1 \
             ! -name '.git' \
-            ! -name 'CNAME' \
             -exec rm -rf {} +
           cd ..
 
@@ -274,10 +273,8 @@ jobs:
             cp dist/404.html _gh_pages/404.html
           fi
 
-          # Ensure CNAME is present for the custom domain
-          if [ ! -f _gh_pages/CNAME ]; then
-            echo "gammaledger.com" > _gh_pages/CNAME
-          fi
+          # Always write CNAME from the canonical copy in the repo
+          cp CNAME _gh_pages/CNAME
 
       - name: Commit and push GitHub Pages deployment
         env:
