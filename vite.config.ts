@@ -1,74 +1,73 @@
 import { defineConfig } from 'vite'
 import checker from 'vite-plugin-checker'
-import { copyFileSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { copyFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 function localReleaseBundle(): import('vite').Plugin {
   let base = '/app/'
-
-  const toDistPath = (dist: string, assetPath: string): string => {
-    const normalizedPath = assetPath.replace(/^\.?\//, '')
-    return resolve(dist, normalizedPath)
-  }
-
-  const inlineScriptAttributes = (attributes: string): string => {
-    return attributes.replace(/\s+crossorigin(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '')
-  }
-
-  const inlineLocalAssets = (dist: string, htmlFile: string): void => {
-    const htmlPath = resolve(dist, htmlFile)
-    const inlinedAssets = new Set<string>()
-    let html = readFileSync(htmlPath, 'utf8')
-
-    html = html.replace(
-      /<script\b([^>]*?)\s+src="([^"]+)"([^>]*)><\/script>/gi,
-      (tag, before: string, src: string, after: string) => {
-        if (/^(?:https?:)?\/\//i.test(src)) {
-          return tag
-        }
-
-        const assetPath = toDistPath(dist, src)
-        const script = readFileSync(assetPath, 'utf8').replace(/<\/script/gi, '<\\/script')
-        inlinedAssets.add(assetPath)
-
-        return `<script${inlineScriptAttributes(`${before}${after}`)}>${script}</script>`
-      }
-    )
-
-    html = html.replace(
-      /<link\b([^>]*?)rel="stylesheet"([^>]*?)href="([^"]+)"([^>]*)>/gi,
-      (tag, _before: string, _middle: string, href: string, _after: string) => {
-        if (/^(?:https?:)?\/\//i.test(href)) {
-          return tag
-        }
-
-        const assetPath = toDistPath(dist, href)
-        const styles = readFileSync(assetPath, 'utf8').replace(/<\/style/gi, '<\\/style')
-        inlinedAssets.add(assetPath)
-
-        return `<style>${styles}</style>`
-      }
-    )
-
-    writeFileSync(htmlPath, html)
-
-    for (const assetPath of inlinedAssets) {
-      unlinkSync(assetPath)
-    }
-  }
+  const capturedAssets = new Map<string, { content: string; type: 'js' | 'css' }>()
 
   return {
     name: 'local-release-bundle',
     configResolved(config) {
       base = config.base
     },
+    generateBundle(_options, bundle) {
+      if (base !== './' && base !== '') return
+
+      for (const [filename, chunk] of Object.entries(bundle)) {
+        if (chunk.type === 'chunk' && filename.endsWith('.js')) {
+          capturedAssets.set(filename, { content: chunk.code, type: 'js' })
+          delete bundle[filename]
+        } else if (chunk.type === 'asset' && filename.endsWith('.css') && typeof chunk.source === 'string') {
+          capturedAssets.set(filename, { content: chunk.source, type: 'css' })
+          delete bundle[filename]
+        }
+      }
+    },
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        if (base !== './' && base !== '') return html
+
+        let result = html
+
+        for (const [filename, { content, type }] of capturedAssets) {
+          const fullPath = `${base}${filename}`
+          if (type === 'js') {
+            const safeContent = content.replace(/<\/script/gi, '<\\/script')
+            const candidates = [
+              `<script type="module" crossorigin src="${fullPath}"></script>`,
+              `<script type="module" src="${fullPath}"></script>`,
+              `<script crossorigin src="${fullPath}"></script>`,
+              `<script src="${fullPath}"></script>`,
+            ]
+            for (const tag of candidates) {
+              if (result.includes(tag)) {
+                result = result.replace(tag, `<script>${safeContent}</script>`)
+                break
+              }
+            }
+          } else {
+            const safeContent = content.replace(/<\/style/gi, '<\\/style')
+            const candidates = [
+              `<link rel="stylesheet" crossorigin href="${fullPath}">`,
+              `<link rel="stylesheet" href="${fullPath}">`,
+            ]
+            for (const tag of candidates) {
+              if (result.includes(tag)) {
+                result = result.replace(tag, `<style>${safeContent}</style>`)
+                break
+              }
+            }
+          }
+        }
+
+        return result
+      }
+    },
     closeBundle() {
       const dist = resolve(__dirname, 'dist')
-
-      if (base === './' || base === '') {
-        inlineLocalAssets(dist, 'index.html')
-      }
-
       copyFileSync(`${dist}/index.html`, `${dist}/404.html`)
     }
   }

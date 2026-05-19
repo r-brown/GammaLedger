@@ -42,7 +42,7 @@ export function extractOfxSecurities(this: any, doc: Document) {
             return '';
         }
         const node = root.getElementsByTagName(tag)[0];
-        return node ? node.textContent.trim() : '';
+        return node ? (node.textContent ?? '').trim().replace(/[<>]/g, '') : '';
     };
 
     Array.from(secList.children).forEach((node) => {
@@ -164,7 +164,7 @@ export function extractOfxTransactions(this: any, doc: Document, securities: Map
             return '';
         }
         const node = root.getElementsByTagName(tag)[0];
-        return node ? node.textContent.trim() : '';
+        return node ? (node.textContent ?? '').trim().replace(/[<>]/g, '') : '';
     };
 
     Array.from(invTranList.children).forEach((node) => {
