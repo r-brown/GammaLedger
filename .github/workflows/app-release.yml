@@ -168,13 +168,37 @@ jobs:
           VERSION: ${{ steps.version.outputs.value }}
           TAG: ${{ steps.version.outputs.tag }}
           ASSET_NAME: ${{ steps.package.outputs.asset_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           BODY_FILE="$(mktemp)"
 
+          # ── 1. What's Changed (GitHub auto-generated) ──────────────────────
+          PREV_TAG="$(git tag --list | grep -vE '^mcp-' | grep -vE "^${TAG}$" | sort -V | tail -n 1 || true)"
+          if [ -n "${PREV_TAG}" ]; then
+            GH_NOTES="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -X POST \
+              -f "tag_name=${TAG}" \
+              -f "previous_tag_name=${PREV_TAG}" \
+              -f "target_commitish=${GITHUB_REF_NAME}" \
+              --jq '.body' 2>/dev/null || true)"
+          else
+            GH_NOTES="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -X POST \
+              -f "tag_name=${TAG}" \
+              -f "target_commitish=${GITHUB_REF_NAME}" \
+              --jq '.body' 2>/dev/null || true)"
+          fi
+          if [ -n "${GH_NOTES}" ]; then
+            printf '%s\n\n' "${GH_NOTES}" >> "${BODY_FILE}"
+          fi
+
+          # Optional hand-written notes (appended after What's Changed)
           if [ -n "${RELEASE_NOTES}" ]; then
             printf '%s\n\n' "${RELEASE_NOTES}" >> "${BODY_FILE}"
           fi
 
+          # ── 2. Release Summary ─────────────────────────────────────────────
           cat >> "${BODY_FILE}" <<EOF
           ## Release Summary
 
@@ -185,7 +209,7 @@ jobs:
           | Commit | \`${GITHUB_SHA}\` |
           | Asset | \`${ASSET_NAME}\` |
 
-          ## Local installation
+          ## Local Installation
 
           1. Download \`${ASSET_NAME}\`.
           2. Extract the ZIP archive.
@@ -259,8 +283,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: GammaLedger ${{ steps.version.outputs.value }}
           body_path: ${{ steps.body.outputs.path }}
-          generate_release_notes: ${{ inputs.release_notes == '' }}
-          append_body: true
+          generate_release_notes: false
           prerelease: ${{ steps.version.outputs.prerelease }}
           target_commitish: ${{ github.ref_name }}
           files: |
