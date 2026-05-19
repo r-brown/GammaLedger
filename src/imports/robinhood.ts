@@ -272,8 +272,9 @@ export function parseRobinhoodStockTransaction(this: any, data: AnyRecord) {
 export function parseRobinhoodAssignedStockTransaction(this: any, row: AnyRecord) {
     const { activityDate, processDate, description, instrument, quantity, price, amount, rowIndex } = row;
 
-    // Extract number of contracts from description like "2 CRWV Options Assigned"
-    const contractMatch = description.match(/(\d+)\s+([A-Z]+)\s+Options?\s+Assigned/i);
+    // Extract number of contracts from description like "2 CRWV Options Assigned".
+    // Bounds: ≤10 digits (contract qty), ≤20 letters (ticker), ≤10 whitespace chars each.
+    const contractMatch = description.match(/(\d{1,10})\s{1,10}([A-Z]{1,20})\s{1,10}Options?\s{1,10}Assigned/i);
     const tickerSymbol = (instrument || (contractMatch ? contractMatch[2] : '')).toUpperCase();
 
     // Use Process Date as entry date (string-safe, no timezone shift)
@@ -440,7 +441,7 @@ export function parseRobinhoodNumber(this: any, value: unknown) {
 
     const cleaned = value.toString()
         .replace(/[$,]/g, '')
-        .replace(/\(([^)]+)\)/, '-$1')
+        .replace(/\(([^)]{0,50})\)/, '-$1')   // ≤50 chars covers any realistic dollar amount
         .trim();
 
     const num = parseFloat(cleaned);
