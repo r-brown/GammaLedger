@@ -1,0 +1,309 @@
+name: GammaLedger APP - Release and Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (for example, 2.1.0). Leave blank to bump the latest app release tag."
+        required: false
+        default: ""
+        type: string
+      bump:
+        description: "Semver bump to apply when version is blank"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      release_notes:
+        description: "Release notes (leave blank to auto-generate from commits)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: app-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  release:
+    name: Build package, create release, and deploy /app/
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    outputs:
+      version: ${{ steps.version.outputs.value }}
+      tag: ${{ steps.version.outputs.tag }}
+      asset: ${{ steps.package.outputs.asset_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release branch
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "main" ]; then
+            echo "App releases deploy to /app/ and must be run from main, not ${GITHUB_REF_NAME}." >&2
+            exit 1
+          fi
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve release version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+
+          VERSION="${INPUT_VERSION}"
+          VERSION="${VERSION#gammaledger-}"
+          VERSION="${VERSION#app-}"
+          VERSION="${VERSION#v}"
+
+          if [ -z "${VERSION}" ]; then
+            LATEST="$(git tag --list | sed -nE 's/^v?([0-9]+\.[0-9]+\.[0-9]+)$/\1/p' | sort -V | tail -n 1)"
+
+            if [ -z "${LATEST}" ]; then
+              LATEST="$(node -p "require('./package.json').version || '0.0.0'")"
+            fi
+
+            IFS=. read -r MAJOR MINOR PATCH <<EOF
+          ${LATEST}
+          EOF
+
+            case "${BUMP}" in
+              major) VERSION="$((MAJOR + 1)).0.0" ;;
+              minor) VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
+              patch) VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+              *) echo "Unsupported bump: ${BUMP}" >&2; exit 1 ;;
+            esac
+          fi
+
+          if ! [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "Invalid release version: ${VERSION}" >&2
+            exit 1
+          fi
+
+          if git rev-parse "refs/tags/${VERSION}" >/dev/null 2>&1; then
+            echo "Tag ${VERSION} already exists; choose a new version." >&2
+            exit 1
+          fi
+
+          if [[ "${VERSION}" == *-* ]]; then
+            PRERELEASE=true
+          else
+            PRERELEASE=false
+          fi
+
+          echo "value=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${PRERELEASE}" >> "${GITHUB_OUTPUT}"
+          echo "Resolved release version: ${VERSION}"
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Build local application
+        run: npx vite build --base ./
+        env:
+          VITE_APP_VERSION: ${{ steps.version.outputs.value }}
+
+      - name: Verify build output
+        run: |
+          test -f dist/index.html
+          test -f dist/404.html
+          find dist -maxdepth 2 -type f | sort
+
+      - name: Create package
+        id: package
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          ASSET_NAME="gammaledger-${VERSION}.zip"
+
+          cat > dist/release.json <<EOF
+          {
+            "name": "GammaLedger",
+            "version": "${VERSION}",
+            "commit": "${GITHUB_SHA}",
+            "ref": "${GITHUB_REF_NAME}",
+            "builtAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          }
+          EOF
+
+          cd dist
+          zip -r "../${ASSET_NAME}" .
+          cd ..
+
+          sha256sum "${ASSET_NAME}" > "${ASSET_NAME}.sha256"
+
+          echo "asset_name=${ASSET_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "Created ${ASSET_NAME}"
+
+      - name: Build release body
+        id: body
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.version.outputs.tag }}
+          ASSET_NAME: ${{ steps.package.outputs.asset_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BODY_FILE="$(mktemp)"
+
+          # ── 1. What's Changed (GitHub auto-generated) ──────────────────────
+          PREV_TAG="$(git tag --list | grep -vE '^mcp-' | grep -vE "^${TAG}$" | sort -V | tail -n 1 || true)"
+          if [ -n "${PREV_TAG}" ]; then
+            GH_NOTES="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -X POST \
+              -f "tag_name=${TAG}" \
+              -f "previous_tag_name=${PREV_TAG}" \
+              -f "target_commitish=${GITHUB_REF_NAME}" \
+              --jq '.body' 2>/dev/null || true)"
+          else
+            GH_NOTES="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+              -X POST \
+              -f "tag_name=${TAG}" \
+              -f "target_commitish=${GITHUB_REF_NAME}" \
+              --jq '.body' 2>/dev/null || true)"
+          fi
+          if [ -n "${GH_NOTES}" ]; then
+            printf '%s\n\n' "${GH_NOTES}" >> "${BODY_FILE}"
+          fi
+
+          # Optional hand-written notes (appended after What's Changed)
+          if [ -n "${RELEASE_NOTES}" ]; then
+            printf '%s\n\n' "${RELEASE_NOTES}" >> "${BODY_FILE}"
+          fi
+
+          # ── 2. Release Summary ─────────────────────────────────────────────
+          cat >> "${BODY_FILE}" <<EOF
+          ## Release Summary
+
+          | Field | Value |
+          |---|---|
+          | Version | \`${VERSION}\` |
+          | Ref | \`${GITHUB_REF_NAME}\` |
+          | Commit | \`${GITHUB_SHA}\` |
+          | Asset | \`${ASSET_NAME}\` |
+
+          ## Local Installation
+
+          1. Download \`${ASSET_NAME}\`.
+          2. Extract the ZIP archive.
+          3. Open \`index.html\` in Chrome, Edge, or Firefox.
+          EOF
+
+          echo "path=${BODY_FILE}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build GitHub Pages app
+        run: npx vite build --base /app/
+        env:
+          VITE_APP_VERSION: ${{ steps.version.outputs.value }}
+
+      - name: Checkout gh-pages content
+        id: checkout-gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: _gh_pages
+        continue-on-error: true
+
+      - name: Initialize gh-pages branch
+        if: steps.checkout-gh-pages.outcome == 'failure'
+        run: |
+          mkdir -p _gh_pages
+          cd _gh_pages
+          git init
+          git checkout --orphan gh-pages
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+      - name: Merge app build into gh-pages
+        run: |
+          set -euo pipefail
+
+          rm -rf _gh_pages/app
+          cp -r dist/ _gh_pages/app
+
+          touch _gh_pages/.nojekyll
+
+          if [ -f dist/404.html ]; then
+            cp dist/404.html _gh_pages/404.html
+          fi
+
+      - name: Commit and push GitHub Pages deployment
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          cd _gh_pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git rev-parse --verify HEAD >/dev/null 2>&1; then
+            if git diff-index --quiet HEAD; then
+              echo "No GitHub Pages changes to deploy."
+              exit 0
+            fi
+          elif git diff --cached --quiet; then
+            echo "No GitHub Pages changes to deploy."
+            exit 0
+          fi
+
+          git commit -m "Deploy GammaLedger ${VERSION} to /app/"
+          git push origin gh-pages
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: GammaLedger ${{ steps.version.outputs.value }}
+          body_path: ${{ steps.body.outputs.path }}
+          generate_release_notes: false
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          target_commitish: ${{ github.ref_name }}
+          files: |
+            ${{ steps.package.outputs.asset_name }}
+            ${{ steps.package.outputs.asset_name }}.sha256
+
+      - name: Write Summary
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          TAG: ${{ steps.version.outputs.tag }}
+          ASSET_NAME: ${{ steps.package.outputs.asset_name }}
+        run: |
+          cat >> "${GITHUB_STEP_SUMMARY}" <<EOF
+          ## Release Summary
+
+          | Field | Value |
+          |---|---|
+          | Version | \`${VERSION}\` |
+          | Ref | \`${GITHUB_REF_NAME}\` |
+          | Commit | \`${GITHUB_SHA}\` |
+          | Asset | \`${ASSET_NAME}\` |
+          | Pages path | \`/app/\` |
+          EOF
