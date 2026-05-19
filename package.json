@@ -11,7 +11,10 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && vite build",
+    "build:local": "npm run typecheck && vite build --base ./",
     "preview": "vite preview",
+    "verify:artifact:local": "node scripts/verify-app-artifact.mjs --mode=local",
+    "verify:artifact:pages": "node scripts/verify-app-artifact.mjs --mode=pages",
     "typecheck": "tsc --noEmit && npm run typecheck:strict",
     "typecheck:strict": "npm run typecheck:strict:calculations && npm run typecheck:strict:core && npm run typecheck:strict:trades && npm run typecheck:strict:utils && npm run typecheck:strict:ui && npm run typecheck:strict:imports && npm run typecheck:strict:integrations",
     "typecheck:strict:calculations": "tsc -p src/calculations/tsconfig.json",
