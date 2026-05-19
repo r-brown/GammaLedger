@@ -3322,8 +3322,7 @@ select.form-control {
 }
 
 .ai-draft-import__meta,
-.ai-draft-import__help,
-.ai-draft-import__warning {
+.ai-draft-import__help {
   margin: var(--space-4) 0 0;
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
@@ -3331,7 +3330,10 @@ select.form-control {
 }
 
 .ai-draft-import__warning {
+  margin: var(--space-4) 0 0;
   color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
 }
 
 .ai-draft-import__preview {
