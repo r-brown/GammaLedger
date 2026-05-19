@@ -529,8 +529,10 @@ export function discardSelectedImportTrades(this: any) {
         this.showNotification('Select at least one trade to discard.', 'info');
         return;
     }
+    const requestedCount = selectedIds.length;
     const removalSet = new Set(selectedIds);
-    const count = this.trades.filter((t: AnyRecord) => removalSet.has(t.id)).length;
+    const discardedCount = this.trades.filter((t: AnyRecord) => removalSet.has(t.id)).length;
+    const missingCount = requestedCount - discardedCount;
     this.trades = this.trades.filter((t: AnyRecord) => !removalSet.has(t.id));
     removalSet.forEach((id: string) => {
         this.importMergeSelection.delete(id);
@@ -544,7 +546,8 @@ export function discardSelectedImportTrades(this: any) {
     this.updateDashboard();
     this.renderImportSummary();
     this.refreshImportMergeList();
-    this.appendImportLog({ type: 'info', message: `${count} trade${count === 1 ? '' : 's'} discarded from review queue.`, timestamp: new Date() });
-    this.showNotification(`${count} trade${count === 1 ? '' : 's'} discarded.`, 'info');
+    const summary = `${discardedCount} trade${discardedCount === 1 ? '' : 's'} discarded`;
+    const detail = missingCount > 0 ? ` (${missingCount} no longer in queue).` : '.';
+    this.appendImportLog({ type: 'info', message: `${summary} from review queue${detail}`, timestamp: new Date() });
+    this.showNotification(`${summary}${detail}`, 'info');
 }
-
