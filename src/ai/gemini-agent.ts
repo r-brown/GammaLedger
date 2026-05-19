@@ -332,11 +332,13 @@ Use ISO dates: YYYY-MM-DD.
 The CLIENT METADATA includes a currentDate field with today's date in YYYY-MM-DD format.
 
 Date rules:
-- If the visible trade date is complete, use it as-is.
-- If only month and day are visible with no year, fill in the year from currentDate.
-- Try to determine the trade date from the screenshot filename if no date is visible in the screenshot itself.
-- If no date is visible at all, use currentDate for tradeDate and do not add a warning.
-- Do not invent timezone.
+- If a complete trade date is visible in the screenshot, use it as the primary source and normalize it to YYYY-MM-DD
+- If no complete trade date is visible in the screenshot, try to determine tradeDate from the screenshot filename
+- Use the filename date only when it is unambiguous, for example: Trade 2026-05-18 21-51-50.png/jpeg
+- If only month and day are visible, but no year, fill in the year from currentDate
+- If no trade date is visible in the screenshot and no usable filename date is available, use currentDate as tradeDate without adding a warning
+- If multiple dates are present, prefer the visible trade-row date over the filename date and currentDate
+- Do not invent timezone. Use null unless timezone is explicitly visible or provided by client metadata
 
 Use decimal numbers, not strings, for strike, quantity, price, and fees.
 
