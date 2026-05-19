@@ -133,6 +133,7 @@ class GammaLedger {
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
     declare aiChatOpen: boolean
+    declare aiDraftImport: Record<string, unknown> | null
     declare activeQuoteEntries: Map<string, unknown>
     declare quoteRefreshIntervalId: ReturnType<typeof setInterval> | null
     declare autoRefreshIntervalMs: number
@@ -265,6 +266,7 @@ class GammaLedger {
         this.aiChatSessionId = Date.now();
         this.aiChatPendingRequest = false;
         this.aiChatOpen = false;
+        this.aiDraftImport = null;
 
         this.activeQuoteEntries = new Map();
         this.quoteRefreshIntervalId = null;
@@ -1056,6 +1058,7 @@ class GammaLedger {
         this.renderLegForms([]);
 
         this.setupAIChatResizeHandle();
+        this.setupAIChatDraftImport();
 
         // Set default entry date to today
         this.setTodayDate();
@@ -1083,6 +1086,8 @@ class GammaLedger {
 
     setupAIChatResizeHandle() { return aiChatModule.setupAIChatResizeHandle.call(this); }
 
+    setupAIChatDraftImport() { return aiChatModule.setupAIChatDraftImport.call(this); }
+
     initializeAIChat() { return aiChatModule.initializeAIChat.call(this); }
 
     toggleAIChat(forceOpen = null) { return aiChatModule.toggleAIChat.call(this, forceOpen); }
@@ -1090,6 +1095,17 @@ class GammaLedger {
     async handleAIChatSubmit() { return aiChatModule.handleAIChatSubmit.call(this); }
 
     async handleAIQuickPrompt(prompt: string, options: { promptType?: string | null; [key: string]: unknown } = {}) { return aiChatModule.handleAIQuickPrompt.call(this, prompt, options); }
+
+    async handleAIChatImageFile(file: File) { return aiChatModule.handleAIChatImageFile.call(this, file); }
+
+    async extractAIDraftLegsFromScreenshot() { return aiChatModule.extractAIDraftLegsFromScreenshot.call(this); }
+
+    clearAIDraftImport() { return aiChatModule.clearAIDraftImport.call(this); }
+
+    renderAIDraftImport() { return aiChatModule.renderAIDraftImport.call(this); }
+
+    importAIDraftTrades() { return aiChatModule.importAIDraftTrades.call(this); }
+    applyAIDraftLegsToTradeForm() { return aiChatModule.applyAIDraftLegsToTradeForm.call(this); }
 
     appendAIChatMessage(sender, text, options = {}) { return aiChatModule.appendAIChatMessage.call(this, sender, text, options); }
 

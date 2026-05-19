@@ -866,6 +866,7 @@
     <input type="file" id="file-input" accept=".json" class="hidden">
     <input type="file" id="import-ofx-input" accept=".ofx,.OFX" class="hidden">
     <input type="file" id="import-robinhood-input" accept=".csv,.CSV" class="hidden">
+    <input type="file" id="ai-chat-image-input" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" class="hidden">
 
     <div class="ai-chat" id="ai-chat">
         <button type="button" class="ai-chat__toggle" id="ai-chat-toggle" aria-controls="ai-chat-panel" aria-expanded="false">
@@ -881,8 +882,10 @@
                 <button type="button" class="ai-chat__close" id="ai-chat-close" aria-label="Close AI chat">×</button>
             </div>
             <div class="ai-chat__body" id="ai-chat-history" aria-live="polite"></div>
+            <section class="ai-chat__draft-import hidden" id="ai-draft-import" aria-live="polite"></section>
             <form class="ai-chat__form" id="ai-chat-form">
                 <input type="text" id="ai-chat-input" class="ai-chat__input" placeholder="Ask about your portfolio..." autocomplete="off" required>
+                <button type="button" class="btn btn--secondary ai-chat__attach" id="ai-chat-attach-image">Trade Screenshot</button>
                 <button type="submit" class="btn btn--primary ai-chat__send">Send</button>
             </form>
             <div class="ai-chat__quick" id="ai-chat-quick">
