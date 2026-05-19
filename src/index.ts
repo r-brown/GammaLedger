@@ -1562,6 +1562,10 @@ class GammaLedger {
     countImportReviewTrades(batchId = null) { return importControlsModule.countImportReviewTrades.call(this, batchId); }
 
     getImportReviewTrades() { return importControlsModule.getImportReviewTrades.call(this); }
+    approveImportReviewTrade(id: string) { return importControlsModule.approveImportReviewTrade.call(this, id); }
+    discardImportReviewTrade(id: string) { return importControlsModule.discardImportReviewTrade.call(this, id); }
+    approveSelectedImportTrades() { return importControlsModule.approveSelectedImportTrades.call(this); }
+    discardSelectedImportTrades() { return importControlsModule.discardSelectedImportTrades.call(this); }
 
     /**
      * Count ticker groups where multiple trades share the same ticker and

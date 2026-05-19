@@ -1410,9 +1410,17 @@ select.form-control {
 }
 
 .import-merge__badge {
-  font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  padding: 0 0.4em;
+  border-radius: 999px;
+  background-color: var(--color-primary);
+  color: #fff;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1.6;
 }
 
 .import-merge__badge:empty {
@@ -1428,50 +1436,119 @@ select.form-control {
 
 .import-merge-list {
   display: grid;
-  gap: var(--space-12);
+  gap: var(--space-10);
 }
 
 .import-merge-card {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-base);
   background-color: var(--color-bg-2);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .import-merge-card__label {
   display: flex;
   gap: var(--space-12);
   align-items: flex-start;
-  padding: var(--space-16);
+  padding: var(--space-14) var(--space-16) var(--space-10);
   cursor: pointer;
 }
 
 .import-merge-card__label input {
   margin-top: var(--space-4);
+  flex-shrink: 0;
 }
 
 .import-merge-card__content {
   display: grid;
-  gap: var(--space-8);
+  gap: var(--space-6);
   flex: 1;
+  min-width: 0;
 }
 
 .import-merge-card__header {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-12);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
 }
 
 .import-merge-card__ticker {
-  font-size: var(--font-size-lg);
-  font-weight: 600;
+  font-size: var(--font-size-base);
+  font-weight: 700;
   color: var(--color-text-primary);
 }
 
-.import-merge-card__legs {
-  font-size: var(--font-size-sm);
+.import-merge-card__source {
+  display: inline-block;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.import-merge-card__source--ai {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+.import-merge-card__source--robinhood {
+  background: color-mix(in srgb, var(--color-green) 12%, transparent);
+  color: var(--color-green);
+}
+
+.import-merge-card__source--broker {
+  background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
   color: var(--color-text-secondary);
+}
+
+.import-merge-card__legs {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-left: auto;
+}
+
+.import-merge-card__date {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.import-merge-card__strategy {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.import-merge-card__legs-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.import-merge-card__leg-chip {
+  display: inline-block;
+  padding: 0.15em 0.55em;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-3);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+}
+
+.import-merge-card__leg-chip--more {
+  font-style: italic;
+  border-style: dashed;
+}
+
+.import-merge-card__actions {
+  display: flex;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-16) var(--space-12);
+  border-top: 1px solid var(--color-border);
 }
 
 .import-merge-card__meta {
@@ -1493,7 +1570,14 @@ select.form-control {
 
 .import-merge-card.is-selected {
   border-color: var(--color-primary);
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.import-merge__bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  padding-top: var(--space-4);
 }
 
 .import-merge__empty {
@@ -1505,6 +1589,23 @@ select.form-control {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   text-align: center;
+}
+
+.btn--xs {
+  padding: 0.2em 0.7em;
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+}
+
+.btn--danger {
+  background-color: transparent;
+  color: var(--color-red);
+  border: 1px solid var(--color-red);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-red) 10%, transparent);
 }
 
 .import-help ul {

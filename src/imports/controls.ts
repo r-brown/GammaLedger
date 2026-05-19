@@ -74,6 +74,22 @@ export function setupImportControls(this: any) {
         });
     }
 
+    const approveSelectedButton = document.getElementById('import-approve-selected');
+    if (approveSelectedButton) {
+        approveSelectedButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.approveSelectedImportTrades();
+        });
+    }
+
+    const discardSelectedButton = document.getElementById('import-discard-selected');
+    if (discardSelectedButton) {
+        discardSelectedButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            this.discardSelectedImportTrades();
+        });
+    }
+
     const mergeHintButton = document.getElementById('import-merge-hint-btn');
     if (mergeHintButton) {
         mergeHintButton.addEventListener('click', (event) => {
@@ -440,3 +456,95 @@ export function handleSelectAllTrades(this: any, checked: boolean) {
     this.syncSelectAllCheckbox();
     this.refreshTradesMergePanelContents();
 }
+
+export function approveImportReviewTrade(this: any, id: string) {
+    const index = this.trades.findIndex((trade: AnyRecord) => trade.id === id);
+    if (index === -1) {
+        this.showNotification('Trade not found.', 'error');
+        return;
+    }
+    this.trades[index] = this.enrichTradeData({ ...this.trades[index], importReview: false });
+    this.importMergeSelection.delete(id);
+    if (this.importSummary && Array.isArray(this.importSummary.reviewTradeIds)) {
+        this.importSummary.reviewTradeIds = this.importSummary.reviewTradeIds.filter((rid: string) => rid !== id);
+    }
+    this.saveToStorage({ fileName: this.currentFileName });
+    this.markUnsavedChanges();
+    this.updateDashboard();
+    this.renderImportSummary();
+    this.refreshImportMergeList();
+    this.appendImportLog({ type: 'success', message: `Trade ${id} approved and added to portfolio.`, timestamp: new Date() });
+}
+
+export function discardImportReviewTrade(this: any, id: string) {
+    const trade = this.trades.find((t: AnyRecord) => t.id === id);
+    if (!trade) {
+        this.showNotification('Trade not found.', 'error');
+        return;
+    }
+    this.trades = this.trades.filter((t: AnyRecord) => t.id !== id);
+    this.importMergeSelection.delete(id);
+    this.tradeMergeSelection.delete(id);
+    if (this.importSummary && Array.isArray(this.importSummary.reviewTradeIds)) {
+        this.importSummary.reviewTradeIds = this.importSummary.reviewTradeIds.filter((rid: string) => rid !== id);
+    }
+    this.saveToStorage({ fileName: this.currentFileName });
+    this.markUnsavedChanges();
+    this.updateDashboard();
+    this.renderImportSummary();
+    this.refreshImportMergeList();
+    const label = trade.ticker ? `${trade.ticker} trade` : `Trade ${id}`;
+    this.appendImportLog({ type: 'info', message: `${label} discarded from review queue.`, timestamp: new Date() });
+}
+
+export function approveSelectedImportTrades(this: any) {
+    const selectedIds = Array.from(this.importMergeSelection) as string[];
+    if (!selectedIds.length) {
+        this.showNotification('Select at least one trade to approve.', 'info');
+        return;
+    }
+    let approved = 0;
+    for (const id of selectedIds) {
+        const index = this.trades.findIndex((t: AnyRecord) => t.id === id);
+        if (index === -1) continue;
+        this.trades[index] = this.enrichTradeData({ ...this.trades[index], importReview: false });
+        if (this.importSummary && Array.isArray(this.importSummary.reviewTradeIds)) {
+            this.importSummary.reviewTradeIds = this.importSummary.reviewTradeIds.filter((rid: string) => rid !== id);
+        }
+        approved += 1;
+    }
+    this.importMergeSelection.clear();
+    this.saveToStorage({ fileName: this.currentFileName });
+    this.markUnsavedChanges();
+    this.updateDashboard();
+    this.renderImportSummary();
+    this.refreshImportMergeList();
+    this.appendImportLog({ type: 'success', message: `${approved} trade${approved === 1 ? '' : 's'} approved and added to portfolio.`, timestamp: new Date() });
+    this.showNotification(`${approved} trade${approved === 1 ? '' : 's'} approved.`, 'success');
+}
+
+export function discardSelectedImportTrades(this: any) {
+    const selectedIds = Array.from(this.importMergeSelection) as string[];
+    if (!selectedIds.length) {
+        this.showNotification('Select at least one trade to discard.', 'info');
+        return;
+    }
+    const removalSet = new Set(selectedIds);
+    const count = this.trades.filter((t: AnyRecord) => removalSet.has(t.id)).length;
+    this.trades = this.trades.filter((t: AnyRecord) => !removalSet.has(t.id));
+    removalSet.forEach((id: string) => {
+        this.importMergeSelection.delete(id);
+        this.tradeMergeSelection.delete(id);
+    });
+    if (this.importSummary && Array.isArray(this.importSummary.reviewTradeIds)) {
+        this.importSummary.reviewTradeIds = this.importSummary.reviewTradeIds.filter((rid: string) => !removalSet.has(rid));
+    }
+    this.saveToStorage({ fileName: this.currentFileName });
+    this.markUnsavedChanges();
+    this.updateDashboard();
+    this.renderImportSummary();
+    this.refreshImportMergeList();
+    this.appendImportLog({ type: 'info', message: `${count} trade${count === 1 ? '' : 's'} discarded from review queue.`, timestamp: new Date() });
+    this.showNotification(`${count} trade${count === 1 ? '' : 's'} discarded.`, 'info');
+}
+
