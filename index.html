@@ -744,9 +744,15 @@
                         <div id="import-summary" class="import-summary"></div>
                     </section>
                     <section class="import-merge import-merge--hint" aria-live="polite">
-                        <h3>Merge Trades <span id="import-merge-count" class="import-merge__badge"></span></h3>
+                        <h3>Review Queue <span id="import-merge-count" class="import-merge__badge"></span></h3>
                         <p id="import-merge-hint" class="import-merge__help">After importing, some trades may need to be combined — for example, matching STO and BTC legs or rolling positions. Use the Merge Trades tool on the All Trades page to review and merge them.</p>
-                        <button type="button" class="btn btn--secondary" id="import-merge-hint-btn">Review Merge Opportunities</button>
+                        <div id="import-merge-list" class="import-merge-list"></div>
+                        <div class="import-merge__bulk-actions">
+                            <button type="button" class="btn btn--sm btn--primary" id="import-approve-selected" disabled>Approve Selected</button>
+                            <button type="button" class="btn btn--sm btn--secondary" id="import-merge-btn" disabled>Merge Selected</button>
+                            <button type="button" class="btn btn--sm btn--danger" id="import-discard-selected" disabled>Discard Selected</button>
+                            <button type="button" class="btn btn--sm btn--secondary" id="import-merge-hint-btn">Review Merge Opportunities</button>
+                        </div>
                     </section>
                     <section class="import-feedback" aria-live="polite">
                         <h3>Import Log</h3>
@@ -755,12 +761,16 @@
                     <section class="import-help">
                         <h3>Import Tips</h3>
                         <ul>
-                            <li>Download activity reports from your broker in OFX/QFX or CSV format.</li>
-                            <li>Multi-leg trades that share a timestamp are grouped automatically.</li>
-                            <li>Closing legs (BTC/STC) automatically match open positions with the same strike and expiration.</li>
-                            <li>Rolls are detected when a BTC and STO for the same ticker and option type occur on the same day.</li>
-                            <li>Assigned options and stock legs are merged into unified Wheel trades.</li>
-                            <li>Split fills from the same order are consolidated into a single leg entry.</li>
+                            <li><strong>OFX / QFX:</strong> Download your activity or transaction history from your broker as an OFX or QFX file. Most brokers offer this under Account → History → Export.</li>
+                            <li><strong>Robinhood CSV:</strong> Export your trade history from the Robinhood app under Account → Statements &amp; History → Download CSV.</li>
+                            <li><strong>AI Screenshot:</strong> Open the AI Coach, attach a screenshot of your broker's trade history, and click <em>Extract draft legs</em>. Extracted trades land here for review before being added to your portfolio.</li>
+                            <li><strong>Multi-leg grouping:</strong> Legs that share the same timestamp are grouped into a single trade automatically.</li>
+                            <li><strong>Open/close matching:</strong> BTC and STC legs are matched to open positions with the same ticker, strike, and expiration. Unmatched closing legs are placed in the review queue.</li>
+                            <li><strong>Roll detection:</strong> A BTC and STO for the same ticker and option type on the same day are treated as a roll and merged into one trade.</li>
+                            <li><strong>Wheel &amp; assignment:</strong> Assignment and stock legs are consolidated into unified Wheel trades, preserving premium history and cost basis.</li>
+                            <li><strong>Split fills:</strong> Multiple partial fills from the same order are consolidated into a single leg with a quantity-weighted average price.</li>
+                            <li><strong>Review queue:</strong> Trades that need attention (unmatched legs, missing fields, AI drafts) appear in the Review Queue above. Approve, edit, merge, or discard each one before they count toward your portfolio stats.</li>
+                            <li><strong>Safe to re-import:</strong> Duplicate legs from previously imported files are detected and skipped automatically.</li>
                         </ul>
                     </section>
                 </section>
@@ -866,6 +876,7 @@
     <input type="file" id="file-input" accept=".json" class="hidden">
     <input type="file" id="import-ofx-input" accept=".ofx,.OFX" class="hidden">
     <input type="file" id="import-robinhood-input" accept=".csv,.CSV" class="hidden">
+    <input type="file" id="ai-chat-image-input" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" class="hidden">
 
     <div class="ai-chat" id="ai-chat">
         <button type="button" class="ai-chat__toggle" id="ai-chat-toggle" aria-controls="ai-chat-panel" aria-expanded="false">
@@ -881,8 +892,10 @@
                 <button type="button" class="ai-chat__close" id="ai-chat-close" aria-label="Close AI chat">×</button>
             </div>
             <div class="ai-chat__body" id="ai-chat-history" aria-live="polite"></div>
+            <section class="ai-chat__draft-import hidden" id="ai-draft-import" aria-live="polite"></section>
             <form class="ai-chat__form" id="ai-chat-form">
                 <input type="text" id="ai-chat-input" class="ai-chat__input" placeholder="Ask about your portfolio..." autocomplete="off" required>
+                <button type="button" class="btn btn--secondary ai-chat__attach" id="ai-chat-attach-image">Trade Screenshot</button>
                 <button type="submit" class="btn btn--primary ai-chat__send">Send</button>
             </form>
             <div class="ai-chat__quick" id="ai-chat-quick">

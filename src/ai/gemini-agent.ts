@@ -33,10 +33,14 @@ interface GeminiAppInterface {
     formatNumber?(value: unknown, options?: Record<string, unknown>): string | null
 }
 
+type GeminiRequestPart =
+    | { text: string }
+    | { inlineData: { mimeType: string; data: string } }
+
 interface RequestPayload {
     model: string
     body: {
-        contents: Array<{ role: string; parts: Array<{ text: string }> }>
+        contents: Array<{ role: string; parts: GeminiRequestPart[] }>
         generationConfig: Record<string, unknown>
     }
 }
@@ -53,6 +57,112 @@ interface GenerateOptions {
     promptType?: string
     [key: string]: unknown
 }
+
+interface DraftLegImageInput {
+    mimeType: string
+    data: string
+    metadata?: Record<string, unknown>
+}
+
+export interface GeminiDraftLegExtraction {
+    broker: string | null
+    detectedRows: Array<Record<string, unknown>>
+    warnings?: string[]
+}
+
+const DRAFT_LEG_EXTRACTION_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+        broker: {
+            type: ['string', 'null'],
+            description: 'Detected broker name, or null when not visible.'
+        },
+        detectedRows: {
+            type: 'array',
+            description: 'Only trade execution rows visibly present in the screenshot.',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    underlying: { type: ['string', 'null'], description: 'Ticker symbol for the underlying security.' },
+                    assetType: { type: ['string', 'null'], enum: ['OPTION', 'STOCK', 'UNKNOWN', null] },
+                    optionType: { type: ['string', 'null'], enum: ['CALL', 'PUT', null] },
+                    expiration: { type: ['string', 'null'], description: 'Option expiration as YYYY-MM-DD.' },
+                    strike: { type: ['number', 'null'] },
+                    optionAction: {
+                        type: ['string', 'null'],
+                        enum: ['BTO', 'STO', 'BTC', 'STC', null]
+                    },
+                    stockAction: { type: ['string', 'null'], enum: ['BUY', 'SELL', null] },
+                    quantity: { type: ['number', 'null'] },
+                    price: { type: ['number', 'null'], description: 'Execution price as visibly quoted by the broker. For listed US options this is usually the option premium per underlying share, e.g. 2.35, not multiplied by 100.' },
+                    fees: { type: ['number', 'null'] },
+                    tradeDate: { type: ['string', 'null'], description: 'Execution date as YYYY-MM-DD.' },
+                    tradeTime: { type: ['string', 'null'] },
+                    confidence: {
+                        type: 'object',
+                        additionalProperties: false,
+                        properties: {
+                            row: { type: 'number', minimum: 0, maximum: 1 },
+                            underlying: { type: 'number', minimum: 0, maximum: 1 },
+                            assetType: { type: 'number', minimum: 0, maximum: 1 },
+                            optionType: { type: 'number', minimum: 0, maximum: 1 },
+                            expiration: { type: 'number', minimum: 0, maximum: 1 },
+                            strike: { type: 'number', minimum: 0, maximum: 1 },
+                            optionAction: { type: 'number', minimum: 0, maximum: 1 },
+                            stockAction: { type: 'number', minimum: 0, maximum: 1 },
+                            quantity: { type: 'number', minimum: 0, maximum: 1 },
+                            price: { type: 'number', minimum: 0, maximum: 1 },
+                            fees: { type: 'number', minimum: 0, maximum: 1 },
+                            tradeDate: { type: 'number', minimum: 0, maximum: 1 }
+                        },
+                        required: [
+                            'row',
+                            'underlying',
+                            'assetType',
+                            'optionType',
+                            'expiration',
+                            'strike',
+                            'optionAction',
+                            'stockAction',
+                            'quantity',
+                            'price',
+                            'fees',
+                            'tradeDate'
+                        ]
+                    },
+                    needsUserReview: { type: 'boolean' },
+                    warnings: { type: 'array', items: { type: 'string' } },
+                    rawText: { type: ['string', 'null'], description: 'Visible source text for this row.' }
+                },
+                required: [
+                    'underlying',
+                    'assetType',
+                    'optionType',
+                    'expiration',
+                    'strike',
+                    'optionAction',
+                    'stockAction',
+                    'quantity',
+                    'price',
+                    'fees',
+                    'tradeDate',
+                    'tradeTime',
+                    'confidence',
+                    'needsUserReview',
+                    'warnings',
+                    'rawText'
+                ]
+            }
+        },
+        warnings: {
+            type: 'array',
+            items: { type: 'string' }
+        }
+    },
+    required: ['broker', 'detectedRows', 'warnings']
+} as const;
 
 export class GeminiInsightsAgent {
     app: GeminiAppInterface
@@ -114,6 +224,194 @@ export class GeminiInsightsAgent {
                 return `Gemini request failed (${message}). Here's a local snapshot instead:\n\n${fallback}`;
             }
             return `Gemini request failed (${message}). Try again in a moment.`;
+        }
+    }
+
+    async extractDraftLegsFromImage(input: DraftLegImageInput): Promise<GeminiDraftLegExtraction> {
+        if (!this.isConfigured()) {
+            throw new Error('Add a Gemini-compatible API key under Settings before extracting screenshot trades.');
+        }
+
+        if (!input?.mimeType || !input?.data) {
+            throw new Error('Screenshot image data is missing.');
+        }
+
+        const request = this.buildDraftLegExtractionPayload(input);
+        const content = await this.callGemini(request);
+        if (!content) {
+            throw new Error('Gemini returned an empty extraction response.');
+        }
+
+        const parsed = this.parseDraftLegExtractionResponse(content);
+        if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.detectedRows)) {
+            throw new Error('Gemini response did not match the draft-leg extraction shape.');
+        }
+
+        return {
+            broker: typeof parsed.broker === 'string' && parsed.broker.trim() ? parsed.broker.trim() : null,
+            detectedRows: parsed.detectedRows as Array<Record<string, unknown>>,
+            warnings: Array.isArray(parsed.warnings)
+                ? parsed.warnings.filter((warning: unknown): warning is string => typeof warning === 'string')
+                : []
+        };
+    }
+
+    buildDraftLegExtractionPayload(input: DraftLegImageInput): RequestPayload {
+        const config = this.app?.gemini || {};
+        const model = GEMINI_ALLOWED_MODELS.includes(config.model ?? '')
+            ? (config.model as string)
+            : DEFAULT_GEMINI_MODEL;
+        const metadata = input.metadata && typeof input.metadata === 'object'
+            ? JSON.stringify(input.metadata, null, 2)
+            : '{}';
+
+        const prompt = `# ROLE
+
+You extract visible broker trade executions from a screenshot for GammaLedger, an options trade tracker.
+
+This is visual extraction only. Return draft trade-leg candidates for human review. Do not give trading, accounting, tax, or portfolio advice.
+
+# TASK
+
+Extract only visible broker trade, fill, execution, assignment, or exercise rows. Return only JSON matching the provided response schema.
+
+# STRICT EXTRACTION RULES
+
+- Extract only rows visibly present in the screenshot
+- Do not invent missing values
+- Use null and warnings for unclear fields
+- Preserve short raw visible text per row
+- If no valid trade rows are visible, return detectedRows = [] and add a warning
+- Ignore balances, charts, watchlists, filters, headers-only rows, totals, summaries, P/L-only rows, cash movements, fees-only rows, option-chain quotes, and open-position-only rows
+- Extract pending orders only if clearly filled or executed
+- Never create accounting entries or advice
+- Never say that a trade should be made
+- This is only a draft extraction for human review
+
+# ASSET AND CONTRACT PARSING
+
+Use assetType OPTION for option contracts, STOCK for share trades, UNKNOWN if unclear.
+
+For options, extract underlying, optionType, expiration, and strike. Recognize formats like:
+
+- AAPL 19JUN26 180 P
+- AAPL Jun 19 '26 180 Put
+- AAPL 2026-06-19 180 PUT
+- AAPL 260619P00180000
+- AAPL 06/19/2026 180 C
+- AAPL Jun26 180C
+
+Normalize expiration to YYYY-MM-DD, strike to a decimal number, C/Call to CALL, and P/Put to PUT. If ambiguous, use null and add a warning.
+
+# ACTION NORMALIZATION
+
+For options, use:
+
+- BTO = Buy To Open
+- STO = Sell To Open
+- BTC = Buy To Close
+- STC = Sell To Close
+
+Set optionAction only when open/close is visible or strongly inferable.
+
+Strong mappings:
+
+- Buy to Open, BOT OPEN, Opening Buy -> BTO
+- Sell to Open, SLD OPEN, Opening Sell -> STO
+- Buy to Close, BOT CLOSE, Closing Buy -> BTC
+- Sell to Close, SLD CLOSE, Closing Sell -> STC
+
+If only BUY, BOT, Bought, SELL, SLD, or Sold is visible without open/close, set optionAction to null.
+
+For stock rows, use stockAction BUY or SELL. Do not use optionAction for stock rows.
+
+# DATES, NUMBERS, PRICE
+
+Use ISO dates: YYYY-MM-DD.
+
+The CLIENT METADATA includes a currentDate field with today's date in YYYY-MM-DD format.
+
+Date rules:
+- If the visible trade date is complete, use it as-is.
+- If only month and day are visible with no year, fill in the year from currentDate.
+- Try to determine the trade date from the screenshot filename if no date is visible in the screenshot itself.
+- If no date is visible at all, use currentDate for tradeDate and do not add a warning.
+- Do not invent timezone.
+
+Use decimal numbers, not strings, for strike, quantity, price, and fees.
+
+Normalize examples:
+
+- $2.35 -> 2.35
+- 2,35 -> 2.35 only when decimal-comma locale is clear
+- 1,234.56 -> 1234.56
+- (2.35) -> -2.35 only when parentheses visibly mean negative
+
+For options, price is the premium exactly as visibly quoted, usually per underlying share. Do not multiply by 100 unless a separate total/net amount is visibly shown.
+
+# REVIEW AND CONFIDENCE
+
+Set needsUserReview = true when confidence.row < 0.85, any required field is null, optionAction is unclear, option fields are unclear, date/decimal format is ambiguous, the row is cropped, or multiple interpretations are possible.
+
+Use confidence.row and field-level confidence. Prefer incomplete but reviewable extraction over confident guessing.
+
+# STRATEGY
+
+Do not infer strategy unless explicitly labeled by the broker. GammaLedger or its MCP server may infer strategy later.
+
+# CLIENT METADATA
+
+Use this only as weak context, not as proof that trades exist.
+
+${metadata}`;
+
+        return {
+            model,
+            body: {
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [
+                            {
+                                inlineData: {
+                                    mimeType: input.mimeType,
+                                    data: input.data
+                                }
+                            },
+                            { text: prompt }
+                        ]
+                    }
+                ],
+                generationConfig: {
+                    maxOutputTokens: Math.min(this.app.gemini?.maxOutputTokens || DEFAULT_GEMINI_MAX_TOKENS, DEFAULT_GEMINI_MAX_TOKENS),
+                    temperature: 0.05,
+                    responseMimeType: 'application/json',
+                    responseJsonSchema: DRAFT_LEG_EXTRACTION_SCHEMA
+                }
+            }
+        };
+    }
+
+    parseDraftLegExtractionResponse(content: string): Record<string, unknown> {
+        const trimmed = (content || '').trim();
+        if (!trimmed) {
+            throw new Error('Empty draft-leg extraction response.');
+        }
+
+        try {
+            return JSON.parse(trimmed) as Record<string, unknown>;
+        } catch (_error) {
+            const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+            const candidate = fenced?.[1]?.trim();
+            if (candidate) {
+                return JSON.parse(candidate) as Record<string, unknown>;
+            }
+            const start = trimmed.indexOf('{');
+            const end = trimmed.lastIndexOf('}');
+            if (start !== -1 && end > start) {
+                return JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
+            }
+            throw new Error('Draft-leg extraction response was not valid JSON.');
         }
     }
 

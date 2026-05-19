@@ -23,12 +23,38 @@ export function countMergeableTickerGroups(this: any) {
     return groups;
 }
 
+function importSourceLabel(trade: AnyRecord): string {
+    const batchId = (trade.importBatchId || '') as string;
+    if (batchId.startsWith('AI-SCREENSHOT-')) return 'AI Screenshot';
+    if (batchId.startsWith('RH-')) return 'Robinhood CSV';
+    if (batchId.startsWith('OFX-')) return 'OFX';
+    // Fallback: check leg importSource
+    const legs: AnyRecord[] = Array.isArray(trade.legs) ? trade.legs : [];
+    const legSource = legs.map((l: AnyRecord) => (l.importSource || '') as string).find(Boolean);
+    if (legSource) return legSource;
+    return 'Broker Import';
+}
+
+function renderLegPreview(legs: AnyRecord[], escapeHTML: (v: unknown) => string): string {
+    if (!legs.length) return '';
+    const items = legs.slice(0, 4).map((leg: AnyRecord) => {
+        const orderType = (leg.orderType || '—') as string;
+        const type = (leg.type || '') as string;
+        const qty = leg.quantity != null ? String(leg.quantity) : '';
+        const strike = leg.strike != null ? `$${leg.strike}` : '';
+        const exp = (leg.expirationDate || '') as string;
+        const parts = [orderType, qty, type, strike, exp].filter(Boolean);
+        return `<span class="import-merge-card__leg-chip">${escapeHTML(parts.join(' '))}</span>`;
+    });
+    const more = legs.length > 4 ? `<span class="import-merge-card__leg-chip import-merge-card__leg-chip--more">+${legs.length - 4} more</span>` : '';
+    return `<div class="import-merge-card__legs-preview">${items.join('')}${more}</div>`;
+}
+
 export function refreshImportMergeList(this: any) {
     const container = document.getElementById('import-merge-list');
     const hintElement = document.getElementById('import-merge-hint');
     const hintButton = document.getElementById('import-merge-hint-btn');
     const countBadge = document.getElementById('import-merge-count');
-    const mergeButton = document.getElementById('import-merge-btn');
     const reviewTrades: AnyRecord[] = this.getImportReviewTrades();
 
     // Also count same-ticker trade groups that could be merged
@@ -47,85 +73,80 @@ export function refreshImportMergeList(this: any) {
     }
 
     if (countBadge) {
-        if (totalMergeOpportunities > 0) {
-            countBadge.textContent = `(${totalMergeOpportunities})`;
-        } else {
-            countBadge.textContent = '';
-        }
+        countBadge.textContent = reviewTrades.length > 0 ? String(reviewTrades.length) : '';
     }
 
     if (hintElement) {
-        if (!totalMergeOpportunities) {
-            hintElement.textContent = 'No merge opportunities detected. All trades look clean.';
+        if (!reviewTrades.length && !mergeableTickers) {
+            hintElement.textContent = 'No pending trades. All imports have been reviewed.';
         } else if (reviewTrades.length && mergeableTickers) {
-            hintElement.textContent = `${reviewTrades.length} flagged review trade${reviewTrades.length === 1 ? '' : 's'} and ${mergeableTickers} ticker group${mergeableTickers === 1 ? '' : 's'} with multiple trades that could be combined.`;
+            hintElement.textContent = `${reviewTrades.length} trade${reviewTrades.length === 1 ? '' : 's'} pending review · ${mergeableTickers} ticker group${mergeableTickers === 1 ? '' : 's'} can be merged.`;
         } else if (reviewTrades.length) {
-            const tradeLabel = reviewTrades.length === 1 ? 'review trade' : 'review trades';
-            hintElement.textContent = `${reviewTrades.length} ${tradeLabel} flagged for merge review. Open the All Trades page to combine them.`;
+            hintElement.textContent = `${reviewTrades.length} trade${reviewTrades.length === 1 ? '' : 's'} pending review. Approve, edit, merge, or discard each one.`;
         } else {
             hintElement.textContent = `${mergeableTickers} ticker group${mergeableTickers === 1 ? '' : 's'} with multiple trades that could be combined.`;
         }
     }
 
-    // Always keep the button enabled so users can review trades at any time
+    // Always keep the hint button enabled
     if (hintButton) {
         (hintButton as HTMLButtonElement).disabled = false;
-        (hintButton as HTMLButtonElement).title = totalMergeOpportunities > 0
-            ? `Review ${totalMergeOpportunities} potential merge opportunit${totalMergeOpportunities === 1 ? 'y' : 'ies'} on the All Trades page.`
+        (hintButton as HTMLButtonElement).title = mergeableTickers > 0
+            ? `Review ${mergeableTickers} potential merge opportunit${mergeableTickers === 1 ? 'y' : 'ies'} on the All Trades page.`
             : 'Open the All Trades page with the Merge Trades panel.';
     }
 
     if (!container) {
-        if (mergeButton) {
-            (mergeButton as HTMLButtonElement).disabled = true;
-            mergeButton.textContent = 'Merge Selected Trades';
-        }
+        this.updateImportMergeButtonState();
         return;
     }
 
     if (!reviewTrades.length) {
-        container.innerHTML = '<p class="import-merge__empty">No review trades are waiting to be merged.</p>';
-        if (mergeButton) {
-            (mergeButton as HTMLButtonElement).disabled = true;
-            mergeButton.textContent = 'Merge Selected Trades';
-        }
+        container.innerHTML = '<p class="import-merge__empty">No trades pending review.</p>';
+        this.updateImportMergeButtonState();
         return;
     }
 
     const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
+    const esc = (v: unknown) => this.escapeHTML(v);
 
     container.innerHTML = reviewTrades.map((trade: AnyRecord) => {
         const isChecked = this.importMergeSelection.has(trade.id);
-        const legsCount = Array.isArray(trade.legs) ? trade.legs.length : 0;
+        const legs: AnyRecord[] = Array.isArray(trade.legs) ? trade.legs : [];
         const rawDate = trade.openedDate || trade.entryDate || '';
         const parsedDate = rawDate ? new Date(rawDate) : null;
         const dateLabel = parsedDate && !Number.isNaN(parsedDate.getTime()) ? dateFormatter.format(parsedDate) : '—';
-        let notePreview = (trade.notes || '').trim();
-        if (notePreview.length > 140) {
-            notePreview = `${notePreview.slice(0, 137)}…`;
-        }
-        const batchLabel = trade.importBatchId ? `Batch ${trade.importBatchId}` : 'Manual Review';
+        const source = importSourceLabel(trade);
+        const strategy = (trade.strategy || '') as string;
         const cardClasses = ['import-merge-card'];
-        if (isChecked) {
-            cardClasses.push('is-selected');
-        }
+        if (isChecked) cardClasses.push('is-selected');
+
+        const sourceBadgeClass = source === 'AI Screenshot'
+            ? 'import-merge-card__source--ai'
+            : source === 'Robinhood CSV'
+                ? 'import-merge-card__source--robinhood'
+                : 'import-merge-card__source--broker';
 
         return `
-            <div class="${cardClasses.join(' ')}" data-trade-id="${this.escapeHTML(trade.id)}">
+            <div class="${esc(cardClasses.join(' '))}" data-trade-id="${esc(trade.id)}">
                 <label class="import-merge-card__label">
-                    <input type="checkbox" value="${this.escapeHTML(trade.id)}" ${isChecked ? 'checked' : ''} />
+                    <input type="checkbox" value="${esc(trade.id)}" ${isChecked ? 'checked' : ''} aria-label="Select ${esc(trade.ticker || trade.id)} for bulk action" />
                     <div class="import-merge-card__content">
                         <div class="import-merge-card__header">
-                            <span class="import-merge-card__ticker">${this.escapeHTML(trade.ticker || '—')}</span>
-                            <span class="import-merge-card__legs">${legsCount} leg${legsCount === 1 ? '' : 's'}</span>
+                            <span class="import-merge-card__ticker">${esc(trade.ticker || '—')}</span>
+                            <span class="import-merge-card__source ${esc(sourceBadgeClass)}">${esc(source)}</span>
+                            <span class="import-merge-card__legs">${legs.length} leg${legs.length === 1 ? '' : 's'}</span>
+                            <span class="import-merge-card__date">${esc(dateLabel)}</span>
                         </div>
-                        <div class="import-merge-card__meta">
-                            <span>${this.escapeHTML(batchLabel)}</span>
-                            <span>${this.escapeHTML(dateLabel)}</span>
-                        </div>
-                        ${notePreview ? `<p class="import-merge-card__notes">${this.escapeHTML(notePreview)}</p>` : ''}
+                        ${strategy && strategy !== 'Import Review' ? `<div class="import-merge-card__strategy">${esc(strategy)}</div>` : ''}
+                        ${renderLegPreview(legs, esc)}
                     </div>
                 </label>
+                <div class="import-merge-card__actions">
+                    <button type="button" class="btn btn--xs btn--primary import-merge-card__approve" data-trade-id="${esc(trade.id)}" title="Approve — add to portfolio as-is">Approve</button>
+                    <button type="button" class="btn btn--xs btn--secondary import-merge-card__edit" data-trade-id="${esc(trade.id)}" title="Edit trade details before approving">Edit</button>
+                    <button type="button" class="btn btn--xs btn--danger import-merge-card__discard" data-trade-id="${esc(trade.id)}" title="Discard — remove from import queue">Discard</button>
+                </div>
             </div>
         `;
     }).join('');
@@ -134,19 +155,39 @@ export function refreshImportMergeList(this: any) {
         input.addEventListener('change', (event) => {
             const checkbox = event.target as HTMLInputElement;
             const value = checkbox.value;
-            if (!value) {
-                return;
-            }
+            if (!value) return;
             if (checkbox.checked) {
                 this.importMergeSelection.add(value);
             } else {
                 this.importMergeSelection.delete(value);
             }
             const card = checkbox.closest('.import-merge-card');
-            if (card) {
-                card.classList.toggle('is-selected', checkbox.checked);
-            }
+            if (card) card.classList.toggle('is-selected', checkbox.checked);
             this.updateImportMergeButtonState();
+        });
+    });
+
+    container.querySelectorAll('.import-merge-card__approve').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            const id = (btn as HTMLElement).dataset.tradeId;
+            if (id) this.approveImportReviewTrade(id);
+        });
+    });
+
+    container.querySelectorAll('.import-merge-card__edit').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            const id = (btn as HTMLElement).dataset.tradeId;
+            if (id) this.editTrade(id);
+        });
+    });
+
+    container.querySelectorAll('.import-merge-card__discard').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            const id = (btn as HTMLElement).dataset.tradeId;
+            if (id) this.discardImportReviewTrade(id);
         });
     });
 
@@ -155,15 +196,23 @@ export function refreshImportMergeList(this: any) {
 
 export function updateImportMergeButtonState(this: any) {
     const mergeButton = document.getElementById('import-merge-btn');
-    if (!mergeButton) {
-        return;
-    }
+    const approveButton = document.getElementById('import-approve-selected');
+    const discardButton = document.getElementById('import-discard-selected');
 
     const count = this.importMergeSelection.size;
-    (mergeButton as HTMLButtonElement).disabled = count < 2;
-    mergeButton.textContent = count >= 2
-        ? `Merge ${count} Trades`
-        : 'Merge Selected Trades';
+
+    if (mergeButton) {
+        (mergeButton as HTMLButtonElement).disabled = count < 2;
+        mergeButton.textContent = count >= 2 ? `Merge ${count} Trades` : 'Merge Selected';
+    }
+    if (approveButton) {
+        (approveButton as HTMLButtonElement).disabled = count === 0;
+        approveButton.textContent = count > 0 ? `Approve ${count}` : 'Approve Selected';
+    }
+    if (discardButton) {
+        (discardButton as HTMLButtonElement).disabled = count === 0;
+        discardButton.textContent = count > 0 ? `Discard ${count}` : 'Discard Selected';
+    }
 }
 
 export function resolveMergedExitReason(this: any, trades: AnyRecord[] = []) {
