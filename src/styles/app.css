@@ -137,6 +137,9 @@
   --space-20: 20px;
   --space-24: 24px;
   --space-32: 32px;
+  /* Safe-area bottom clearance to keep content visible above the fixed AI chat button
+     = button bottom offset (24px) + toggle height (~44px) + breathing room (20px) */
+  --ai-chat-safe-area: 88px;
 
   /* Border Radius */
   --radius-sm: 6px;
@@ -1730,7 +1733,7 @@ select.form-control {
 /* Views */
 .view {
   flex: 1;
-  padding: var(--space-24);
+  padding: var(--space-24) var(--space-24) var(--ai-chat-safe-area);
   display: none;
 }
 
@@ -5009,7 +5012,7 @@ tr.position-itm.position-expiring-critical td,
   }
 
   .view {
-    padding: var(--space-16);
+    padding: var(--space-16) var(--space-16) var(--ai-chat-safe-area);
   }
 
   .overview-cards-row {
