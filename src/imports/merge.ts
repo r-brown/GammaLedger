@@ -236,7 +236,10 @@ export function resolveMergedExitReason(this: any, trades: AnyRecord[] = []) {
 
 export function buildMergedTradeNote(this: any, trades: AnyRecord[] = [], prefix = '') {
     const timestamp = new Date();
-    const safePrefix = (prefix || '').toString().trim().replace(/\.+$/, '');
+    let safePrefix = (prefix || '').toString().trim();
+    while (safePrefix.endsWith('.')) {
+        safePrefix = safePrefix.slice(0, -1);
+    }
     const prefixText = safePrefix ? `${safePrefix}. ` : '';
     const count = Array.isArray(trades) ? trades.length : 0;
     const dateLabel = timestamp.toLocaleDateString('en-US', { dateStyle: 'medium' });

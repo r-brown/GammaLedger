@@ -19,9 +19,11 @@ function localReleaseBundle(): import('vite').Plugin {
         if (chunk.type === 'chunk' && filename.endsWith('.js')) {
           capturedAssets.set(filename, { content: chunk.code, type: 'js' })
           delete bundle[filename]
+          if (bundle[`${filename}.map`]) delete bundle[`${filename}.map`]
         } else if (chunk.type === 'asset' && filename.endsWith('.css') && typeof chunk.source === 'string') {
           capturedAssets.set(filename, { content: chunk.source, type: 'css' })
           delete bundle[filename]
+          if (bundle[`${filename}.map`]) delete bundle[`${filename}.map`]
         }
       }
     },
