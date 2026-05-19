@@ -223,6 +223,20 @@ jobs:
         env:
           VITE_APP_VERSION: ${{ steps.version.outputs.value }}
 
+      - name: Inject release.json into GitHub Pages build
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          cat > dist/release.json <<EOF
+          {
+            "name": "GammaLedger",
+            "version": "${VERSION}",
+            "commit": "${GITHUB_SHA}",
+            "ref": "${GITHUB_REF_NAME}",
+            "builtAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          }
+          EOF
+
       - name: Checkout gh-pages content
         id: checkout-gh-pages
         uses: actions/checkout@v4
@@ -244,13 +258,25 @@ jobs:
         run: |
           set -euo pipefail
 
-          rm -rf _gh_pages/app
+          # Remove everything except .git and files that must be preserved
+          cd _gh_pages
+          find . -mindepth 1 -maxdepth 1 \
+            ! -name '.git' \
+            ! -name 'CNAME' \
+            -exec rm -rf {} +
+          cd ..
+
           cp -r dist/ _gh_pages/app
 
           touch _gh_pages/.nojekyll
 
           if [ -f dist/404.html ]; then
             cp dist/404.html _gh_pages/404.html
+          fi
+
+          # Ensure CNAME is present for the custom domain
+          if [ ! -f _gh_pages/CNAME ]; then
+            echo "gammaledger.com" > _gh_pages/CNAME
           fi
 
       - name: Commit and push GitHub Pages deployment
