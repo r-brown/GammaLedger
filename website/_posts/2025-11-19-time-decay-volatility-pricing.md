@@ -441,7 +441,3 @@ Selling a 7-day option might give you $0.70/day in theta, but a $1 move in the s
 <li><a href="https://gammaledger.com/blog/straddle-strangle-strategies/">Navigating Market Volatility with Straddles and Strangles</a></li>
 <li><a href="https://gammaledger.com/blog/advanced-options-spreads/">Advanced Options Spreads</a></li>
 </ul>
-        </div>
-        <!-- Disclaimer -->
-        <div class="article-disclaimer">
-            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

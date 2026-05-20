@@ -477,7 +477,3 @@ image: /assets/img/gammaledger-stage-01.jpg
 </ul>
 <hr>
 <p><em>Track your Poor Man's Covered Call positions with GammaLedger's advanced analytics. Monitor LEAPS delta, calculate net cost basis after premiums, and optimize your weekly call selection.</em></p>
-        </div>
-        <!-- Disclaimer -->
-        <div class="article-disclaimer">
-            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

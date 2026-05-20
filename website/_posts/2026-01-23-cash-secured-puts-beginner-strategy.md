@@ -111,7 +111,3 @@ image: /assets/img/gammaledger-stage-01.jpg
 </ul>
 <hr>
 <p>The cash-secured put strategy is often the first options trade a new investor should learn — and for good reason. It's logical, the math is transparent, and it aligns perfectly with a long-term investor's mindset: you only buy stocks you already wanted, at prices you've already decided are fair, and you get paid extra for your patience.</p>
-        </div>
-        <!-- Disclaimer -->
-        <div class="article-disclaimer">
-            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

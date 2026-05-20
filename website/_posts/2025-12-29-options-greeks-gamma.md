@@ -22,7 +22,3 @@ image: /assets/img/gamma.png
 <p>The primary risk here is time decay. If the stock does not move, the spread will gradually lose value. The trader must be confident that the stock will move quickly to make the trade profitable.</p>
 <h2 id="gamma-scalping">Gamma Scalping</h2>
 <p>An advanced use of gamma is 'gamma scalping,' a complex strategy that takes advantage of the boost in option price changes from excessive stock movement while managing delta risk. This strategy is typically used by experienced traders and may be covered in a later advanced post. For now, most traders should focus on understanding the basics of gamma.</p>
-        </div>
-        <!-- Disclaimer -->
-        <div class="article-disclaimer">
-            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

@@ -429,7 +429,3 @@ When the stock has dropped significantly below your covered call:
 </ul>
 <hr>
 <p><em>Track your Wheel Strategy trades with precision using GammaLedger's comprehensive analytics platform. Monitor cost basis, premium collection, and annualized returns across all your positions.</em></p>
-        </div>
-        <!-- Disclaimer -->
-        <div class="article-disclaimer">
-            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

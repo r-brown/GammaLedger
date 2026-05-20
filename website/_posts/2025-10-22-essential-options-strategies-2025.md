@@ -309,7 +309,3 @@ Risk no more than 1-2% of your account per trade.</p>
 <li><a href="https://gammaledger.com/blog/glossary/">Options Trading Glossary</a> - Master the terminology</li>
 </ul>
 <p>The journey to becoming a proficient options trader starts with mastering these essential strategies. Take your time, practice with small positions, and use tools like GammaLedger to track your progress and refine your approach.</p>
-        </div>
-        <!-- Disclaimer -->
-        <div class="article-disclaimer">
-            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

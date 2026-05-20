@@ -4,6 +4,8 @@ Jekyll-powered marketing site for [GammaLedger](https://gammaledger.com).
 
 ## Setup
 
+Requires Ruby 3.0+; CI currently builds with Ruby 3.3.
+
 ```bash
 cd website
 bundle install
@@ -37,6 +39,7 @@ website/
       blog.css         Shared blog / article styles
       home.css         Homepage-specific styles
     img/               Images and icons
+  sitemap.xml          Legacy URL sitemap, including the preserved /app/ URL
 ```
 
 ## Adding a Blog Post

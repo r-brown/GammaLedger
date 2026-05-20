@@ -2,6 +2,7 @@
 layout: default
 title: Blog
 description: "Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides."
+keywords: "options trading blog, wheel strategy, PMCC, options analytics, trading journal, options Greeks, cash-secured puts, covered calls"
 permalink: /blog/
 use_blog_css: true
 ---
@@ -47,6 +48,14 @@ use_blog_css: true
 </div>
 
 <script>
+    (function() {
+        var hash = window.location.hash;
+        if (hash && hash.indexOf('#/') === 0) {
+            var postId = hash.substring(2);
+            window.location.replace('/blog/' + postId + '/');
+        }
+    })();
+
     const filterTags = document.querySelectorAll('.filter-tag');
     const cards = document.querySelectorAll('.blog-card');
 
