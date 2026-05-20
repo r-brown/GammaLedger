@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <title>Blog - GammaLedger</title>
     <meta name="description" content="Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides.">
+    <meta name="keywords" content="options trading blog, wheel strategy, PMCC, options analytics, trading journal, options Greeks, cash-secured puts, covered calls">
     <meta name="author" content="GammaLedger Contributors">
     <meta name="copyright" content="GammaLedger">
     <meta name="referrer" content="strict-origin-when-cross-origin">
@@ -13,7 +15,7 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="GammaLedger">
-    <meta property="og:title" content="Blog">
+    <meta property="og:title" content="Blog - GammaLedger">
     <meta property="og:description" content="Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides.">
     <meta property="og:url" content="https://gammaledger.com/blog/">
     <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
@@ -21,7 +23,7 @@
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Blog">
+    <meta name="twitter:title" content="Blog - GammaLedger">
     <meta name="twitter:description" content="Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides.">
     <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
     <meta name="theme-color" content="#0a0b1a">
@@ -36,24 +38,6 @@
     
     <link rel="stylesheet" href="/assets/css/blog.css">
     
-    <!-- Begin Jekyll SEO tag v2.9.0 -->
-<title>Blog | GammaLedger</title>
-<meta name="generator" content="Jekyll v4.4.1" />
-<meta property="og:title" content="Blog" />
-<meta name="author" content="GammaLedger Contributors" />
-<meta property="og:locale" content="en_US" />
-<meta name="description" content="Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides." />
-<meta name="twitter:description" property="og:description" content="Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides." />
-<link rel="canonical" href="https://gammaledger.com/blog/" />
-<meta property="og:url" content="https://gammaledger.com/blog/" />
-<meta property="og:site_name" content="GammaLedger" />
-<meta property="og:type" content="website" />
-<meta name="twitter:card" content="summary" />
-<meta name="twitter:title" content="Blog" />
-<script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebPage","author":{"@type":"Person","name":"GammaLedger Contributors"},"description":"Learn options trading strategies, analytics techniques, and get the most out of GammaLedger with our tutorials and guides.","headline":"Blog","url":"https://gammaledger.com/blog/"}</script>
-<!-- End Jekyll SEO tag -->
-
 </head>
 
 <body>
@@ -492,6 +476,14 @@
 </div>
 
 <script>
+    (function() {
+        var hash = window.location.hash;
+        if (hash && hash.indexOf('#/') === 0) {
+            var postId = hash.substring(2);
+            window.location.replace('/blog/' + postId + '/');
+        }
+    })();
+
     const filterTags = document.querySelectorAll('.filter-tag');
     const cards = document.querySelectorAll('.blog-card');
 
