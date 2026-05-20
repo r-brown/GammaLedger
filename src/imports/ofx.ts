@@ -3,6 +3,196 @@
 
 type AnyRecord = Record<string, any>
 
+interface OfxElementNode {
+    tagName: string
+    children: OfxElementNode[]
+    textContent: string
+    getElementsByTagName(tagName: string): OfxElementNode[]
+}
+
+class ParsedOfxElement implements OfxElementNode {
+    readonly tagName: string
+    readonly children: ParsedOfxElement[] = []
+    private readonly contentParts: Array<string | ParsedOfxElement> = []
+
+    constructor(tagName: string) {
+        this.tagName = normalizeOfxTagName(tagName);
+    }
+
+    appendChild(child: ParsedOfxElement): void {
+        this.children.push(child);
+        this.contentParts.push(child);
+    }
+
+    appendText(value: string): void {
+        if (value) {
+            this.contentParts.push(decodeXmlEntities(value));
+        }
+    }
+
+    get textContent(): string {
+        return this.contentParts
+            .map(part => typeof part === 'string' ? part : part.textContent)
+            .join('');
+    }
+
+    getElementsByTagName(tagName: string): ParsedOfxElement[] {
+        const normalizedTagName = normalizeOfxTagName(tagName);
+        const matches: ParsedOfxElement[] = [];
+
+        const visit = (node: ParsedOfxElement): void => {
+            node.children.forEach((child) => {
+                if (child.tagName === normalizedTagName) {
+                    matches.push(child);
+                }
+                visit(child);
+            });
+        };
+
+        visit(this);
+        return matches;
+    }
+}
+
+const ACTIVE_BROWSER_MARKUP_PATTERN = /<\s*\/?\s*(?:base|body|button|embed|form|frame|frameset|html|iframe|img|input|link|math|meta|object|option|script|select|style|svg|textarea)\b/i;
+const EVENT_HANDLER_ATTRIBUTE_PATTERN = /\s+on[a-z][\w:-]*\s*=/i;
+const URL_ATTRIBUTE_PATTERN = /\s(?:action|formaction|href|src|xlink:href)\s*=/i;
+const UNSUPPORTED_XML_DECLARATION_PATTERN = /<!\s*(?:DOCTYPE|ENTITY)\b/i;
+const OFX_TOKEN_PATTERN = /<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<\/?[A-Za-z_][\w:.-]*(?:\s[^<>]*)?>/g;
+
+function normalizeOfxTagName(tagName: string): string {
+    return tagName.trim().toUpperCase();
+}
+
+function isValidXmlCodePoint(codePoint: number): boolean {
+    return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff;
+}
+
+function decodeXmlEntities(value: string): string {
+    return value.replace(/&(#x[0-9a-f]+|#[0-9]+|amp|apos|gt|lt|quot);/gi, (match, entity) => {
+        const normalized = String(entity).toLowerCase();
+        if (normalized === 'amp') return '&';
+        if (normalized === 'apos') return "'";
+        if (normalized === 'gt') return '>';
+        if (normalized === 'lt') return '<';
+        if (normalized === 'quot') return '"';
+        if (normalized.startsWith('#x')) {
+            const codePoint = Number.parseInt(normalized.slice(2), 16);
+            return isValidXmlCodePoint(codePoint) ? String.fromCodePoint(codePoint) : match;
+        }
+        if (normalized.startsWith('#')) {
+            const codePoint = Number.parseInt(normalized.slice(1), 10);
+            return isValidXmlCodePoint(codePoint) ? String.fromCodePoint(codePoint) : match;
+        }
+        return match;
+    });
+}
+
+function assertSafeOfxMarkup(xmlContent: string): void {
+    if (UNSUPPORTED_XML_DECLARATION_PATTERN.test(xmlContent)) {
+        throw new Error('OFX document contains unsupported XML declarations.');
+    }
+    if (ACTIVE_BROWSER_MARKUP_PATTERN.test(xmlContent)) {
+        throw new Error('OFX document contains unsupported active markup.');
+    }
+}
+
+function assertSafeOfxTagToken(token: string): void {
+    if (EVENT_HANDLER_ATTRIBUTE_PATTERN.test(token) || URL_ATTRIBUTE_PATTERN.test(token)) {
+        throw new Error('OFX document contains unsupported active markup.');
+    }
+}
+
+function readTagName(token: string): string {
+    const match = token.match(/^<\/?\s*([A-Za-z_][\w:.-]*)/);
+    return match ? normalizeOfxTagName(match[1]) : '';
+}
+
+function appendOfxText(parent: ParsedOfxElement | undefined, text: string): void {
+    if (!text) {
+        return;
+    }
+    if (!parent || text.includes('<')) {
+        throw new Error('Unable to parse OFX document.');
+    }
+    if (parent.tagName === '#DOCUMENT') {
+        if (text.trim()) {
+            throw new Error('Unable to parse OFX document.');
+        }
+        return;
+    }
+    parent.appendText(text);
+}
+
+function parseOfxXmlDocument(xmlContent: string): ParsedOfxElement {
+    assertSafeOfxMarkup(xmlContent);
+
+    const documentNode = new ParsedOfxElement('#document');
+    const stack: ParsedOfxElement[] = [documentNode];
+    OFX_TOKEN_PATTERN.lastIndex = 0;
+    let cursor = 0;
+    let tokenMatch: RegExpExecArray | null;
+
+    while ((tokenMatch = OFX_TOKEN_PATTERN.exec(xmlContent)) !== null) {
+        const token = tokenMatch[0];
+        const parent = stack[stack.length - 1];
+        const text = xmlContent.slice(cursor, tokenMatch.index);
+        appendOfxText(parent, text);
+
+        if (token.startsWith('<!--') || token.startsWith('<?')) {
+            cursor = OFX_TOKEN_PATTERN.lastIndex;
+            continue;
+        }
+
+        if (token.startsWith('<![CDATA[')) {
+            if (parent) {
+                parent.appendText(token.slice(9, -3));
+            }
+            cursor = OFX_TOKEN_PATTERN.lastIndex;
+            continue;
+        }
+
+        assertSafeOfxTagToken(token);
+
+        const tagName = readTagName(token);
+        if (!tagName) {
+            throw new Error('Unable to parse OFX document.');
+        }
+
+        if (token.startsWith('</')) {
+            const current = stack.pop();
+            if (!current || current.tagName !== tagName || current === documentNode) {
+                throw new Error('Unable to parse OFX document.');
+            }
+        } else {
+            if (parent === documentNode && documentNode.children.length > 0) {
+                throw new Error('Unable to parse OFX document.');
+            }
+            const child = new ParsedOfxElement(tagName);
+            parent?.appendChild(child);
+            if (!token.endsWith('/>')) {
+                stack.push(child);
+            }
+        }
+
+        cursor = OFX_TOKEN_PATTERN.lastIndex;
+    }
+
+    const tail = xmlContent.slice(cursor);
+    appendOfxText(stack[stack.length - 1], tail);
+
+    if (stack.length !== 1) {
+        throw new Error('Unable to parse OFX document.');
+    }
+
+    const root = documentNode.children[0];
+    if (!root || root.tagName !== 'OFX') {
+        throw new Error('Invalid OFX file: missing OFX root.');
+    }
+
+    return documentNode;
+}
+
 export function parseOfx(this: any, raw: string) {
     if (typeof raw !== 'string') {
         throw new Error('OFX payload is invalid.');
@@ -14,12 +204,7 @@ export function parseOfx(this: any, raw: string) {
     }
 
     const xmlContent = raw.slice(startIndex).trim();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlContent, 'application/xml');
-    const parserError = doc.querySelector('parsererror');
-    if (parserError) {
-        throw new Error('Unable to parse OFX document.');
-    }
+    const doc = parseOfxXmlDocument(xmlContent);
 
     const securities = this.extractOfxSecurities(doc);
     const transactions = this.extractOfxTransactions(doc, securities);
@@ -30,14 +215,14 @@ export function parseOfx(this: any, raw: string) {
     };
 }
 
-export function extractOfxSecurities(this: any, doc: Document) {
+export function extractOfxSecurities(this: any, doc: OfxElementNode) {
     const map = new Map<string, AnyRecord>();
     const secList = doc.getElementsByTagName('SECLIST')[0];
     if (!secList) {
         return map;
     }
 
-    const getText = (root: Element | null, tag: string) => {
+    const getText = (root: OfxElementNode | null, tag: string) => {
         if (!root) {
             return '';
         }
@@ -46,9 +231,6 @@ export function extractOfxSecurities(this: any, doc: Document) {
     };
 
     Array.from(secList.children).forEach((node) => {
-        if (!(node instanceof Element)) {
-            return;
-        }
         const tagName = node.tagName;
         const secInfo = node.getElementsByTagName('SECINFO')[0];
         if (!secInfo) {
@@ -152,14 +334,14 @@ export function mapOfxOrderType(this: any, tag: string, rawType: unknown, units 
     }
 }
 
-export function extractOfxTransactions(this: any, doc: Document, securities: Map<string, AnyRecord>) {
+export function extractOfxTransactions(this: any, doc: OfxElementNode, securities: Map<string, AnyRecord>) {
     const transactions: AnyRecord[] = [];
     const invTranList = doc.getElementsByTagName('INVTRANLIST')[0];
     if (!invTranList) {
         return transactions;
     }
 
-    const getText = (root: Element | null, tag: string) => {
+    const getText = (root: OfxElementNode | null, tag: string) => {
         if (!root) {
             return '';
         }
@@ -168,10 +350,6 @@ export function extractOfxTransactions(this: any, doc: Document, securities: Map
     };
 
     Array.from(invTranList.children).forEach((node) => {
-        if (!(node instanceof Element)) {
-            return;
-        }
-
         const tag = node.tagName;
         if (!['BUYOPT', 'SELLOPT', 'BUYSTOCK', 'SELLSTOCK'].includes(tag)) {
             return;
