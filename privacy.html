@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <title>GammaLedger Privacy Policy</title>
-    <meta name="description" content="Learn how GammaLedger handles data, browser storage, analytics, and user privacy across the platform.">
+    <meta name="description" content="Learn how GammaLedger handles local data, browser storage, optional AI/API integrations, analytics, and privacy.">
     
     <meta name="author" content="GammaLedger Contributors">
     <meta name="copyright" content="GammaLedger">
@@ -16,7 +16,7 @@
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="GammaLedger">
     <meta property="og:title" content="GammaLedger Privacy Policy">
-    <meta property="og:description" content="Learn how GammaLedger handles data, browser storage, analytics, and user privacy across the platform.">
+    <meta property="og:description" content="Learn how GammaLedger handles local data, browser storage, optional AI/API integrations, analytics, and privacy.">
     <meta property="og:url" content="https://gammaledger.com/privacy.html">
     <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
     <meta property="og:locale" content="en_US">
@@ -24,7 +24,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="GammaLedger Privacy Policy">
-    <meta name="twitter:description" content="Learn how GammaLedger handles data, browser storage, analytics, and user privacy across the platform.">
+    <meta name="twitter:description" content="Learn how GammaLedger handles local data, browser storage, optional AI/API integrations, analytics, and privacy.">
     <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg">
     <meta name="theme-color" content="#0a0b1a">
     <!-- Fonts -->
@@ -63,103 +63,126 @@
 <main class="legal-page legal-page--privacy">
     <div class="page-intro">
         <h1>Privacy Policy</h1>
-        <p>Last updated: October 31, 2025</p>
-        <p>This Privacy Policy describes how GammaLedger ("we", "us", or "our") handles information when you visit gammaledger.com, access documentation, or run the GammaLedger application. Because GammaLedger is primarily a client-side, self-hosted tool, most trading data stays under your control. This Policy explains what we collect, how we use it, and the choices you have.</p>
+        <p>Last updated: May 20, 2026</p>
+        <p>This Privacy Policy explains how GammaLedger ("we", "us", or "our") handles information when you visit the GammaLedger website, use the browser-based or self-hosted application, configure optional integrations, or interact with the project. GammaLedger is designed to be local-first, but some optional features and third-party services may transmit data outside your device.</p>
     </div>
 
     <section id="summary">
         <h2>1. Summary</h2>
-        <p>We strive to minimize data collection. The public website gathers limited technical logs for security and performance. The GammaLedger application stores portfolio data locally in your browser or in locations you configure. We do not sell user data.</p>
-    </section>
-
-    <section id="data-we-collect">
-        <h2>2. Information We Collect</h2>
-        <p>Depending on how you interact with GammaLedger, we may collect the following categories of information:</p>
         <ul>
-            <li><strong>Website analytics:</strong> High-level metrics collected by our hosting provider (for example, aggregate page views, referrers, or error rates). These logs do not contain detailed trade information.</li>
-            <li><strong>Repository telemetry:</strong> GitHub provides anonymized statistics about downloads, stars, forks, and issues. We use that information to understand community interest.</li>
-            <li><strong>Support communications:</strong> If you open an issue or pull request, the content you share on GitHub becomes visible to other contributors under GitHub's terms.</li>
-            <li><strong>Local application data:</strong> When you run the GammaLedger web app, trade data, API keys, and settings are stored locally in your browser (IndexedDB/local storage) or in files that you export. This data never leaves your device unless you choose to sync or share it.</li>
+            <li>GammaLedger does not operate hosted trading accounts and does not intentionally collect your full trade journal on our servers.</li>
+            <li>Most app data is stored locally in your browser or in files you import or export.</li>
+            <li>Optional integrations, including market data APIs and AI providers, may send selected data from your device to third parties you configure.</li>
+            <li>Public project interactions, such as GitHub issues and pull requests, are visible to others.</li>
+            <li>We do not sell personal information or use trading records for advertising.</li>
         </ul>
     </section>
 
-    <section id="how-we-use">
-        <h2>3. How We Use Information</h2>
-        <p>We use collected information to:</p>
+    <section id="scope">
+        <h2>2. Scope</h2>
+        <p>This Policy applies to GammaLedger-controlled websites and project materials. It does not apply to third-party websites, brokers, exchanges, API providers, AI providers, GitHub, hosting providers, package registries, or self-hosted deployments operated by someone else. Those services are governed by their own terms and privacy policies.</p>
+    </section>
+
+    <section id="information-we-handle">
+        <h2>3. Information We Handle</h2>
+        <p>Depending on how you use GammaLedger, the following information may be handled:</p>
         <ul>
-            <li>Maintain site stability, detect abuse, and debug technical issues.</li>
-            <li>Understand feature adoption and prioritize roadmap items.</li>
-            <li>Respond to support requests and collaborate on improvements.</li>
-            <li>Publish aggregated community metrics (for example, total downloads) without identifying individual users.</li>
+            <li><strong>Local app data:</strong> Trades, positions, notes, strategies, settings, imported broker files, generated reports, screenshots prepared for import, and exported backups that you store on your device or in browser storage.</li>
+            <li><strong>API credentials:</strong> Optional API keys for services such as Finnhub or Gemini-compatible AI providers. These keys are stored locally and may be encrypted when browser cryptography is available. If browser cryptography is unavailable, local fallback storage may be less protected.</li>
+            <li><strong>Third-party request data:</strong> Tickers, API keys, market-data queries, provider settings, prompts, portfolio snapshots, chat history, screenshots, metadata, and other request content sent to providers when you enable optional integrations.</li>
+            <li><strong>Website data:</strong> Basic technical logs and analytics that may include IP address, browser type, device information, pages visited, referring URLs, timestamps, and error information collected by hosting, DNS, CDN, or analytics providers.</li>
+            <li><strong>Project communications:</strong> Public GitHub issues, pull requests, comments, profile information, email or contact information you choose to provide, and other communications with maintainers.</li>
         </ul>
     </section>
 
     <section id="local-storage">
-        <h2>4. Local Storage &amp; Self-Hosted Deployments</h2>
-        <p>GammaLedger is designed so that sensitive portfolio data stays under your control. Key principles include:</p>
+        <h2>4. Local Storage and Device Control</h2>
+        <p>GammaLedger primarily stores app data under browser storage keys and in files you control. We generally cannot access, recover, delete, correct, or back up data that remains only on your device.</p>
+        <p>You can remove local app data by using in-app controls where available, clearing browser storage for GammaLedger, deleting exported files, removing saved API keys, or uninstalling local/self-hosted copies. These actions may permanently delete your data.</p>
+        <p>Your browser, operating system, backup software, cloud sync provider, endpoint security tools, employer device management, or other local software may access, copy, sync, or delete local GammaLedger data according to your configuration.</p>
+    </section>
+
+    <section id="optional-integrations">
+        <h2>5. Optional Integrations and External Transfers</h2>
+        <p>If you enable optional integrations, selected data may leave your device:</p>
         <ul>
-            <li><strong>Client-side persistence:</strong> Trade history, notes, and analytics remain inside your browser unless you export them.</li>
-            <li><strong>Encrypted API keys:</strong> Optional brokerage or data-provider keys are encrypted locally before storage. You may delete them at any time.</li>
-            <li><strong>Offline capability:</strong> Once loaded, the app can run offline, further reducing reliance on external services.</li>
+            <li><strong>Market data providers:</strong> Requests may include API keys, ticker symbols, date ranges, and other query parameters. Providers may return prices, news, fundamentals, recommendations, company profiles, earnings data, or other information.</li>
+            <li><strong>AI providers:</strong> Requests may include your prompt, chat history, portfolio summaries, open position snapshots, imported screenshot images, filenames or metadata, and other context needed to generate a response or extract draft trade rows.</li>
+            <li><strong>GitHub and community tools:</strong> Information you submit in issues, pull requests, discussions, or repositories may be public and indexed by search engines.</li>
         </ul>
-        <p>You are responsible for backing up your data and for any compliance obligations that apply to the information you store.</p>
+        <p>Third-party providers may process, store, log, transfer, or use submitted data according to their own policies. Do not enable an integration or submit information to a provider unless you are comfortable with that provider's terms, privacy policy, data retention practices, security controls, and jurisdictional transfers.</p>
+    </section>
+
+    <section id="how-we-use">
+        <h2>6. How We Use Information</h2>
+        <p>We may use information we can access to:</p>
+        <ul>
+            <li>Operate, maintain, secure, debug, and improve the website and project.</li>
+            <li>Respond to issues, pull requests, support requests, security reports, licensing inquiries, and other communications.</li>
+            <li>Analyze aggregate project usage, such as repository traffic, downloads, build errors, or site performance.</li>
+            <li>Protect against abuse, spam, malware, security incidents, license misuse, or violations of the Terms.</li>
+            <li>Comply with legal obligations and enforce project rights.</li>
+        </ul>
+        <p>We do not use your locally stored trade journal to train AI models, target advertising, sell personal information, or provide brokerage/advisory services because we do not intentionally collect that journal on our servers.</p>
     </section>
 
     <section id="cookies">
-        <h2>5. Cookies &amp; Similar Technologies</h2>
-        <p>The public GammaLedger website currently uses only essential cookies (if any) provided by the hosting platform for security and performance. We do not use advertising cookies or behavioral tracking pixels. Self-hosted instances of the GammaLedger application do not set third-party cookies.</p>
+        <h2>7. Cookies and Similar Technologies</h2>
+        <p>The public website may use cookies, local storage, server logs, CDN logs, analytics tools, or similar technologies for security, site operations, performance, abuse prevention, and basic analytics. The app uses browser storage to save local data and preferences. We do not intentionally use advertising cookies or behavioral advertising pixels for GammaLedger trading data.</p>
     </section>
 
     <section id="sharing">
-        <h2>6. Information Sharing</h2>
-        <p>We do not sell or rent personal data. We may share limited information with:</p>
+        <h2>8. Information Sharing</h2>
+        <p>We may share or disclose information we can access:</p>
         <ul>
-            <li><strong>Service providers:</strong> Companies that host our website, manage DNS, or provide content delivery may process technical logs on our behalf under contractual obligations.</li>
-            <li><strong>Open-source contributors:</strong> Issue or pull-request content you publish on GitHub is shared publicly, consistent with GitHub's terms.</li>
-            <li><strong>Legal compliance:</strong> We may disclose information if required by law or to enforce our rights.</li>
+            <li>With service providers that host, secure, monitor, deliver, or support the website, repository, documentation, or project infrastructure.</li>
+            <li>With third-party providers you choose to configure or contact through the Services.</li>
+            <li>Publicly, if you submit information to public GitHub repositories, issues, pull requests, discussions, social channels, or other public forums.</li>
+            <li>When required by law, legal process, safety needs, security investigations, enforcement of rights, or prevention of harm.</li>
+            <li>In connection with a project transfer, reorganization, licensing transaction, or similar event, subject to appropriate handling of available information.</li>
         </ul>
     </section>
 
-    <section id="data-rights">
-        <h2>7. Your Choices &amp; Rights</h2>
-        <p>Because the application stores your trading data locally, you can erase it at any time by clearing your browser storage or deleting exported files. For website or repository data you can:</p>
-        <ul>
-            <li>Adjust browser privacy settings or use privacy-focused extensions to limit analytics.</li>
-            <li>Delete or edit GitHub issues or pull requests you previously submitted.</li>
-            <li>Contact us to request removal of content that references you in documentation or marketing materials.</li>
-        </ul>
+    <section id="data-minimization">
+        <h2>9. Sensitive Information</h2>
+        <p>Do not submit Social Security numbers, taxpayer IDs, full account numbers, passwords, seed phrases, government IDs, confidential client information, non-public personal information, material non-public information, or other sensitive data to public project channels or optional AI prompts. If you import broker files or screenshots, review them first and redact anything you do not want stored locally or transmitted to an optional provider.</p>
+    </section>
+
+    <section id="retention">
+        <h2>10. Retention</h2>
+        <p>Local app data remains on your device until you delete it, your browser deletes it, or your device/storage configuration changes. Public GitHub content may remain available according to GitHub's policies and repository history. Website logs and analytics are retained according to our service providers' settings and operational needs. Third-party providers retain submitted data according to their own policies.</p>
     </section>
 
     <section id="security">
-        <h2>8. Security</h2>
-        <p>We follow industry best practices to secure our website, repositories, and documentation. However, no system is completely secure. You are responsible for implementing security safeguards in self-hosted deployments, including access controls, network protections, and encryption for exported backups.</p>
+        <h2>11. Security</h2>
+        <p>We use reasonable measures for project infrastructure, but no website, browser app, local device, API integration, encryption method, or storage system is completely secure. You are responsible for device security, browser security, account security, API key restrictions, backups, access controls, and redaction of sensitive information.</p>
+        <p>If you believe you found a security issue, report it through the project's recommended security channel or contact the maintainers without posting exploit details publicly.</p>
     </section>
 
     <section id="children">
-        <h2>9. Children</h2>
-        <p>GammaLedger is not directed to individuals under 18. We do not knowingly collect personal data from children. If we learn that we have inadvertently collected such information we will delete it promptly.</p>
+        <h2>12. Children and Minors</h2>
+        <p>GammaLedger is not directed to children or minors and is intended for adults. We do not knowingly collect personal information from children under 13. If you believe a child provided personal information through a GammaLedger-controlled channel, contact us so we can take appropriate action.</p>
+    </section>
+
+    <section id="rights">
+        <h2>13. Privacy Choices and Rights</h2>
+        <p>Depending on your location, you may have rights to request access, correction, deletion, portability, restriction, objection, or appeal regarding personal information we control. Because most app data is local, many requests can be completed directly by you by deleting or modifying local storage or exported files.</p>
+        <p>For information we control, contact us through the project repository or listed maintainer channels. We may need information to verify and process your request. You may also need to contact third-party providers directly for data they control.</p>
     </section>
 
     <section id="international">
-        <h2>10. International Users</h2>
-        <p>GammaLedger is developed and maintained by a distributed community. By using the Services you consent to the transfer of technical data to the jurisdictions where our infrastructure or contributors operate. You are responsible for complying with local data-protection regulations that apply to your use case.</p>
+        <h2>14. International Use</h2>
+        <p>GammaLedger is an open-source project that may be accessed globally. Website infrastructure, GitHub, optional API providers, AI providers, maintainers, and contributors may be located in different countries. By using the Services or optional integrations, you understand that information may be processed in jurisdictions with different data-protection laws than your own.</p>
     </section>
 
-    <section id="updates">
-        <h2>11. Changes to This Policy</h2>
-        <p>We may update this Privacy Policy periodically. Material changes will be announced on the GammaLedger website or repository. The "Last updated" date reflects when revisions were published. Your continued use of the Services after an update signifies acceptance of the revised Policy.</p>
+    <section id="changes">
+        <h2>15. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. The "Last updated" date indicates when this page was last changed. Continued use of the Services after changes are posted means you accept the updated Policy.</p>
     </section>
 
     <section id="contact">
-        <h2>12. Contact</h2>
-        <p>For privacy questions or requests, open an issue at the <a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener">GammaLedger GitHub repository</a>. For sensitive matters you may contact the maintainers directly using the communication channels listed in the repository.</p>
-    </section>
-
-    <section id="additional">
-        <h2>13. Additional Notices</h2>
-        <div class="callout">
-            <p>If you deploy GammaLedger alongside third-party integrations, review the privacy policies of those services. Your use of third-party data feeds, brokers, or analytics platforms is subject to their terms and may introduce additional compliance obligations.</p>
-        </div>
+        <h2>16. Contact</h2>
+        <p>For privacy questions or requests, contact the maintainers through the <a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener">GammaLedger GitHub repository</a> or other channels listed in the repository. Do not post confidential, sensitive, personal, account, or trading information in public issues.</p>
     </section>
 </main>
 
