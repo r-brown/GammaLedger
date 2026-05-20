@@ -1,0 +1,434 @@
+---
+layout: post
+title: "Selling Premium Into the Selloff: April Options Watchlist"
+slug: gammaledger-april-options-watchlist
+date: 2026-04-05
+description: "I ran a quantitative analysis across seven tickers on my radar — INTU, UBER, ADBE, CMCSA, OKTA, QLYS, and DXC..."
+tags: [options, strategy, covered-calls, options-income, cash-secured-puts, wheel, premium-selling]
+image: /assets/img/gammaledger-stage-01.jpg
+---
+
+<blockquote>
+<p><strong>Disclaimer:</strong> This is not financial advice. IV/IVR are estimates — always confirm live chain data before trading. Premiums are approximations based on current IV levels. Options trading involves substantial risk of loss.</p>
+</blockquote>
+<hr>
+<h2 id="why-this-market-is-actually-good-for-premium-sellers">Why This Market Is Actually Good for Premium Sellers</h2>
+<p>If you've been watching your portfolio bleed this quarter, here's the silver lining: <strong>elevated implied volatility means fatter premiums</strong>. When fear drives IV higher, options sellers get paid more to take on risk — and right now, several quality names are sitting at historically high IVR readings while their underlying businesses remain fundamentally sound.</p>
+<p>I ran a quantitative analysis across seven tickers on my radar — <strong>INTU, UBER, ADBE, CMCSA, OKTA, QLYS, and DXC</strong> — scoring each across four dimensions: options liquidity, fundamental quality, IV suitability, and strategy compatibility. Here's what I found, and which names made it onto my April watchlist for new positions.</p>
+<hr>
+<h2 id="the-scoring-framework">The Scoring Framework</h2>
+<p>Each ticker was scored out of 10 across four weighted categories:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Weight</th>
+<th>What it measures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Options liquidity</strong></td>
+<td>3 pts</td>
+<td>Open interest, bid/ask spreads, weekly availability</td>
+</tr>
+<tr>
+<td><strong>Fundamentals</strong></td>
+<td>3 pts</td>
+<td>FCF, moat, profitability, balance sheet</td>
+</tr>
+<tr>
+<td><strong>IV suitability</strong></td>
+<td>2 pts</td>
+<td>IVR vs. own history, beta-adjusted premium</td>
+</tr>
+<tr>
+<td><strong>Strategy compatibility</strong></td>
+<td>2 pts</td>
+<td>How many strategies are realistically viable</td>
+</tr>
+</tbody>
+</table>
+<p>Higher score = more strategies available, better risk/reward, more confidence in assignment.</p>
+<hr>
+<h2 id="full-rankings-at-a-glance">Full Rankings at a Glance</h2>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Ticker</th>
+<th>Company</th>
+<th>Price</th>
+<th>Score</th>
+<th>Best Strategies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🥇</td>
+<td><strong>INTU</strong></td>
+<td>Intuit Inc</td>
+<td>~$400</td>
+<td><strong>8.5 / 10</strong></td>
+<td>CSP · Wheel · CC · PMCC · Put spread</td>
+</tr>
+<tr>
+<td>🥈</td>
+<td><strong>UBER</strong></td>
+<td>Uber Technologies</td>
+<td>~$70</td>
+<td><strong>8.0 / 10</strong></td>
+<td>CSP · Wheel · Put spread · Iron condor</td>
+</tr>
+<tr>
+<td>🥉</td>
+<td><strong>ADBE</strong></td>
+<td>Adobe Inc</td>
+<td>~$242</td>
+<td><strong>7.5 / 10</strong></td>
+<td>Put spreads · CSP · PMCC · Iron condor</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>CMCSA</strong></td>
+<td>Comcast Corp</td>
+<td>~$30</td>
+<td><strong>6.5 / 10</strong></td>
+<td>Covered call · CSP · Wheel</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>OKTA</strong></td>
+<td>Okta Inc</td>
+<td>~$79</td>
+<td><strong>6.0 / 10</strong></td>
+<td>Put spreads · CSP (aggressive sizing)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>QLYS</strong></td>
+<td>Qualys Inc</td>
+<td>~$134</td>
+<td><strong>5.5 / 10</strong></td>
+<td>CSP · Put spreads (small size)</td>
+</tr>
+<tr>
+<td>❌</td>
+<td><strong>DXC</strong></td>
+<td>DXC Technology</td>
+<td>~$12.50</td>
+<td><strong>2.5 / 10</strong></td>
+<td><strong>Not recommended</strong></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="tier-1-my-active-april-watchlist">🟢 Tier 1 — My Active April Watchlist</h2>
+<p>These are the names I'm actively looking to open positions on. Strong fundamentals, excellent options liquidity, and IV environments that justify selling premium right now.</p>
+<hr>
+<h3 id="1-intu-intuit-inc-score-8510">#1 — INTU (Intuit Inc) · Score: 8.5/10</h3>
+<p><strong>The best all-rounder on the list.</strong> Intuit is a low-beta (0.56) SaaS powerhouse — QuickBooks dominates SMB accounting, TurboTax owns consumer tax filing, and the data network effects create real switching costs. At ~$400, it's sitting below both its 50d and 200d moving averages, which means elevated IVR (~60%) and juicy premium relative to its own history.</p>
+<p><strong>Key metrics:</strong>
+- <strong>Market cap:</strong> $115B · <strong>FCF:</strong> ~$3.5B · <strong>Beta:</strong> 0.56
+- <strong>IV estimate:</strong> 32–38% · <strong>IVR estimate:</strong> ~60%
+- <strong>52-week range:</strong> $310–$540 · <strong>Earnings:</strong> May 21 ⚠️
+- <strong>Options liquidity:</strong> Excellent (weekly + monthly + liquid LEAPS)</p>
+<p><strong>What makes it special:</strong> Every strategy on the board works here — CSP, Wheel, Covered Call, PMCC, and Put Spreads. That flexibility is rare. Low beta means assignment won't destroy you if the market drops another 10%.</p>
+<h4 id="trade-example-cash-secured-put">📌 Trade Example — Cash Secured Put</h4>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Sell $370 Put</td>
+</tr>
+<tr>
+<td><strong>Expiry</strong></td>
+<td>May 16, 2026</td>
+</tr>
+<tr>
+<td><strong>Est. premium</strong></td>
+<td>~$6–8 credit</td>
+</tr>
+<tr>
+<td><strong>Capital required</strong></td>
+<td>~$37,000</td>
+</tr>
+<tr>
+<td><strong>Return / 40 days</strong></td>
+<td>~1.6–2.2%</td>
+</tr>
+<tr>
+<td><strong>Annualized yield</strong></td>
+<td>~15–20%</td>
+</tr>
+<tr>
+<td><strong>Probability of profit</strong></td>
+<td>~75–78%</td>
+</tr>
+<tr>
+<td><strong>Breakeven</strong></td>
+<td>~$363–364</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>⚠️ <strong>Earnings May 21 — close or roll all positions before that date.</strong> INTU historically moves ±8–12% on earnings day.</p>
+</blockquote>
+<p><strong>Wheel path:</strong> If assigned at $370, sell the June $400 covered call for an additional 2–3% return.</p>
+<p><strong>PMCC path:</strong> Buy Jan 2027 $340 LEAPS, sell monthly calls against them for capital-efficient exposure.</p>
+<hr>
+<h3 id="2-uber-uber-technologies-score-8010">#2 — UBER (Uber Technologies) · Score: 8.0/10</h3>
+<p><strong>The highest-premium name on the list.</strong> UBER sits at ~$70, down 31% from its 52-week high of $102, with IV running at 40–48% and IVR around 65%. That's a lot of fear priced in for a company generating $6.8B in free cash flow. The 52-week low sits at $60.63 — a natural support level that makes the $63 put strike interesting.</p>
+<p><strong>Key metrics:</strong>
+- <strong>Market cap:</strong> $150B · <strong>FCF:</strong> ~$6.8B · <strong>Beta:</strong> ~1.40
+- <strong>IV estimate:</strong> 40–48% · <strong>IVR estimate:</strong> ~65%
+- <strong>52-week range:</strong> $60–$102 · <strong>Avg volume:</strong> 15M+ daily
+- <strong>Options liquidity:</strong> Excellent (massive OI, tight spreads)</p>
+<p><strong>The catch:</strong> Beta of 1.4 means this name moves hard with the broader market. Size your position accordingly — I'd cap UBER at 50% of what I'd put into INTU.</p>
+<h4 id="trade-example-cash-secured-put_1">📌 Trade Example — Cash Secured Put</h4>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Sell $63 Put</td>
+</tr>
+<tr>
+<td><strong>Expiry</strong></td>
+<td>May 16, 2026</td>
+</tr>
+<tr>
+<td><strong>Est. premium</strong></td>
+<td>~$1.80–2.20 credit</td>
+</tr>
+<tr>
+<td><strong>Return / 40 days</strong></td>
+<td>~2.8–3.5%</td>
+</tr>
+<tr>
+<td><strong>Annualized yield</strong></td>
+<td>~25–32%</td>
+</tr>
+<tr>
+<td><strong>Probability of profit</strong></td>
+<td>~72%</td>
+</tr>
+<tr>
+<td><strong>Breakeven</strong></td>
+<td>~$61.00</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Put spread alternative:</strong> Sell $63P / Buy $58P for defined risk if you don't want full assignment exposure. Sacrifices some premium but caps your max loss.</p>
+</blockquote>
+<hr>
+<h2 id="tier-2-selective-entries">🟡 Tier 2 — Selective Entries</h2>
+<p>Quality names, but either IV environment, trend, or structural concerns require more careful positioning. Worth watching, but I'm being selective here.</p>
+<hr>
+<h3 id="3-adbe-adobe-inc-score-7510">#3 — ADBE (Adobe Inc) · Score: 7.5/10</h3>
+<p>Adobe is a paradox: <strong>exceptional fundamentals, challenging trend.</strong> At ~$242, it's down 43% from its 52-week high of $423 and trading near its 52-week low of $233. The $8B FCF and 35% ROE are best-in-class — but the AI commoditization narrative (generative image tools competing with Firefly) has been a persistent headwind.</p>
+<p><strong>Key metrics:</strong>
+- <strong>Market cap:</strong> $107B · <strong>FCF:</strong> ~$8.0B · <strong>ROE:</strong> ~35%
+- <strong>IV estimate:</strong> 42–52% · <strong>IVR estimate:</strong> ~70% (highest in tier 1/2)
+- <strong>52-week range:</strong> $233–$423 · <strong>Beta:</strong> ~1.10</p>
+<p><strong>My approach:</strong> <strong>Defined-risk spreads only on ADBE.</strong> Do not sell naked puts here — if support at $233 breaks, there's a lot of air below. The put spread limits your max loss while still capturing elevated premium.</p>
+<h4 id="trade-example-put-credit-spread">📌 Trade Example — Put Credit Spread</h4>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Sell $220P / Buy $210P</td>
+</tr>
+<tr>
+<td><strong>Expiry</strong></td>
+<td>May 16, 2026</td>
+</tr>
+<tr>
+<td><strong>Est. net credit</strong></td>
+<td>~$1.80–2.50</td>
+</tr>
+<tr>
+<td><strong>Max risk</strong></td>
+<td>$7.50–8.20 per spread</td>
+</tr>
+<tr>
+<td><strong>Return on risk</strong></td>
+<td>~22–30%</td>
+</tr>
+<tr>
+<td><strong>Probability of profit</strong></td>
+<td>~75%</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>PMCC alternative:</strong> Jan 2027 $200 LEAPS + sell monthly calls. Capital-efficient way to participate if you're bullish on Adobe's AI pivot without full downside exposure.</p>
+</blockquote>
+<hr>
+<h3 id="4-cmcsa-comcast-corp-score-6510">#4 — CMCSA (Comcast Corp) · Score: 6.5/10</h3>
+<p>The <strong>defensive income name</strong> of the group. CMCSA trades at ~$30 with a 3.4% dividend yield, 7.5x P/E, and $14B FCF. Low IV (25–30%) means per-contract premium is modest, but you're stacking covered call income on top of a dividend — total yield potential of 15–19% annualized.</p>
+<p><strong>Key metrics:</strong>
+- <strong>Market cap:</strong> $120B · <strong>FCF:</strong> ~$14B · <strong>Dividend:</strong> ~3.4%
+- <strong>IV estimate:</strong> 25–30% · <strong>IVR estimate:</strong> ~45%
+- <strong>P/E:</strong> ~7.5x · <strong>Beta:</strong> ~0.75</p>
+<p><strong>The play:</strong> Buy shares → sell covered calls above current price → collect dividend. Simple Wheel setup for conservative income.</p>
+<blockquote>
+<p>⚠️ <strong>Q1 earnings due April 23 — close all options positions before that date.</strong></p>
+</blockquote>
+<hr>
+<h2 id="tier-3-approach-with-caution-or-skip">🔴 Tier 3 — Approach with Caution (or Skip)</h2>
+<hr>
+<h3 id="5-okta-okta-inc-score-6010">#5 — OKTA (Okta Inc) · Score: 6.0/10</h3>
+<p>High premium, real risk. OKTA has the second-highest IVR (~68%) in the group — the market is pricing in a lot of uncertainty for the identity security leader. The problem: it's not yet GAAP profitable, it's in a strong downtrend from $128, and AI-native alternatives are pressuring its competitive narrative.</p>
+<p><strong>My approach:</strong> <strong>Put spreads only, never uncovered puts.</strong> If you're bullish on the AI-identity security thesis long-term, a deeply OTM CSP at $65–68 with aggressive sizing discipline could work. Keep allocation small.</p>
+<hr>
+<h3 id="6-qlys-qualys-inc-score-5510">#6 — QLYS (Qualys Inc) · Score: 5.5/10</h3>
+<p>QLYS has the <strong>best fundamental quality in cybersecurity on this list</strong> — 45.7% operating margin, 59% YoY FCF growth, near-zero debt. The catch is thin options liquidity (~300K average daily volume). Bid/ask spreads run $0.50–1.00+ wide, which means you'll give up significant edge on fills.</p>
+<p><strong>Rule:</strong> Always use limit orders at the midpoint. Monthly expirations only. Keep position size small.</p>
+<hr>
+<h3 id="dxc-do-not-trade">❌ DXC — Do Not Trade</h3>
+<p>DXC Technology scores 2.5/10 for one simple reason: <strong>extreme IV on a distressed stock is not an opportunity, it's a warning.</strong></p>
+<ul>
+<li>Down ~84% from its all-time high of $92</li>
+<li>Declining revenue, ongoing restructuring, D/E ratio of 1.80</li>
+<li>Options: poor liquidity, wide spreads, minimal open interest</li>
+<li>If assigned at any strike, the stock could continue falling well below your cost basis</li>
+</ul>
+<p><strong>The rule of thumb:</strong> When IV is extreme because the underlying is in structural distress, you're not getting paid for volatility — you're getting paid to take on credit risk. Skip this one entirely.</p>
+<hr>
+<h2 id="building-a-balanced-portfolio">Building a Balanced Portfolio</h2>
+<p>If you're allocating across multiple names, here's how I'd structure an options income portfolio from this list — diversified across sectors to reduce correlation:</p>
+<table>
+<thead>
+<tr>
+<th>Ticker</th>
+<th>Sector</th>
+<th>Role</th>
+<th>Target Ann. Yield</th>
+<th>Correlation to SPY</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>INTU</strong></td>
+<td>Fintech SaaS</td>
+<td>Core anchor — all strategies</td>
+<td>15–20%</td>
+<td>Low (beta 0.56)</td>
+</tr>
+<tr>
+<td><strong>UBER</strong></td>
+<td>Mobility</td>
+<td>High-IV premium harvesting</td>
+<td>20–30%</td>
+<td>Medium (beta 1.40)</td>
+</tr>
+<tr>
+<td><strong>CMCSA</strong></td>
+<td>Telecom/Media</td>
+<td>Defensive dividend + CC</td>
+<td>15–19%</td>
+<td>Low (beta 0.75)</td>
+</tr>
+<tr>
+<td><strong>ADBE</strong></td>
+<td>Creative SW</td>
+<td>Defined-risk spreads + PMCC</td>
+<td>15–22%</td>
+<td>Medium (beta 1.10)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Allocation rules:</strong>
+- Never exceed 25% of total options capital in any single name
+- UBER allocation should be ~50% of INTU allocation due to higher beta
+- ADBE and OKTA: defined-risk structures only, never naked puts</p>
+<hr>
+<h2 id="april-watchlist-quick-reference">April Watchlist — Quick Reference</h2>
+<p>For those who want the TL;DR:</p>
+<table>
+<thead>
+<tr>
+<th>Ticker</th>
+<th>Strategy</th>
+<th>Strike</th>
+<th>Expiry</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>INTU</strong></td>
+<td>Sell CSP</td>
+<td>$370 put</td>
+<td>May 16</td>
+<td>Best all-rounder, close before May 21 earnings</td>
+</tr>
+<tr>
+<td><strong>UBER</strong></td>
+<td>Sell CSP or Put spread</td>
+<td>$63 put</td>
+<td>May 16</td>
+<td>High IV, support near 52w low</td>
+</tr>
+<tr>
+<td><strong>ADBE</strong></td>
+<td>Put credit spread</td>
+<td>$220/$210</td>
+<td>May 16</td>
+<td>Defined risk only — near 52w low</td>
+</tr>
+<tr>
+<td><strong>CMCSA</strong></td>
+<td>Covered call</td>
+<td>$32 call</td>
+<td>May 16</td>
+<td>Stack on dividend yield</td>
+</tr>
+<tr>
+<td><strong>INTU</strong></td>
+<td>PMCC</td>
+<td>Jan 2027 $340 LEAPS</td>
+<td>Rolling monthly</td>
+<td>Capital-efficient long-delta position</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="key-risk-dates-this-month">Key Risk Dates This Month</h2>
+<p>Mark these in your calendar before opening any position:</p>
+<ul>
+<li><strong>April 23</strong> — CMCSA Q1 earnings: close all CMCSA options before this date</li>
+<li><strong>May 21</strong> — INTU earnings: close or roll all INTU positions before this date</li>
+<li><strong>Ongoing</strong> — Monitor UBER for AV/regulatory headlines (Waymo, EU driver classification)</li>
+</ul>
+<hr>
+<h2 id="final-thoughts">Final Thoughts</h2>
+<p>The selloff has done something useful: it's pushed IV higher on names with strong underlying businesses. That's the setup premium sellers live for. INTU and UBER are the clearest opportunities right now — liquid markets, elevated IV, and fundamentals that make assignment manageable.</p>
+<p>ADBE is compelling on paper but needs to be handled carefully given the proximity to its 52-week low. Use spreads, not naked exposure.</p>
+<p>And DXC? Extreme IV is tempting, but distress-driven volatility is a trap. Walk away.</p>
+<p>As always — size positions conservatively, confirm live chain data before entering, and have a plan for what you'll do if you get assigned.</p>
+<hr>
+<p><em>All data referenced in this article is as of April 4–5, 2026. IV and IVR figures are estimates; always verify against your broker's live options chain before trading. This article is for educational and informational purposes only and does not constitute financial advice. Options trading involves significant risk and is not suitable for all investors.</em></p>
+        </div>
+        <!-- Disclaimer -->
+        <div class="article-disclaimer">
+            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

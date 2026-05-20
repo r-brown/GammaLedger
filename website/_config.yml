@@ -1,0 +1,35 @@
+title: GammaLedger
+description: "Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision."
+url: "https://gammaledger.com"
+baseurl: ""
+author: GammaLedger Contributors
+theme_color: "#0a0b1a"
+
+permalink: /blog/:slug/
+
+# Allow raw HTML blocks inside markdown (needed for blog post content)
+markdown: kramdown
+kramdown:
+  input: GFM
+  parse_block_html: true
+
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+      author: "GammaLedger"
+      image: "/assets/img/gammaledger-stage-01.jpg"
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - README.md

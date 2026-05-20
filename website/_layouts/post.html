@@ -1,0 +1,25 @@
+---
+layout: default
+---
+<article class="article-container">
+    <a href="/blog/" class="back-to-blog">← Back to Blog</a>
+    <div class="article-header">
+        {% if page.image %}<img src="{{ page.image }}" alt="{{ page.title }}" class="article-featured-image">{% endif %}
+        <h1 class="article-title">{{ page.title }}</h1>
+        <div class="article-meta">
+            <span>📅 {{ page.date | date: "%B %-d, %Y" }}</span>
+            <span>✍️ {{ page.author | default: "GammaLedger" }}</span>
+        </div>
+        {% if page.tags %}
+        <div class="article-tags">
+            {% for tag in page.tags %}<span class="tag">{{ tag }}</span>{% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    <div class="article-content">
+        {{ content }}
+    </div>
+    <div class="article-disclaimer">
+        <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. Please read our full <a href="/disclaimer.html">Risk Disclaimer</a>.
+    </div>
+</article>

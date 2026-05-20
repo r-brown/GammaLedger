@@ -1,0 +1,11 @@
+---
+# Legal pages carry their own <header> and <footer> from the backup HTML,
+# so this layout wraps only with the shared <head> meta block (no shared nav/footer).
+---
+<!DOCTYPE html>
+<html lang="en">
+{% include head.html %}
+<body>
+{{ content }}
+</body>
+</html>

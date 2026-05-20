@@ -1,0 +1,504 @@
+---
+layout: post
+title: "Step-by-Step Tutorial: Setting Up and Tracking Your Options Trades with GammaLedger"
+slug: gammaledger-setup-tutorial
+date: 2025-11-11
+description: "Complete guide to configuring GammaLedger, importing trades, and using analytics to improve your trading performance."
+tags: [options, tutorial, getting-started, analytics]
+image: /assets/img/gammaledger-stage-01.jpg
+---
+
+<p>GammaLedger is designed to be your comprehensive options trading journal and analytics platform. This step-by-step tutorial will guide you through setting up your account, logging trades, and leveraging powerful analytics to improve your trading performance.</p>
+<h2 id="why-use-a-trading-journal">Why Use a Trading Journal?</h2>
+<p>Before diving into the tutorial, understand why tracking trades is crucial:</p>
+<ul>
+<li><strong>Performance Analysis</strong>: Identify which strategies work best for you</li>
+<li><strong>Pattern Recognition</strong>: Spot recurring mistakes before they become costly</li>
+<li><strong>Tax Reporting</strong>: Comprehensive records simplify year-end tax preparation</li>
+<li><strong>Continuous Improvement</strong>: Data-driven insights lead to better decisions</li>
+<li><strong>Accountability</strong>: Written plans reduce emotional trading</li>
+</ul>
+<p>Studies show traders who maintain detailed journals outperform those who don't by 15-25% annually.</p>
+<h2 id="part-1-initial-setup">Part 1: Initial Setup</h2>
+<h3 id="step-1-download-and-install-gammaledger">Step 1: Download and Install GammaLedger</h3>
+<ol>
+<li>Visit <a href="https://github.com/r-brown/GammaLedger">GammaLedger GitHub Repository</a></li>
+<li>Click "Releases" in the right sidebar</li>
+<li>Download the latest version for your operating system</li>
+<li>Install the application following the prompts</li>
+</ol>
+<p><strong>Privacy First</strong>: GammaLedger runs 100% locally. Your data never leaves your computer.</p>
+<h3 id="step-2-first-launch-configuration">Step 2: First Launch Configuration</h3>
+<p>On first launch, you'll see the welcome screen:</p>
+<ol>
+<li><strong>Set Your Currency</strong>: USD, EUR, GBP, etc.</li>
+<li><strong>Choose Your Timezone</strong>: For accurate timestamps</li>
+<li><strong>Select Date Format</strong>: MM/DD/YYYY or DD/MM/YYYY</li>
+<li><strong>Set Starting Capital</strong>: Your initial portfolio value (can be changed later)</li>
+</ol>
+<p>Click "Continue" to access the main dashboard.</p>
+<h3 id="step-3-configure-your-trading-preferences">Step 3: Configure Your Trading Preferences</h3>
+<p>Navigate to <strong>Settings → Preferences</strong>:</p>
+<p><strong>Display Options</strong>:
+- Theme: Light or Dark mode
+- Default view: Dashboard, Positions, or Trade Log
+- Chart preferences: Candlestick, line, or bar</p>
+<p><strong>Trading Defaults</strong>:
+- Default commission: Set your broker's per-contract fee
+- Position sizing: Maximum percentage per trade
+- Risk warnings: Enable alerts for concentrated positions</p>
+<p><strong>Notifications</strong>:
+- Profit/Loss alerts
+- Expiration reminders
+- Portfolio threshold notifications</p>
+<h2 id="part-2-importing-your-first-trades">Part 2: Importing Your First Trades</h2>
+<h3 id="method-1-manual-entry">Method 1: Manual Entry</h3>
+<p>Perfect for learning the system and entering individual trades.</p>
+<p><strong>Navigate to</strong>: Trades → Add New Trade</p>
+<p><strong>Enter Trade Details</strong>:</p>
+<ol>
+<li><strong>Basic Information</strong>:</li>
+<li>Symbol: AAPL</li>
+<li>Strategy: Covered Call</li>
+<li>
+<p>Open Date: 2025-11-01</p>
+</li>
+<li>
+<p><strong>Position Details</strong>:</p>
+</li>
+<li>Underlying Price: $180.00</li>
+<li>
+<p>Quantity: 1 contract (100 shares)</p>
+</li>
+<li>
+<p><strong>Options Details</strong>:</p>
+</li>
+<li>Strike: $185</li>
+<li>Expiration: 2025-11-29</li>
+<li>Type: Call</li>
+<li>Action: Sell to Open</li>
+<li>
+<p>Premium: $2.50 per share</p>
+</li>
+<li>
+<p><strong>Additional Info</strong>:</p>
+</li>
+<li>Commission: $0.65</li>
+<li>Notes: "Conservative covered call, willing to sell at $185"</li>
+</ol>
+<p>Click "Save Trade" to add to your journal.</p>
+<h3 id="method-2-broker-import-ofxcsv">Method 2: Broker Import (OFX/CSV)</h3>
+<p>Most efficient for bulk imports.</p>
+<p><strong>Step 1: Download from Broker</strong>:
+- Log into your broker (TD Ameritrade, Interactive Brokers, etc.)
+- Navigate to Trade History or Account Statements
+- Export trades as OFX or CSV format
+- Select date range (last month, year, etc.)</p>
+<p><strong>Step 2: Import to GammaLedger</strong>:
+- Navigate to: <strong>Trades → Import Trades</strong>
+- Click "Choose File" and select your download
+- Map fields if necessary:
+  - Symbol → Symbol
+  - Quantity → Contracts
+  - Price → Premium
+- Review mapping preview
+- Click "Import"</p>
+<p>GammaLedger automatically:
+- Detects strategy type
+- Calculates Greeks
+- Links related legs (spreads)
+- Updates portfolio metrics</p>
+<h3 id="method-3-api-connection-advanced">Method 3: API Connection (Advanced)</h3>
+<p>For real-time sync with supported brokers:</p>
+<p><strong>Navigate to</strong>: Settings → Broker Connections</p>
+<ol>
+<li>Select your broker from the dropdown</li>
+<li>Enter API credentials (read-only recommended)</li>
+<li>Authorize connection</li>
+<li>Set sync frequency (manual, hourly, daily)</li>
+</ol>
+<p><strong>Supported Brokers</strong>:
+- TD Ameritrade
+- Interactive Brokers
+- Tastytrade
+- E*TRADE
+- More added regularly</p>
+<h2 id="part-3-understanding-the-dashboard">Part 3: Understanding the Dashboard</h2>
+<h3 id="portfolio-overview-section">Portfolio Overview Section</h3>
+<p><strong>Current Value</strong>: Total portfolio value including cash and open positions</p>
+<p><strong>Today's P&amp;L</strong>: Daily profit/loss
+- Green = profitable day
+- Red = losing day</p>
+<p><strong>Total P&amp;L</strong>: All-time profit/loss since starting</p>
+<p><strong>Win Rate</strong>: Percentage of profitable trades (target: 60%+)</p>
+<h3 id="greek-exposure-dashboard">Greek Exposure Dashboard</h3>
+<p>Critical for risk management:</p>
+<p><strong>Delta</strong>: Overall directional exposure
+- Positive delta: Bullish
+- Negative delta: Bearish
+- Zero delta: Neutral
+- Target: -50 to +50 for balanced portfolio</p>
+<p><strong>Gamma</strong>: Rate of delta change
+- High gamma = risk near expiration
+- Monitor before Friday expiration</p>
+<p><strong>Theta</strong>: Daily time decay
+- Positive theta = collecting time decay
+- Negative theta = paying time decay
+- Shows expected daily profit/loss from time</p>
+<p><strong>Vega</strong>: Volatility exposure
+- Positive vega = benefit from IV increase
+- Negative vega = benefit from IV decrease</p>
+<h3 id="open-positions-table">Open Positions Table</h3>
+<p>Displays all active trades:
+- Symbol
+- Strategy type
+- Days to expiration
+- Current P&amp;L
+- Percentage return
+- Greeks</p>
+<p>Click any position to view details and adjustment options.</p>
+<h3 id="upcoming-expirations-calendar">Upcoming Expirations Calendar</h3>
+<p>Visual calendar showing:
+- Positions expiring this week (red)
+- Positions expiring next week (yellow)
+- Positions expiring later (green)</p>
+<p>Click any date to see expiring positions and plan adjustments.</p>
+<h2 id="part-4-logging-different-strategy-types">Part 4: Logging Different Strategy Types</h2>
+<h3 id="simple-strategies">Simple Strategies</h3>
+<h4 id="long-callput">Long Call/Put</h4>
+<p><strong>Fields to Enter</strong>:
+- Symbol: SPY
+- Strategy: Long Call
+- Strike: $450
+- Expiration: 2025-12-20
+- Premium Paid: $8.50
+- Contracts: 3</p>
+<p>GammaLedger calculates:
+- Total cost: $2,550 ($8.50 × 100 × 3)
+- Break-even: $458.50
+- Maximum loss: $2,550
+- Maximum profit: Unlimited</p>
+<h4 id="covered-call">Covered Call</h4>
+<p><strong>Method 1: Log as Single Strategy</strong>
+- Strategy: Covered Call
+- Shares owned: 100
+- Cost basis: $175
+- Strike sold: $180
+- Premium collected: $3.00</p>
+<p><strong>Method 2: Log Separately (Advanced)</strong>
+- First: Log stock purchase
+- Second: Log short call
+- GammaLedger auto-links them as covered call</p>
+<h3 id="spread-strategies">Spread Strategies</h3>
+<h4 id="bull-call-spread">Bull Call Spread</h4>
+<p><strong>Enter as Multi-Leg</strong>:
+1. Click "Add Multi-Leg Strategy"
+2. Select "Bull Call Spread"
+3. <strong>Leg 1 (Long)</strong>:
+   - Buy Call
+   - Strike: $100
+   - Premium: $5.00
+4. <strong>Leg 2 (Short)</strong>:
+   - Sell Call
+   - Strike: $105
+   - Premium: $2.00</p>
+<p>GammaLedger calculates:
+- Net debit: $3.00 ($300)
+- Max profit: $2.00 ($200)
+- Max loss: $3.00 ($300)
+- Risk/reward ratio: 1.5:1</p>
+<h4 id="iron-condor">Iron Condor</h4>
+<p><strong>Four Legs</strong>:
+1. Buy Put at $435 (protection)
+2. Sell Put at $440 (income)
+3. Sell Call at $460 (income)
+4. Buy Call at $465 (protection)</p>
+<p>GammaLedger automatically:
+- Calculates total credit
+- Shows profit zone graphically
+- Displays probability of profit
+- Tracks all four legs together</p>
+<h3 id="advanced-strategies">Advanced Strategies</h3>
+<h4 id="calendar-spread">Calendar Spread</h4>
+<p><strong>Two Expirations</strong>:
+- <strong>Front Month</strong>: Sell 30-day option
+- <strong>Back Month</strong>: Buy 60-day option</p>
+<p><strong>Enter Both Legs</strong>:
+- Link them using "Related Position" field
+- GammaLedger tracks as single strategy
+- Shows P&amp;L accounting for both expirations</p>
+<h2 id="part-5-tracking-and-adjusting-positions">Part 5: Tracking and Adjusting Positions</h2>
+<h3 id="daily-monitoring-routine">Daily Monitoring Routine</h3>
+<p><strong>Morning Check (5 minutes)</strong>:</p>
+<ol>
+<li>Open GammaLedger dashboard</li>
+<li>Review overnight P&amp;L</li>
+<li>Check Greek exposure (any concerning changes?)</li>
+<li>Review positions expiring within 7 days</li>
+<li>Set any new alerts</li>
+</ol>
+<h3 id="position-management-actions">Position Management Actions</h3>
+<h4 id="rolling-a-position">Rolling a Position</h4>
+<p>When a short option is threatened:</p>
+<ol>
+<li>Navigate to the position</li>
+<li>Click "Roll Position"</li>
+<li>Select new expiration date</li>
+<li>Adjust strike if needed</li>
+<li>Review credit/debit for roll</li>
+<li>Confirm</li>
+</ol>
+<p>GammaLedger:
+- Closes original position
+- Opens new position
+- Links them in history
+- Updates all Greeks</p>
+<h4 id="closing-a-winner">Closing a Winner</h4>
+<p>When reaching profit target:</p>
+<ol>
+<li>Click on position</li>
+<li>Click "Close Position"</li>
+<li>Enter closing details:</li>
+<li>Exit date</li>
+<li>Exit premium</li>
+<li>Commission</li>
+<li>Add closing notes: "Hit 50% profit target"</li>
+</ol>
+<p>GammaLedger:
+- Marks position closed
+- Calculates final P&amp;L
+- Updates win/loss statistics
+- Moves to closed positions</p>
+<h4 id="adjusting-a-loser">Adjusting a Loser</h4>
+<p>If a trade goes against you:</p>
+<p><strong>Option 1: Add Protective Leg</strong>
+- Click "Add Leg" on position
+- Buy protective option
+- Convert to defined risk</p>
+<p><strong>Option 2: Convert Strategy</strong>
+- Transform bull call spread to butterfly
+- Add additional legs
+- Reduce risk</p>
+<h2 id="part-6-advanced-analytics">Part 6: Advanced Analytics</h2>
+<h3 id="performance-reports">Performance Reports</h3>
+<p><strong>Navigate to</strong>: Analytics → Performance</p>
+<p><strong>Win/Loss Analysis</strong>:
+- Win rate by strategy
+- Average win vs average loss
+- Largest winners/losers
+- Profit factor (gross profit / gross loss)</p>
+<p><strong>Time Analysis</strong>:
+- Best/worst days of week
+- Monthly performance trends
+- Hold time vs profitability</p>
+<p><strong>Strategy Comparison</strong>:</p>
+<pre><code>Covered Calls: 75% win rate, +$4,250 YTD
+Bull Put Spreads: 68% win rate, +$3,100 YTD
+Iron Condors: 71% win rate, +$2,890 YTD
+</code></pre>
+<p>Identify your most profitable strategies and focus there.</p>
+<h3 id="risk-metrics">Risk Metrics</h3>
+<p><strong>Navigate to</strong>: Analytics → Risk</p>
+<p><strong>Portfolio Heat Map</strong>:
+- Concentration risk by symbol
+- Sector exposure
+- Strategy diversification</p>
+<p><strong>Drawdown Analysis</strong>:
+- Maximum drawdown
+- Current drawdown from peak
+- Recovery time analysis</p>
+<p><strong>VaR (Value at Risk)</strong>:
+- Estimated 95% confidence loss limit
+- Based on historical volatility
+- Alerts if threshold exceeded</p>
+<h3 id="greek-analytics">Greek Analytics</h3>
+<p><strong>Navigate to</strong>: Analytics → Greeks</p>
+<p><strong>Historical Greek Exposure</strong>:
+- Charts showing delta, gamma, theta, vega over time
+- Identify patterns in risk exposure
+- Correlate Greek exposure with P&amp;L</p>
+<p><strong>Scenario Analysis</strong>:
+- "What if stock moves 10%?"
+- "What if volatility increases 20%?"
+- Model different outcomes before they happen</p>
+<h2 id="part-7-custom-features-and-workflows">Part 7: Custom Features and Workflows</h2>
+<h3 id="creating-watchlists">Creating Watchlists</h3>
+<p>Track potential trade opportunities:</p>
+<ol>
+<li>Navigate to: Tools → Watchlists</li>
+<li>Click "New Watchlist"</li>
+<li>Name it (e.g., "High IV Opportunities")</li>
+<li>Add symbols</li>
+<li>Set criteria:</li>
+<li>IV Rank &gt; 70%</li>
+<li>Upcoming earnings</li>
+<li>Price alerts</li>
+</ol>
+<p>GammaLedger alerts when criteria are met.</p>
+<h3 id="setting-trade-rules">Setting Trade Rules</h3>
+<p>Automate your discipline:</p>
+<p><strong>Navigate to</strong>: Settings → Trade Rules</p>
+<p><strong>Position Sizing Rules</strong>:
+- Maximum % of portfolio per trade: 5%
+- Maximum % in single symbol: 15%
+- Alert when exceeded</p>
+<p><strong>Profit/Loss Rules</strong>:
+- Take profit at: 50% of max profit
+- Stop loss at: 2x initial credit
+- Alert when targets hit</p>
+<p><strong>Expiration Rules</strong>:
+- Close positions &lt; 7 DTE
+- Avoid holding through earnings
+- Warning alerts</p>
+<h3 id="custom-tags-and-notes">Custom Tags and Notes</h3>
+<p>Organize trades your way:</p>
+<p><strong>Tags</strong>: Create custom tags
+- #HighConviction
+- #EarningsPlay
+- #DefensiveIncome
+- #Experimental</p>
+<p><strong>Notes</strong>: Rich text notes on each trade
+- Why you entered
+- What you expected
+- What actually happened
+- Lessons learned</p>
+<p>Filter and analyze by tags to find patterns.</p>
+<h2 id="part-8-review-and-improvement-workflow">Part 8: Review and Improvement Workflow</h2>
+<h3 id="weekly-review-30-minutes">Weekly Review (30 minutes)</h3>
+<p><strong>Every Sunday</strong>:</p>
+<ol>
+<li><strong>Review Closed Trades</strong>:</li>
+<li>What worked?</li>
+<li>What didn't?</li>
+<li>
+<p>Any pattern?</p>
+</li>
+<li>
+<p><strong>Analyze Open Positions</strong>:</p>
+</li>
+<li>Upcoming expirations?</li>
+<li>Adjustments needed?</li>
+<li>
+<p>Take profits available?</p>
+</li>
+<li>
+<p><strong>Check Portfolio Metrics</strong>:</p>
+</li>
+<li>Greek exposure balanced?</li>
+<li>Concentration risk?</li>
+<li>
+<p>Cash reserves adequate?</p>
+</li>
+<li>
+<p><strong>Plan Next Week</strong>:</p>
+</li>
+<li>Watchlist opportunities</li>
+<li>Earnings calendar</li>
+<li>Economic events (Fed, jobs report)</li>
+</ol>
+<p><strong>Document in Journal</strong>: GammaLedger includes a weekly journal feature for narrative notes.</p>
+<h3 id="monthly-deep-dive-2-hours">Monthly Deep Dive (2 hours)</h3>
+<p><strong>First Sunday of Month</strong>:</p>
+<ol>
+<li><strong>Performance Analysis</strong>:</li>
+<li>Compare to benchmark (SPY, etc.)</li>
+<li>Win rate trends</li>
+<li>
+<p>Strategy performance rankings</p>
+</li>
+<li>
+<p><strong>Goal Progress</strong>:</p>
+</li>
+<li>Monthly income target</li>
+<li>Risk-adjusted return goals</li>
+<li>
+<p>Personal development objectives</p>
+</li>
+<li>
+<p><strong>Adjustment Planning</strong>:</p>
+</li>
+<li>Which strategies to emphasize?</li>
+<li>Which to reduce/eliminate?</li>
+<li>
+<p>New strategies to test?</p>
+</li>
+<li>
+<p><strong>Tax Planning</strong>:</p>
+</li>
+<li>Realized gains/losses YTD</li>
+<li>Tax loss harvesting opportunities</li>
+<li>Record keeping compliance</li>
+</ol>
+<h2 id="part-9-troubleshooting-and-tips">Part 9: Troubleshooting and Tips</h2>
+<h3 id="common-issues">Common Issues</h3>
+<p><strong>Issue</strong>: Greek calculations seem off
+<strong>Solution</strong>: Ensure underlying price is current. Update market data in Settings → Data Refresh.</p>
+<p><strong>Issue</strong>: Spread not linking properly
+<strong>Solution</strong>: Use "Multi-Leg Strategy" entry, not individual legs.</p>
+<p><strong>Issue</strong>: Import file rejected
+<strong>Solution</strong>: Check file format matches broker type. Some brokers need specific OFX versions.</p>
+<h3 id="pro-tips">Pro Tips</h3>
+<p><strong>Tip 1: Screenshot Before Entering</strong>
+Take a screenshot of your broker's trade ticket before entering in GammaLedger. Helps ensure accuracy.</p>
+<p><strong>Tip 2: Daily 5-Minute Routine</strong>
+Set a recurring calendar alert at market close to update GammaLedger daily.</p>
+<p><strong>Tip 3: Use Templates</strong>
+Create strategy templates for your most common trades. One-click entry for covered calls, iron condors, etc.</p>
+<p><strong>Tip 4: Backup Regularly</strong>
+Navigate to Settings → Backup. Export your data weekly to cloud storage.</p>
+<p><strong>Tip 5: Learn Keyboard Shortcuts</strong>
+- Ctrl+N: New trade
+- Ctrl+D: Dashboard
+- Ctrl+P: Positions
+- Ctrl+A: Analytics</p>
+<h2 id="part-10-advanced-integrations">Part 10: Advanced Integrations</h2>
+<h3 id="exporting-data">Exporting Data</h3>
+<p><strong>For Tax Software</strong>:
+- Navigate to: Reports → Tax Report
+- Select tax year
+- Export as CSV or PDF
+- Import to TurboTax, etc.</p>
+<p><strong>For Spreadsheet Analysis</strong>:
+- Export trades to Excel/Google Sheets
+- Perform custom analysis
+- Create additional visualizations</p>
+<p><strong>For Sharing</strong>:
+- Generate performance reports
+- Redact sensitive info if needed
+- Share with trading groups or mentors</p>
+<h3 id="api-for-developers">API for Developers</h3>
+<p>GammaLedger offers API access:</p>
+<p><strong>Use Cases</strong>:
+- Build custom dashboards
+- Integrate with other tools
+- Automate trade logging from algorithms
+- Create custom alerts</p>
+<p><strong>Documentation</strong>: Available in Settings → API</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>GammaLedger transforms your options trading from guesswork to data-driven decisions. By consistently tracking every trade, analyzing performance, and learning from both wins and losses, you'll develop an edge that compounds over time.</p>
+<p><strong>Key Takeaways</strong>:
+- Log every single trade (no exceptions)
+- Review weekly and monthly
+- Use analytics to identify your edge
+- Continuously improve based on data
+- Maintain discipline through rules and alerts</p>
+<p>The traders who succeed are those who treat trading as a business, not gambling. GammaLedger is your business intelligence platform.</p>
+<h2 id="next-steps">Next Steps</h2>
+<ol>
+<li>Download GammaLedger if you haven't already</li>
+<li>Import your last 30 days of trades</li>
+<li>Set up your dashboard preferences</li>
+<li>Create your first watchlist</li>
+<li>Schedule your weekly review time</li>
+</ol>
+<p>Welcome to data-driven options trading!</p>
+<h2 id="related-articles">Related Articles</h2>
+<ul>
+<li><a href="https://gammaledger.com/blog/getting-started/">Getting Started with GammaLedger</a></li>
+<li><a href="https://gammaledger.com/blog/essential-options-strategies-2025/">Essential Options Trading Strategies</a></li>
+<li><a href="https://gammaledger.com/blog/risk-management-techniques/">Risk Management Techniques</a></li>
+</ul>
+        </div>
+        <!-- Disclaimer -->
+        <div class="article-disclaimer">
+            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

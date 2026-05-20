@@ -1,0 +1,483 @@
+---
+layout: post
+title: "Poor Man's Covered Call Guide: Income Strategies for Small Accounts"
+slug: poor-mans-covered-call-guide
+date: 2025-12-09
+description: "Generate covered call income with 70-80% less capital using LEAPS options. Complete guide to PMCC strategy for traders with smaller accounts."
+tags: [options, strategy, pmcc, income, small-accounts]
+image: /assets/img/gammaledger-stage-01.jpg
+---
+
+<p><em>Generate covered call income with 70-80% less capital using LEAPS options</em></p>
+<hr>
+<h2 id="what-is-a-poor-mans-covered-call-pmcc">What is a Poor Man's Covered Call (PMCC)?</h2>
+<p>The Poor Man's Covered Call is a capital-efficient options strategy that replicates <a href="https://gammaledger.com/blog/cash-secured-puts-vs-covered-calls/">traditional covered calls</a> while requiring significantly less capital. Instead of buying 100 shares of stock (which could cost $10,000-$40,000), you buy a long-term deep in-the-money call option (LEAPS) as a stock replacement, then sell short-term calls against it.</p>
+<p><strong>The core concept:</strong>
+- <strong>Traditional Covered Call:</strong> Own 100 shares + sell call = Requires full stock price × 100
+- <strong>Poor Man's Covered Call:</strong> Own LEAPS call + sell call = Requires only 20-30% of stock cost</p>
+<p>This strategy is perfect for traders with smaller accounts who want to generate income through covered calls but don't have the capital to own hundreds of shares of expensive stocks. For a more traditional approach with full stock ownership, see the <a href="https://gammaledger.com/blog/complete-wheel-strategy-guide/">Complete Wheel Strategy Guide</a>.</p>
+<hr>
+<h2 id="why-the-pmcc-works">Why the PMCC Works</h2>
+<h3 id="capital-efficiency">Capital Efficiency</h3>
+<p><strong>Traditional Covered Call Example:</strong>
+- Stock: AMD at $120
+- Buy 100 shares: $12,000 capital required
+- Sell weekly $125 call: Collect $85 premium
+- Weekly return: 0.71%</p>
+<p><strong>Poor Man's Covered Call Example:</strong>
+- Stock: AMD at $120
+- Buy Jan 2026 $80 LEAPS call: $4,200 capital required
+- Sell weekly $125 call: Collect $85 premium
+- Weekly return: 2.0%</p>
+<p><strong>Result:</strong> Nearly 3x better capital efficiency with similar profit potential.</p>
+<h3 id="the-leaps-as-stock-replacement">The LEAPS as Stock Replacement</h3>
+<p>A LEAPS (Long-term Equity AnticiPation Security) is simply an option with more than 12 months until expiration. When you buy a deep in-the-money LEAPS with high delta (0.70-0.85), it behaves very similarly to owning the stock:</p>
+<p><strong>If stock moves up $1:</strong>
+- Owning 100 shares: Gain $100
+- Owning LEAPS with 0.75 delta: Gain ~$75</p>
+<p>The LEAPS captures 75-85% of stock movement while costing only 20-35% of the stock price.</p>
+<h3 id="limited-downside-risk">Limited Downside Risk</h3>
+<p>Unlike owning stock where you can lose the entire purchase price if the stock crashes to zero, your maximum loss with a PMCC is limited to the LEAPS cost. Plus, any premium collected from short calls reduces this risk further.</p>
+<p><strong>Example:</strong>
+- Own AMD shares at $120: Maximum loss = $12,000
+- Own AMD $80 LEAPS at $42: Maximum loss = $4,200 (minus premiums collected)</p>
+<hr>
+<h2 id="how-to-set-up-a-pmcc-step-by-step">How to Set Up a PMCC: Step-by-Step</h2>
+<h3 id="step-1-select-the-right-stock">Step 1: Select the Right Stock</h3>
+<p>Not every stock works well for PMCCs. Look for:</p>
+<ol>
+<li><strong>High liquidity</strong></li>
+<li>Daily volume &gt;1 million shares</li>
+<li>Tight bid-ask spreads on options</li>
+<li>
+<p>Plenty of open interest (100+ contracts) on LEAPS</p>
+</li>
+<li>
+<p><strong>Moderate to high volatility</strong></p>
+</li>
+<li>Implied Volatility (IV): 35-70%</li>
+<li>Higher IV = better premium collection</li>
+<li>
+<p>But not so high that LEAPS are prohibitively expensive</p>
+</li>
+<li>
+<p><strong>Bullish to neutral bias</strong></p>
+</li>
+<li>Stock in uptrend or stable range</li>
+<li>Above 50-day and 200-day moving averages preferred</li>
+<li>
+<p>Positive technical momentum</p>
+</li>
+<li>
+<p><strong>Reasonable stock price</strong></p>
+</li>
+<li>Sweet spot: $50-$200 per share</li>
+<li>Below $50: Premium too small</li>
+<li>Above $200: LEAPS too expensive</li>
+</ol>
+<p><strong>Top PMCC stocks for 2025:</strong>
+- <strong>AMD</strong> (great liquidity, good volatility)
+- <strong>The Trade Desk (TTD)</strong> (strong growth, active options)
+- <strong>Palantir (PLTR)</strong> (high IV, popular with traders)
+- <strong>Apple (AAPL)</strong> (stable, huge liquidity)
+- <strong>Tesla (TSLA)</strong> (expert level - very volatile)
+- <strong>Microsoft (MSFT)</strong> (stable, consistent)
+- <strong>NVIDIA (NVDA)</strong> (high volatility, requires larger capital)</p>
+<h3 id="step-2-buy-your-leaps-call">Step 2: Buy Your LEAPS Call</h3>
+<p><strong>Using AMD as example (stock at $120):</strong></p>
+<ol>
+<li>Open your broker's options chain</li>
+<li>Navigate to expiration 12-24 months out (e.g., Jan 2026)</li>
+<li>Find strikes with delta 0.70-0.85</li>
+<li>Look for strike around $80-$90 for AMD</li>
+</ol>
+<p><strong>What you'll see:</strong>
+- Jan 2026 $80 call
+- Bid: $41.50 / Ask: $42.50
+- Delta: 0.78
+- <strong>Cost: $42.00 = $4,200 per contract</strong></p>
+<p><strong>Before entering:</strong>
+- Check bid-ask spread (should be tight)
+- Verify delta is in target range
+- Confirm you have at least 12 months of time</p>
+<p><strong>Execute:</strong> Buy to open 1 contract of Jan 2026 $80 call at $42.00</p>
+<h3 id="step-3-sell-your-first-short-call">Step 3: Sell Your First Short Call</h3>
+<p><strong>Immediately after buying LEAPS (or within same day):</strong></p>
+<ol>
+<li>Navigate to near-term expiration (7-45 days out)</li>
+<li>Find OTM strike with 0.20-0.35 delta</li>
+<li>For weekly: typically 2-5% above current price</li>
+<li>For monthly: typically 5-8% above current price</li>
+</ol>
+<p><strong>Example - Weekly approach:</strong>
+- Current price: $120
+- Target strike: $125 (4.2% above current)
+- Expiration: This Friday (7 DTE)
+- Premium: $0.85 ($85)</p>
+<p><strong>Execute:</strong> Sell to open 1 contract of $125 call at $0.85</p>
+<p><strong>Your complete position:</strong>
+- Long: 1 Jan 2026 $80 call (cost $4,200)
+- Short: 1 weekly $125 call (credit $85)
+- <strong>Net investment: $4,115</strong></p>
+<hr>
+<h2 id="managing-your-pmcc-the-weekly-routine">Managing Your PMCC: The Weekly Routine</h2>
+<h3 id="monday-position-review">Monday: Position Review</h3>
+<p><strong>Check each PMCC position:</strong>
+- Current stock price vs your strikes
+- Short call delta (is it still &lt;0.35?)
+- Days to expiration on short call
+- Overall P&amp;L on position</p>
+<p><strong>Action items:</strong>
+- If short call is at 50-70% profit, consider closing early
+- If short call went ITM over weekend, plan adjustment
+- If short call expires this week, prepare next week's strike</p>
+<h3 id="tuesday-thursday-monitoring-and-adjustments">Tuesday-Thursday: Monitoring and Adjustments</h3>
+<p><strong>If stock moved up (short call threatened):</strong>
+- <strong>Option A:</strong> Roll up and out (close current, sell higher strike, later date)
+- <strong>Option B:</strong> Let it run if you have profit buffer
+- <strong>Option C:</strong> Take profit on entire PMCC if gains are substantial (20-30%)</p>
+<p><strong>If stock moved down:</strong>
+- <strong>Option A:</strong> Close short call early for profit, sell new one immediately
+- <strong>Option B:</strong> Let it expire and sell next week's call
+- <strong>Option C:</strong> Consider "doubling down" - sell a put to generate additional income</p>
+<p><strong>If stock sideways:</strong>
+- Perfect scenario
+- Let theta decay work in your favor
+- Prepare next week's call sale</p>
+<h3 id="friday-expiration-management">Friday: Expiration Management</h3>
+<p><strong>For weekly calls expiring today:</strong></p>
+<p><strong>Scenario 1: Stock below strike (profitable)</strong>
+- Short call expires worthless ✓
+- Immediately sell next week's call
+- Strike selection: 2-5% above current price</p>
+<p><strong>Scenario 2: Stock near strike (danger zone)</strong>
+- If stock within $0.50 of strike, close the call
+- Cost might be $0.05-$0.15
+- Eliminates assignment risk
+- Sell new call on Monday</p>
+<p><strong>Scenario 3: Stock above strike (challenged)</strong>
+- LEAPS went up in value significantly
+- Short call deep ITM
+- Consider: Take entire profit and close PMCC
+- Or: Roll short call up and out for credit</p>
+<h3 id="weekend-performance-review">Weekend: Performance Review</h3>
+<p><strong>Calculate weekly results:</strong>
+- Premium collected this week
+- Current LEAPS value vs cost
+- Total position P&amp;L
+- Weekly return on capital</p>
+<p><strong>Plan next week:</strong>
+- Which strikes to target
+- Evaluate if stock still meets criteria
+- Consider earnings calendar
+- Adjust position size if needed</p>
+<hr>
+<h2 id="real-trade-examples-with-numbers">Real Trade Examples with Numbers</h2>
+<h3 id="example-1-amd-pmcc-smooth-winning-trade">Example 1: AMD PMCC - Smooth Winning Trade</h3>
+<p><strong>Week 0: Setup</strong>
+- AMD trading at $118
+- Buy Jan 2026 $80 call @ $42.00 (cost: $4,200)
+- Sell weekly $124 call @ $0.70 (credit: $70)
+- Net cost: $4,130</p>
+<p><strong>Week 1: First expiration</strong>
+- AMD closes at $121 (below $124 strike) ✓
+- Short call expires worthless
+- Profit: $70
+- Sell next week $126 call @ $0.75 (credit: $75)</p>
+<p><strong>Week 2-4: Continued execution</strong>
+- Week 2: Collect $0.72 ($72) - AMD at $123
+- Week 3: Collect $0.80 ($80) - AMD at $125
+- Week 4: Collect $0.68 ($68) - AMD at $122</p>
+<p><strong>Four-week results:</strong>
+- Total premium collected: $265
+- LEAPS value: $43.50 ($4,350)
+- Total gain: $265 + ($4,350 - $4,200) = $415
+- Return: 10% in one month
+- <strong>Annualized: 120%</strong></p>
+<h3 id="example-2-the-trade-desk-ttd-managing-pullback">Example 2: The Trade Desk (TTD) - Managing Pullback</h3>
+<p><strong>Week 0: Setup</strong>
+- TTD trading at $70
+- Buy Jan 2026 $45 call @ $28.50 (cost: $2,850)
+- Sell weekly $74 call @ $0.85 (credit: $85)
+- Net cost: $2,765</p>
+<p><strong>Week 1: Stock drops</strong>
+- TTD drops to $66 (below $74 strike) ✓
+- Short call expires worthless
+- Profit: $85
+- LEAPS value dropped to $23.50 (unrealized loss: $500)
+- Sell $70 call @ $0.95 (credit: $95) - adjust strike down</p>
+<p><strong>Week 2: Recovery begins</strong>
+- TTD rises to $68
+- Close $70 call at $0.45 (profit: $50)
+- Sell $72 call @ $0.88 (credit: $88)</p>
+<p><strong>Week 3-4: Back to profit</strong>
+- TTD rises to $72
+- Collect another $0.90 weekly
+- LEAPS value back to $29.00</p>
+<p><strong>Four-week results despite pullback:</strong>
+- Total premium: $318
+- LEAPS value: $29.00 (gain: $150)
+- Total gain: $468
+- Return: 16.9% in one month
+- <strong>Handled 6% stock drop successfully</strong></p>
+<h3 id="example-3-palantir-pltr-taking-profits-on-rally">Example 3: Palantir (PLTR) - Taking Profits on Rally</h3>
+<p><strong>Week 0: Setup</strong>
+- PLTR trading at $22
+- Buy Jan 2026 $14 call @ $10.20 (cost: $1,020)
+- Sell weekly $23.50 call @ $0.35 (credit: $35)
+- Net cost: $985</p>
+<p><strong>Week 1: Rocket ship</strong> 🚀
+- PLTR surges to $26 (way above $23.50)
+- Short call now ITM
+- LEAPS value: $13.50 ($1,350)
+- Short call value: $2.50 (loss: $215 on short call)</p>
+<p><strong>Decision: Take profits</strong>
+- Close short $23.50 call @ $2.50 (loss: $215)
+- Sell LEAPS @ $13.50 (gain: $330)
+- Total profit: $330 - $215 + $35 = $150
+- Return: 15.2% in one week</p>
+<p><strong>Key lesson:</strong> When you hit 15-25% total return on PMCC, consider taking profit. Don't be greedy.</p>
+<hr>
+<h2 id="pmcc-vs-traditional-covered-calls-the-real-comparison">PMCC vs Traditional Covered Calls: The Real Comparison</h2>
+<p>Let's compare identical strategies with different capital requirements:</p>
+<h3 id="scenario-aapl-at-180">Scenario: AAPL at $180</h3>
+<p><strong>Traditional Covered Call:</strong>
+- Buy 100 shares @ $180 = $18,000 capital
+- Sell weekly $185 call @ $1.50 = $150 premium
+- Weekly return: 0.83%
+- Capital requirement: $18,000</p>
+<p><strong>PMCC Approach:</strong>
+- Buy Jan 2026 $140 LEAPS @ $44.00 = $4,400 capital
+- Sell weekly $185 call @ $1.45 = $145 premium
+- Weekly return: 3.3%
+- Capital requirement: $4,400</p>
+<p><strong>Key differences:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Factor</th>
+<th>Covered Call</th>
+<th>PMCC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Capital required</td>
+<td>$18,000</td>
+<td>$4,400</td>
+</tr>
+<tr>
+<td>Weekly premium</td>
+<td>$150</td>
+<td>$145</td>
+</tr>
+<tr>
+<td>Weekly ROI</td>
+<td>0.83%</td>
+<td>3.3%</td>
+</tr>
+<tr>
+<td>Downside risk</td>
+<td>Unlimited below $180</td>
+<td>Limited to LEAPS cost</td>
+</tr>
+<tr>
+<td>Upside potential</td>
+<td>Limited to strike</td>
+<td>Limited to strike</td>
+</tr>
+<tr>
+<td>Dividend income</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Time decay on long</td>
+<td>None</td>
+<td>Yes (but minimal on deep ITM)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>When to choose Covered Calls:</strong>
+- You have ample capital
+- You want dividends
+- You prefer no expiration concern
+- Stock is very stable</p>
+<p><strong>When to choose PMCC:</strong>
+- Smaller account (&lt;$50k)
+- Want to trade multiple positions
+- Comfortable with options mechanics
+- Don't need dividends</p>
+<hr>
+<h2 id="advanced-pmcc-techniques">Advanced PMCC Techniques</h2>
+<h3 id="the-doubling-down-strategy">The "Doubling Down" Strategy</h3>
+<p>When your PMCC stock drops but fundamentals remain solid:</p>
+<p><strong>Add a short put for extra income:</strong>
+- Already have: Long LEAPS + Short call
+- Add: Sell cash-secured put below current price
+- Collect double premium
+- Risk: Could be assigned shares</p>
+<p><strong>Example:</strong>
+- PMCC on AMD: Long Jan 2026 $80 call, Short weekly $125 call
+- AMD drops from $120 to $115
+- Sell $110 put for $1.20 ($120 premium)
+- Total weekly income: Call premium + Put premium</p>
+<h3 id="the-weekly-sprint-approach">The "Weekly Sprint" Approach</h3>
+<p>Instead of 30-45 DTE short calls, sell weekly options:</p>
+<p><strong>Advantages:</strong>
+- More frequent premium collection
+- Faster compounding
+- Can adjust strikes weekly based on momentum</p>
+<p><strong>Disadvantages:</strong>
+- More gamma risk
+- Requires more active management
+- Higher chance of assignment</p>
+<p><strong>Best for:</strong> Traders who can monitor daily</p>
+<h3 id="the-layered-pmcc">The "Layered" PMCC</h3>
+<p>For larger accounts, layer multiple PMCCs at different strikes:</p>
+<p><strong>Example on MSFT:</strong>
+- Position 1: Long $300 LEAPS, Sell $360 calls
+- Position 2: Long $320 LEAPS, Sell $370 calls
+- Position 3: Long $340 LEAPS, Sell $380 calls</p>
+<p><strong>Benefits:</strong>
+- Diversified entry points
+- Average out timing risk
+- Some positions profit even if stock pulls back</p>
+<hr>
+<h2 id="risk-management-for-pmcc">Risk Management for PMCC</h2>
+<h3 id="maximum-loss-scenarios">Maximum Loss Scenarios</h3>
+<p><strong>Worst case:</strong> Stock crashes to zero
+- Loss: Entire LEAPS cost (e.g., $4,200)
+- Partially offset by short call premiums collected
+- This is why stock selection is critical</p>
+<p><strong>Manageable case:</strong> Stock drops 20-30%
+- LEAPS loses value but doesn't expire for 12+ months
+- Continue selling calls to collect premium
+- LEAPS may recover as stock recovers</p>
+<h3 id="position-sizing-rules">Position Sizing Rules</h3>
+<p><strong>Rule 1: Never allocate more than 10-15% per PMCC</strong>
+- $10,000 account: Max $1,000-$1,500 per PMCC
+- $25,000 account: Max $2,500-$3,750 per PMCC
+- $50,000 account: Max $5,000-$7,500 per PMCC</p>
+<p><strong>Rule 2: Start with 1-2 positions</strong>
+- Master the mechanics before scaling
+- Learn adjustment strategies
+- Build confidence through experience</p>
+<p><strong>Rule 3: Reserve capital for adjustments</strong>
+- Keep 20% cash for rolling or closing positions
+- Don't deploy 100% of capital immediately</p>
+<h3 id="when-to-close-a-pmcc-early">When to Close a PMCC Early</h3>
+<p><strong>Close for profit when:</strong>
+- Total position gain reaches 20-30% (take wins)
+- Stock had major rally and LEAPS significantly increased
+- You need capital for better opportunity</p>
+<p><strong>Close for loss when:</strong>
+- Company fundamentals deteriorate
+- LEAPS has lost 50%+ and stock broken key support
+- Better to redeploy capital elsewhere</p>
+<p><strong>Close before earnings if:</strong>
+- Stock has binary event (earnings, FDA approval, etc.)
+- IV crush could hurt your LEAPS value
+- Reenter after event if still attractive</p>
+<hr>
+<h2 id="common-pmcc-mistakes">Common PMCC Mistakes</h2>
+<h3 id="mistake-1-buying-leaps-with-delta-070">Mistake 1: Buying LEAPS with Delta &lt;0.70</h3>
+<p><strong>The problem:</strong> Acts less like stock, more price risk, loses value faster</p>
+<p><strong>Example:</strong>
+- Buy $100 call with 0.50 delta (at-the-money)
+- Stock rises $5
+- LEAPS only gains $2.50 (50% of move)
+- Meanwhile, your short call moved against you</p>
+<p><strong>The fix:</strong> Always buy delta 0.70+ for true stock replacement behavior</p>
+<h3 id="mistake-2-selling-short-calls-too-far-otm">Mistake 2: Selling Short Calls Too Far OTM</h3>
+<p><strong>The problem:</strong> Chasing "safety" by selling very far OTM strikes with tiny premium</p>
+<p><strong>Example:</strong>
+- Stock at $100
+- Sell $120 call (20% OTM) for $0.15
+- Premium too small to be worthwhile
+- Better to take slight risk for meaningful premium</p>
+<p><strong>The fix:</strong> Target 0.25-0.35 delta, even if slightly uncomfortable</p>
+<h3 id="mistake-3-not-allowing-enough-time-on-leaps">Mistake 3: Not Allowing Enough Time on LEAPS</h3>
+<p><strong>The problem:</strong> Buying 6-9 month LEAPS instead of 12-24 months</p>
+<p><strong>Issues:</strong>
+- Faster time decay
+- Less flexibility to manage short calls
+- Forced to close position sooner</p>
+<p><strong>The fix:</strong> Always buy LEAPS with at least 12 months, prefer 18+ months</p>
+<h3 id="mistake-4-ignoring-the-cost-basis">Mistake 4: Ignoring the Cost Basis</h3>
+<p><strong>The problem:</strong> Not tracking total cost after all premiums collected</p>
+<p><strong>Example:</strong>
+- LEAPS cost: $4,200
+- Collected $600 in premiums over 3 months
+- True cost basis: $3,600
+- Easier to close profitably when you know this</p>
+<p><strong>The fix:</strong> Track net cost basis in a spreadsheet</p>
+<h3 id="mistake-5-panic-rolling-short-calls">Mistake 5: Panic Rolling Short Calls</h3>
+<p><strong>The problem:</strong> Stock rises, short call goes ITM, trader panics and rolls for debit</p>
+<p><strong>Example:</strong>
+- Short $125 call, stock at $128
+- Panic close at $3.20 (loss: $235)
+- Roll to $130 for only $0.80 credit
+- Net debit: $240</p>
+<p><strong>The fix:</strong> If stock surges, evaluate closing entire PMCC for profit instead of throwing good money after bad</p>
+<hr>
+<h2 id="pmcc-spreadsheet-template">PMCC Spreadsheet Template</h2>
+<p>Track these metrics for each PMCC position:</p>
+<h3 id="position-details">Position Details</h3>
+<ul>
+<li>Ticker</li>
+<li>Entry date</li>
+<li>LEAPS: Strike, Expiration, Cost, Current Value</li>
+<li>Stock price at entry</li>
+</ul>
+<h3 id="weekly-short-calls">Weekly Short Calls</h3>
+<ul>
+<li>Week 1: Strike, Expiration, Premium Collected, Outcome</li>
+<li>Week 2: Strike, Expiration, Premium Collected, Outcome</li>
+<li>Week 3: Strike, Expiration, Premium Collected, Outcome</li>
+<li>(Continue for all weeks held)</li>
+</ul>
+<h3 id="calculations">Calculations</h3>
+<ul>
+<li>Total premium collected: SUM(all short call credits)</li>
+<li>Net LEAPS cost: Original cost - Total premium</li>
+<li>Current position value: LEAPS value - Short call value</li>
+<li>Total P&amp;L: Current position value - Net LEAPS cost</li>
+<li>ROI: (Total P&amp;L / Original capital) × 100</li>
+<li>Days held</li>
+<li>Annualized return: (ROI / Days held) × 365</li>
+</ul>
+<hr>
+<h2 id="conclusion-is-pmcc-right-for-you">Conclusion: Is PMCC Right for You?</h2>
+<p>The Poor Man's Covered Call strategy is ideal if you:</p>
+<p>✅ Have a smaller account ($5,000-$25,000)
+✅ Want to generate weekly/monthly income
+✅ Understand options mechanics (not a complete beginner)
+✅ Can monitor positions weekly
+✅ Have a bullish to neutral market outlook
+✅ Want defined risk with leverage</p>
+<p><strong>It may not be right if you:</strong>
+❌ Need dividends from stock ownership
+❌ Can't monitor positions weekly
+❌ Are brand new to options (start with covered calls first)
+❌ Have very large account where capital efficiency doesn't matter
+❌ Are extremely risk-averse</p>
+<p><strong>Your 30-Day Action Plan:</strong></p>
+<p><strong>Week 1:</strong> Paper trade 2-3 PMCC positions
+<strong>Week 2:</strong> Open your first real PMCC with small capital
+<strong>Week 3:</strong> Add second position, manage first one through adjustments
+<strong>Week 4:</strong> Review results, refine stock selection, scale up</p>
+<p>The PMCC strategy has helped thousands of traders generate meaningful income without tying up massive capital. With proper execution, risk management, and patience, you can join them in building a sustainable income stream through options.</p>
+<hr>
+<h2 id="related-articles">Related Articles</h2>
+<ul>
+<li><a href="https://gammaledger.com/blog/complete-wheel-strategy-guide/">The Complete Wheel Strategy Guide: From Theory to Execution</a></li>
+<li><a href="https://gammaledger.com/blog/cash-secured-puts-vs-covered-calls/">Cash-Secured Puts vs Covered Calls: Complete Strategy Comparison</a></li>
+<li><a href="https://gammaledger.com/blog/essential-options-strategies-2025/">Essential Options Trading Strategies for 2025: A Beginner's Guide</a></li>
+</ul>
+<hr>
+<p><em>Track your Poor Man's Covered Call positions with GammaLedger's advanced analytics. Monitor LEAPS delta, calculate net cost basis after premiums, and optimize your weekly call selection.</em></p>
+        </div>
+        <!-- Disclaimer -->
+        <div class="article-disclaimer">
+            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

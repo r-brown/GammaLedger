@@ -1,0 +1,46 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if page.title %}{{ page.title }} - GammaLedger{% else %}{{ site.title }}{% endif %}</title>
+    <meta name="description" content="{{ page.description | default: site.description }}">
+    <meta name="author" content="{{ site.author }}">
+    <meta name="copyright" content="GammaLedger">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="{{ page.url | absolute_url }}">
+    <!-- Open Graph -->
+    <meta property="og:type" content="{% if page.layout == 'post' %}article{% else %}website{% endif %}">
+    <meta property="og:site_name" content="GammaLedger">
+    <meta property="og:title" content="{% if page.title %}{{ page.title }}{% else %}{{ site.title }}{% endif %}">
+    <meta property="og:description" content="{{ page.description | default: site.description }}">
+    <meta property="og:url" content="{{ page.url | absolute_url }}">
+    <meta property="og:image" content="{{ page.image | default: '/assets/img/gammaledger-stage-01.jpg' | absolute_url }}">
+    <meta property="og:locale" content="en_US">
+    {% if page.layout == 'post' %}
+    <meta property="article:published_time" content="{{ page.date | date_to_xmlschema }}">
+    <meta property="article:author" content="{{ page.author | default: site.author }}">
+    {% endif %}
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% if page.title %}{{ page.title }}{% else %}{{ site.title }}{% endif %}">
+    <meta name="twitter:description" content="{{ page.description | default: site.description }}">
+    <meta name="twitter:image" content="{{ page.image | default: '/assets/img/gammaledger-stage-01.jpg' | absolute_url }}">
+    <meta name="theme-color" content="#0a0b1a">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/gammaledger-logo-32x32.png">
+    <!-- Styles -->
+    {% if page.layout == 'post' or page.use_blog_css %}
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    {% elsif page.layout == 'home' or page.is_home %}
+    <link rel="stylesheet" href="/assets/css/home.css">
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    {% else %}
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    {% endif %}
+    {% seo %}
+</head>

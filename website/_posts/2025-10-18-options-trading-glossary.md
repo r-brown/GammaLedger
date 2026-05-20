@@ -1,0 +1,236 @@
+---
+layout: post
+title: "Options Trading Glossary: Essential Terms"
+slug: options-trading-glossary
+date: 2025-10-18
+description: "Quick reference guide to essential options trading terminology and concepts."
+tags: [options, glossary, guide, beginner]
+image: /assets/img/gammaledger-stage-01.jpg
+---
+
+<p>New to options trading? This glossary covers the essential terms you'll encounter when using GammaLedger and trading options.</p>
+<h2 id="basic-option-terms">Basic Option Terms</h2>
+<h3 id="call-option">Call Option</h3>
+<p>A contract giving the buyer the <strong>right</strong> (but not the obligation) to <strong>buy</strong> 100 shares of stock at a specified price (strike price) before expiration.</p>
+<h3 id="put-option">Put Option</h3>
+<p>A contract giving the buyer the <strong>right</strong> (but not the obligation) to <strong>sell</strong> 100 shares of stock at a specified price (strike price) before expiration.</p>
+<h3 id="strike-price">Strike Price</h3>
+<p>The predetermined price at which the option contract can be exercised. Also called the "exercise price."</p>
+<h3 id="expiration-date">Expiration Date</h3>
+<p>The last day the option contract is valid. For standard monthly options, this is the third Friday of the month. Options expire at 4:00 PM ET on expiration day.</p>
+<h3 id="premium">Premium</h3>
+<p>The price paid (or received) for an option contract. Quoted on a per-share basis but contracts are for 100 shares.</p>
+<p><strong>Example:</strong> Premium of $2.50 = $250 per contract (2.50 × 100)</p>
+<h3 id="in-the-money-itm">In-the-Money (ITM)</h3>
+<ul>
+<li><strong>Call</strong>: Stock price &gt; Strike price</li>
+<li><strong>Put</strong>: Stock price &lt; Strike price</li>
+</ul>
+<h3 id="at-the-money-atm">At-the-Money (ATM)</h3>
+<p>Stock price ≈ Strike price (within a few dollars)</p>
+<h3 id="out-of-the-money-otm">Out-of-the-Money (OTM)</h3>
+<ul>
+<li><strong>Call</strong>: Stock price &lt; Strike price</li>
+<li><strong>Put</strong>: Stock price &gt; Strike price</li>
+</ul>
+<h2 id="trading-actions">Trading Actions</h2>
+<h3 id="buy-to-open-bto">Buy to Open (BTO)</h3>
+<p>Opening a new <strong>long</strong> position by purchasing an option. You pay the premium.</p>
+<h3 id="sell-to-open-sto">Sell to Open (STO)</h3>
+<p>Opening a new <strong>short</strong> position by selling an option. You collect the premium.</p>
+<h3 id="buy-to-close-btc">Buy to Close (BTC)</h3>
+<p>Closing an existing <strong>short</strong> position by purchasing back the option you previously sold.</p>
+<h3 id="sell-to-close-stc">Sell to Close (STC)</h3>
+<p>Closing an existing <strong>long</strong> position by selling the option you previously bought.</p>
+<h3 id="assignment">Assignment</h3>
+<p>When an option seller is required to fulfill their obligation:
+- <strong>Put seller</strong>: Must buy 100 shares at strike price
+- <strong>Call seller</strong>: Must sell 100 shares at strike price</p>
+<h3 id="exercise">Exercise</h3>
+<p>When an option buyer chooses to use their right to buy or sell shares at the strike price.</p>
+<h2 id="option-strategies">Option Strategies</h2>
+<h3 id="covered-call">Covered Call</h3>
+<p>Owning 100+ shares of stock and selling a call option against those shares. Generates income but caps upside.</p>
+<h3 id="cash-secured-put-csp">Cash-Secured Put (CSP)</h3>
+<p>Selling a put option while holding enough cash to purchase the shares if assigned. Generates income and potentially acquires stock at a discount.</p>
+<h3 id="wheel-strategy">Wheel Strategy</h3>
+<p>Systematic approach: Sell CSPs → Get assigned → Sell covered calls → Repeat. See our <a href="https://gammaledger.com/blog/understanding-wheel-strategy/">full Wheel Strategy guide</a>.</p>
+<h3 id="pmcc-poor-mans-covered-call">PMCC (Poor Man's Covered Call)</h3>
+<p>Buying a deep ITM LEAP call and selling shorter-term OTM calls against it. Cheaper alternative to owning 100 shares.</p>
+<h3 id="credit-spread">Credit Spread</h3>
+<p>Selling one option and buying another option of the same type (both calls or both puts) at different strikes. Defined-risk strategy.</p>
+<h3 id="vertical-spread">Vertical Spread</h3>
+<p>Generic term for spreads using options at different strikes but same expiration. Can be bullish or bearish.</p>
+<h3 id="iron-condor">Iron Condor</h3>
+<p>Selling an OTM put spread and an OTM call spread simultaneously. Profits from low volatility.</p>
+<h3 id="straddle">Straddle</h3>
+<p>Buying (or selling) both a call and put at the same strike and expiration. Bets on volatility (long) or lack thereof (short).</p>
+<h2 id="the-greeks">The Greeks</h2>
+<h3 id="delta">Delta (Δ)</h3>
+<p>Rate of change in option price relative to $1 move in underlying stock.
+- <strong>Call delta</strong>: 0 to 1.0 (or 0 to 100)
+- <strong>Put delta</strong>: -1.0 to 0 (or -100 to 0)
+- <strong>30 delta</strong> ≈ 30% probability of expiring ITM</p>
+<h3 id="gamma">Gamma (Γ)</h3>
+<p>Rate of change of delta. Measures how fast delta changes as stock price moves. Highest for ATM options near expiration.</p>
+<h3 id="theta">Theta (Θ)</h3>
+<p>Time decay. Amount option loses in value per day, all else equal. Always negative for long options.</p>
+<h3 id="vega">Vega (ν)</h3>
+<p>Sensitivity to implied volatility changes. Higher vega = more sensitive to volatility shifts.</p>
+<h3 id="rho">Rho (ρ)</h3>
+<p>Sensitivity to interest rate changes. Usually less important for retail traders.</p>
+<h2 id="profit-loss-terms">Profit &amp; Loss Terms</h2>
+<h3 id="unrealized-pl">Unrealized P&amp;L</h3>
+<p>Paper profit or loss on current open positions. Not "real" until position is closed.</p>
+<h3 id="realized-pl">Realized P&amp;L</h3>
+<p>Actual profit or loss from closed positions. "Locked in" gains or losses.</p>
+<h3 id="cost-basis">Cost Basis</h3>
+<p>The effective entry price including premiums collected/paid. Used to calculate true P&amp;L.</p>
+<p><strong>Example:</strong>
+- Assigned 100 shares at $50 strike
+- Collected $2 premium on put
+- <strong>Cost basis</strong>: $48/share ($50 - $2)</p>
+<h3 id="break-even">Break-Even</h3>
+<p>Stock price where a position results in zero profit/loss, accounting for all premiums and costs.</p>
+<h3 id="max-profit">Max Profit</h3>
+<p>The maximum possible gain from a strategy (if it exists).</p>
+<h3 id="max-loss">Max Loss</h3>
+<p>The maximum possible loss from a strategy (if it exists).</p>
+<h3 id="defined-risk">Defined Risk</h3>
+<p>Strategies where maximum loss is known upfront (e.g., spreads).</p>
+<h3 id="undefined-risk">Undefined Risk</h3>
+<p>Strategies where losses could be unlimited (e.g., naked calls) or very large (e.g., naked puts).</p>
+<h2 id="time-related-terms">Time-Related Terms</h2>
+<h3 id="dte-days-to-expiration">DTE (Days to Expiration)</h3>
+<p>Number of calendar days until option expiration. Important metric for time decay.</p>
+<h3 id="theta-decay">Theta Decay</h3>
+<p>The daily erosion of option value due to time passing. Accelerates as expiration approaches.</p>
+<h3 id="leaps-long-term-equity-anticipation-securities">LEAPS (Long-term Equity Anticipation Securities)</h3>
+<p>Options with expiration dates more than 1 year away. Often used for PMCC strategy.</p>
+<h3 id="weekly-options">Weekly Options</h3>
+<p>Options that expire weekly instead of monthly. More trading opportunities but also faster theta decay.</p>
+<h2 id="volatility-terms">Volatility Terms</h2>
+<h3 id="implied-volatility-iv">Implied Volatility (IV)</h3>
+<p>Market's expectation of future volatility, derived from option prices. Higher IV = more expensive options.</p>
+<h3 id="iv-percentile">IV Percentile</h3>
+<p>Where current IV ranks relative to the past year. 50th percentile = median IV over past year.</p>
+<h3 id="iv-rank">IV Rank</h3>
+<p>Current IV relative to its 52-week high/low range. Formula: (Current IV - 52w Low) / (52w High - 52w Low)</p>
+<h3 id="volatility-crush">Volatility Crush</h3>
+<p>Sharp drop in IV after an event (e.g., earnings), causing rapid option value decrease even if stock price doesn't move much.</p>
+<h3 id="historical-volatility-hv">Historical Volatility (HV)</h3>
+<p>Actual past volatility of the stock price. Different from implied volatility.</p>
+<h2 id="position-management">Position Management</h2>
+<h3 id="rolling">Rolling</h3>
+<p>Closing an existing option position and simultaneously opening a new one at a different strike and/or expiration.</p>
+<p><strong>Types:</strong>
+- <strong>Roll out</strong>: Same strike, later expiration
+- <strong>Roll up</strong>: Higher strike (calls), same or later expiration
+- <strong>Roll down</strong>: Lower strike (puts), same or later expiration</p>
+<h3 id="leg">Leg</h3>
+<p>One component of a multi-part option strategy. A vertical spread has two legs; an iron condor has four.</p>
+<h3 id="legging-inout">Legging In/Out</h3>
+<p>Entering or exiting a multi-leg strategy one leg at a time instead of as a single order. Usually not recommended due to execution risk.</p>
+<h3 id="closing-order">Closing Order</h3>
+<p>Order to exit an existing position (BTC or STC).</p>
+<h3 id="opening-order">Opening Order</h3>
+<p>Order to enter a new position (BTO or STO).</p>
+<h2 id="gammaledger-specific-terms">GammaLedger-Specific Terms</h2>
+<h3 id="trade-status">Trade Status</h3>
+<p>Classification of trade state in GammaLedger:
+- <strong>Open</strong>: Active position
+- <strong>Closed</strong>: Completed trade
+- <strong>Assigned</strong>: Put was assigned, now holding stock
+- <strong>Rolling</strong>: In process of rolling to new strike/expiration</p>
+<h3 id="strategy-auto-detection">Strategy Auto-Detection</h3>
+<p>GammaLedger automatically categorizes trades into strategies (Wheel, PMCC, Credit Spread, etc.) based on leg structure.</p>
+<h3 id="effective-cost-basis">Effective Cost Basis</h3>
+<p>GammaLedger's calculation of true entry price accounting for all premiums collected/paid across rolls.</p>
+<h3 id="net-open-contracts">Net Open Contracts</h3>
+<p>Total number of unclosed option contracts after netting all opening and closing legs.</p>
+<h2 id="risk-management-terms">Risk Management Terms</h2>
+<h3 id="position-sizing">Position Sizing</h3>
+<p>Determining how much capital to allocate to each trade. Common rule: no more than 5-10% per position.</p>
+<h3 id="buying-power-reduction-bpr">Buying Power Reduction (BPR)</h3>
+<p>Amount of margin/cash required to maintain a position. Varies by broker and strategy.</p>
+<h3 id="maintenance-margin">Maintenance Margin</h3>
+<p>Minimum equity required to keep position open. If account falls below this, you'll get a margin call.</p>
+<h3 id="win-rate">Win Rate</h3>
+<p>Percentage of trades that are profitable. High win rate doesn't guarantee overall profitability.</p>
+<h3 id="profit-factor">Profit Factor</h3>
+<p>Ratio of gross profits to gross losses. Above 1.5 is generally considered good.</p>
+<h3 id="expectancy">Expectancy</h3>
+<p>Average profit per trade. Formula: (Win Rate × Avg Win) - (Loss Rate × Avg Loss)</p>
+<h2 id="quick-reference">Quick Reference</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Long</strong></td>
+<td>You own/bought the option</td>
+</tr>
+<tr>
+<td><strong>Short</strong></td>
+<td>You sold the option (obligation)</td>
+</tr>
+<tr>
+<td><strong>Naked</strong></td>
+<td>Selling options without owning underlying</td>
+</tr>
+<tr>
+<td><strong>Covered</strong></td>
+<td>Selling options while owning underlying</td>
+</tr>
+<tr>
+<td><strong>Synthetic</strong></td>
+<td>Option strategy that mimics stock position</td>
+</tr>
+<tr>
+<td><strong>Collar</strong></td>
+<td>Protective put + covered call on same stock</td>
+</tr>
+<tr>
+<td><strong>Dividend Risk</strong></td>
+<td>Risk of early assignment before ex-dividend date</td>
+</tr>
+<tr>
+<td><strong>Pin Risk</strong></td>
+<td>Risk of assignment uncertainty when stock = strike at expiration</td>
+</tr>
+</tbody>
+</table>
+<h2 id="learning-resources">Learning Resources</h2>
+<ul>
+<li><a href="https://gammaledger.com/blog/getting-started-with-gammaledger/">Getting Started with GammaLedger</a></li>
+<li><a href="https://gammaledger.com/blog/understanding-wheel-strategy/">Understanding the Wheel Strategy</a></li>
+<li><a href="https://www.theocc.com/">Options Clearing Corporation (OCC)</a></li>
+<li><a href="https://www.cboe.com/education/">CBOE Education</a></li>
+</ul>
+<h2 id="common-abbreviations">Common Abbreviations</h2>
+<ul>
+<li><strong>BTO</strong> = Buy to Open</li>
+<li><strong>STO</strong> = Sell to Open</li>
+<li><strong>BTC</strong> = Buy to Close</li>
+<li><strong>STC</strong> = Sell to Close</li>
+<li><strong>CSP</strong> = Cash-Secured Put</li>
+<li><strong>CC</strong> = Covered Call</li>
+<li><strong>PMCC</strong> = Poor Man's Covered Call</li>
+<li><strong>DTE</strong> = Days to Expiration</li>
+<li><strong>ITM</strong> = In-the-Money</li>
+<li><strong>ATM</strong> = At-the-Money</li>
+<li><strong>OTM</strong> = Out-of-the-Money</li>
+<li><strong>IV</strong> = Implied Volatility</li>
+<li><strong>HV</strong> = Historical Volatility</li>
+<li><strong>P&amp;L</strong> = Profit and Loss</li>
+</ul>
+<hr>
+<p><em>This glossary is for educational purposes. Always understand the risks before trading options. Consider paper trading before risking real capital.</em></p>
+        </div>
+        <!-- Disclaimer -->
+        <div class="article-disclaimer">
+            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

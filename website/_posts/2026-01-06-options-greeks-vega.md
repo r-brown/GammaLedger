@@ -1,0 +1,22 @@
+---
+layout: post
+title: "Options Greeks: Vega"
+slug: options-greeks-vega
+date: 2026-01-06
+description: "Exploring vega in options trading: how it measures sensitivity to implied volatility changes and its role in strategies."
+tags: [options, greeks, vega, volatility, guide]
+image: /assets/img/vega.png
+---
+
+<p>Vega measures an option's sensitivity to changes in implied volatility (IV). Implied volatility is the market's estimate of future volatility, measured by standard deviation, and it is a crucial input in standard options pricing models. Any change in implied volatility will affect the price of options.</p>
+<h2 id="how-does-vega-affect-the-price">How Does Vega Affect the Price?</h2>
+<p>Generally, the value of bought options, whether calls or puts, increases as IV rises. This makes sense because an option seller would demand higher compensation for the increased future risk, as priced by the market, of the option moving in the money.</p>
+<p>Stocks expected to be more volatile, and thus having higher IVs, will have higher option prices, all else being equal. Conversely, short options decrease in value as IV increases for the same reasons but in the opposite direction.</p>
+<p>Things become more interesting when options are combined in a spread. Some combinations, like a <a href="https://gammaledger.com/blog/advanced-options-spreads/">Calendar Spread</a>, increase in value as IV rises. Others, such as the <a href="https://gammaledger.com/blog/advanced-options-spreads/">Iron Condor</a>, decrease in value.</p>
+<h2 id="uses-of-vega">Uses of Vega</h2>
+<p>Many options strategies depend on predicting the direction of volatility movements. For example, if we anticipate a market correction, we would be interested not only in the impact of stock price declines on our options positions but also in the effect of the associated increase in IV. Some trades rely solely on Vega, known as volatility trades. For more on how volatility interacts with <a href="https://gammaledger.com/blog/time-decay-volatility-pricing/">time decay (theta)</a>, see our comprehensive guide.</p>
+<p>Implied volatility tends to be mean-reverting, meaning any short-term deviation could lead to a correcting change in the near future. For instance, many traders look for the difference between historical volatility (current market volatility) and implied volatility (future volatility prediction). There is evidence suggesting that if these two indicators diverge, they will soon converge. This can be traded if you understand the volatility effect of IV on an options trade, which is essentially Vega.</p>
+        </div>
+        <!-- Disclaimer -->
+        <div class="article-disclaimer">
+            <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full <a href="https://gammaledger.com/disclaimer.html">Risk Disclaimer</a>.

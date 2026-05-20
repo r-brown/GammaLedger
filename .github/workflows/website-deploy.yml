@@ -1,0 +1,115 @@
+name: GammaLedger WEBSITE - Build & Deploy to gh-pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "website/**"
+      - ".github/workflows/website-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: website-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    name: Jekyll build → gh-pages root
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── 1. Checkout source ──────────────────────────────────────────────
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── 2. Ruby + Bundler ────────────────────────────────────────────────
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: website
+
+      # ── 3. Jekyll build ──────────────────────────────────────────────────
+      - name: Build Jekyll site
+        run: |
+          cd website
+          bundle exec jekyll build --destination ../_site
+        env:
+          JEKYLL_ENV: production
+
+      # ── 4. Checkout (or init) gh-pages ──────────────────────────────────
+      - name: Checkout gh-pages branch
+        id: checkout_ghpages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: _gh_pages
+        continue-on-error: true
+
+      - name: Initialise gh-pages branch if it did not exist
+        if: steps.checkout_ghpages.outcome == 'failure'
+        run: |
+          mkdir -p _gh_pages
+          cd _gh_pages
+          git init
+          git checkout --orphan gh-pages
+          git remote add origin \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+      # ── 5. Merge Jekyll output into gh-pages root ────────────────────────
+      #    Preserves /app/ and /appv1/ sub-directories (the live SPA builds).
+      - name: Sync website files into gh-pages root
+        run: |
+          set -euo pipefail
+
+          # Remove top-level website files, keeping preserved sub-dirs
+          cd _gh_pages
+          find . -maxdepth 1 -mindepth 1 \
+            ! -name '.git'    \
+            ! -name 'app'     \
+            ! -name 'appv1'   \
+            ! -name '.nojekyll' \
+            -exec rm -rf {} +
+          cd ..
+
+          # Copy Jekyll output
+          cp -r _site/. _gh_pages/
+
+          # Suppress Jekyll on the already-processed static site
+          touch _gh_pages/.nojekyll
+
+          # Always keep CNAME so the custom domain stays live
+          [ -f CNAME ] && cp CNAME _gh_pages/CNAME || true
+
+      # ── 6. Commit & push ─────────────────────────────────────────────────
+      - name: Commit and push to gh-pages
+        run: |
+          cd _gh_pages
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          # Only commit when there are actual changes
+          if git diff-index --quiet HEAD 2>/dev/null; then
+            echo "Nothing changed – skipping commit."
+          else
+            SHORT_SHA=$(git -C .. rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            git commit -m "chore: deploy website build (${SHORT_SHA})"
+            git push origin gh-pages
+          fi
+
+      # ── 7. Summary ───────────────────────────────────────────────────────
+      - name: Write job summary
+        run: |
+          echo "## ✅ Website Deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Jekyll site built from \`website/\` and deployed to the **gh-pages** root." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "🌐 Live at: https://gammaledger.com" >> "$GITHUB_STEP_SUMMARY"
