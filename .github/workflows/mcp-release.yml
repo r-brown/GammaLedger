@@ -1,4 +1,4 @@
-name: GammaLedger MCP — Release
+name: GammaLedger MCP — Release & Publish to PyPI
 
 on:
   workflow_dispatch:

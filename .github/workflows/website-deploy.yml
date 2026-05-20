@@ -1,4 +1,4 @@
-name: GammaLedger WEBSITE - Build & Deploy to gh-pages
+name: GammaLedger WEBSITE — Build & Deploy to gh-pages
 
 on:
   push:

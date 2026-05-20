@@ -1,4 +1,4 @@
-name: GammaLedger APP - Release and Deploy
+name: GammaLedger APP — Release & Deploy
 
 on:
   workflow_dispatch:
