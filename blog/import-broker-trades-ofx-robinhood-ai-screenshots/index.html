@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Importing Broker Trades: OFX, Robinhood CSV, and AI Screenshot Drafts - GammaLedger Blog</title>
+    <meta name="description" content="A practical look at GammaLedger's import workflow, review queue, merge tools, split-fill handling, and AI screenshot extraction.">
+    
+    <meta name="author" content="GammaLedger Contributors">
+    <meta name="copyright" content="GammaLedger">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gammaledger.com/blog/import-broker-trades-ofx-robinhood-ai-screenshots/">
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="GammaLedger">
+    <meta property="og:title" content="Importing Broker Trades: OFX, Robinhood CSV, and AI Screenshot Drafts - GammaLedger Blog">
+    <meta property="og:description" content="A practical look at GammaLedger's import workflow, review queue, merge tools, split-fill handling, and AI screenshot extraction.">
+    <meta property="og:url" content="https://gammaledger.com/blog/import-broker-trades-ofx-robinhood-ai-screenshots/">
+    <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-import-review.png">
+    <meta property="og:locale" content="en_US">
+    
+    <meta property="article:published_time" content="2026-04-22T00:00:00+00:00">
+    <meta property="article:author" content="GammaLedger">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Importing Broker Trades: OFX, Robinhood CSV, and AI Screenshot Drafts - GammaLedger Blog">
+    <meta name="twitter:description" content="A practical look at GammaLedger's import workflow, review queue, merge tools, split-fill handling, and AI screenshot extraction.">
+    <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-import-review.png">
+    <meta name="theme-color" content="#0a0b1a">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/gammaledger-logo-32x32.png">
+    <!-- Styles -->
+    
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    
+</head>
+
+<body>
+<nav class="nav" id="nav">
+    <div class="container">
+        <div class="nav-content">
+            <a href="/" class="logo">
+                <img src="/assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo" width="32" height="32">
+                GammaLedger
+            </a>
+            <ul class="nav-links">
+                <li><a href="/#features">Features</a></li>
+                <li><a href="/#dashboard">Dashboard</a></li>
+                <li><a href="/#users">For You</a></li>
+                <li><a href="/blog/">Blog</a></li>
+                <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+            </ul>
+            <a href="/app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Launch App</a>
+        </div>
+    </div>
+</nav>
+
+<article class="article-container">
+    <a href="/blog/" class="back-to-blog">← Back to Blog</a>
+    <div class="article-header">
+        <img src="/assets/img/gammaledger-import-review.png" alt="Importing Broker Trades: OFX, Robinhood CSV, and AI Screenshot Drafts" class="article-featured-image">
+        <h1 class="article-title">Importing Broker Trades: OFX, Robinhood CSV, and AI Screenshot Drafts</h1>
+        <div class="article-meta">
+            <span>📅 April 22, 2026</span>
+            <span>✍️ GammaLedger</span>
+        </div>
+        
+        <div class="article-tags">
+            <span class="tag">gammaledger</span><span class="tag">import</span><span class="tag">ofx</span><span class="tag">robinhood</span><span class="tag">ai-screenshot</span><span class="tag">options</span>
+        </div>
+        
+    </div>
+    <div class="article-content">
+        <p>Manual entry is useful for precision, but active options traders often need a faster way to bring trade history into a journal. GammaLedger’s import view is designed for that reality: broker files come in, the app normalizes them into trade legs, and anything uncertain goes into a review workflow instead of silently corrupting the portfolio.</p>
+
+<p>The current import surface supports three practical paths:</p>
+
+<ul>
+  <li>OFX and QFX activity files.</li>
+  <li>Robinhood CSV exports.</li>
+  <li>AI Coach screenshot extraction for draft trade legs.</li>
+</ul>
+
+<p>Each path has a different job. OFX/QFX is best for structured broker exports. Robinhood CSV handles Robinhood’s trade history format. AI screenshots are a review-first fallback when the source is visual rather than a clean data file.</p>
+
+<h2 id="ofx-and-qfx-import">OFX and QFX import</h2>
+
+<p>OFX and QFX files are common brokerage export formats. GammaLedger parses the file, identifies transactions, maps option fields, and creates normalized legs with execution date, order type, quantity, strike, expiration, premium, fees, and import provenance.</p>
+
+<p>The import process also checks for external IDs so re-importing the same file does not create duplicate legs. That matters when you are reconciling a history export and need to run the same file again after fixing a mapping or reviewing an earlier import.</p>
+
+<h2 id="robinhood-csv-import">Robinhood CSV import</h2>
+
+<p>Robinhood exports need a different parser. GammaLedger reads the CSV rows, interprets option and stock activity, calculates fees when they can be derived from totals, and groups related entries.</p>
+
+<p>The importer handles common trading-journal pain points:</p>
+
+<ul>
+  <li>Split fills are consolidated into one leg with a quantity-weighted average price.</li>
+  <li>Opening legs are grouped into trades by ticker, option type, strike, and expiration.</li>
+  <li>Closing legs are matched against existing open positions where possible.</li>
+  <li>Assignment and stock activity can be consolidated into Wheel-style lifecycle records.</li>
+  <li>Roll-like BTC/STO activity can be merged into a coherent trade history.</li>
+</ul>
+
+<p>The goal is not to hide complexity. The goal is to put complexity where it belongs: in a reviewable transaction log instead of in hand-edited spreadsheet rows.</p>
+
+<h2 id="ai-screenshot-drafts">AI screenshot drafts</h2>
+
+<p>Sometimes the only practical source is a screenshot from a broker’s trade history page. GammaLedger’s AI Coach can accept an image, extract visible trade rows, and prepare draft legs for review.</p>
+
+<p>This is intentionally not a blind import. Extracted rows land in a review table where you can inspect and edit ticker, action, instrument type, quantity, date, expiration, strike, price, and fees before importing. Low-confidence fields and missing values are flagged.</p>
+
+<p>After import, screenshot-derived trades enter the same review queue as other uncertain imports. You approve, edit, merge, or discard them before they should be treated as trusted journal data.</p>
+
+<h2 id="the-review-queue-is-the-safety-layer">The review queue is the safety layer</h2>
+
+<p>Broker history is messy. Closing legs may not match an open position because the opening trade is missing. A roll may arrive as separate trades. A screenshot may omit a column. A split fill may need consolidation.</p>
+
+<p>GammaLedger handles that with a review queue. Pending trades show their source, ticker, leg count, date, and a compact leg preview. From there you can approve a trade as-is, edit it, merge selected imports, or discard bad rows.</p>
+
+<p>This makes import a controlled workflow:</p>
+
+<ol>
+  <li>Bring in the raw activity.</li>
+  <li>Let GammaLedger normalize what it can.</li>
+  <li>Review uncertain records.</li>
+  <li>Merge related trades by ticker when needed.</li>
+  <li>Save the resulting portfolio.</li>
+</ol>
+
+<p>That approach is slower than “upload and trust everything,” but it is much safer for options accounting. One misplaced closing leg can distort P&amp;L, open-contract counts, and lifecycle status. The review queue keeps those decisions visible.</p>
+
+<h2 id="a-practical-import-habit">A practical import habit</h2>
+
+<p>Import in batches, then review immediately. Do not wait until dozens of uncertain records pile up. After each broker export, check the latest import summary, inspect the log, approve clean records, and merge related trades while the execution history is still fresh.</p>
+
+<p>GammaLedger gives you the tools to move quickly, but the best results still come from trader review. Imported data should accelerate your journal, not replace your judgment.</p>
+
+    </div>
+    <div class="article-disclaimer">
+        <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. Please read our full <a href="/disclaimer.html">Risk Disclaimer</a>.
+    </div>
+</article>
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>GammaLedger</h3>
+                <p>Intelligent options trading &amp; analytics platform with complete privacy and professional-grade tools for sophisticated options traders.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul class="footer-links">
+                    <li><a href="/blog/">Blog</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener noreferrer">Support</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Legal</h3>
+                <ul class="footer-links">
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/disclaimer.html">Risk Disclaimer</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 License</a></li>
+                    <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 GammaLedger. Released under AGPLv3 License.</p>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>

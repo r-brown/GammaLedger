@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Wheel and PMCC Tracking: Following the Full Lifecycle - GammaLedger Blog</title>
+    <meta name="description" content="How GammaLedger tracks assignments, covered-call coverage, rolls, cost basis, and long-call coverage for Wheel and PMCC traders.">
+    
+    <meta name="author" content="GammaLedger Contributors">
+    <meta name="copyright" content="GammaLedger">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gammaledger.com/blog/wheel-pmcc-lifecycle-tracking/">
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="GammaLedger">
+    <meta property="og:title" content="Wheel and PMCC Tracking: Following the Full Lifecycle - GammaLedger Blog">
+    <meta property="og:description" content="How GammaLedger tracks assignments, covered-call coverage, rolls, cost basis, and long-call coverage for Wheel and PMCC traders.">
+    <meta property="og:url" content="https://gammaledger.com/blog/wheel-pmcc-lifecycle-tracking/">
+    <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-wheel-pmcc-lifecycle.png">
+    <meta property="og:locale" content="en_US">
+    
+    <meta property="article:published_time" content="2026-05-09T00:00:00+00:00">
+    <meta property="article:author" content="GammaLedger">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Wheel and PMCC Tracking: Following the Full Lifecycle - GammaLedger Blog">
+    <meta name="twitter:description" content="How GammaLedger tracks assignments, covered-call coverage, rolls, cost basis, and long-call coverage for Wheel and PMCC traders.">
+    <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-wheel-pmcc-lifecycle.png">
+    <meta name="theme-color" content="#0a0b1a">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/gammaledger-logo-32x32.png">
+    <!-- Styles -->
+    
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    
+</head>
+
+<body>
+<nav class="nav" id="nav">
+    <div class="container">
+        <div class="nav-content">
+            <a href="/" class="logo">
+                <img src="/assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo" width="32" height="32">
+                GammaLedger
+            </a>
+            <ul class="nav-links">
+                <li><a href="/#features">Features</a></li>
+                <li><a href="/#dashboard">Dashboard</a></li>
+                <li><a href="/#users">For You</a></li>
+                <li><a href="/blog/">Blog</a></li>
+                <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+            </ul>
+            <a href="/app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Launch App</a>
+        </div>
+    </div>
+</nav>
+
+<article class="article-container">
+    <a href="/blog/" class="back-to-blog">← Back to Blog</a>
+    <div class="article-header">
+        <img src="/assets/img/gammaledger-wheel-pmcc-lifecycle.png" alt="Wheel and PMCC Tracking: Following the Full Lifecycle" class="article-featured-image">
+        <h1 class="article-title">Wheel and PMCC Tracking: Following the Full Lifecycle</h1>
+        <div class="article-meta">
+            <span>📅 May 9, 2026</span>
+            <span>✍️ GammaLedger</span>
+        </div>
+        
+        <div class="article-tags">
+            <span class="tag">gammaledger</span><span class="tag">wheel</span><span class="tag">pmcc</span><span class="tag">covered-calls</span><span class="tag">assignment</span><span class="tag">options</span>
+        </div>
+        
+    </div>
+    <div class="article-content">
+        <p>The Wheel and Poor Man’s Covered Call are lifecycle strategies. They are not just isolated option trades. The results depend on how puts, stock, calls, assignments, rolls, and cost basis interact over time.</p>
+
+<p>GammaLedger treats these strategies as connected positions rather than disconnected fills. That lets traders answer the questions that matter: Are shares covered? How much premium has reduced cost basis? Which call leg is still active? Did a roll improve or hide the real outcome?</p>
+
+<h2 id="the-wheel-as-a-sequence">The Wheel as a sequence</h2>
+
+<p>A Wheel position often begins with a short put. If the put expires worthless, the trade may simply close as a win. If assignment occurs, the position changes into long stock. From there, covered calls may collect additional premium or lead to a stock sale.</p>
+
+<p>GammaLedger tracks that sequence through legs:</p>
+
+<ul>
+  <li>STO puts for initial premium.</li>
+  <li>BTC or expiration activity for closes.</li>
+  <li>STOCK legs for assigned shares.</li>
+  <li>STO calls for covered-call income.</li>
+  <li>BTC/STC legs for call closes and stock exits.</li>
+</ul>
+
+<p>The app can identify Wheel-like trades, compute share exposure, and evaluate whether active short calls are covered by shares.</p>
+
+<h2 id="cost-basis-needs-premium-history">Cost basis needs premium history</h2>
+
+<p>A simple stock cost basis is not enough for Wheel trading. Premium collected from puts and calls changes the economics of the position. GammaLedger keeps option-leg cash flows available so the effective cost basis can reflect the full history rather than only the assignment price.</p>
+
+<p>That helps separate two different questions:</p>
+
+<ul>
+  <li>What did the shares cost at assignment?</li>
+  <li>What is the effective basis after option premium?</li>
+</ul>
+
+<p>Both matter. Assignment cost explains stock exposure; effective cost basis explains strategy progress.</p>
+
+<h2 id="pmcc-coverage-is-different">PMCC coverage is different</h2>
+
+<p>A Poor Man’s Covered Call uses a long call as stock replacement and sells shorter-dated calls against it. That means “coverage” cannot be checked only by counting shares. GammaLedger includes PMCC-aware logic so long-call exposure can be evaluated alongside short-call obligations.</p>
+
+<p>For PMCC traders, the useful view is not only whether a short call exists. It is whether the short call is supported by the long call structure, whether expiration timing is sensible, and whether rolling activity is changing the risk profile.</p>
+
+<h2 id="rolls-should-stay-in-the-same-story">Rolls should stay in the same story</h2>
+
+<p>Rolling can make options performance look cleaner than it is if every roll becomes a separate trade. GammaLedger’s merge and import workflows help keep related legs together, especially when a BTC and a new STO represent an adjustment to the same thesis.</p>
+
+<p>Within the trade, roll history remains visible as legs. You can inspect when the debit or credit occurred, how strikes changed, and whether the cumulative outcome improved.</p>
+
+<h2 id="assigned-positions-get-their-own-attention">Assigned positions get their own attention</h2>
+
+<p>Assigned stock is not a bookkeeping footnote. It changes capital usage and risk. GammaLedger’s assigned-position tooling highlights share counts, active short-call coverage, uncovered shares, premium history, and effective cost basis where the data is available.</p>
+
+<p>That makes the review more actionable:</p>
+
+<ul>
+  <li>Fully covered positions can be monitored for call management.</li>
+  <li>Partially covered positions can be sized correctly.</li>
+  <li>Uncovered assigned shares are visible instead of buried in a trade note.</li>
+</ul>
+
+<h2 id="a-better-wheel-journal">A better Wheel journal</h2>
+
+<p>The Wheel and PMCC both reward patient recordkeeping. You need to know what happened across weeks or months, not just whether the latest option leg won.</p>
+
+<p>GammaLedger’s lifecycle model is built for that kind of review. It keeps the trade narrative intact, preserves leg-level cash flow, and surfaces coverage and assignment context where traders actually need it.</p>
+
+    </div>
+    <div class="article-disclaimer">
+        <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. Please read our full <a href="/disclaimer.html">Risk Disclaimer</a>.
+    </div>
+</article>
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>GammaLedger</h3>
+                <p>Intelligent options trading &amp; analytics platform with complete privacy and professional-grade tools for sophisticated options traders.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul class="footer-links">
+                    <li><a href="/blog/">Blog</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener noreferrer">Support</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Legal</h3>
+                <ul class="footer-links">
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/disclaimer.html">Risk Disclaimer</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 License</a></li>
+                    <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 GammaLedger. Released under AGPLv3 License.</p>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>GammaLedger's Local-First Options Journal: Private by Default - GammaLedger Blog</title>
+    <meta name="description" content="How GammaLedger keeps options trade tracking local, private, portable, and practical for active traders.">
+    
+    <meta name="author" content="GammaLedger Contributors">
+    <meta name="copyright" content="GammaLedger">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gammaledger.com/blog/gammaledger-local-first-options-journal/">
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="GammaLedger">
+    <meta property="og:title" content="GammaLedger's Local-First Options Journal: Private by Default - GammaLedger Blog">
+    <meta property="og:description" content="How GammaLedger keeps options trade tracking local, private, portable, and practical for active traders.">
+    <meta property="og:url" content="https://gammaledger.com/blog/gammaledger-local-first-options-journal/">
+    <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-local-first-privacy.png">
+    <meta property="og:locale" content="en_US">
+    
+    <meta property="article:published_time" content="2026-04-13T00:00:00+00:00">
+    <meta property="article:author" content="GammaLedger">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="GammaLedger's Local-First Options Journal: Private by Default - GammaLedger Blog">
+    <meta name="twitter:description" content="How GammaLedger keeps options trade tracking local, private, portable, and practical for active traders.">
+    <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-local-first-privacy.png">
+    <meta name="theme-color" content="#0a0b1a">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/gammaledger-logo-32x32.png">
+    <!-- Styles -->
+    
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    
+</head>
+
+<body>
+<nav class="nav" id="nav">
+    <div class="container">
+        <div class="nav-content">
+            <a href="/" class="logo">
+                <img src="/assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo" width="32" height="32">
+                GammaLedger
+            </a>
+            <ul class="nav-links">
+                <li><a href="/#features">Features</a></li>
+                <li><a href="/#dashboard">Dashboard</a></li>
+                <li><a href="/#users">For You</a></li>
+                <li><a href="/blog/">Blog</a></li>
+                <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+            </ul>
+            <a href="/app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Launch App</a>
+        </div>
+    </div>
+</nav>
+
+<article class="article-container">
+    <a href="/blog/" class="back-to-blog">← Back to Blog</a>
+    <div class="article-header">
+        <img src="/assets/img/gammaledger-local-first-privacy.png" alt="GammaLedger's Local-First Options Journal: Private by Default" class="article-featured-image">
+        <h1 class="article-title">GammaLedger's Local-First Options Journal: Private by Default</h1>
+        <div class="article-meta">
+            <span>📅 April 13, 2026</span>
+            <span>✍️ GammaLedger</span>
+        </div>
+        
+        <div class="article-tags">
+            <span class="tag">gammaledger</span><span class="tag">privacy</span><span class="tag">local-first</span><span class="tag">options</span><span class="tag">trade-journal</span>
+        </div>
+        
+    </div>
+    <div class="article-content">
+        <p>Options trading records are unusually sensitive. A single journal can reveal account size, risk appetite, preferred tickers, assignment history, losses, timing habits, and strategy concentration. GammaLedger is built around a simple rule: the application should help you analyze that data without requiring an account, a cloud database, or a hosted portfolio backend.</p>
+
+<p>GammaLedger runs in the browser and stores the working database locally on your device. That makes it different from a broker portal, a subscription journal, or a SaaS analytics dashboard. The default workflow is deliberately direct: open the app, load or create a local database, enter or import trades, review analytics, then export a backup when you want a portable copy.</p>
+
+<h2 id="what-local-first-means-in-practice">What local-first means in practice</h2>
+
+<p>Local-first does not mean “no integrations.” It means your trade ledger is not automatically uploaded to GammaLedger servers. Core portfolio state, trade notes, settings, and imported data live in browser storage and in files you choose to import or export.</p>
+
+<p>That design gives traders three practical benefits:</p>
+
+<ul>
+  <li>You can use GammaLedger without creating an account.</li>
+  <li>You can keep a full JSON backup of your database under your own storage process.</li>
+  <li>You decide when optional providers receive data.</li>
+</ul>
+
+<p>The trade-off is equally important: because the app does not maintain a cloud copy for you, backups are your responsibility. If you clear browser storage, change devices, or lose local files, GammaLedger cannot recover data from a remote account.</p>
+
+<h2 id="what-leaves-your-device">What leaves your device</h2>
+
+<p>Most GammaLedger functionality is local. Adding trades, calculating P&amp;L, grouping legs, rendering dashboard charts, filtering trades, and reviewing strategy performance all happen in the app.</p>
+
+<p>Data can leave your device only when you choose workflows that require an outside service. Examples include:</p>
+
+<ul>
+  <li>Fetching market data with a Finnhub API key.</li>
+  <li>Sending a portfolio question to a Gemini-compatible AI provider.</li>
+  <li>Attaching a broker screenshot for AI draft-leg extraction.</li>
+  <li>Opening project links, docs, GitHub, or third-party resources.</li>
+</ul>
+
+<p>Those integrations are useful, but they are optional. The app makes the boundary explicit because traders should understand when a local analytics workflow becomes a third-party request.</p>
+
+<h2 id="api-keys-stay-local">API keys stay local</h2>
+
+<p>GammaLedger settings include local controls for Finnhub and Gemini-compatible API keys. When browser cryptography is available, the app encrypts stored keys before keeping them in the browser. That is a useful local protection, not a replacement for device security.</p>
+
+<p>Treat API keys like credentials. Use provider-side limits where available, avoid sharing exported databases that contain secrets, and clear keys if you are using a shared machine.</p>
+
+<h2 id="backups-are-part-of-the-workflow">Backups are part of the workflow</h2>
+
+<p>The safest way to use a local-first trading journal is to make backups routine. Export a JSON database after major import sessions, after end-of-week reviews, and before clearing browser data or changing devices.</p>
+
+<p>A good backup habit looks like this:</p>
+
+<ol>
+  <li>Keep the current working database in GammaLedger.</li>
+  <li>Export JSON snapshots on a regular schedule.</li>
+  <li>Store those snapshots somewhere you control.</li>
+  <li>Avoid posting database files, screenshots, or broker exports in public support channels.</li>
+</ol>
+
+<p>The point is not to make privacy complicated. The point is to make ownership clear. GammaLedger gives you the analytical surface; you keep custody of the ledger.</p>
+
+<h2 id="why-this-matters-for-options-traders">Why this matters for options traders</h2>
+
+<p>Options portfolios can change shape quickly. A cash-secured put can become assigned stock, assigned stock can become a covered call, a covered call can be rolled, and a spread can close across multiple executions. A journal that understands that lifecycle becomes more valuable as history grows.</p>
+
+<p>Keeping that history local means you can analyze strategy performance without turning your trade archive into a hosted dataset. You still get the dashboard, the review queue, the AI Coach when configured, and the export workflow. You simply choose which features stay offline and which integrations earn access to context.</p>
+
+<p>That is GammaLedger’s privacy model: local by default, explicit when external, and portable when you need a backup.</p>
+
+    </div>
+    <div class="article-disclaimer">
+        <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. Please read our full <a href="/disclaimer.html">Risk Disclaimer</a>.
+    </div>
+</article>
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>GammaLedger</h3>
+                <p>Intelligent options trading &amp; analytics platform with complete privacy and professional-grade tools for sophisticated options traders.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul class="footer-links">
+                    <li><a href="/blog/">Blog</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener noreferrer">Support</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Legal</h3>
+                <ul class="footer-links">
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/disclaimer.html">Risk Disclaimer</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 License</a></li>
+                    <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 GammaLedger. Released under AGPLv3 License.</p>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>
