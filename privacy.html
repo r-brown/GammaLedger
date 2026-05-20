@@ -41,57 +41,26 @@
 </head>
 
 <body>
-<style>
-:root {
-    --bg-primary: #0a0b1a; --bg-secondary: #111827; --bg-tertiary: #1f2937;
-    --bg-surface: rgba(15, 23, 42, 0.85); --accent-primary: #8b5cf6;
-    --accent-secondary: #3b82f6; --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1; --text-muted: #8ea0bf;
-    --border-subtle: rgba(148, 163, 184, 0.18); --radius-lg: 1rem;
-    --shadow-elevated: 0 20px 45px rgba(15, 23, 42, 0.45);
-    --gradient-hero: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 55%, var(--bg-tertiary) 100%);
-}
-* { box-sizing: border-box; }
-body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gradient-hero); color: var(--text-primary); line-height: 1.7; }
-a { color: var(--accent-primary); text-decoration: none; transition: color 0.2s ease; }
-a:hover { color: var(--accent-secondary); }
-.site-header { position: sticky; top: 0; z-index: 100; background: rgba(10, 11, 26, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border-subtle); }
-.header-container { max-width: 1100px; margin: 0 auto; padding: 1.25rem 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
-.brand { display: inline-flex; align-items: center; gap: 0.6rem; font-weight: 700; font-size: 1.1rem; color: var(--text-primary); text-decoration: none; }
-.brand img { width: 32px; height: 32px; border-radius: 8px; }
-.nav-links { display: inline-flex; gap: 1rem; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; }
-.nav-link { color: var(--text-secondary); font-weight: 500; padding: 0.35rem 0.65rem; border-radius: 999px; text-decoration: none; }
-.nav-link:hover { background: rgba(99, 102, 241, 0.15); color: var(--text-primary); }
-.nav-link.active { background: rgba(139, 92, 246, 0.18); color: var(--text-primary); }
-main { max-width: 900px; margin: 0 auto; padding: 4.5rem 1.75rem 5rem; }
-.page-intro { background: var(--bg-surface); padding: 2.5rem; border-radius: var(--radius-lg); box-shadow: var(--shadow-elevated); border: 1px solid var(--border-subtle); }
-.page-intro h1 { margin: 0 0 1rem; font-size: 2.35rem; letter-spacing: -0.02em; }
-.page-intro p { margin: 0.5rem 0 0; color: var(--text-secondary); }
-section { margin-top: 3.5rem; background: rgba(15, 23, 42, 0.72); padding: 2.25rem; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); box-shadow: var(--shadow-elevated); }
-section h2 { margin-top: 0; margin-bottom: 1.25rem; font-size: 1.6rem; }
-section p { margin: 0 0 1rem; color: var(--text-secondary); }
-section ul { margin: 0 0 1rem 1.1rem; padding-left: 1rem; color: var(--text-secondary); }
-section li { margin-bottom: 0.6rem; }
-.callout { background: rgba(139, 92, 246, 0.18); border-left: 4px solid var(--accent-primary); padding: 1rem 1.25rem; border-radius: 0.75rem; color: var(--text-secondary); }
-footer { border-top: 1px solid var(--border-subtle); padding: 2.5rem 1.75rem 2.75rem; color: var(--text-muted); text-align: center; }
-@media (max-width: 640px) { .header-container { flex-direction: column; align-items: flex-start; } main { padding: 4rem 1.25rem 4.5rem; } section { padding: 1.85rem; } }
-</style>
-
-<header class="site-header">
-    <div class="header-container">
-        <a class="brand" href="/">
-            <img src="/assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo">
-            <span>GammaLedger</span>
-        </a>
-        <nav class="nav-links" aria-label="Legal navigation">
-            <a class="nav-link" href="/terms.html">Terms of Service</a>
-            <a class="nav-link active" href="/privacy.html">Privacy Policy</a>
-            <a class="nav-link" href="/disclaimer.html">Disclaimer</a>
-        </nav>
+<nav class="nav" id="nav">
+    <div class="container">
+        <div class="nav-content">
+            <a href="/" class="logo">
+                <img src="/assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo" width="32" height="32">
+                GammaLedger
+            </a>
+            <ul class="nav-links">
+                <li><a href="/#features">Features</a></li>
+                <li><a href="/#dashboard">Dashboard</a></li>
+                <li><a href="/#users">For You</a></li>
+                <li><a href="/blog/">Blog</a></li>
+                <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+            </ul>
+            <a href="/app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Launch App</a>
+        </div>
     </div>
-</header>
+</nav>
 
-<main>
+<main class="legal-page legal-page--privacy">
     <div class="page-intro">
         <h1>Privacy Policy</h1>
         <p>Last updated: October 31, 2025</p>
@@ -194,8 +163,39 @@ footer { border-top: 1px solid var(--border-subtle); padding: 2.5rem 1.75rem 2.7
     </section>
 </main>
 
-<footer>
-    <p>© 2026 GammaLedger. All rights reserved. | <a href="/terms.html">Terms of Service</a> | <a href="/disclaimer.html">Disclaimer</a></p>
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>GammaLedger</h3>
+                <p>Intelligent options trading &amp; analytics platform with complete privacy and professional-grade tools for sophisticated options traders.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul class="footer-links">
+                    <li><a href="/blog/">Blog</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener noreferrer">Support</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Legal</h3>
+                <ul class="footer-links">
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/disclaimer.html">Risk Disclaimer</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 License</a></li>
+                    <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 GammaLedger. Released under AGPLv3 License.</p>
+        </div>
+    </div>
 </footer>
 
 </body>
