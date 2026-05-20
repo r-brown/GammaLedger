@@ -54,11 +54,37 @@ class ParsedOfxElement implements OfxElementNode {
     }
 }
 
-const ACTIVE_BROWSER_MARKUP_PATTERN = /<\s*\/?\s*(?:base|body|button|embed|form|frame|frameset|html|iframe|img|input|link|math|meta|object|option|script|select|style|svg|textarea)\b/i;
-const EVENT_HANDLER_ATTRIBUTE_PATTERN = /\s+on[a-z][\w:-]*\s*=/i;
-const URL_ATTRIBUTE_PATTERN = /\s(?:action|formaction|href|src|xlink:href)\s*=/i;
-const UNSUPPORTED_XML_DECLARATION_PATTERN = /<!\s*(?:DOCTYPE|ENTITY)\b/i;
-const OFX_TOKEN_PATTERN = /<!\[CDATA\[[\s\S]*?\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<\/?[A-Za-z_][\w:.-]*(?:\s[^<>]*)?>/g;
+const ACTIVE_BROWSER_TAG_NAMES = new Set([
+    'BASE',
+    'BODY',
+    'BUTTON',
+    'EMBED',
+    'FORM',
+    'FRAME',
+    'FRAMESET',
+    'HTML',
+    'IFRAME',
+    'IMG',
+    'INPUT',
+    'LINK',
+    'MATH',
+    'META',
+    'OBJECT',
+    'OPTION',
+    'SCRIPT',
+    'SELECT',
+    'STYLE',
+    'SVG',
+    'TEXTAREA'
+]);
+
+const URL_ATTRIBUTE_NAMES = new Set([
+    'ACTION',
+    'FORMACTION',
+    'HREF',
+    'SRC',
+    'XLINK:HREF'
+]);
 
 function normalizeOfxTagName(tagName: string): string {
     return tagName.trim().toUpperCase();
@@ -69,43 +95,174 @@ function isValidXmlCodePoint(codePoint: number): boolean {
 }
 
 function decodeXmlEntities(value: string): string {
-    return value.replace(/&(#x[0-9a-f]+|#[0-9]+|amp|apos|gt|lt|quot);/gi, (match, entity) => {
-        const normalized = String(entity).toLowerCase();
-        if (normalized === 'amp') return '&';
-        if (normalized === 'apos') return "'";
-        if (normalized === 'gt') return '>';
-        if (normalized === 'lt') return '<';
-        if (normalized === 'quot') return '"';
-        if (normalized.startsWith('#x')) {
-            const codePoint = Number.parseInt(normalized.slice(2), 16);
-            return isValidXmlCodePoint(codePoint) ? String.fromCodePoint(codePoint) : match;
+    let decoded = '';
+    let cursor = 0;
+    while (cursor < value.length) {
+        const ampIndex = value.indexOf('&', cursor);
+        if (ampIndex === -1) {
+            decoded += value.slice(cursor);
+            break;
         }
-        if (normalized.startsWith('#')) {
-            const codePoint = Number.parseInt(normalized.slice(1), 10);
-            return isValidXmlCodePoint(codePoint) ? String.fromCodePoint(codePoint) : match;
+
+        decoded += value.slice(cursor, ampIndex);
+        const semiIndex = value.indexOf(';', ampIndex + 1);
+        if (semiIndex === -1) {
+            decoded += value.slice(ampIndex);
+            break;
         }
-        return match;
-    });
+
+        const entity = value.slice(ampIndex + 1, semiIndex);
+        const replacement = decodeXmlEntity(entity);
+        decoded += replacement ?? value.slice(ampIndex, semiIndex + 1);
+        cursor = semiIndex + 1;
+    }
+    return decoded;
 }
 
-function assertSafeOfxMarkup(xmlContent: string): void {
-    if (UNSUPPORTED_XML_DECLARATION_PATTERN.test(xmlContent)) {
-        throw new Error('OFX document contains unsupported XML declarations.');
+function decodeXmlEntity(entity: string): string | null {
+    const normalized = entity.toLowerCase();
+    if (normalized === 'amp') return '&';
+    if (normalized === 'apos') return "'";
+    if (normalized === 'gt') return '>';
+    if (normalized === 'lt') return '<';
+    if (normalized === 'quot') return '"';
+    if (normalized.startsWith('#x')) {
+        const codePoint = Number.parseInt(normalized.slice(2), 16);
+        return isValidXmlCodePoint(codePoint) ? String.fromCodePoint(codePoint) : null;
     }
-    if (ACTIVE_BROWSER_MARKUP_PATTERN.test(xmlContent)) {
+    if (normalized.startsWith('#')) {
+        const codePoint = Number.parseInt(normalized.slice(1), 10);
+        return isValidXmlCodePoint(codePoint) ? String.fromCodePoint(codePoint) : null;
+    }
+    return null;
+}
+
+function isWhitespace(value: string, index: number): boolean {
+    const char = value.charCodeAt(index);
+    return char === 9 || char === 10 || char === 12 || char === 13 || char === 32;
+}
+
+function skipWhitespace(value: string, index: number, end: number): number {
+    let cursor = index;
+    while (cursor < end && isWhitespace(value, cursor)) {
+        cursor += 1;
+    }
+    return cursor;
+}
+
+function isAsciiLetter(code: number): boolean {
+    return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function isNameStart(value: string, index: number): boolean {
+    const code = value.charCodeAt(index);
+    return isAsciiLetter(code) || code === 95;
+}
+
+function isNameChar(value: string, index: number): boolean {
+    const code = value.charCodeAt(index);
+    return isNameStart(value, index) || (code >= 48 && code <= 57) || code === 45 || code === 46 || code === 58;
+}
+
+function readName(value: string, index: number, end: number): { name: string, end: number } {
+    if (index >= end || !isNameStart(value, index)) {
+        throw new Error('Unable to parse OFX document.');
+    }
+
+    let cursor = index + 1;
+    while (cursor < end && isNameChar(value, cursor)) {
+        cursor += 1;
+    }
+
+    return {
+        name: normalizeOfxTagName(value.slice(index, cursor)),
+        end: cursor
+    };
+}
+
+function assertSafeOfxTagName(tagName: string): void {
+    if (ACTIVE_BROWSER_TAG_NAMES.has(tagName)) {
         throw new Error('OFX document contains unsupported active markup.');
     }
 }
 
-function assertSafeOfxTagToken(token: string): void {
-    if (EVENT_HANDLER_ATTRIBUTE_PATTERN.test(token) || URL_ATTRIBUTE_PATTERN.test(token)) {
+function assertSafeOfxAttributeName(attributeName: string): void {
+    if (
+        URL_ATTRIBUTE_NAMES.has(attributeName) ||
+        (attributeName.length > 2 && attributeName.startsWith('ON') && isAsciiLetter(attributeName.charCodeAt(2)))
+    ) {
         throw new Error('OFX document contains unsupported active markup.');
     }
 }
 
-function readTagName(token: string): string {
-    const match = token.match(/^<\/?\s*([A-Za-z_][\w:.-]*)/);
-    return match ? normalizeOfxTagName(match[1]) : '';
+function readTag(xmlContent: string, openIndex: number): { end: number, tagName: string, closing: boolean, selfClosing: boolean } {
+    const closeIndex = xmlContent.indexOf('>', openIndex + 1);
+    const innerOpenIndex = xmlContent.indexOf('<', openIndex + 1);
+    if (closeIndex === -1 || (innerOpenIndex !== -1 && innerOpenIndex < closeIndex)) {
+        throw new Error('Unable to parse OFX document.');
+    }
+
+    let cursor = openIndex + 1;
+    const closing = xmlContent.charAt(cursor) === '/';
+    if (closing) {
+        cursor += 1;
+    }
+    cursor = skipWhitespace(xmlContent, cursor, closeIndex);
+
+    const nameToken = readName(xmlContent, cursor, closeIndex);
+    const tagName = nameToken.name;
+    assertSafeOfxTagName(tagName);
+    cursor = skipWhitespace(xmlContent, nameToken.end, closeIndex);
+
+    if (closing) {
+        if (cursor !== closeIndex) {
+            throw new Error('Unable to parse OFX document.');
+        }
+        return { end: closeIndex + 1, tagName, closing, selfClosing: false };
+    }
+
+    const selfClosing = readAttributes(xmlContent, cursor, closeIndex);
+    return { end: closeIndex + 1, tagName, closing, selfClosing };
+}
+
+function readAttributes(xmlContent: string, index: number, end: number): boolean {
+    let cursor = index;
+    while (cursor < end) {
+        cursor = skipWhitespace(xmlContent, cursor, end);
+        if (cursor >= end) {
+            return false;
+        }
+
+        if (xmlContent.charAt(cursor) === '/') {
+            cursor = skipWhitespace(xmlContent, cursor + 1, end);
+            if (cursor !== end) {
+                throw new Error('Unable to parse OFX document.');
+            }
+            return true;
+        }
+
+        const attribute = readName(xmlContent, cursor, end);
+        assertSafeOfxAttributeName(attribute.name);
+        cursor = skipWhitespace(xmlContent, attribute.end, end);
+        if (xmlContent.charAt(cursor) !== '=') {
+            throw new Error('Unable to parse OFX document.');
+        }
+
+        cursor = skipWhitespace(xmlContent, cursor + 1, end);
+        const quote = xmlContent.charAt(cursor);
+        if (quote !== '"' && quote !== "'") {
+            throw new Error('Unable to parse OFX document.');
+        }
+
+        cursor += 1;
+        const valueEnd = xmlContent.indexOf(quote, cursor);
+        if (valueEnd === -1 || valueEnd > end) {
+            throw new Error('Unable to parse OFX document.');
+        }
+        cursor = valueEnd + 1;
+    }
+
+    return false;
 }
 
 function appendOfxText(parent: ParsedOfxElement | undefined, text: string): void {
@@ -125,61 +282,79 @@ function appendOfxText(parent: ParsedOfxElement | undefined, text: string): void
 }
 
 function parseOfxXmlDocument(xmlContent: string): ParsedOfxElement {
-    assertSafeOfxMarkup(xmlContent);
-
     const documentNode = new ParsedOfxElement('#document');
     const stack: ParsedOfxElement[] = [documentNode];
-    OFX_TOKEN_PATTERN.lastIndex = 0;
     let cursor = 0;
-    let tokenMatch: RegExpExecArray | null;
 
-    while ((tokenMatch = OFX_TOKEN_PATTERN.exec(xmlContent)) !== null) {
-        const token = tokenMatch[0];
+    while (cursor < xmlContent.length) {
+        const tokenStart = xmlContent.indexOf('<', cursor);
+        if (tokenStart === -1) {
+            appendOfxText(stack[stack.length - 1], xmlContent.slice(cursor));
+            break;
+        }
+
         const parent = stack[stack.length - 1];
-        const text = xmlContent.slice(cursor, tokenMatch.index);
+        const text = xmlContent.slice(cursor, tokenStart);
         appendOfxText(parent, text);
 
-        if (token.startsWith('<!--') || token.startsWith('<?')) {
-            cursor = OFX_TOKEN_PATTERN.lastIndex;
-            continue;
-        }
-
-        if (token.startsWith('<![CDATA[')) {
-            if (parent) {
-                parent.appendText(token.slice(9, -3));
+        if (xmlContent.startsWith('<!--', tokenStart)) {
+            const commentEnd = xmlContent.indexOf('-->', tokenStart + 4);
+            if (commentEnd === -1) {
+                throw new Error('Unable to parse OFX document.');
             }
-            cursor = OFX_TOKEN_PATTERN.lastIndex;
+            cursor = commentEnd + 3;
             continue;
         }
 
-        assertSafeOfxTagToken(token);
-
-        const tagName = readTagName(token);
-        if (!tagName) {
-            throw new Error('Unable to parse OFX document.');
+        if (xmlContent.startsWith('<?', tokenStart)) {
+            const processingInstructionEnd = xmlContent.indexOf('?>', tokenStart + 2);
+            if (processingInstructionEnd === -1) {
+                throw new Error('Unable to parse OFX document.');
+            }
+            cursor = processingInstructionEnd + 2;
+            continue;
         }
 
-        if (token.startsWith('</')) {
+        if (xmlContent.startsWith('<![CDATA[', tokenStart)) {
+            const cdataEnd = xmlContent.indexOf(']]>', tokenStart + 9);
+            if (cdataEnd === -1) {
+                throw new Error('Unable to parse OFX document.');
+            }
+            const cdataText = xmlContent.slice(tokenStart + 9, cdataEnd);
+            if (!parent || (parent === documentNode && cdataText.trim())) {
+                throw new Error('Unable to parse OFX document.');
+            }
+            if (parent !== documentNode) {
+                parent.appendText(cdataText);
+            }
+            cursor = cdataEnd + 3;
+            continue;
+        }
+
+        if (xmlContent.startsWith('<!', tokenStart)) {
+            throw new Error('OFX document contains unsupported XML declarations.');
+        }
+
+        const tag = readTag(xmlContent, tokenStart);
+
+        if (tag.closing) {
             const current = stack.pop();
-            if (!current || current.tagName !== tagName || current === documentNode) {
+            if (!current || current.tagName !== tag.tagName || current === documentNode) {
                 throw new Error('Unable to parse OFX document.');
             }
         } else {
             if (parent === documentNode && documentNode.children.length > 0) {
                 throw new Error('Unable to parse OFX document.');
             }
-            const child = new ParsedOfxElement(tagName);
+            const child = new ParsedOfxElement(tag.tagName);
             parent?.appendChild(child);
-            if (!token.endsWith('/>')) {
+            if (!tag.selfClosing) {
                 stack.push(child);
             }
         }
 
-        cursor = OFX_TOKEN_PATTERN.lastIndex;
+        cursor = tag.end;
     }
-
-    const tail = xmlContent.slice(cursor);
-    appendOfxText(stack[stack.length - 1], tail);
 
     if (stack.length !== 1) {
         throw new Error('Unable to parse OFX document.');
