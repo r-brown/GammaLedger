@@ -1,0 +1,1022 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.4.1">Jekyll</generator><link href="https://gammaledger.com/feed.xml" rel="self" type="application/atom+xml" /><link href="https://gammaledger.com/" rel="alternate" type="text/html" /><updated>2026-05-20T06:44:34+00:00</updated><id>https://gammaledger.com/feed.xml</id><title type="html">GammaLedger</title><subtitle>Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.</subtitle><author><name>GammaLedger Contributors</name></author><entry><title type="html">Selling Premium Into the Selloff: April Options Watchlist</title><link href="https://gammaledger.com/blog/gammaledger-april-options-watchlist/" rel="alternate" type="text/html" title="Selling Premium Into the Selloff: April Options Watchlist" /><published>2026-04-05T00:00:00+00:00</published><updated>2026-04-05T00:00:00+00:00</updated><id>https://gammaledger.com/blog/gammaledger-april-options-watchlist</id><content type="html" xml:base="https://gammaledger.com/blog/gammaledger-april-options-watchlist/"><![CDATA[<blockquote>
+  <p><strong>Disclaimer:</strong> This is not financial advice. IV/IVR are estimates — always confirm live chain data before trading. Premiums are approximations based on current IV levels. Options trading involves substantial risk of loss.</p>
+</blockquote>
+<hr />
+
+<h2 id="why-this-market-is-actually-good-for-premium-sellers">Why This Market Is Actually Good for Premium Sellers</h2>
+<p>If you’ve been watching your portfolio bleed this quarter, here’s the silver lining: <strong>elevated implied volatility means fatter premiums</strong>. When fear drives IV higher, options sellers get paid more to take on risk — and right now, several quality names are sitting at historically high IVR readings while their underlying businesses remain fundamentally sound.</p>
+<p>I ran a quantitative analysis across seven tickers on my radar — <strong>INTU, UBER, ADBE, CMCSA, OKTA, QLYS, and DXC</strong> — scoring each across four dimensions: options liquidity, fundamental quality, IV suitability, and strategy compatibility. Here’s what I found, and which names made it onto my April watchlist for new positions.</p>
+<hr />
+
+<h2 id="the-scoring-framework">The Scoring Framework</h2>
+<p>Each ticker was scored out of 10 across four weighted categories:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Weight</th>
+<th>What it measures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Options liquidity</strong></td>
+<td>3 pts</td>
+<td>Open interest, bid/ask spreads, weekly availability</td>
+</tr>
+<tr>
+<td><strong>Fundamentals</strong></td>
+<td>3 pts</td>
+<td>FCF, moat, profitability, balance sheet</td>
+</tr>
+<tr>
+<td><strong>IV suitability</strong></td>
+<td>2 pts</td>
+<td>IVR vs. own history, beta-adjusted premium</td>
+</tr>
+<tr>
+<td><strong>Strategy compatibility</strong></td>
+<td>2 pts</td>
+<td>How many strategies are realistically viable</td>
+</tr>
+</tbody>
+</table>
+<p>Higher score = more strategies available, better risk/reward, more confidence in assignment.</p>
+<hr />
+
+<h2 id="full-rankings-at-a-glance">Full Rankings at a Glance</h2>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Ticker</th>
+<th>Company</th>
+<th>Price</th>
+<th>Score</th>
+<th>Best Strategies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🥇</td>
+<td><strong>INTU</strong></td>
+<td>Intuit Inc</td>
+<td>~$400</td>
+<td><strong>8.5 / 10</strong></td>
+<td>CSP · Wheel · CC · PMCC · Put spread</td>
+</tr>
+<tr>
+<td>🥈</td>
+<td><strong>UBER</strong></td>
+<td>Uber Technologies</td>
+<td>~$70</td>
+<td><strong>8.0 / 10</strong></td>
+<td>CSP · Wheel · Put spread · Iron condor</td>
+</tr>
+<tr>
+<td>🥉</td>
+<td><strong>ADBE</strong></td>
+<td>Adobe Inc</td>
+<td>~$242</td>
+<td><strong>7.5 / 10</strong></td>
+<td>Put spreads · CSP · PMCC · Iron condor</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>CMCSA</strong></td>
+<td>Comcast Corp</td>
+<td>~$30</td>
+<td><strong>6.5 / 10</strong></td>
+<td>Covered call · CSP · Wheel</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>OKTA</strong></td>
+<td>Okta Inc</td>
+<td>~$79</td>
+<td><strong>6.0 / 10</strong></td>
+<td>Put spreads · CSP (aggressive sizing)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>QLYS</strong></td>
+<td>Qualys Inc</td>
+<td>~$134</td>
+<td><strong>5.5 / 10</strong></td>
+<td>CSP · Put spreads (small size)</td>
+</tr>
+<tr>
+<td>❌</td>
+<td><strong>DXC</strong></td>
+<td>DXC Technology</td>
+<td>~$12.50</td>
+<td><strong>2.5 / 10</strong></td>
+<td><strong>Not recommended</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+
+<h2 id="tier-1-my-active-april-watchlist">🟢 Tier 1 — My Active April Watchlist</h2>
+<p>These are the names I’m actively looking to open positions on. Strong fundamentals, excellent options liquidity, and IV environments that justify selling premium right now.</p>
+<hr />
+
+<h3 id="1-intu-intuit-inc-score-8510">#1 — INTU (Intuit Inc) · Score: 8.5/10</h3>
+<p><strong>The best all-rounder on the list.</strong> Intuit is a low-beta (0.56) SaaS powerhouse — QuickBooks dominates SMB accounting, TurboTax owns consumer tax filing, and the data network effects create real switching costs. At ~$400, it’s sitting below both its 50d and 200d moving averages, which means elevated IVR (~60%) and juicy premium relative to its own history.</p>
+<p><strong>Key metrics:</strong>
+- <strong>Market cap:</strong> $115B · <strong>FCF:</strong> ~$3.5B · <strong>Beta:</strong> 0.56
+- <strong>IV estimate:</strong> 32–38% · <strong>IVR estimate:</strong> ~60%
+- <strong>52-week range:</strong> $310–$540 · <strong>Earnings:</strong> May 21 ⚠️
+- <strong>Options liquidity:</strong> Excellent (weekly + monthly + liquid LEAPS)</p>
+<p><strong>What makes it special:</strong> Every strategy on the board works here — CSP, Wheel, Covered Call, PMCC, and Put Spreads. That flexibility is rare. Low beta means assignment won’t destroy you if the market drops another 10%.</p>
+<h4 id="trade-example-cash-secured-put">📌 Trade Example — Cash Secured Put</h4>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Sell $370 Put</td>
+</tr>
+<tr>
+<td><strong>Expiry</strong></td>
+<td>May 16, 2026</td>
+</tr>
+<tr>
+<td><strong>Est. premium</strong></td>
+<td>~$6–8 credit</td>
+</tr>
+<tr>
+<td><strong>Capital required</strong></td>
+<td>~$37,000</td>
+</tr>
+<tr>
+<td><strong>Return / 40 days</strong></td>
+<td>~1.6–2.2%</td>
+</tr>
+<tr>
+<td><strong>Annualized yield</strong></td>
+<td>~15–20%</td>
+</tr>
+<tr>
+<td><strong>Probability of profit</strong></td>
+<td>~75–78%</td>
+</tr>
+<tr>
+<td><strong>Breakeven</strong></td>
+<td>~$363–364</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+  <p>⚠️ <strong>Earnings May 21 — close or roll all positions before that date.</strong> INTU historically moves ±8–12% on earnings day.</p>
+</blockquote>
+<p><strong>Wheel path:</strong> If assigned at $370, sell the June $400 covered call for an additional 2–3% return.</p>
+<p><strong>PMCC path:</strong> Buy Jan 2027 $340 LEAPS, sell monthly calls against them for capital-efficient exposure.</p>
+<hr />
+
+<h3 id="2-uber-uber-technologies-score-8010">#2 — UBER (Uber Technologies) · Score: 8.0/10</h3>
+<p><strong>The highest-premium name on the list.</strong> UBER sits at ~$70, down 31% from its 52-week high of $102, with IV running at 40–48% and IVR around 65%. That’s a lot of fear priced in for a company generating $6.8B in free cash flow. The 52-week low sits at $60.63 — a natural support level that makes the $63 put strike interesting.</p>
+<p><strong>Key metrics:</strong>
+- <strong>Market cap:</strong> $150B · <strong>FCF:</strong> ~$6.8B · <strong>Beta:</strong> ~1.40
+- <strong>IV estimate:</strong> 40–48% · <strong>IVR estimate:</strong> ~65%
+- <strong>52-week range:</strong> $60–$102 · <strong>Avg volume:</strong> 15M+ daily
+- <strong>Options liquidity:</strong> Excellent (massive OI, tight spreads)</p>
+<p><strong>The catch:</strong> Beta of 1.4 means this name moves hard with the broader market. Size your position accordingly — I’d cap UBER at 50% of what I’d put into INTU.</p>
+<h4 id="trade-example-cash-secured-put_1">📌 Trade Example — Cash Secured Put</h4>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Sell $63 Put</td>
+</tr>
+<tr>
+<td><strong>Expiry</strong></td>
+<td>May 16, 2026</td>
+</tr>
+<tr>
+<td><strong>Est. premium</strong></td>
+<td>~$1.80–2.20 credit</td>
+</tr>
+<tr>
+<td><strong>Return / 40 days</strong></td>
+<td>~2.8–3.5%</td>
+</tr>
+<tr>
+<td><strong>Annualized yield</strong></td>
+<td>~25–32%</td>
+</tr>
+<tr>
+<td><strong>Probability of profit</strong></td>
+<td>~72%</td>
+</tr>
+<tr>
+<td><strong>Breakeven</strong></td>
+<td>~$61.00</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+  <p><strong>Put spread alternative:</strong> Sell $63P / Buy $58P for defined risk if you don’t want full assignment exposure. Sacrifices some premium but caps your max loss.</p>
+</blockquote>
+<hr />
+
+<h2 id="tier-2-selective-entries">🟡 Tier 2 — Selective Entries</h2>
+<p>Quality names, but either IV environment, trend, or structural concerns require more careful positioning. Worth watching, but I’m being selective here.</p>
+<hr />
+
+<h3 id="3-adbe-adobe-inc-score-7510">#3 — ADBE (Adobe Inc) · Score: 7.5/10</h3>
+<p>Adobe is a paradox: <strong>exceptional fundamentals, challenging trend.</strong> At ~$242, it’s down 43% from its 52-week high of $423 and trading near its 52-week low of $233. The $8B FCF and 35% ROE are best-in-class — but the AI commoditization narrative (generative image tools competing with Firefly) has been a persistent headwind.</p>
+<p><strong>Key metrics:</strong>
+- <strong>Market cap:</strong> $107B · <strong>FCF:</strong> ~$8.0B · <strong>ROE:</strong> ~35%
+- <strong>IV estimate:</strong> 42–52% · <strong>IVR estimate:</strong> ~70% (highest in tier 1/2)
+- <strong>52-week range:</strong> $233–$423 · <strong>Beta:</strong> ~1.10</p>
+<p><strong>My approach:</strong> <strong>Defined-risk spreads only on ADBE.</strong> Do not sell naked puts here — if support at $233 breaks, there’s a lot of air below. The put spread limits your max loss while still capturing elevated premium.</p>
+<h4 id="trade-example-put-credit-spread">📌 Trade Example — Put Credit Spread</h4>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Strategy</strong></td>
+<td>Sell $220P / Buy $210P</td>
+</tr>
+<tr>
+<td><strong>Expiry</strong></td>
+<td>May 16, 2026</td>
+</tr>
+<tr>
+<td><strong>Est. net credit</strong></td>
+<td>~$1.80–2.50</td>
+</tr>
+<tr>
+<td><strong>Max risk</strong></td>
+<td>$7.50–8.20 per spread</td>
+</tr>
+<tr>
+<td><strong>Return on risk</strong></td>
+<td>~22–30%</td>
+</tr>
+<tr>
+<td><strong>Probability of profit</strong></td>
+<td>~75%</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+  <p><strong>PMCC alternative:</strong> Jan 2027 $200 LEAPS + sell monthly calls. Capital-efficient way to participate if you’re bullish on Adobe’s AI pivot without full downside exposure.</p>
+</blockquote>
+<hr />
+
+<h3 id="4-cmcsa-comcast-corp-score-6510">#4 — CMCSA (Comcast Corp) · Score: 6.5/10</h3>
+<p>The <strong>defensive income name</strong> of the group. CMCSA trades at ~$30 with a 3.4% dividend yield, 7.5x P/E, and $14B FCF. Low IV (25–30%) means per-contract premium is modest, but you’re stacking covered call income on top of a dividend — total yield potential of 15–19% annualized.</p>
+<p><strong>Key metrics:</strong>
+- <strong>Market cap:</strong> $120B · <strong>FCF:</strong> ~$14B · <strong>Dividend:</strong> ~3.4%
+- <strong>IV estimate:</strong> 25–30% · <strong>IVR estimate:</strong> ~45%
+- <strong>P/E:</strong> ~7.5x · <strong>Beta:</strong> ~0.75</p>
+<p><strong>The play:</strong> Buy shares → sell covered calls above current price → collect dividend. Simple Wheel setup for conservative income.</p>
+<blockquote>
+  <p>⚠️ <strong>Q1 earnings due April 23 — close all options positions before that date.</strong></p>
+</blockquote>
+<hr />
+
+<h2 id="tier-3-approach-with-caution-or-skip">🔴 Tier 3 — Approach with Caution (or Skip)</h2>
+<hr />
+
+<h3 id="5-okta-okta-inc-score-6010">#5 — OKTA (Okta Inc) · Score: 6.0/10</h3>
+<p>High premium, real risk. OKTA has the second-highest IVR (~68%) in the group — the market is pricing in a lot of uncertainty for the identity security leader. The problem: it’s not yet GAAP profitable, it’s in a strong downtrend from $128, and AI-native alternatives are pressuring its competitive narrative.</p>
+<p><strong>My approach:</strong> <strong>Put spreads only, never uncovered puts.</strong> If you’re bullish on the AI-identity security thesis long-term, a deeply OTM CSP at $65–68 with aggressive sizing discipline could work. Keep allocation small.</p>
+<hr />
+
+<h3 id="6-qlys-qualys-inc-score-5510">#6 — QLYS (Qualys Inc) · Score: 5.5/10</h3>
+<p>QLYS has the <strong>best fundamental quality in cybersecurity on this list</strong> — 45.7% operating margin, 59% YoY FCF growth, near-zero debt. The catch is thin options liquidity (~300K average daily volume). Bid/ask spreads run $0.50–1.00+ wide, which means you’ll give up significant edge on fills.</p>
+<p><strong>Rule:</strong> Always use limit orders at the midpoint. Monthly expirations only. Keep position size small.</p>
+<hr />
+
+<h3 id="dxc-do-not-trade">❌ DXC — Do Not Trade</h3>
+<p>DXC Technology scores 2.5/10 for one simple reason: <strong>extreme IV on a distressed stock is not an opportunity, it’s a warning.</strong></p>
+<ul>
+<li>Down ~84% from its all-time high of $92</li>
+<li>Declining revenue, ongoing restructuring, D/E ratio of 1.80</li>
+<li>Options: poor liquidity, wide spreads, minimal open interest</li>
+<li>If assigned at any strike, the stock could continue falling well below your cost basis</li>
+</ul>
+<p><strong>The rule of thumb:</strong> When IV is extreme because the underlying is in structural distress, you’re not getting paid for volatility — you’re getting paid to take on credit risk. Skip this one entirely.</p>
+<hr />
+
+<h2 id="building-a-balanced-portfolio">Building a Balanced Portfolio</h2>
+<p>If you’re allocating across multiple names, here’s how I’d structure an options income portfolio from this list — diversified across sectors to reduce correlation:</p>
+<table>
+<thead>
+<tr>
+<th>Ticker</th>
+<th>Sector</th>
+<th>Role</th>
+<th>Target Ann. Yield</th>
+<th>Correlation to SPY</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>INTU</strong></td>
+<td>Fintech SaaS</td>
+<td>Core anchor — all strategies</td>
+<td>15–20%</td>
+<td>Low (beta 0.56)</td>
+</tr>
+<tr>
+<td><strong>UBER</strong></td>
+<td>Mobility</td>
+<td>High-IV premium harvesting</td>
+<td>20–30%</td>
+<td>Medium (beta 1.40)</td>
+</tr>
+<tr>
+<td><strong>CMCSA</strong></td>
+<td>Telecom/Media</td>
+<td>Defensive dividend + CC</td>
+<td>15–19%</td>
+<td>Low (beta 0.75)</td>
+</tr>
+<tr>
+<td><strong>ADBE</strong></td>
+<td>Creative SW</td>
+<td>Defined-risk spreads + PMCC</td>
+<td>15–22%</td>
+<td>Medium (beta 1.10)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Allocation rules:</strong>
+- Never exceed 25% of total options capital in any single name
+- UBER allocation should be ~50% of INTU allocation due to higher beta
+- ADBE and OKTA: defined-risk structures only, never naked puts</p>
+<hr />
+
+<h2 id="april-watchlist-quick-reference">April Watchlist — Quick Reference</h2>
+<p>For those who want the TL;DR:</p>
+<table>
+<thead>
+<tr>
+<th>Ticker</th>
+<th>Strategy</th>
+<th>Strike</th>
+<th>Expiry</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>INTU</strong></td>
+<td>Sell CSP</td>
+<td>$370 put</td>
+<td>May 16</td>
+<td>Best all-rounder, close before May 21 earnings</td>
+</tr>
+<tr>
+<td><strong>UBER</strong></td>
+<td>Sell CSP or Put spread</td>
+<td>$63 put</td>
+<td>May 16</td>
+<td>High IV, support near 52w low</td>
+</tr>
+<tr>
+<td><strong>ADBE</strong></td>
+<td>Put credit spread</td>
+<td>$220/$210</td>
+<td>May 16</td>
+<td>Defined risk only — near 52w low</td>
+</tr>
+<tr>
+<td><strong>CMCSA</strong></td>
+<td>Covered call</td>
+<td>$32 call</td>
+<td>May 16</td>
+<td>Stack on dividend yield</td>
+</tr>
+<tr>
+<td><strong>INTU</strong></td>
+<td>PMCC</td>
+<td>Jan 2027 $340 LEAPS</td>
+<td>Rolling monthly</td>
+<td>Capital-efficient long-delta position</td>
+</tr>
+</tbody>
+</table>
+<hr />
+
+<h2 id="key-risk-dates-this-month">Key Risk Dates This Month</h2>
+<p>Mark these in your calendar before opening any position:</p>
+<ul>
+<li><strong>April 23</strong> — CMCSA Q1 earnings: close all CMCSA options before this date</li>
+<li><strong>May 21</strong> — INTU earnings: close or roll all INTU positions before this date</li>
+<li><strong>Ongoing</strong> — Monitor UBER for AV/regulatory headlines (Waymo, EU driver classification)</li>
+</ul>
+<hr />
+
+<h2 id="final-thoughts">Final Thoughts</h2>
+<p>The selloff has done something useful: it’s pushed IV higher on names with strong underlying businesses. That’s the setup premium sellers live for. INTU and UBER are the clearest opportunities right now — liquid markets, elevated IV, and fundamentals that make assignment manageable.</p>
+<p>ADBE is compelling on paper but needs to be handled carefully given the proximity to its 52-week low. Use spreads, not naked exposure.</p>
+<p>And DXC? Extreme IV is tempting, but distress-driven volatility is a trap. Walk away.</p>
+<p>As always — size positions conservatively, confirm live chain data before entering, and have a plan for what you’ll do if you get assigned.</p>
+<hr />
+
+<p><em>All data referenced in this article is as of April 4–5, 2026. IV and IVR figures are estimates; always verify against your broker’s live options chain before trading. This article is for educational and informational purposes only and does not constitute financial advice. Options trading involves significant risk and is not suitable for all investors.</em></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="strategy" /><category term="covered-calls" /><category term="options-income" /><category term="cash-secured-puts" /><category term="wheel" /><category term="premium-selling" /><summary type="html"><![CDATA[I ran a quantitative analysis across seven tickers on my radar — INTU, UBER, ADBE, CMCSA, OKTA, QLYS, and DXC...]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">How to Generate Monthly Income with Covered Calls: A Practical Guide</title><link href="https://gammaledger.com/blog/how-to-generate-monthly-income-with-covered-calls/" rel="alternate" type="text/html" title="How to Generate Monthly Income with Covered Calls: A Practical Guide" /><published>2026-02-14T00:00:00+00:00</published><updated>2026-02-14T00:00:00+00:00</updated><id>https://gammaledger.com/blog/how-to-generate-monthly-income-with-covered-calls</id><content type="html" xml:base="https://gammaledger.com/blog/how-to-generate-monthly-income-with-covered-calls/"><![CDATA[<p><em>Whether you’re a long-term investor looking to squeeze more value from your portfolio or a beginner exploring options strategies, covered calls are one of the most accessible and reliable ways to generate consistent monthly income from stocks you already own.</em></p>
+<hr />
+
+<h2 id="what-is-a-covered-call">What Is a Covered Call?</h2>
+<p>A covered call is an options strategy where you sell someone else the <em>right</em> to buy your stock at a specific price (the <strong>strike price</strong>) by a certain date (the <strong>expiration date</strong>) — and in return, you receive cash upfront called a <strong>premium</strong>. The “covered” part simply means you already own the 100 shares the contract is based on, which makes this one of the lowest-risk options strategies available.</p>
+<p>Think of it like renting out a property you own: your stock is the house, the premium is the rent, and the buyer is your tenant. You keep collecting rent every month while still owning the asset.</p>
+<hr />
+
+<h2 id="why-this-strategy-works-for-monthly-income">Why This Strategy Works for Monthly Income</h2>
+<p>In steady or mildly rising markets, investors using covered calls can realistically generate <strong>1% to 5% per month</strong> in premium income alone. On a $10,000 position, that translates to <strong>$100–$500 per month</strong> — without selling a single share. Over time, these premiums also lower your <strong>cost basis</strong>, meaning you effectively paid less for your stock the longer you hold and sell calls against it.)</p>
+<p>There are two income streams working together when you combine covered calls with dividend stocks: the option premium <em>and</em> the dividend yield — a dual-income approach that makes the strategy particularly resilient during uncertain markets.</p>
+<hr />
+
+<h2 id="step-by-step-how-to-sell-a-covered-call">Step-by-Step: How to Sell a Covered Call</h2>
+<p>Here’s how the process works in practice:</p>
+<ol>
+<li><strong>Own at least 100 shares</strong> of a stock or ETF (one options contract = 100 shares)</li>
+<li><strong>Choose an expiration date</strong> — typically 2–4 weeks out for monthly income cycles</li>
+<li><strong>Select a strike price</strong> above the current market price (out-of-the-money) — this is the price you'd be willing to sell your shares at</li>
+<li><strong>Sell one call option contract</strong> on your brokerage platform and collect the premium immediately</li>
+<li><strong>Wait for expiration</strong>: if the stock stays below your strike, the option expires worthless and you keep the premium; if the stock rises above your strike, your shares may be called away at that price</li>
+<li><strong>Repeat monthly</strong> — the cycle renews every expiration, creating a recurring income stream</li>
+</ol>
+<hr />
+
+<h2 id="a-concrete-example">A Concrete Example</h2>
+<p>Let’s say you own 100 shares of <strong>Microsoft (MSFT)</strong> currently trading at $400. You sell a covered call with a strike price of $420, expiring in 30 days, and collect a <strong>$3.00 premium per share = $300 in cash</strong> instantly.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario at Expiration</th>
+<th>What Happens</th>
+<th>Your Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stock stays below $420</td>
+<td>Option expires worthless</td>
+<td>Keep $300 premium ✅</td>
+</tr>
+<tr>
+<td>Stock rises above $420</td>
+<td>Shares are called away at $420</td>
+<td>Keep $300 + $20/share gain ✅</td>
+</tr>
+<tr>
+<td>Stock drops to $380</td>
+<td>Option expires worthless</td>
+<td>Keep $300, partially offsetting loss ✅</td>
+</tr>
+</tbody>
+</table>
+<p>The only scenario where covered calls truly hurt you is a sharp stock rally far above your strike — you miss out on those extra gains.</p>
+<hr />
+
+<h2 id="choosing-the-right-stocks">Choosing the Right Stocks</h2>
+<p>Not every stock is ideal for this strategy. The best candidates share a few traits:</p>
+<ul>
+<li><strong>Stable, large-cap companies</strong> — Apple (AAPL), Microsoft (MSFT), Johnson &amp; Johnson (JNJ)</li>
+<li><strong>Moderate volatility</strong> — enough to generate meaningful premiums, but not so volatile your shares swing wildly</li>
+<li><strong>ETFs like SPY or QQQ</strong> — broad-market ETFs offer consistent, liquid options markets with predictable behavior</li>
+<li><strong>Dividend-paying stocks</strong> — combining dividends with call premiums maximizes your total yield</li>
+<li><strong>Stocks you're comfortable holding long-term</strong></li>
+</ul>
+<p>Avoid highly speculative or meme stocks — premiums may look juicy, but the risk of large adverse moves is too high for a consistent income strategy.</p>
+<hr />
+
+<h2 id="managing-risk-like-a-pro">Managing Risk Like a Pro</h2>
+<p>Covered calls are beginner-friendly, but they’re not risk-free. Here are the key risk management practices:
+- <strong>Set a profit target</strong>: Many experienced traders close the position early when 50–60% of the max premium is captured, reducing time in the trade
+- <strong>Roll your position</strong>: If the stock rises toward your strike before expiration, you can “roll up and out” — buying back the short call and selling a new one at a higher strike or later date — to avoid assignment and collect additional credit
+- <strong>Avoid selling calls on stocks you want to keep at all costs</strong> — assignment is always a possibility, so only pick strike prices you’re genuinely fine selling at
+- <strong>Compound your income</strong>: Reinvesting premiums to buy more shares and sell more calls accelerates portfolio growth over time</p>
+<hr />
+
+<h2 id="is-this-strategy-right-for-you">Is This Strategy Right for You?</h2>
+<p>Covered calls shine in <strong>sideways to moderately bullish markets</strong> — exactly the kind of environment where buy-and-hold investors feel frustrated by flat performance. If you already hold a diversified portfolio of quality stocks and ETFs, you have everything you need to start generating monthly cash flow today without taking on additional capital risk.</p>
+<p>The strategy has one real trade-off: you <strong>cap your upside</strong> in exchange for <strong>guaranteed income now</strong>. For income-focused investors — particularly those building toward retirement or seeking cash flow to reinvest — that’s a trade-off well worth making.</p>
+<hr />
+
+<h2 id="quick-start-checklist">Quick-Start Checklist</h2>
+<ul>
+<li>[ ] Own 100+ shares of a stable stock or ETF</li>
+<li>[ ] Open options trading on your brokerage (Level 1 approval is sufficient for covered calls)</li>
+<li>[ ] Identify a strike price 5–10% above current price for a 30-day expiration</li>
+<li>[ ] Sell one covered call and note your premium collected</li>
+<li>[ ] Set a calendar reminder to manage or close the position before expiration</li>
+<li>[ ] Reinvest premiums monthly to compound returns</li>
+</ul>
+<hr />
+
+<p>Covered calls are often called the “gateway drug” to options trading — and for good reason. They’re intuitive, relatively safe when done on quality holdings, and create a real, repeatable paycheck from your portfolio every single month. Start small, stay consistent, and let time decay work in your favor.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="strategy" /><category term="covered-calls" /><summary type="html"><![CDATA[Step-by-step guide to generating consistent monthly income using covered calls, including strategy setup, trade management, and real examples.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Cash-Secured Puts Beginner Strategy: Get Paid to Buy Stocks at a Discount</title><link href="https://gammaledger.com/blog/cash-secured-puts-beginner-strategy/" rel="alternate" type="text/html" title="Cash-Secured Puts Beginner Strategy: Get Paid to Buy Stocks at a Discount" /><published>2026-01-23T00:00:00+00:00</published><updated>2026-01-23T00:00:00+00:00</updated><id>https://gammaledger.com/blog/cash-secured-puts-beginner-strategy</id><content type="html" xml:base="https://gammaledger.com/blog/cash-secured-puts-beginner-strategy/"><![CDATA[<p><em>What if you could earn income from a stock you don’t even own yet — and only buy it if the price drops to exactly what you wanted to pay? That’s the elegant logic behind the cash-secured put strategy, and it’s one of the most beginner-friendly ways to enter the world of options trading.</em></p>
+<hr />
+
+<h2 id="what-is-a-cash-secured-put">What Is a Cash-Secured Put?</h2>
+<p>A cash-secured put (CSP) is an options strategy where you sell a put option on a stock you’d <em>like</em> to own — and set aside enough cash in your account to buy those shares if needed. In return for taking on this obligation, you collect an <strong>upfront premium</strong> immediately, regardless of what happens next.</p>
+<p>The “cash-secured” part is what makes this strategy safe and well-defined: you’ve already reserved the money to buy the shares, so there are no surprises and no leverage risk. Your maximum risk is known from the moment you enter the trade.</p>
+<hr />
+
+<h2 id="how-it-works-the-core-mechanics">How It Works: The Core Mechanics</h2>
+<p>Think of it like placing a <strong>standing buy order on your favorite stock — and getting paid while you wait</strong>. Here’s the simple flow:</p>
+<ol>
+<li><strong>Pick a stock you genuinely want to own</strong> at a lower price than it currently trades</li>
+<li><strong>Sell a put option</strong> at your desired strike price (typically out-of-the-money, below current market price)</li>
+<li><strong>Set aside cash</strong> equal to 100 shares × strike price — this is your secured collateral</li>
+<li><strong>Collect the premium</strong> instantly — it's yours to keep no matter what happens</li>
+<li><strong>Wait for expiration</strong> and handle one of two clean outcomes</li>
+</ol>
+<hr />
+
+<h2 id="the-two-outcomes-both-can-work-in-your-favor">The Two Outcomes — Both Can Work in Your Favor</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>What Happens</th>
+<th>Your Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stock stays <strong>above</strong> strike price</td>
+<td>Put expires worthless</td>
+<td>Keep full premium, repeat the strategy ✅</td>
+</tr>
+<tr>
+<td>Stock drops <strong>below</strong> strike price</td>
+<td>You're assigned — must buy 100 shares at strike</td>
+<td>You buy the stock at a discount (strike − premium) ✅</td>
+</tr>
+</tbody>
+</table>
+<p>Either way, you keep the premium. The only painful scenario is a steep, sudden crash well below your strike — you’d be buying shares above market price at that moment, though your effective cost basis is still reduced by the premium received.</p>
+<hr />
+
+<h2 id="a-real-world-example">A Real-World Example</h2>
+<p>Say stock <strong>XYZ</strong> is trading at $100 and you’d love to own it at $90. You sell a cash-secured put with a <strong>$90 strike price</strong>, expiring in 30 days, and collect a <strong>$5 premium per share ($500 total)</strong>.</p>
+<ul>
+<li>You set aside <strong>$9,000</strong> in your brokerage account to cover potential assignment</li>
+<li>If XYZ stays above $90 at expiration: <strong>you keep $500, done</strong> — and you can sell another put next month</li>
+<li>If XYZ drops to $80 and you're assigned: you buy 100 shares at $90, but your <strong>real cost basis is $85/share</strong> (after the $5 premium)</li>
+<li>If XYZ drops to $0: your maximum loss is $8,500 (the $9,000 committed minus the $500 premium) — the same as if you had just bought the stock outright at $90</li>
+</ul>
+<hr />
+
+<h2 id="who-is-this-strategy-for">Who Is This Strategy For?</h2>
+<p>Cash-secured puts are ideal for <strong>bullish, patient investors</strong> who believe in a stock’s long-term value but think the current price is slightly too high. The Options Industry Council describes the typical CSP trader as “price-sensitive” — someone who wants to acquire quality stocks at a better entry price while earning income in the meantime.</p>
+<p>This strategy suits you if you:
+- Already hold cash in a brokerage account doing nothing
+- Have a watchlist of stocks you’d buy anyway on a dip
+- Want a defined-risk, beginner-accessible options strategy
+- Are comfortable owning the underlying stock long-term</p>
+<hr />
+
+<h2 id="choosing-the-right-stock-strike">Choosing the Right Stock &amp; Strike</h2>
+<p>Not every stock deserves your secured cash. Focus on these criteria:</p>
+<ul>
+<li><strong>Stocks you genuinely want to own</strong> — because assignment is always possible</li>
+<li><strong>Large-cap, fundamentally strong companies</strong> — Apple, Microsoft, Nvidia, S&amp;P 500 ETFs (SPY/QQQ)</li>
+<li><strong>Strike price 5–10% below current market price</strong> — far enough out-of-the-money to have a high probability of expiring worthless, yet close enough to generate a meaningful premium</li>
+<li><strong>30–45 day expiration</strong> — the sweet spot where time decay (theta) works fastest in your favor</li>
+<li><strong>Avoid highly volatile or speculative stocks</strong> — premiums look tempting, but the risk of catastrophic drops is too high for a conservative income strategy</li>
+</ul>
+<hr />
+
+<h2 id="managing-your-position-like-a-pro">Managing Your Position Like a Pro</h2>
+<p>Once you’re in the trade, you have three main management options:</p>
+<ul>
+<li><strong>Let it expire worthless</strong>: The simplest outcome — keep the premium, sell another put next cycle</li>
+<li><strong>Close early for profit</strong>: If the premium decays to 50% of its original value before expiration, consider buying it back and freeing your capital for the next trade</li>
+<li><strong>Roll the put</strong>: If the stock falls toward your strike faster than expected, you can buy back the put and sell a new one at a lower strike or later expiration to collect additional credit and avoid assignment</li>
+</ul>
+<hr />
+
+<h2 id="csp-vs-covered-call-the-perfect-pair">CSP vs. Covered Call: The Perfect Pair</h2>
+<p>Cash-secured puts and covered calls are actually two halves of the same income-generating system — known as <strong>The Wheel Strategy</strong>. You sell CSPs until assigned, then immediately sell covered calls on the shares you just acquired. This cycle creates a continuous income loop:</p>
+<blockquote>
+  <p><strong>Sell CSP → Get assigned → Sell covered calls → Shares get called away → Sell CSP again</strong></p>
+</blockquote>
+<p>Each leg generates premium income, and each rotation potentially improves your average cost basis.</p>
+<hr />
+
+<h2 id="key-risks-to-understand">Key Risks to Understand</h2>
+<p>Cash-secured puts carry real risks that beginners must respect:</p>
+<ul>
+<li><strong>Deep stock decline</strong>: You're obligated to buy at strike price even if the stock crashes far below it — always ask yourself "am I comfortable owning this stock at this price forever?"</li>
+<li><strong>Opportunity cost</strong>: Your cash is locked up as collateral for the duration of the trade — you can't deploy it elsewhere</li>
+<li><strong>Missing a big rally</strong>: If the stock rockets upward, you only collect the premium and miss the upside gain</li>
+<li><strong>Assignment timing</strong>: You can be assigned early (before expiration) on American-style options, though it's rare for out-of-the-money puts</li>
+</ul>
+<hr />
+
+<h2 id="quick-start-checklist">Quick-Start Checklist</h2>
+<ul>
+<li>[ ] Get options trading approval at your broker (Level 1 "cash-secured puts" access)</li>
+<li>[ ] Identify a stock you'd genuinely like to own at a lower price</li>
+<li>[ ] Check that you have at least 100 × strike price in available cash</li>
+<li>[ ] Sell one out-of-the-money put with 30–45 days to expiration</li>
+<li>[ ] Record your premium received and effective cost basis if assigned</li>
+<li>[ ] Set a reminder to manage or close 10–14 days before expiration</li>
+<li>[ ] Reinvest premiums or roll into the next cycle</li>
+</ul>
+<hr />
+
+<p>The cash-secured put strategy is often the first options trade a new investor should learn — and for good reason. It’s logical, the math is transparent, and it aligns perfectly with a long-term investor’s mindset: you only buy stocks you already wanted, at prices you’ve already decided are fair, and you get paid extra for your patience.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="strategy" /><category term="csp" /><category term="income" /><category term="beginner" /><category term="wheel" /><summary type="html"><![CDATA[What if you could earn income from a stock you don't even own yet — and only buy it if the price drops to exactly what you wanted to pay?]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Understanding the Wheel Strategy</title><link href="https://gammaledger.com/blog/understanding-wheel-strategy/" rel="alternate" type="text/html" title="Understanding the Wheel Strategy" /><published>2026-01-14T00:00:00+00:00</published><updated>2026-01-14T00:00:00+00:00</updated><id>https://gammaledger.com/blog/understanding-wheel-strategy</id><content type="html" xml:base="https://gammaledger.com/blog/understanding-wheel-strategy/"><![CDATA[<p>The Wheel Strategy is one of the most popular income-generating options strategies for retail traders. This guide explains how it works and how to track it effectively using GammaLedger.</p>
+<h2 id="what-is-the-wheel-strategy">What is the Wheel Strategy?</h2>
+<p>The Wheel Strategy is a systematic approach to selling options that generates premium income while potentially acquiring stock at a discount. It consists of three phases:</p>
+<ol>
+<li><strong>Sell Cash-Secured Puts</strong> (CSP)</li>
+<li><strong>Get Assigned Stock</strong> (if put expires ITM)</li>
+<li><strong>Sell Covered Calls</strong> (CC) on the assigned stock</li>
+</ol>
+<p>The strategy “wheels” between these phases, hence the name.</p>
+<h2 id="phase-1-cash-secured-puts">Phase 1: Cash-Secured Puts</h2>
+<h3 id="the-setup">The Setup</h3>
+<p>You sell a put option on a stock you wouldn’t mind owning, with strike price at or below your target entry price.</p>
+<p><strong>Example:</strong>
+- Stock XYZ trading at $50
+- Sell 1 PUT at $45 strike, 30 DTE
+- Collect $1.00 premium ($100 total)</p>
+<h3 id="requirements">Requirements</h3>
+<ul>
+<li><strong>Cash Reserve</strong>: $4,500 (strike × 100 shares)</li>
+<li><strong>Collateral</strong>: Held in your account as margin</li>
+</ul>
+<h3 id="outcomes">Outcomes</h3>
+<ul>
+<li><strong>Put expires OTM</strong>: Keep premium, repeat</li>
+<li><strong>Put expires ITM</strong>: Get assigned 100 shares at $45</li>
+</ul>
+<h2 id="phase-2-assignment">Phase 2: Assignment</h2>
+<p>If your put expires in-the-money, you’re assigned 100 shares at the strike price.</p>
+<p><strong>Continuing the example:</strong>
+- Stock drops to $44
+- Assigned 100 shares at $45 = $4,500 cost
+- Effective cost basis: $45 - $1.00 = $44/share
+- <strong>Unrealized Loss</strong>: $100 (stock worth $4,400)</p>
+<p>But you’ve collected $100 in premium, so break-even at current price!</p>
+<h2 id="phase-3-covered-calls">Phase 3: Covered Calls</h2>
+<p>Now that you own the stock, sell covered calls to generate additional income.</p>
+<p><strong>Example:</strong>
+- Own 100 shares at $45 cost basis
+- Stock currently at $44
+- Sell 1 CALL at $47 strike, 30 DTE
+- Collect $0.75 premium ($75 total)</p>
+<h3 id="outcomes_1">Outcomes</h3>
+<ul>
+<li><strong>Call expires OTM</strong>: Keep premium and stock, sell another call</li>
+<li><strong>Call expires ITM</strong>: Shares called away at $47</li>
+</ul>
+<h2 id="completing-the-wheel">Completing the Wheel</h2>
+<p>If your shares get called away:</p>
+<p><strong>Total P&amp;L:</strong>
+- Initial PUT premium: +$100
+- CALL premium: +$75
+- Stock appreciation: $47 - $45 = +$200
+- <strong>Total Profit</strong>: $375 on $4,500 capital = <strong>8.3% return</strong></p>
+<p>Then you start over with Phase 1!</p>
+<h2 id="tracking-with-gammaledger">Tracking with GammaLedger</h2>
+<h3 id="wheelpmcc-tracker-view">Wheel/PMCC Tracker View</h3>
+<p>GammaLedger automatically identifies Wheel positions and provides:</p>
+<ul>
+<li><strong>Entry Date</strong>: When you first sold the put</li>
+<li><strong>Ticker</strong>: Stock symbol</li>
+<li><strong>Shares</strong>: Current position (100 per contract)</li>
+<li><strong>Cost Basis</strong>: Effective entry price (strike - premiums)</li>
+<li><strong>Market Value</strong>: Current value of shares</li>
+<li><strong>Unrealized G/L</strong>: Current profit/loss on position</li>
+<li><strong>DTE</strong>: Days to expiration for active covered call</li>
+<li><strong>Strike</strong>: Current covered call strike price</li>
+</ul>
+<h3 id="active-positions-integration">Active Positions Integration</h3>
+<p>Assigned Wheel positions with open covered calls appear in the <strong>Active Positions</strong> table, showing:
+- Current DTE
+- Strike price of the covered call
+- Status (assigned with call written)</p>
+<h2 id="advanced-wheel-strategies">Advanced Wheel Strategies</h2>
+<h3 id="rolling-puts">Rolling Puts</h3>
+<p>If a put is going ITM but you want to avoid assignment:</p>
+<ol>
+<li>Buy to close (BTC) the current put</li>
+<li>Sell to open (STO) a new put at lower strike or further DTE</li>
+<li>Collect net credit on the roll</li>
+</ol>
+<p><strong>GammaLedger tracks rolls automatically</strong> and shows:
+- Net premium collected
+- Current strike and expiration
+- Total premium earned on position</p>
+<h3 id="rolling-covered-calls">Rolling Covered Calls</h3>
+<p>If stock price rises and your covered call is ITM but you want to keep shares:</p>
+<ol>
+<li>BTC the current call</li>
+<li>STO a new call at higher strike or further DTE</li>
+<li>Collect net credit (or pay small debit)</li>
+</ol>
+<p><strong>Example in GammaLedger:</strong>
+- Original CALL: 45 strike, collected $1.00
+- Stock rises to $46
+- Roll to 47 strike: pay $1.50 to close, collect $2.00 to open
+- Net credit on roll: $0.50
+- <strong>Total premium</strong>: $1.50 across both legs</p>
+<h2 id="risk-management">Risk Management</h2>
+<h3 id="key-metrics-to-monitor">Key Metrics to Monitor</h3>
+<ol>
+<li><strong>Cost Basis</strong>: Track your effective entry price</li>
+<li><strong>Unrealized Loss</strong>: How far underwater on stock</li>
+<li><strong>Total Premium Collected</strong>: Income cushion</li>
+<li><strong>DTE Management</strong>: Don't let calls expire worthless too often</li>
+</ol>
+<h3 id="when-to-exit">When to Exit</h3>
+<p>Consider closing a Wheel position if:</p>
+<ul>
+<li>Stock fundamentals deteriorate</li>
+<li>Unrealized loss exceeds total premiums by 20%+</li>
+<li>Better opportunities elsewhere</li>
+<li>Position size too large relative to portfolio</li>
+</ul>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="stock-selection">Stock Selection</h3>
+<p>Choose stocks that:
+- ✅ You’d be comfortable owning long-term
+- ✅ Have liquid options (tight bid-ask spreads)
+- ✅ Show stable price action (not extreme volatility)
+- ✅ Have fundamental support (not meme stocks)</p>
+<h3 id="strike-selection">Strike Selection</h3>
+<p><strong>For Puts:</strong>
+- Target 0.30 - 0.40 delta (30-40% probability of assignment)
+- At or below key support levels
+- Calculate yield: premium ÷ (strike × 100)</p>
+<p><strong>For Calls:</strong>
+- Target 0.30 - 0.40 delta for covered calls
+- Above your cost basis to ensure profit
+- Balance premium vs. likelihood of assignment</p>
+<h3 id="position-sizing">Position Sizing</h3>
+<ul>
+<li>Limit individual positions to 5-10% of portfolio</li>
+<li>Ensure sufficient cash reserve for assignments</li>
+<li>Diversify across sectors</li>
+</ul>
+<h2 id="example-wheel-cycle-in-gammaledger">Example Wheel Cycle in GammaLedger</h2>
+<p>Here’s how a complete Wheel cycle appears in GammaLedger:</p>
+<pre><code>Trade ID: AAPL-WHEEL-001
+Strategy: Wheel
+Status: Closed
+
+Legs:
+1. 2025-09-15: STO 1 PUT AAPL 170 Oct 20, 2025 @ 3.50 [+$350]
+2. 2025-10-20: ASSIGNED 100 AAPL @ $170 [-$17,000]
+3. 2025-10-21: STO 1 CALL AAPL 175 Nov 17, 2025 @ 2.25 [+$225]
+4. 2025-11-17: CALLED AWAY 100 AAPL @ $175 [+$17,500]
+
+Summary:
+Entry: $170 PUT premium
+Exit: $175 CALL assignment
+Premium Collected: $575
+Stock Gain: $500
+Total Profit: $1,075
+Return: 6.3%
+Duration: 63 days
+Annualized: 36.5%
+</code></pre>
+<h2 id="common-mistakes-to-avoid">Common Mistakes to Avoid</h2>
+<ol>
+<li><strong>Selling puts on stocks you don't want to own</strong></li>
+<li>
+<p>Solution: Only wheel quality stocks</p>
+</li>
+<li>
+<p><strong>Selling calls below cost basis</strong></p>
+</li>
+<li>
+<p>Solution: Wait for stock recovery or roll down carefully</p>
+</li>
+<li>
+<p><strong>Ignoring unrealized losses</strong></p>
+</li>
+<li>
+<p>Solution: Use GammaLedger's Unrealized G/L tracking</p>
+</li>
+<li>
+<p><strong>Over-concentrating in one position</strong></p>
+</li>
+<li>
+<p>Solution: Diversify across multiple Wheel positions</p>
+</li>
+<li>
+<p><strong>Not rolling when appropriate</strong></p>
+</li>
+<li>Solution: Monitor DTE and be proactive</li>
+</ol>
+<h2 id="conclusion">Conclusion</h2>
+<p>The Wheel Strategy combines:
+- Consistent premium income
+- Potential stock ownership at discount
+- Defined risk (cash-secured)
+- Flexibility through rolling</p>
+<p>GammaLedger makes tracking Wheel positions effortless with:
+- Automatic strategy detection
+- Real-time P&amp;L calculations
+- Visual tracking of phases
+- Performance analytics</p>
+<p>Ready to start tracking your Wheel trades? <a href="https://gammaledger.com/app/">Launch GammaLedger</a> and import your positions today!</p>
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li><a href="https://gammaledger.com/blog/getting-started-with-gammaledger/">Getting Started with GammaLedger</a></li>
+<li><a href="https://gammaledger.com/blog/understanding-wheel-strategy/#">PMCC Strategy Guide</a> <em>(coming soon)</em></li>
+<li><a href="https://gammaledger.com/blog/understanding-wheel-strategy/#">Options Greeks Explained</a> <em>(coming soon)</em></li>
+</ul>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="strategy" /><category term="wheel" /><category term="guide" /><summary type="html"><![CDATA[A comprehensive guide to implementing and tracking the Wheel strategy using GammaLedger.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Options Greeks: Rho</title><link href="https://gammaledger.com/blog/options-greeks-rho/" rel="alternate" type="text/html" title="Options Greeks: Rho" /><published>2026-01-10T00:00:00+00:00</published><updated>2026-01-10T00:00:00+00:00</updated><id>https://gammaledger.com/blog/options-greeks-rho</id><content type="html" xml:base="https://gammaledger.com/blog/options-greeks-rho/"><![CDATA[<p>Rho measures the sensitivity of an option’s price to changes in interest rates. It is defined as the increase in the price of an option or options portfolio resulting from a 1% increase in interest rates.</p>
+<h2 id="relevance-of-rho">Relevance of Rho</h2>
+<p>Rho is often overlooked by options traders because interest rates are unlikely to change significantly during the lifespan of most options spreads. Therefore, changes in interest rates are usually ignored.</p>
+<p>However, there are situations where Rho deserves more attention. Long-term options, such as LEAPS (Long-Term Equity Anticipation Securities), are more sensitive to changes in interest rates and thus have a higher Rho.</p>
+<p>For example, at the time of writing, an at-the-money AAPL call option with 32 days until expiration has a Rho of 0.3. This means a 1% interest rate increase would result in a small 0.3% increase in the option’s price. In contrast, a LEAP with 578 days until expiration has a Rho of 2.2. Therefore, any LEAP strategy, such as <a href="https://gammaledger.com/blog/poor-mans-covered-call-guide/">LEAP Covered Calls (Poor Man’s Covered Call)</a>, would be more significantly affected by changes in interest rates.</p>
+<p>Rho should also be considered when interest rates are expected to change. For instance, at the time of writing, there is a strong possibility that the Federal Reserve will end its quantitative easing (QE) program, which could lead to an increase in interest rates. Consequently, all things being equal, we might see an increase in options prices over the next few months or years.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>In summary, Rho can be an important factor in specific circumstances, such as when interest rates are expected to change or when dealing with long-term options. However, in general, Rho is less critical compared to other Greeks like <a href="https://gammaledger.com/blog/options-greeks-delta/">Delta</a>, <a href="https://gammaledger.com/blog/options-greeks-gamma/">Gamma</a>, <a href="https://gammaledger.com/blog/options-greeks-theta/">Theta</a>, and <a href="https://gammaledger.com/blog/options-greeks-vega/">Vega</a>.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="greeks" /><category term="rho" /><category term="interest-rates" /><category term="guide" /><summary type="html"><![CDATA[Understanding rho in options trading: how it measures sensitivity to interest rate changes and when it matters.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/rho.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/rho.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Options Greeks: Vega</title><link href="https://gammaledger.com/blog/options-greeks-vega/" rel="alternate" type="text/html" title="Options Greeks: Vega" /><published>2026-01-06T00:00:00+00:00</published><updated>2026-01-06T00:00:00+00:00</updated><id>https://gammaledger.com/blog/options-greeks-vega</id><content type="html" xml:base="https://gammaledger.com/blog/options-greeks-vega/"><![CDATA[<p>Vega measures an option’s sensitivity to changes in implied volatility (IV). Implied volatility is the market’s estimate of future volatility, measured by standard deviation, and it is a crucial input in standard options pricing models. Any change in implied volatility will affect the price of options.</p>
+<h2 id="how-does-vega-affect-the-price">How Does Vega Affect the Price?</h2>
+<p>Generally, the value of bought options, whether calls or puts, increases as IV rises. This makes sense because an option seller would demand higher compensation for the increased future risk, as priced by the market, of the option moving in the money.</p>
+<p>Stocks expected to be more volatile, and thus having higher IVs, will have higher option prices, all else being equal. Conversely, short options decrease in value as IV increases for the same reasons but in the opposite direction.</p>
+<p>Things become more interesting when options are combined in a spread. Some combinations, like a <a href="https://gammaledger.com/blog/advanced-options-spreads/">Calendar Spread</a>, increase in value as IV rises. Others, such as the <a href="https://gammaledger.com/blog/advanced-options-spreads/">Iron Condor</a>, decrease in value.</p>
+<h2 id="uses-of-vega">Uses of Vega</h2>
+<p>Many options strategies depend on predicting the direction of volatility movements. For example, if we anticipate a market correction, we would be interested not only in the impact of stock price declines on our options positions but also in the effect of the associated increase in IV. Some trades rely solely on Vega, known as volatility trades. For more on how volatility interacts with <a href="https://gammaledger.com/blog/time-decay-volatility-pricing/">time decay (theta)</a>, see our comprehensive guide.</p>
+<p>Implied volatility tends to be mean-reverting, meaning any short-term deviation could lead to a correcting change in the near future. For instance, many traders look for the difference between historical volatility (current market volatility) and implied volatility (future volatility prediction). There is evidence suggesting that if these two indicators diverge, they will soon converge. This can be traded if you understand the volatility effect of IV on an options trade, which is essentially Vega.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="greeks" /><category term="vega" /><category term="volatility" /><category term="guide" /><summary type="html"><![CDATA[Exploring vega in options trading: how it measures sensitivity to implied volatility changes and its role in strategies.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/vega.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/vega.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Options Greeks: Gamma</title><link href="https://gammaledger.com/blog/options-greeks-gamma/" rel="alternate" type="text/html" title="Options Greeks: Gamma" /><published>2025-12-29T00:00:00+00:00</published><updated>2025-12-29T00:00:00+00:00</updated><id>https://gammaledger.com/blog/options-greeks-gamma</id><content type="html" xml:base="https://gammaledger.com/blog/options-greeks-gamma/"><![CDATA[<p>The Greeks are essential metrics used by options traders to evaluate the impact of changes in various factors on an option’s price. One of these metrics is delta, which measures the sensitivity of an option’s price to changes in the price of the underlying security.</p>
+<p>However, the relationship between delta and the underlying stock price is not linear. For instance, if a stock price rises, call options become more sensitive to further price movements. This effect is known as gamma, which measures the change in delta or the sensitivity to stock price movements.</p>
+<p>Positive gamma means that as a stock price rises, the option’s price becomes more sensitive to further changes. Conversely, negative gamma means that as the stock price rises, the option’s price becomes less sensitive.</p>
+<h2 id="why-should-we-be-concerned-about-gamma">Why Should We Be Concerned About Gamma?</h2>
+<p>Gamma is a significant risk factor for many options strategies. It tends to increase as an option approaches its expiration date. In the final week of an option’s life, small changes in the stock price can cause large and accelerating swings in the option’s price.</p>
+<p>This is problematic because many popular strategies, such as the <a href="https://gammaledger.com/blog/advanced-options-spreads/">iron condor</a> or calendar spread, rely on <a href="https://gammaledger.com/blog/options-greeks-theta/">time decay</a> to generate profits. Traders must balance the potential profits from time decay against the increasing risk of stock movements wiping out those profits.</p>
+<p>For this reason, experienced options traders rarely hold a position until expiration. We take a risk-averse approach, typically exiting time decay-exploiting trades at least two weeks before expiration to avoid gamma risk. For example, in our trade rules for a calendar spread, the last ‘Trade Management – Exit’ rule specifies exiting the trade within two weeks of expiration to mitigate gamma risk.</p>
+<p>Trading positions with high gamma, such as those in the expiration week, is colloquially known as ‘riding the gamma bull’ and is not for the faint-hearted.</p>
+<h2 id="uses-of-gamma">Uses of Gamma</h2>
+<p>While gamma is often seen as a risk, it can be advantageous in certain strategies that do not rely on time decay. Some trades exploit the accelerating price sensitivity from gamma to profit from expected stock price movements.</p>
+<p>One example is the simultaneous purchase of an at-the-money put and call, known as a straddle. Suppose a stock is trading at $650, and we expect significant movement due to a product launch. We might buy a $650 call and a $650 put. This straddle has strong gamma, meaning stock movements will not only increase the spread’s price but also amplify these price changes as the stock moves further in either direction.</p>
+<p>The primary risk here is time decay. If the stock does not move, the spread will gradually lose value. The trader must be confident that the stock will move quickly to make the trade profitable.</p>
+<h2 id="gamma-scalping">Gamma Scalping</h2>
+<p>An advanced use of gamma is ‘gamma scalping,’ a complex strategy that takes advantage of the boost in option price changes from excessive stock movement while managing delta risk. This strategy is typically used by experienced traders and may be covered in a later advanced post. For now, most traders should focus on understanding the basics of gamma.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="greeks" /><category term="gamma" /><category term="risk" /><category term="guide" /><summary type="html"><![CDATA[Understanding gamma in options trading: how it measures delta's change and its implications for risk and strategy.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gamma.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gamma.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Options Greeks: Theta</title><link href="https://gammaledger.com/blog/options-greeks-theta/" rel="alternate" type="text/html" title="Options Greeks: Theta" /><published>2025-12-25T00:00:00+00:00</published><updated>2025-12-25T00:00:00+00:00</updated><id>https://gammaledger.com/blog/options-greeks-theta</id><content type="html" xml:base="https://gammaledger.com/blog/options-greeks-theta/"><![CDATA[<h2 id="what-is-theta">What Is Theta?</h2>
+<p>Theta measures the time decay of an option or option spread. As we’ve seen in other parts of the course, options are decaying assets: they lose value over time. All things being equal, an option with a longer time until expiration is worth more. For example, an option with 60 days until expiration will be worth more than one with only 30 days left.</p>
+<p>Theta, expressed as a negative value, represents the expected daily drop in an option’s value, assuming no other factors change. For instance, at the time of writing, you can buy an at-the-money (ATM) June 13 445 AAPL call with 23 days until expiration for about $12. It has a Theta of -0.24, meaning it will lose $0.24 in the next 24 hours if nothing else changes, such as the share price or volatility.</p>
+<h2 id="uses-of-theta">Uses of Theta</h2>
+<p>Theta is fundamental to many standard options trading strategies, particularly those involving selling options. Strategies where there are more sales than purchases have positive theta, meaning they increase in value over time.</p>
+<p>For example, if you sell the above AAPL call options for $12 and nothing changes, you could buy them back the next day for $11.76, making a $0.24 profit. This simplistic example illustrates how theta can be used to profit. Consider a vertical spread: if you believe Apple’s stock won’t rise in the next 23 days, you could sell a 450 call and buy a 480 call, receiving a net credit of $4.70. The 450 call has a theta of -0.24, and the 480 call has a theta of -0.14, resulting in a net theta of -0.10. This strategy reduces the risk of a significant share price increase while still generating $0.10 per day, all things being equal.</p>
+<h2 id="effect-of-time-on-theta">Effect of Time on Theta</h2>
+<p>Theta measures the impact of time on options pricing, but it also changes over time. Generally, theta increases as the option approaches expiration, meaning time decay accelerates closer to the expiration date.</p>
+<p>Looking at the sold AAPL 445 call, it will lose $0.24 between day 23 and day 22. If theta were constant, the option would only lose 23 x $0.24 = $5.52 of its value by expiration. However, the option is worth $12, which must all be lost by day 23. Therefore, theta must increase at some point to account for this. The graph below illustrates this acceleration:</p>
+<p><img alt="Options Time Decay" src="./Options Greeks_ Theta - GammaLedger Blog_files/graph.png" />  <!-- Placeholder for the graph --></p>
+<p>Notice how the option’s time value accelerates near the end of its life, reflecting the increase in theta.</p>
+<h2 id="gamma-and-theta">Gamma and Theta</h2>
+<p>You might wonder why not wait until the last few days to sell options, given the accelerating time decay. Unfortunately, it’s not that simple. While theta increases, so does <a href="https://gammaledger.com/blog/options-greeks-gamma/">gamma</a>, which is the acceleration of the effect of stock price changes on the option price. Increasing time decay is matched by increasing sensitivity to price changes, meaning any time decay benefits could be wiped out by adverse stock price movements.</p>
+<p>This interplay between theta and gamma is a good example of how the Greeks interact. Strategies that exploit theta must contend with gamma, and vice versa.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="greeks" /><category term="theta" /><category term="time-decay" /><category term="guide" /><summary type="html"><![CDATA[Exploring theta in options trading: understanding time decay, its uses in strategies, and its interaction with gamma.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/theta.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/theta.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Options Greeks: Delta</title><link href="https://gammaledger.com/blog/options-greeks-delta/" rel="alternate" type="text/html" title="Options Greeks: Delta" /><published>2025-12-21T00:00:00+00:00</published><updated>2025-12-21T00:00:00+00:00</updated><id>https://gammaledger.com/blog/options-greeks-delta</id><content type="html" xml:base="https://gammaledger.com/blog/options-greeks-delta/"><![CDATA[<h2 id="what-is-delta">What Is Delta?</h2>
+<p>Delta is a measure of how sensitive an option’s price is to changes in the price of the underlying asset. It is one of the most crucial metrics in options trading, as it indicates how much the option’s price will move in response to a change in the underlying stock price.<br />
+(Like other options Greeks, delta is analyzed under the assumption that all other parameters of the option remain constant.)</p>
+<p>For instance, if an option has a delta of 1.5, it means that for every 1 cent movement in the underlying stock price, the option’s price will move by 1.5 cents.</p>
+<p>Therefore, an option with a high delta will experience more significant price changes, either increasing or decreasing in value, depending on the direction of the underlying stock price movement. Conversely, an option with a low delta will be less responsive to changes in the underlying stock price.</p>
+<h2 id="how-is-delta-used">How Is Delta Used?</h2>
+<p>The information provided by delta is invaluable, especially since investors rarely hold options until their expiration. Knowing the potential profit or loss from a price movement helps investors decide whether to hold or sell the option.</p>
+<h2 id="complication">Complication</h2>
+<p>However, there is a complexity with delta: it changes as the underlying asset’s price moves. For example, an option with a delta of 1.5 might move 1.5 cents for every 1 cent change in the underlying asset’s price, but the delta could then shift to 1.6.</p>
+<p>This means any further increase in the stock price will result in an even larger increase in the option’s price. This phenomenon is an example of positive <a href="https://gammaledger.com/blog/options-greeks-gamma/">gamma</a>, which will be explained in our next lesson, and can be thought of as the price “accelerating” higher.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="greeks" /><category term="delta" /><category term="guide" /><summary type="html"><![CDATA[Understanding delta in options trading: how it measures sensitivity to underlying price changes and its role in decision-making.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/delta.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/delta.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Options Trading Strategies For Small Accounts</title><link href="https://gammaledger.com/blog/options-trading-strategies-for-small-accounts/" rel="alternate" type="text/html" title="Options Trading Strategies For Small Accounts" /><published>2025-12-17T00:00:00+00:00</published><updated>2025-12-17T00:00:00+00:00</updated><id>https://gammaledger.com/blog/options-trading-strategies-for-small-accounts</id><content type="html" xml:base="https://gammaledger.com/blog/options-trading-strategies-for-small-accounts/"><![CDATA[<p>Options trading can be a powerful tool for investors, but it’s important to understand the strategies and their associated risks, especially for smaller accounts. Let’s break down some strategies:</p>
+<h2 id="1-wheeling-the-wheel-strategy">1. Wheeling (The Wheel Strategy)</h2>
+<p>The <a href="https://gammaledger.com/blog/complete-wheel-strategy-guide/">Wheel Strategy</a> involves selling cash-secured puts and covered calls to generate income. Here’s how it works:</p>
+<ul>
+<li>
+<p><strong>Selling Cash-Secured Puts:</strong><br />
+You sell a put option, which means you agree to buy the underlying stock at a specified price (the strike price) if the option is exercised. You receive a premium for selling the put. If the stock price stays above the strike price, the put expires worthless, and you keep the premium. If the stock price falls below the strike price, you may be obligated to buy the stock.</p>
+</li>
+<li>
+<p><strong>Selling Covered Calls:</strong><br />
+If you end up owning the stock (because the put was exercised), you then sell a call option against the stock you own. This means you agree to sell the stock at a specified price if the option is exercised. You receive a premium for selling the call. If the stock price stays below the strike price, the call expires worthless, and you keep the premium. If the stock price rises above the strike price, the stock may be called away from you.</p>
+</li>
+</ul>
+<p><strong>Risks:</strong><br />
+The main risk is that the stock price could fall significantly, and you would be obligated to buy the stock at a higher price than its current market value.</p>
+<h2 id="2-credit-spreads">2. Credit Spreads</h2>
+<p>Credit spreads involve selling one option and buying another option in the same expiration cycle but with different strike prices. There are two main types:</p>
+<ul>
+<li>
+<p><strong>Bull Put Spread:</strong><br />
+You sell a put option at a higher strike price and buy a put option at a lower strike price. This strategy is used when you expect the underlying asset to rise or stay the same. The premium received from selling the higher strike put is greater than the premium paid for buying the lower strike put, resulting in a net credit.</p>
+</li>
+<li>
+<p><strong>Bear Call Spread:</strong><br />
+You sell a call option at a lower strike price and buy a call option at a higher strike price. This strategy is used when you expect the underlying asset to fall or stay the same. The premium received from selling the lower strike call is greater than the premium paid for buying the higher strike call, resulting in a net credit.</p>
+</li>
+</ul>
+<p><strong>Risks:</strong><br />
+The main risk is that the underlying asset moves against your expectation, which could result in a loss. However, the loss is limited to the difference between the strike prices minus the net credit received.</p>
+<h2 id="3-leaps-long-term-equity-anticipation-securities">3. LEAPS (Long-Term Equity Anticipation Securities)</h2>
+<p>LEAPS are options with expiration dates that are longer than one year. They are essentially long-term options that allow investors to control a stock for an extended period without having to put up the full amount of capital required to buy the stock outright. For an advanced LEAPS strategy, see the <a href="https://gammaledger.com/blog/poor-mans-covered-call-guide/">Poor Man’s Covered Call Guide</a>.</p>
+<ul>
+<li>
+<p><strong>Buying LEAPS Calls:</strong><br />
+You buy a call option with a long expiration date, betting that the underlying stock will rise significantly over the extended period. This allows you to participate in the stock's upside potential with limited downside risk (limited to the premium paid).</p>
+</li>
+<li>
+<p><strong>Buying LEAPS Puts:</strong><br />
+You buy a put option with a long expiration date, betting that the underlying stock will fall significantly over the extended period. This allows you to profit from a decline in the stock price with limited downside risk (limited to the premium paid).</p>
+</li>
+</ul>
+<p><strong>Risks:</strong><br />
+The main risk is that the stock price does not move in the expected direction, and the option expires worthless. However, because LEAPS have a longer expiration, there is more time for the stock to move in your favor.</p>
+<h2 id="safer-options-for-a-smaller-account">Safer Options for a Smaller Account</h2>
+<p>For a smaller account, these strategies can be considered safer because they limit downside risk and can generate income:</p>
+<ul>
+<li>
+<p><strong>Wheeling:</strong><br />
+Provides a steady stream of income from selling puts and calls, with the risk limited to the capital required to buy the stock if the put is exercised.</p>
+</li>
+<li>
+<p><strong>Credit Spreads:</strong><br />
+Offer limited risk and can generate income from the net credit received, with the maximum loss defined by the difference in strike prices.</p>
+</li>
+<li>
+<p><strong>LEAPS:</strong><br />
+Allow for long-term exposure to a stock with limited downside risk, making them suitable for investors who want to participate in the stock's potential upside without committing a large amount of capital.</p>
+</li>
+</ul>
+<h2 id="things-to-consider">Things to Consider</h2>
+<ul>
+<li>Ensure that each trade size is suitable for your account size to prevent overexposure.</li>
+</ul>
+<h2 id="risk-management">Risk Management</h2>
+<ul>
+<li><strong>Loss Potential:</strong> Always be aware of the maximum potential loss and steer clear of strategies that could result in unlimited losses.</li>
+</ul>
+<h2 id="trade-selection">Trade Selection</h2>
+<ul>
+<li><strong>Liquidity:</strong> Opt for underlyings with good liquidity to benefit from tighter spreads and better prices for entering and exiting trades (e.g., SPY).</li>
+</ul>
+<h2 id="education-and-experience">Education and Experience</h2>
+<ul>
+<li><strong>Paper Trading:</strong> Begin with paper trading to build experience without risking real money, and continuously learn and improve your skills.</li>
+</ul>
+<hr />
+
+<p><strong>Always remember that options trading involves risk, and it’s crucial to understand the strategies thoroughly and consider your risk tolerance and financial goals before engaging in any options trading activity.</strong></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    &lt;/div&gt;
+    &lt;!-- Disclaimer --&gt;
+    &lt;div class="article-disclaimer"&gt;
+        &lt;strong&gt;Disclaimer:&lt;/strong&gt; The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. The opinions expressed are those of the author and do not necessarily reflect the views of any affiliated organizations or sponsors. Please read our full &lt;a href="https://gammaledger.com/disclaimer.html"&gt;Risk Disclaimer&lt;/a&gt;.
+</code></pre></div></div>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="small-accounts" /><category term="strategy" /><category term="income" /><summary type="html"><![CDATA[Options trading strategies suitable for small accounts including Wheeling, credit spreads, and LEAPS. Learn safer approaches to generate income with limited risk.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry></feed>
