@@ -50,6 +50,27 @@ function renderLegPreview(legs: AnyRecord[], escapeHTML: (v: unknown) => string)
     return `<div class="import-merge-card__legs-preview">${items.join('')}${more}</div>`;
 }
 
+function isPendingImportedTrade(trade: AnyRecord): boolean {
+    return Boolean(trade?.importReview);
+}
+
+function orderMergeCandidates(candidates: AnyRecord[]): AnyRecord[] {
+    return candidates
+        .map((trade, index) => ({ trade, index }))
+        .sort((a, b) => {
+            const importRank = Number(isPendingImportedTrade(a.trade)) - Number(isPendingImportedTrade(b.trade));
+            return importRank || a.index - b.index;
+        })
+        .map(({ trade }) => trade);
+}
+
+function assignMergedLegIds(legs: AnyRecord[], tradeId: string): AnyRecord[] {
+    return legs.map((leg, index) => ({
+        ...leg,
+        id: `${tradeId}-L${index + 1}`
+    }));
+}
+
 export function refreshImportMergeList(this: any) {
     const container = document.getElementById('import-merge-list');
     const hintElement = document.getElementById('import-merge-hint');
@@ -276,21 +297,21 @@ export function createMergedTradeFromTrades(this: any, trades: AnyRecord[] = [],
         throw new Error('Trades must share the same ticker before merging.');
     }
 
+    const orderedCandidates = orderMergeCandidates(candidates);
+    const idPrefix = options.idPrefix || 'MERGED';
+    const mergedId = `${idPrefix}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
     const mergedLegs: AnyRecord[] = [];
     let batchId = typeof options.batchId === 'string' ? options.batchId : null;
 
-    candidates.forEach((trade: AnyRecord) => {
+    orderedCandidates.forEach((trade: AnyRecord) => {
         if (!batchId && trade.importBatchId) {
             batchId = trade.importBatchId as string;
         }
-        ((trade.legs as AnyRecord[]) || []).forEach((leg: AnyRecord, index: number) => {
+        ((trade.legs as AnyRecord[]) || []).forEach((leg: AnyRecord) => {
             if (!leg) {
                 return;
             }
             const clone = { ...(leg as Record<string, unknown>) };
-            if (!clone.id) {
-                clone.id = `LEG-${trade.id}-${index}`;
-            }
             if (batchId && !clone.importBatchId) {
                 clone.importBatchId = batchId;
             }
@@ -302,13 +323,12 @@ export function createMergedTradeFromTrades(this: any, trades: AnyRecord[] = [],
         throw new Error('No legs were found to merge.');
     }
 
-    const idPrefix = options.idPrefix || 'MERGED';
-    const mergedId = `${idPrefix}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-    const baseTrade = (options.baseTrade || candidates[0]) as AnyRecord;
+    const sequencedLegs = assignMergedLegIds(mergedLegs, mergedId);
+    const baseTrade = (options.baseTrade || orderedCandidates.find((trade) => !isPendingImportedTrade(trade)) || orderedCandidates[0]) as AnyRecord;
     const ticker = tickerSet.size ? Array.from(tickerSet)[0] : 'UNKNOWN';
 
     const strategyOverride = options.strategyOverride && options.strategyOverride.toString().trim();
-    const strategyCandidates = candidates
+    const strategyCandidates = orderedCandidates
         .map((trade: AnyRecord) => (trade.strategy || '').toString().trim())
         .filter(Boolean);
     const preferredStrategy = strategyCandidates.find((value: string) => value && value !== 'Import Review' && value !== 'Imported Multi-Leg');
@@ -324,11 +344,11 @@ export function createMergedTradeFromTrades(this: any, trades: AnyRecord[] = [],
         strategy,
         status: (baseTrade?.status as string) || 'Open',
         statusOverride: manualStatus || null,
-        notes: this.buildMergedTradeNote(candidates, options.notePrefix || ''),
-        legs: mergedLegs,
+        notes: this.buildMergedTradeNote(orderedCandidates, options.notePrefix || ''),
+        legs: sequencedLegs,
         importBatchId: batchId || null,
         importReview: false,
-        exitReason: options.exitReasonOverride || this.resolveMergedExitReason(candidates),
+        exitReason: options.exitReasonOverride || this.resolveMergedExitReason(orderedCandidates),
         underlyingType: normalizedUnderlying
     });
 
