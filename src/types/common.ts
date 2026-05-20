@@ -126,4 +126,3 @@ export type AssignmentPositionType = 'wheel' | 'pmcc' | 'other'
 export type RiskValue =
   | { readonly kind: 'unlimited' }
   | { readonly kind: 'finite'; readonly amount: number }
-

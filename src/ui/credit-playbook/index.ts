@@ -229,4 +229,3 @@ export function getCreditPlaybookEntries(this: CreditPlaybookContext): CreditPla
         .map((trade) => this.mapCreditTradeToEntry(trade))
         .filter((entry): entry is CreditPlaybookEntry => Boolean(entry));
 }
-

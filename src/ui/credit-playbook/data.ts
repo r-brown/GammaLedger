@@ -81,4 +81,3 @@ export function sortCreditPlaybook(this: CreditPlaybookDataContext, sortKey: str
     this.applyCreditPlaybookSortIndicators();
     this.updateCreditPlaybookView();
 }
-

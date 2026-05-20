@@ -1377,4 +1377,3 @@ export function inferTradeDirection(
     const primaryLeg = this.getPrimaryLeg(trade);
     return this.deriveTradeDirectionFromLeg(primaryLeg);
 }
-

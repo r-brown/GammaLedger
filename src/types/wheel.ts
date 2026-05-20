@@ -26,4 +26,3 @@ export interface PMCCLegExtraction {
  * The value lives on EnrichedTrade.wheelCoverage.
  */
 export type { WheelCoverage }
-

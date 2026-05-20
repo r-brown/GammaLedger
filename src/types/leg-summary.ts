@@ -141,4 +141,3 @@ export interface LegSummary {
    */
   hasClosedOutOpenLegs: boolean
 }
-

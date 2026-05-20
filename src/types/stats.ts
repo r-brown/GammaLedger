@@ -102,4 +102,3 @@ export interface Stats {
   tickerPerformance: TickerPerformance
   assignmentStats: AssignmentStats
 }
-

@@ -177,5 +177,3 @@ export function calculateOptionPremium(
     }
     return (exitPrice - entryPrice) * quantity * 100 - fees;
 }
-
-

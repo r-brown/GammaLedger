@@ -12,4 +12,3 @@ export type { AppState } from '@types-gl/state'
 export const INITIAL_VIEW = 'dashboard' as const
 
 export type InitialView = typeof INITIAL_VIEW
-

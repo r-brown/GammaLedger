@@ -62,4 +62,3 @@ export function extractPmccLegs(
 
     return { longLegs, shortLegs };
 }
-

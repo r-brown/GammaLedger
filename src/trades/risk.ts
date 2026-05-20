@@ -921,5 +921,3 @@ export function buildStrikeDisplay(
     }
     return '—';
 }
-
-

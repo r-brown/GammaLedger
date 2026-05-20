@@ -68,4 +68,3 @@ Pushing any change under `website/` to `main` triggers the
 2. Copies the output to the root of the `gh-pages` branch
 3. Preserves the `/app/` sub-directory (the live SPA)
 4. Keeps the `CNAME` file so the custom domain stays live
-

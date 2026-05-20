@@ -236,4 +236,3 @@ export function isInTheMoney(
     }
     return false;
 }
-

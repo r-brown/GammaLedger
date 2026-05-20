@@ -11,4 +11,3 @@ export {
     buildDatabasePayload,
     saveToStorage
 } from '../database/persist.js';
-

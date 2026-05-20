@@ -36,4 +36,3 @@ export interface IndividualLegPair extends SpreadPair {
   /** Index of this pair in the parent trade's leg list. */
   pairIndex: number
 }
-

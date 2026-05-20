@@ -39,4 +39,3 @@ export interface Message {
   /** Creation time as epoch milliseconds. */
   timestamp: number
 }
-

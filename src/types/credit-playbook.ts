@@ -6,4 +6,3 @@ import type { CreditPlaybookEntry } from './ui'
  * shape is purely a UI-layer projection of an EnrichedTrade.
  */
 export type { CreditPlaybookEntry }
-

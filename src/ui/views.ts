@@ -253,4 +253,3 @@ export function updateTickerPreview(this: ViewsContext, ticker: string): void {
         preview.innerHTML = '';
     }
 }
-

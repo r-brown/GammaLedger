@@ -243,4 +243,3 @@ export class LocalInsightsAgent {
         return `${numeric.toFixed(specifiedDecimals)}%`;
     }
 }
-

@@ -91,4 +91,3 @@ export interface OFXImportPayload {
   errors: ImportError[]
   summary: ImportSummary
 }
-

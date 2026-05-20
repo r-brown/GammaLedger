@@ -42,4 +42,3 @@ export interface MCPAssignment {
   legs: NormalizedLeg[]
   [key: string]: unknown
 }
-

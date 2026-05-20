@@ -132,5 +132,3 @@ export function getDefaultFeeForQuantity(this: DefaultFeeContext, quantity = 1):
     const qty = Math.abs(Number(quantity) || 1);
     return this.defaultFeePerContract * qty;
 }
-
-

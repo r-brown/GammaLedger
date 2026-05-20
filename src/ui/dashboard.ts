@@ -229,4 +229,3 @@ export function syncAssignedPositionsStatusFilter(this: DashboardContext): void 
         button.setAttribute('aria-pressed', String(isActive));
     });
 }
-

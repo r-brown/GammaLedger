@@ -144,4 +144,3 @@ export interface AppState {
   defaultFeePerContract: number
   positionHighlightConfig: PositionHighlightConfig
 }
-
