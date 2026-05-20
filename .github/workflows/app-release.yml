@@ -262,13 +262,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Remove everything except .git; CNAME is re-written from the repo copy below
-          cd _gh_pages
-          find . -mindepth 1 -maxdepth 1 \
-            ! -name '.git' \
-            -exec rm -rf {} +
-          cd ..
-
+          # Only replace /app/ — preserve other gh-pages content such as
+          # /appv1/ (deployed by feature/app/v1), /assets/ (marketing site), etc.
+          rm -rf _gh_pages/app
           cp -r dist/ _gh_pages/app
 
           touch _gh_pages/.nojekyll
