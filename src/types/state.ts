@@ -81,6 +81,7 @@ export interface AppState {
 
   // ---- Editing ----
   currentEditingId: string | null
+  currentEditingTrade: EnrichedTrade | null
 
   // ---- Charts ----
   /** Dashboard chart instances keyed by chart name. */

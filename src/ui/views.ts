@@ -8,6 +8,7 @@ type TradeRecord = Record<string, unknown>
 interface ViewsContext {
   currentView: string
   currentEditingId: unknown
+  currentEditingTrade: TradeRecord | null
   trades: TradeRecord[]
   finnhub: Record<string, unknown>
   updateDashboard(): void
@@ -119,6 +120,7 @@ export function resetAddTradeForm(this: ViewsContext): void {
     }
 
     this.currentEditingId = null;
+    this.currentEditingTrade = null;
     this.renderLegForms([]);
 
     this.setTodayDate();
@@ -193,17 +195,20 @@ export function handleTradeSubmit(this: ViewsContext): void {
 
 export function updateTrade(this: ViewsContext, tradeData: TradeRecord): boolean {
     try {
-        tradeData.id = this.currentEditingId;
-        const enrichedTrade = this.enrichTradeData(tradeData);
-
-        const index = this.trades.findIndex(t => t.id === this.currentEditingId);
-        if (index !== -1) {
-            this.trades[index] = enrichedTrade;
-            this.saveToStorage();
-            this.markUnsavedChanges();
-            return true;
+        const index = this.currentEditingTrade
+            ? this.trades.indexOf(this.currentEditingTrade)
+            : this.trades.findIndex(t => t.id === this.currentEditingId);
+        if (index === -1) {
+            return false;
         }
-        return false;
+        const existingId = this.trades[index]?.id;
+        tradeData.id = existingId ?? this.currentEditingId;
+        const enrichedTrade = this.enrichTradeData(tradeData);
+        this.trades[index] = enrichedTrade;
+        this.currentEditingTrade = this.trades[index];
+        this.saveToStorage();
+        this.markUnsavedChanges();
+        return true;
     } catch (error) {
         console.error('Error updating trade:', error);
         return false;

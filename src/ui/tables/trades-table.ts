@@ -34,8 +34,8 @@ interface TradesTableContext extends PositionDetailPanelContext {
   getDisplayStatus(trade: TradeRecord): string
   createFormulaIcon(trade: TradeRecord, field: string): HTMLElement | null
   positionFormulaTooltip(wrapper: HTMLElement, tooltip: HTMLElement): void
-  editTrade(id: unknown): void
-  deleteTrade(id: unknown): void
+  editTrade(id: unknown, trade?: TradeRecord): void
+  deleteTrade(id: unknown, trade?: TradeRecord): void
   applyResponsiveLabels(row: HTMLTableRowElement, labels: string[]): void
   setupTradesMergeControls?(): void
   pruneTradeMergeSelection(): void
@@ -59,6 +59,7 @@ interface TradesTableContext extends PositionDetailPanelContext {
   markUnsavedChanges(): void
   enrichTradeData(data: TradeRecord): TradeRecord
   currentEditingId: unknown
+  currentEditingTrade: TradeRecord | null
   updateTickerPreview(ticker: string): void
   escapeHtml(value: string): string
 }
@@ -193,7 +194,7 @@ function createActionsRenderer(
     editButton.textContent = 'Edit';
     editButton.addEventListener('click', (event) => {
         event.stopPropagation();
-        this.editTrade(trade.id);
+        this.editTrade(trade.id, trade);
     });
 
     const deleteButton = document.createElement('button');
@@ -202,7 +203,7 @@ function createActionsRenderer(
     deleteButton.textContent = 'Delete';
     deleteButton.addEventListener('click', (event) => {
         event.stopPropagation();
-        this.deleteTrade(trade.id);
+        this.deleteTrade(trade.id, trade);
     });
 
     wrapper.append(editButton, deleteButton);
@@ -525,6 +526,14 @@ function syncSortFromGrid(this: TradesTableContext, event: SortChangedEvent<Trad
 
 function createTradesGridOptions(this: TradesTableContext, trades: TradeRecord[]): GridOptions<TradeRecord> {
     const context = this;
+    const rowIdsByTrade = new WeakMap<object, string>();
+    const rowIdCounts = new Map<string, number>();
+    trades.forEach((trade, index) => {
+        const baseKey = tradeRowKey(trade, `trade-${index}`);
+        const count = (rowIdCounts.get(baseKey) ?? 0) + 1;
+        rowIdCounts.set(baseKey, count);
+        rowIdsByTrade.set(trade as object, count === 1 ? baseKey : `${baseKey}-${count}`);
+    });
     return {
         rowData: buildRowsWithDetail(trades, this.expandedTradeId),
         columnDefs: buildTradeColumnDefs.call(this),
@@ -538,9 +547,10 @@ function createTradesGridOptions(this: TradesTableContext, trades: TradeRecord[]
         getRowId: params => {
             const row = params.data as TradeRecord & { _isDetailRow?: boolean; _parentTrade?: TradeRecord };
             if (row._isDetailRow && row._parentTrade) {
-                return `detail-${tradeRowKey(row._parentTrade)}`;
+                const parentKey = rowIdsByTrade.get(row._parentTrade as object) || tradeRowKey(row._parentTrade);
+                return `detail-${parentKey}`;
             }
-            return tradeRowKey(params.data);
+            return rowIdsByTrade.get(params.data as object) || tradeRowKey(params.data);
         },
         isFullWidthRow: params => !!(params.rowNode.data as Record<string, unknown>)?._isDetailRow,
         fullWidthCellRenderer: createPositionDetailPanelRenderer(context as unknown as PositionDetailPanelContext, { threeCol: true, tradeBreakdown: true }),
@@ -654,9 +664,15 @@ export function sortTrades(this: TradesTableContext, sortBy: string): void {
     this.renderTradesTable(sortedTrades);
 }
 
-export function deleteTrade(this: TradesTableContext, id: unknown): void {
+export function deleteTrade(this: TradesTableContext, id: unknown, selectedTrade?: TradeRecord): void {
     if (confirm('Are you sure you want to delete this trade?')) {
-        this.trades = this.trades.filter(trade => trade.id !== id);
+        const index = selectedTrade
+            ? this.trades.indexOf(selectedTrade)
+            : this.trades.findIndex(trade => trade.id === id);
+        if (index < 0) {
+            return;
+        }
+        this.trades.splice(index, 1);
         this.saveToStorage();
         this.markUnsavedChanges();
         this.filterTrades();
@@ -664,14 +680,17 @@ export function deleteTrade(this: TradesTableContext, id: unknown): void {
     }
 }
 
-export function editTrade(this: TradesTableContext, id: unknown): void {
-    const trade = this.trades.find(t => t.id === id);
+export function editTrade(this: TradesTableContext, id: unknown, selectedTrade?: TradeRecord): void {
+    const trade = selectedTrade && this.trades.includes(selectedTrade)
+        ? selectedTrade
+        : this.trades.find(t => t.id === id);
     if (!trade) {
         return;
     }
 
     this.resetAddTradeForm();
     this.currentEditingId = id;
+    this.currentEditingTrade = trade;
 
     const form = document.getElementById('add-trade-form') as HTMLFormElement | null;
     if (!form) {
