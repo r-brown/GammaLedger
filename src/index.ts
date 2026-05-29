@@ -108,6 +108,7 @@ class GammaLedger {
     declare hasUnsavedChanges: boolean
     declare supportsFileSystemAccess: boolean
     declare currentEditingId: string | null
+    declare currentEditingTrade: Record<string, unknown> | null
     declare importControlsInitialized: boolean
     declare importLog: Record<string, unknown>[]
     declare importSummary: unknown
@@ -180,6 +181,7 @@ class GammaLedger {
         this.hasUnsavedChanges = false;
         this.supportsFileSystemAccess = 'showOpenFilePicker' in window;
         this.currentEditingId = null;
+        this.currentEditingTrade = null;
         this.importControlsInitialized = false;
         this.importLog = [];
         this.importSummary = null;
@@ -1506,9 +1508,9 @@ class GammaLedger {
 
     sortTrades(sortBy) { return tradesTableModule.sortTrades.call(this, sortBy); }
 
-    deleteTrade(id) { return tradesTableModule.deleteTrade.call(this, id); }
+    deleteTrade(id, trade) { return tradesTableModule.deleteTrade.call(this, id, trade); }
 
-    editTrade(id) { return tradesTableModule.editTrade.call(this, id); }
+    editTrade(id, trade) { return tradesTableModule.editTrade.call(this, id, trade); }
 
     exportToCSV() { return persistModule.exportToCSV.call(this); }
 
