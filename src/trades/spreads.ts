@@ -144,10 +144,7 @@ export function extractRolledSpread(
     const dte = isOpen && expirationDate && !isRollingNow
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
 
-    let effectiveExitDate = exitDate || (hasExpired ? expirationDate : null);
-    if (tradeClosedAt && (!effectiveExitDate || tradeClosedAt > effectiveExitDate)) {
-        effectiveExitDate = tradeClosedAt;
-    }
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 
     const daysHeld = entryDate && (effectiveExitDate || hasExpired)
         ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
@@ -241,10 +238,7 @@ export function extractSingleSpread(
     const dte = isOpen && expirationDate
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
 
-    let effectiveExitDate = exitDate || (hasExpired ? expirationDate : null);
-    if (tradeClosedAt && (!effectiveExitDate || tradeClosedAt > effectiveExitDate)) {
-        effectiveExitDate = tradeClosedAt;
-    }
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 
     const daysHeld = entryDate && (effectiveExitDate || hasExpired)
         ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
@@ -429,10 +423,7 @@ export function extractRolledPositionAcrossStrikes(
     const dte = isOpen && expirationDate && !isRolling
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
 
-    let effectiveExitDate = exitDate || (hasExpired ? expirationDate : null);
-    if (tradeClosedAt && (!effectiveExitDate || tradeClosedAt > effectiveExitDate)) {
-        effectiveExitDate = tradeClosedAt;
-    }
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 
     const daysHeld = entryDate && (effectiveExitDate || hasExpired)
         ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
@@ -520,10 +511,7 @@ export function extractRolledPosition(
     const dte = isOpen && expirationDate && !isRolling
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
 
-    let effectiveExitDate = exitDate || (hasExpired ? expirationDate : null);
-    if (tradeClosedAt && (!effectiveExitDate || tradeClosedAt > effectiveExitDate)) {
-        effectiveExitDate = tradeClosedAt;
-    }
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 
     const daysHeld = entryDate && (effectiveExitDate || hasExpired)
         ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
@@ -612,10 +600,7 @@ export function extractSingleLegPair(
     const dte = isOpen && expirationDate
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
 
-    let effectiveExitDate = exitDate || (hasExpired ? expirationDate : null);
-    if (tradeClosedAt && (!effectiveExitDate || tradeClosedAt > effectiveExitDate)) {
-        effectiveExitDate = tradeClosedAt;
-    }
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 
     const daysHeld = entryDate && (effectiveExitDate || hasExpired)
         ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
