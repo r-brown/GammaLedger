@@ -30,6 +30,7 @@ interface SpreadsContext {
     getLegAction(leg: Record<string, unknown>): string
     getLegMultiplier(leg: Record<string, unknown>): number
     parseDateValue(value: unknown): Date | null
+    isClosedStatus(status: unknown): boolean
     isAssignedStatus(status: unknown): boolean
     extractRolledSpread(trade: Record<string, unknown>, allLegs: Record<string, unknown>[], now: Date, pairs: SpreadPair[]): void
     extractSingleSpread(trade: Record<string, unknown>, groupLegs: Record<string, unknown>[], expiration: string, now: Date, pairs: SpreadPair[]): void
@@ -76,6 +77,9 @@ export function extractRolledSpread(
     now: Date,
     pairs: SpreadPair[]
 ): void {
+    const isTradeClosed = this.isClosedStatus(trade.status);
+    const tradeClosedAt = isTradeClosed ? this.parseDateValue(trade.closedDate) : null;
+
     const sortedLegs = allLegs.slice().sort((a, b) => {
         const dateA = this.parseDateValue(a.executionDate);
         const dateB = this.parseDateValue(b.executionDate);
@@ -134,13 +138,16 @@ export function extractRolledSpread(
     const hasExpired = expirationDate && expirationDate < now;
     const hasOpenLegs = openingLegs.length > 0;
     const hasCloseLegs = closingLegs.length > 0;
-    const isRollingNow = hasOpenLegs && hasCloseLegs;
-    const isOpen = hasOpenLegs && !hasExpired;
+    const isRollingNow = hasOpenLegs && hasCloseLegs && !isTradeClosed;
+    const isOpen = hasOpenLegs && !hasExpired && !isTradeClosed;
 
     const dte = isOpen && expirationDate && !isRollingNow
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
-    const daysHeld = entryDate && (exitDate || hasExpired)
-        ? Math.ceil((((exitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
+
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
+
+    const daysHeld = entryDate && (effectiveExitDate || hasExpired)
+        ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
         : (entryDate ? Math.ceil((now.getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000)) : null);
 
     const multiplier = 100;
@@ -155,7 +162,7 @@ export function extractRolledSpread(
         tradeId: trade.id as string, ticker: trade.ticker as string, strategy: trade.strategy as string,
         strike: spreadStrike, type, quantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate, expirationDate: currentExpiration, dte,
-        exitDate: exitDate || (hasExpired ? expirationDate : null), daysHeld,
+        exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling: isRollingNow,
         isAssigned: this.isAssignedStatus(trade.status), capital
     });
@@ -169,6 +176,9 @@ export function extractSingleSpread(
     now: Date,
     pairs: SpreadPair[]
 ): void {
+    const isTradeClosed = this.isClosedStatus(trade.status);
+    const tradeClosedAt = isTradeClosed ? this.parseDateValue(trade.closedDate) : null;
+
     const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
     const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
 
@@ -223,12 +233,15 @@ export function extractSingleSpread(
 
     const expirationDate = this.parseDateValue(expiration);
     const hasExpired = expirationDate && expirationDate < now;
-    const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired;
+    const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired && !isTradeClosed;
 
     const dte = isOpen && expirationDate
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
-    const daysHeld = entryDate && (exitDate || hasExpired)
-        ? Math.ceil((((exitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
+
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
+
+    const daysHeld = entryDate && (effectiveExitDate || hasExpired)
+        ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
         : (entryDate ? Math.ceil((now.getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000)) : null);
 
     const multiplier = 100;
@@ -253,7 +266,7 @@ export function extractSingleSpread(
         tradeId: trade.id as string, ticker: trade.ticker as string, strategy: trade.strategy as string,
         strike: spreadStrike, type, quantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate, expirationDate: expiration, dte,
-        exitDate: exitDate || (hasExpired ? expirationDate : null), daysHeld,
+        exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling: false,
         isAssigned: this.isAssignedStatus(trade.status), capital
     });
@@ -356,6 +369,9 @@ export function extractRolledPositionAcrossStrikes(
     now: Date,
     pairs: SpreadPair[]
 ): void {
+    const isTradeClosed = this.isClosedStatus(trade.status);
+    const tradeClosedAt = isTradeClosed ? this.parseDateValue(trade.closedDate) : null;
+
     let totalGrossPremium = 0, totalFees = 0, entryDate: Date | null = null, exitDate: Date | null = null;
     let currentStrike: number | null = null, currentExpiration: string | null = null, netQuantity = 0;
 
@@ -394,8 +410,8 @@ export function extractRolledPositionAcrossStrikes(
     const hasExpired = expirationDate && expirationDate < now;
     const hasOpenLegs = allLegs.some(leg => this.getLegSide(leg) === 'OPEN');
     const hasCloseLegs = allLegs.some(leg => this.getLegSide(leg) === 'CLOSE');
-    const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0;
-    const isOpen = netQuantity !== 0 && !hasExpired;
+    const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0 && !isTradeClosed;
+    const isOpen = netQuantity !== 0 && !hasExpired && !isTradeClosed;
 
     if (netQuantity === 0 && !isOpen) {
         netQuantity = Math.abs(allLegs
@@ -406,8 +422,11 @@ export function extractRolledPositionAcrossStrikes(
     const absoluteQuantity = Math.abs(netQuantity);
     const dte = isOpen && expirationDate && !isRolling
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
-    const daysHeld = entryDate && (exitDate || hasExpired)
-        ? Math.ceil((((exitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
+
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
+
+    const daysHeld = entryDate && (effectiveExitDate || hasExpired)
+        ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
         : (entryDate ? Math.ceil((now.getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000)) : null);
 
     const multiplier = 100;
@@ -421,7 +440,7 @@ export function extractRolledPositionAcrossStrikes(
         tradeId: trade.id as string, ticker: trade.ticker as string, strategy: trade.strategy as string,
         strike, type, quantity: absoluteQuantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate, expirationDate: currentExpiration, dte,
-        exitDate: exitDate || (hasExpired ? expirationDate : null), daysHeld,
+        exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling,
         isAssigned: this.isAssignedStatus(trade.status), capital
     });
@@ -436,6 +455,9 @@ export function extractRolledPosition(
     now: Date,
     pairs: SpreadPair[]
 ): void {
+    const isTradeClosed = this.isClosedStatus(trade.status);
+    const tradeClosedAt = isTradeClosed ? this.parseDateValue(trade.closedDate) : null;
+
     const sortedLegs = allLegs.slice().sort((a, b) => {
         const dateA = this.parseDateValue(a.executionDate);
         const dateB = this.parseDateValue(b.executionDate);
@@ -476,8 +498,8 @@ export function extractRolledPosition(
     const hasExpired = expirationDate && expirationDate < now;
     const hasOpenLegs = sortedLegs.some(leg => this.getLegSide(leg) === 'OPEN');
     const hasCloseLegs = sortedLegs.some(leg => this.getLegSide(leg) === 'CLOSE');
-    const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0;
-    const isOpen = netQuantity !== 0 && !hasExpired;
+    const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0 && !isTradeClosed;
+    const isOpen = netQuantity !== 0 && !hasExpired && !isTradeClosed;
 
     if (netQuantity === 0 && !isOpen) {
         netQuantity = Math.abs(sortedLegs
@@ -488,8 +510,11 @@ export function extractRolledPosition(
     const absoluteQuantity = Math.abs(netQuantity);
     const dte = isOpen && expirationDate && !isRolling
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
-    const daysHeld = entryDate && (exitDate || hasExpired)
-        ? Math.ceil((((exitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
+
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
+
+    const daysHeld = entryDate && (effectiveExitDate || hasExpired)
+        ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
         : (entryDate ? Math.ceil((now.getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000)) : null);
 
     const multiplier = 100;
@@ -503,7 +528,7 @@ export function extractRolledPosition(
         tradeId: trade.id as string, ticker: trade.ticker as string, strategy: trade.strategy as string,
         strike, type, quantity: absoluteQuantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate, expirationDate: currentExpiration, dte,
-        exitDate: exitDate || (hasExpired ? expirationDate : null), daysHeld,
+        exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling,
         isAssigned: this.isAssignedStatus(trade.status), capital
     });
@@ -519,6 +544,9 @@ export function extractSingleLegPair(
     now: Date,
     pairs: SpreadPair[]
 ): void {
+    const isTradeClosed = this.isClosedStatus(trade.status);
+    const tradeClosedAt = isTradeClosed ? this.parseDateValue(trade.closedDate) : null;
+
     const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
     const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
 
@@ -560,7 +588,7 @@ export function extractSingleLegPair(
 
     const expirationDate = this.parseDateValue(expiration);
     const hasExpired = expirationDate && expirationDate < now;
-    const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired;
+    const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired && !isTradeClosed;
 
     if (netQuantity === 0 && !isOpen) {
         netQuantity = Math.abs(openingLegs.reduce((sum, leg) => {
@@ -571,8 +599,11 @@ export function extractSingleLegPair(
     const absoluteQuantity = Math.abs(netQuantity);
     const dte = isOpen && expirationDate
         ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
-    const daysHeld = entryDate && (exitDate || hasExpired)
-        ? Math.ceil((((exitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
+
+    const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
+
+    const daysHeld = entryDate && (effectiveExitDate || hasExpired)
+        ? Math.ceil((((effectiveExitDate || expirationDate || now) as Date).getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000))
         : (entryDate ? Math.ceil((now.getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000)) : null);
 
     const multiplier = 100;
@@ -586,7 +617,7 @@ export function extractSingleLegPair(
         tradeId: trade.id as string, ticker: trade.ticker as string, strategy: trade.strategy as string,
         strike, type, quantity: absoluteQuantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate, expirationDate: expiration, dte,
-        exitDate: exitDate || (hasExpired ? expirationDate : null), daysHeld,
+        exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling: false,
         isAssigned: this.isAssignedStatus(trade.status), capital
     });
