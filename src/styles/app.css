@@ -825,8 +825,8 @@ select.form-control {
   border: 1px solid var(--color-border-secondary);
 }
 
-/* v1 banner — remove when v2 goes live */
-.v1-banner {
+/* Announcement banner — toggle via ANNOUNCEMENT_BANNER_CONFIG in index.html */
+.announcement-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -839,25 +839,25 @@ select.form-control {
   line-height: 1.5;
 }
 
-.v1-banner--hidden {
+.announcement-banner--hidden {
   display: none;
 }
 
-.v1-banner__message {
+.announcement-banner__message {
   flex: 1;
 }
 
-.v1-banner__link {
+.announcement-banner__message a {
   color: #e9d5ff;
   font-weight: var(--font-weight-semibold);
   text-decoration: underline;
 }
 
-.v1-banner__link:hover {
+.announcement-banner__message a:hover {
   color: #fff;
 }
 
-.v1-banner__dismiss {
+.announcement-banner__dismiss {
   background: none;
   border: none;
   color: #fff;
@@ -869,10 +869,10 @@ select.form-control {
   flex-shrink: 0;
 }
 
-.v1-banner__dismiss:hover {
+.announcement-banner__dismiss:hover {
   opacity: 1;
 }
-/* end v1 banner */
+/* end announcement banner */
 
 /* Application-specific styles */
 .app-container {

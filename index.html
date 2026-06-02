@@ -50,16 +50,8 @@
 </head>
 
 <body>
-    <!-- v1 BANNER — remove this block when v2 goes live -->
-    <div id="v1-banner" class="v1-banner">
-        <span class="v1-banner__message">
-            ✨&nbsp; Welcome to <strong>GammaLedger v2</strong> — early access!
-            Prefer the classic experience?
-            <a class="v1-banner__link" href="https://gammaledger.com/appv1/">Back to v1 →</a>
-        </span>
-        <button class="v1-banner__dismiss" aria-label="Dismiss">✕</button>
-    </div>
-    <!-- end v1 banner -->
+    <!-- Announcement banner — rendered by ANNOUNCEMENT_BANNER_CONFIG below -->
+    <div id="announcement-banner"></div>
 
     <dialog id="disclaimer-banner" class="disclaimer-banner" aria-labelledby="disclaimer-title">
         <div class="disclaimer-banner__panel">
@@ -953,23 +945,45 @@
 
     <script type="module" src="/src/index.js"></script>
 
-    <!-- v1 BANNER SCRIPT — remove when v2 goes live -->
+    <!-- ANNOUNCEMENT BANNER CONFIG & SCRIPT -->
     <script>
+        /**
+         * Announcement Banner Configuration
+         * -----------------------------------
+         * enabled : set to true to show the banner, false to hide it.
+         * html    : the banner message (supports any HTML, including links).
+         *
+         * ⚠️  IMPORTANT: `html` is injected as innerHTML — only use trusted,
+         *     hardcoded content here. Never populate from user input or external sources.
+         */
+        const ANNOUNCEMENT_BANNER_CONFIG = {
+            enabled: true,
+            html: '✨&nbsp; Welcome to <strong>GammaLedger v2</strong> — early access! Prefer the classic experience? <a href="https://gammaledger.com/appv1/">Back to v1 →</a>'
+        };
+
         (function () {
-            const banner = document.getElementById('v1-banner');
-            if (!banner) {
+            const cfg = window.ANNOUNCEMENT_BANNER_CONFIG;
+            const container = document.getElementById('announcement-banner');
+            if (!cfg || !cfg.enabled || !container) {
+                if (container) container.remove();
+                document.documentElement.style.setProperty('--app-top-offset', '0px');
                 return;
             }
 
+            container.className = 'announcement-banner';
+            container.innerHTML =
+                '<span class="announcement-banner__message">' + cfg.html + '</span>' +
+                '<button class="announcement-banner__dismiss" aria-label="Dismiss">✕</button>';
+
             const syncAppTopOffset = function () {
-                const isBannerVisible = !banner.classList.contains('v1-banner--hidden');
-                const offset = isBannerVisible ? banner.offsetHeight : 0;
-                document.documentElement.style.setProperty('--app-top-offset', `${offset}px`);
+                const isHidden = container.classList.contains('announcement-banner--hidden');
+                const offset = isHidden ? 0 : container.offsetHeight;
+                document.documentElement.style.setProperty('--app-top-offset', offset + 'px');
             };
 
-            document.querySelector('.v1-banner__dismiss')
-                ?.addEventListener('click', function () {
-                    banner.classList.add('v1-banner--hidden');
+            container.querySelector('.announcement-banner__dismiss')
+                .addEventListener('click', function () {
+                    container.classList.add('announcement-banner--hidden');
                     syncAppTopOffset();
                 });
 
@@ -977,7 +991,7 @@
             syncAppTopOffset();
         })();
     </script>
-    <!-- end v1 banner script -->
+    <!-- end announcement banner script -->
 </body>
 
 </html>
