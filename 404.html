@@ -46,8 +46,8 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/app/gammaledger-logo-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/app/gammaledger-logo-32x32.png">
     <link rel="icon" type="image/png" sizes="64x64" href="/app/gammaledger-logo-64x64.png">
-  <script type="module" crossorigin src="/app/assets/index-DM6CEVdc.js"></script>
-  <link rel="stylesheet" crossorigin href="/app/assets/index-CLVsJJgi.css">
+  <script type="module" crossorigin src="/app/assets/index-Dov6Tfej.js"></script>
+  <link rel="stylesheet" crossorigin href="/app/assets/index-DUM4nUk6.css">
 </head>
 
 <body>
@@ -617,11 +617,14 @@
                 </div>
             </div>
 
-            <!-- Credit Playbook View -->
-            <div class="view credit-playbook-view">
-                <header class="credit-playbook-header">
-                    <div class="credit-playbook-metrics" id="credit-playbook-metrics" aria-live="polite"></div>
-                </header>
+	            <!-- Credit Playbook View -->
+	            <div class="view credit-playbook-view">
+	                <header class="credit-playbook-header">
+	                    <div class="credit-playbook-metrics" id="credit-playbook-metrics" aria-live="polite"></div>
+	                    <div class="credit-playbook-detail-meta credit-playbook-help">
+	                        Wheel trades: Credit Playbook tracks option premium legs. Total wheel P&amp;L (including stock assignment/sale) is shown in All Trades and Dashboard → Wheel/PMCC tracker.
+	                    </div>
+	                </header>
 
                 <section class="credit-playbook-controls" aria-label="Credit playbook filters">
                     <div class="credit-playbook-filter">
@@ -952,10 +955,27 @@
 
     <!-- v1 BANNER SCRIPT — remove when v2 goes live -->
     <script>
-        document.querySelector('.v1-banner__dismiss')
-            .addEventListener('click', function () {
-                document.getElementById('v1-banner').classList.add('v1-banner--hidden');
-            });
+        (function () {
+            const banner = document.getElementById('v1-banner');
+            if (!banner) {
+                return;
+            }
+
+            const syncAppTopOffset = function () {
+                const isBannerVisible = !banner.classList.contains('v1-banner--hidden');
+                const offset = isBannerVisible ? banner.offsetHeight : 0;
+                document.documentElement.style.setProperty('--app-top-offset', `${offset}px`);
+            };
+
+            document.querySelector('.v1-banner__dismiss')
+                ?.addEventListener('click', function () {
+                    banner.classList.add('v1-banner--hidden');
+                    syncAppTopOffset();
+                });
+
+            window.addEventListener('resize', syncAppTopOffset);
+            syncAppTopOffset();
+        })();
     </script>
     <!-- end v1 banner script -->
 </body>
