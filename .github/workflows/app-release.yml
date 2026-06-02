@@ -175,7 +175,7 @@ jobs:
           BODY_FILE="$(mktemp)"
 
           # ── 1. What's Changed (GitHub auto-generated) ──────────────────────
-          PREV_TAG="$(git tag --list | grep -vE '^mcp-' | grep -vE "^${TAG}$" | sort -V | tail -n 1 || true)"
+          PREV_TAG="$(git tag --list | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+' | grep -vE "^${TAG}$" | sort -V | tail -n 1 || true)"
           if [ -n "${PREV_TAG}" ]; then
             GH_NOTES="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
               -X POST \
@@ -299,6 +299,16 @@ jobs:
 
           git commit -m "Deploy GammaLedger ${VERSION} to /app/"
           git push origin gh-pages
+
+      - name: Create and push tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${TAG}"
+          git push origin "${TAG}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
