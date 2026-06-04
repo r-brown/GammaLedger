@@ -638,6 +638,8 @@ select.form-control {
   background-color: rgba(var(--color-success-rgb, 33, 128, 141),
       var(--status-bg-opacity));
   color: var(--color-success);
+  border: 1px solid rgba(var(--color-success-rgb, 33, 128, 141), var(--status-border-opacity));
+}
 
 .sidebar-brand {
   display: flex;
@@ -667,8 +669,6 @@ select.form-control {
   letter-spacing: 0.02em;
 }
 
-  border: 1px solid rgba(var(--color-success-rgb, 33, 128, 141), var(--status-border-opacity));
-}
 
 .status--error {
   background-color: rgba(var(--color-error-rgb, 192, 21, 47),
