@@ -1,5 +1,8 @@
 // Application constants - frozen for immutability
 
+declare const __APP_VERSION__: string
+export const APP_VERSION: string = __APP_VERSION__
+
 // ---------------------------------------------------------------------------
 // Gemini models — single source of truth for IDs, labels, and derived type
 // ---------------------------------------------------------------------------

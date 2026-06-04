@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import checker from 'vite-plugin-checker'
 import { copyFileSync, readFileSync, writeFileSync, rmSync, existsSync, rmdirSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -97,6 +98,14 @@ function localReleaseBundle(): import('vite').Plugin {
   }
 }
 
+function getGitVersion(): string {
+  try {
+    return execFileSync('git', ['describe', '--tags', '--abbrev=0'], { encoding: 'utf-8' }).trim()
+  } catch {
+    return 'dev'
+  }
+}
+
 export default defineConfig({
   base: '/app/',
   root: '.',
@@ -104,6 +113,9 @@ export default defineConfig({
     checker({ typescript: true }),
     localReleaseBundle()
   ],
+  define: {
+    __APP_VERSION__: JSON.stringify(getGitVersion()),
+  },
   resolve: {
     alias: {
       '@core':         '/src/core',
