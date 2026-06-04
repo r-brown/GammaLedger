@@ -77,11 +77,8 @@ export type WheelCoverage = 'covered' | 'partial' | 'uncovered' | null
 /** Source of a live market-price quote */
 export type MarketPriceSource = 'finnhub' | 'manual' | null | undefined
 
-/** Gemini model identifiers supported by the app */
-export type GeminiModel =
-  | 'gemini-2.5-flash-lite'
-  | 'gemini-2.5-flash'
-  | 'gemini-2.5-pro'
+/** Gemini model identifiers supported by the app — derived from GEMINI_MODELS in @core/config */
+export type { GeminiModel } from '@core/config'
 
 /** Cumulative P&L time range selector */
 export type CumulativePLRange = '7D' | 'MTD' | '1M' | '3M' | 'YTD' | '1Y' | 'ALL'

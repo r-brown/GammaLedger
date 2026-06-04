@@ -3,6 +3,7 @@
 // Uses the .call(this, …) delegation pattern so all this.* refs work.
 
 import {
+    GEMINI_MODELS,
     GEMINI_ALLOWED_MODELS,
     DEFAULT_GEMINI_MODEL,
     DEFAULT_GEMINI_MAX_TOKENS,
@@ -276,11 +277,7 @@ export function flushPendingGeminiStatus(this: any) {
 
 export function getGeminiModelLabel(this: any, model = '') {
     const normalized = (model || '').toLowerCase();
-    const labels: Record<string, string> = {
-        'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
-        'gemini-2.5-flash': 'Gemini 2.5 Flash',
-        'gemini-2.5-pro': 'Gemini 2.5 Pro'
-    };
+    const labels: Record<string, string> = Object.fromEntries(GEMINI_MODELS.map(m => [m.id, m.label]));
 
     if (labels[normalized]) {
         return labels[normalized];

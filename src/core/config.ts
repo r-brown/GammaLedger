@@ -1,6 +1,18 @@
 // Application constants - frozen for immutability
 
 // ---------------------------------------------------------------------------
+// Gemini models — single source of truth for IDs, labels, and derived type
+// ---------------------------------------------------------------------------
+
+export const GEMINI_MODELS = [
+    { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
+    { id: 'gemini-3.5-flash',      label: 'Gemini 3.5 Flash' },
+    { id: 'gemini-3.1-pro',        label: 'Gemini 3.1 Pro' },
+] as const
+
+export type GeminiModel = typeof GEMINI_MODELS[number]['id']
+
+// ---------------------------------------------------------------------------
 // Config shape type
 // ---------------------------------------------------------------------------
 
@@ -36,8 +48,8 @@ interface AppConfigShape {
 
 export const APP_CONFIG: AppConfigShape = Object.freeze({
     GEMINI: {
-        DEFAULT_MODEL: 'gemini-2.5-flash',
-        ALLOWED_MODELS: Object.freeze(['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro']),
+        DEFAULT_MODEL: GEMINI_MODELS[1].id,
+        ALLOWED_MODELS: Object.freeze(GEMINI_MODELS.map(m => m.id)),
         DEFAULT_TEMPERATURE: 0.25,
         DEFAULT_ENDPOINT: 'https://generativelanguage.googleapis.com/v1beta/models'
     },
