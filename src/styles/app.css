@@ -669,7 +669,6 @@ select.form-control {
   letter-spacing: 0.02em;
 }
 
-
 .status--error {
   background-color: rgba(var(--color-error-rgb, 192, 21, 47),
       var(--status-bg-opacity));
