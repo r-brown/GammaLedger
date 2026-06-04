@@ -98,7 +98,42 @@ function localReleaseBundle(): import('vite').Plugin {
   }
 }
 
-function getGitVersion(): string {
+function normalizeReleaseVersion(version: string | undefined): string | null {
+  if (!version) return null
+
+  const normalized = version
+    .trim()
+    .replace(/^gammaledger-/, '')
+    .replace(/^app-/, '')
+    .replace(/^v/, '')
+
+  if (/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?$/.test(normalized)) {
+    return normalized
+  }
+
+  return null
+}
+
+function getLatestGitVersion(): string | null {
+  try {
+    const tags = execFileSync('git', ['tag', '--list', '--sort=-v:refname'], { encoding: 'utf-8' })
+      .split('\n')
+      .map(tag => normalizeReleaseVersion(tag))
+      .filter((tag): tag is string => tag !== null)
+
+    return tags[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+function getAppVersion(): string {
+  const envVersion = normalizeReleaseVersion(process.env.VITE_APP_VERSION)
+  if (envVersion) return envVersion
+
+  const latestGitVersion = getLatestGitVersion()
+  if (latestGitVersion) return latestGitVersion
+
   try {
     return execFileSync('git', ['describe', '--tags', '--abbrev=0'], { encoding: 'utf-8' }).trim()
   } catch {
@@ -114,7 +149,7 @@ export default defineConfig({
     localReleaseBundle()
   ],
   define: {
-    __APP_VERSION__: JSON.stringify(getGitVersion()),
+    __APP_VERSION__: JSON.stringify(getAppVersion()),
   },
   resolve: {
     alias: {
