@@ -1,7 +1,7 @@
 // src/ui/sidebar.ts — Wave 8: Sidebar toggle and state persistence.
 // Uses the .call(this, …) delegation pattern.
 
-import { SIDEBAR_COLLAPSED_STORAGE_KEY } from '@core/config'
+import { SIDEBAR_COLLAPSED_STORAGE_KEY, APP_VERSION } from '@core/config'
 import { safeLocalStorage } from '@core/storage'
 
 interface SidebarState {
@@ -30,6 +30,9 @@ export function initializeSidebarToggle(this: SidebarContext): void {
     if (!container || !sidebar || !toggleButton) {
         return;
     }
+
+    const versionEl = document.getElementById('app-version')
+    if (versionEl) versionEl.textContent = `v${APP_VERSION}`
 
     this.sidebarState.container = container;
     this.sidebarState.sidebar = sidebar;
