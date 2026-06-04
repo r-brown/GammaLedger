@@ -46,7 +46,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/app/gammaledger-logo-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/app/gammaledger-logo-32x32.png">
     <link rel="icon" type="image/png" sizes="64x64" href="/app/gammaledger-logo-64x64.png">
-  <script type="module" crossorigin src="/app/assets/index-Dnhb0280.js"></script>
+  <script type="module" crossorigin src="/app/assets/index-yVo7caoB.js"></script>
   <link rel="stylesheet" crossorigin href="/app/assets/index-BZvcP64U.css">
 </head>
 
@@ -609,14 +609,14 @@
                 </div>
             </div>
 
-	            <!-- Credit Playbook View -->
-	            <div class="view credit-playbook-view">
-	                <header class="credit-playbook-header">
-	                    <div class="credit-playbook-metrics" id="credit-playbook-metrics" aria-live="polite"></div>
-	                    <div class="credit-playbook-detail-meta credit-playbook-help">
-	                        Wheel trades: Credit Playbook tracks option premium legs. Total wheel P&amp;L (including stock assignment/sale) is shown in All Trades and Dashboard → Wheel/PMCC tracker.
-	                    </div>
-	                </header>
+            <!-- Credit Playbook View -->
+            <div class="view credit-playbook-view">
+                <header class="credit-playbook-header">
+                    <div class="credit-playbook-metrics" id="credit-playbook-metrics" aria-live="polite"></div>
+                    <div class="credit-playbook-detail-meta credit-playbook-help">
+                        Wheel trades: Credit Playbook tracks option premium legs. Total wheel P&amp;L (including stock assignment/sale) is shown in All Trades and Dashboard → Wheel/PMCC tracker.
+                    </div>
+                </header>
 
                 <section class="credit-playbook-controls" aria-label="Credit playbook filters">
                     <div class="credit-playbook-filter">
@@ -819,11 +819,7 @@
                             </div>
                             <div class="form-group">
                                 <label for="gemini-model" class="form-label">Model</label>
-                                <select id="gemini-model" class="form-control">
-                                    <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
-                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                                    <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                                </select>
+                                <select id="gemini-model" class="form-control"></select>
                             </div>
                             <p class="settings-help-text">Keys stay on this device. Use Google AI Studio or any compatible service exposing the Gemini generateContent API.</p>
                             <div class="gemini-status" id="gemini-status" role="status">Not set</div>
@@ -964,7 +960,7 @@
         (function () {
             const cfg = window.ANNOUNCEMENT_BANNER_CONFIG;
             const container = document.getElementById('announcement-banner');
-            if (!cfg || !cfg.enabled || !container) {
+            if (!cfg || !cfg.enabled || !cfg.html || !container) {
                 if (container) container.remove();
                 document.documentElement.style.setProperty('--app-top-offset', '0px');
                 return;
