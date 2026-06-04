@@ -1000,7 +1000,7 @@ export function determineTradeLifecycleStatus(
     }
 
     if (hasAssignmentEvent && hasOpenStockPosition) {
-        result.status = 'Open';
+        result.status = 'Assigned';
         result.exitReason = null;
         return result;
     }
