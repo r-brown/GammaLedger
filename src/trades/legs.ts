@@ -1000,7 +1000,7 @@ export function determineTradeLifecycleStatus(
     }
 
     if (hasAssignmentEvent && hasOpenStockPosition) {
-        result.status = 'Open';
+        result.status = 'Assigned';
         result.exitReason = null;
         return result;
     }
@@ -1189,10 +1189,12 @@ export function enrichTradeData(
         expirationDate = pmccShortExpiration;
     }
 
-    if (!this.isPmccTrade(enriched) && this.isWheelOrPmccTrade(enriched) && pmccShortExpiration) {
+    if (!this.isPmccTrade(enriched) && this.isWheelOrPmccTrade(enriched)) {
         const hasActiveOptions = this.hasNetOpenOptionLegs({ ...enriched, legs: legSummary.legs });
-        if (hasActiveOptions) {
+        if (hasActiveOptions && pmccShortExpiration) {
             expirationDate = pmccShortExpiration;
+        } else if (!hasActiveOptions && this.getTradeOpenStockShares(enriched) > 0) {
+            expirationDate = null;
         }
     }
 

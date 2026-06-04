@@ -670,15 +670,12 @@ export function updateMonthlyPLChart(this: DashboardChartsContext): void {
     };
 
     this.trades.forEach(trade => {
-        // Include fully-realized trades (closed/expired/assigned-no-options) plus
-        // in-flight assigned wheels (assigned + still has open covered calls).
-        const isFullyRealized = this.isFullyRealizedTrade(trade);
-        const isInFlightAssigned = !isFullyRealized
-            && String(trade.status || '').toLowerCase() === 'assigned'
-            && this.isWheelOrPmccTrade(trade);
-        if (!isFullyRealized && !isInFlightAssigned) return;
-
         const legs = Array.isArray(trade.legs) ? trade.legs as Record<string, unknown>[] : [];
+        const hasOptionLegs = legs.some(leg => {
+            const t = String(leg.type || '').toUpperCase().trim();
+            return t === 'CALL' || t === 'PUT';
+        });
+        if (!hasOptionLegs) return;
 
         // Step 1: Attribute each option leg's cashflow to its execution month (cash-basis).
         // STO credit lands in the month the option was sold; BTC debit in the month
