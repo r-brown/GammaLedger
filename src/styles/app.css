@@ -662,10 +662,10 @@ select.form-control {
 }
 
 .sidebar-brand__version {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  color: var(--color-brand-purple);
   font-weight: 400;
-  padding-left: 44px;
+  padding-left: 38px;
   letter-spacing: 0.02em;
 }
 
