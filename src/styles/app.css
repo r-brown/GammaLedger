@@ -658,6 +658,15 @@ select.form-control {
   font-weight: 700;
   color: #5900c6;
 }
+
+.sidebar-brand__version {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-weight: 400;
+  padding-left: 44px;
+  letter-spacing: 0.02em;
+}
+
   border: 1px solid rgba(var(--color-success-rgb, 33, 128, 141), var(--status-border-opacity));
 }
 
@@ -907,9 +916,9 @@ select.form-control {
   padding: var(--space-24);
   border-bottom: 1px solid var(--color-border);
   display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-12);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
 }
 
 .sidebar-toggle {
@@ -1125,6 +1134,10 @@ select.form-control {
   align-items: center;
   gap: var(--space-8);
   padding: var(--space-16) var(--space-12);
+}
+
+.app-container.is-sidebar-collapsed .sidebar-brand__version {
+  display: none;
 }
 
 .app-container.is-sidebar-collapsed .sidebar-toggle {
