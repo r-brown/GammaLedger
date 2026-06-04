@@ -16,6 +16,7 @@ interface CreditPlaybookDataContext {
   currentDate: Date | unknown
   creditPlaybookSort?: { key: string; direction: string }
   isClosedStatus(status: unknown): boolean
+  isAssignedStatus(status: unknown): boolean
   extractSpreadPair(trade: TradeRecord, legs: unknown[], now: Date, pairs: LegPair[]): void
   extractIndividualLegPairs(trade: TradeRecord, legs: unknown[], now: Date, pairs: LegPair[]): void
   applyCreditPlaybookSortIndicators(): void
@@ -131,7 +132,7 @@ export function extractCreditPlaybookLegPairs(
             this.extractIndividualLegPairs(trade, legs, now, pairs);
         }
 
-        if (this.isClosedStatus(trade.status)) {
+        if (this.isClosedStatus(trade.status) || this.isAssignedStatus(trade.status)) {
             reconcileClosedTradePL(trade, pairs.slice(tradePairsStart));
         }
     });
