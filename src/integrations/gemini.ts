@@ -52,12 +52,11 @@ export function initializeGeminiControls(this: any) {
     }
 
     if (modelSelect) {
-        const options = Array.from(modelSelect.options).map(option => option.value);
-        if (options.length === 0) {
-            GEMINI_ALLOWED_MODELS.forEach(model => {
+        if (modelSelect.options.length === 0) {
+            GEMINI_MODELS.forEach(({ id, label }) => {
                 const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model.replace(/gemini-2\.5-/, 'Gemini 2.5 ').replace(/-/g, ' ').replace(/\b([a-z])/g, (_, letter) => letter.toUpperCase());
+                option.value = id;
+                option.textContent = label;
                 modelSelect.appendChild(option);
             });
         }

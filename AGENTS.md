@@ -385,7 +385,7 @@ directly from grid callbacks.
 ### Gemini AI Coach (`src/ai/gemini-agent.ts`)
 
 - User-provided API key stored encrypted in `localStorage`
-- Allowed models: `gemini-2.5-flash-lite`, `gemini-2.5-flash` (default), `gemini-2.5-pro`
+- Allowed models: `gemini-3.1-flash-lite`, `gemini-3.5-flash` (default), `gemini-3.1-pro-preview`
 - Sends `mcpContext` snapshot + query to the Gemini generateContent endpoint
 - Response shape validated with `isGeminiApiResponse()` before any field access
 - Falls back to `LocalInsightsAgent` on any network/API failure

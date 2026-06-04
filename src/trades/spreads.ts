@@ -213,7 +213,7 @@ export function extractSingleSpread(
         spreadStrike = '—';
     }
 
-    let totalGrossPremium = 0, totalFees = 0, entryDateMs: number | null = null, exitDate: Date | null = null, quantity = 0;
+    let totalGrossPremium = 0, totalFees = 0, entryDateMs: number | null = null, exitDate: Date | null = null;
 
     openingLegs.forEach(leg => {
         const legAction = this.getLegAction(leg);
@@ -223,7 +223,6 @@ export function extractSingleSpread(
         const direction = legAction === 'SELL' ? 1 : -1;
         totalGrossPremium += direction * legPremium * multiplier * legQuantity;
         totalFees += Number(leg.fees) || 0;
-        quantity = Math.max(quantity, Math.abs(Number(leg.quantity) || 0));
         const legDate = this.parseDateValue(leg.executionDate);
         if (legDate && (entryDateMs === null || legDate.getTime() < entryDateMs)) entryDateMs = legDate.getTime();
     });
@@ -261,7 +260,8 @@ export function extractSingleSpread(
         : null;
 
     const multiplier = 100;
-    const pricePerContract = displayQuantity > 0 ? totalGrossPremium / (displayQuantity * multiplier) : 0;
+    // Per-contract entry premium uses opening quantity so partial closes don't inflate the displayed price.
+    const pricePerContract = openingQuantity > 0 ? totalGrossPremium / (openingQuantity * multiplier) : 0;
 
     let width = 0;
     if (type === 'CALL/PUT' && strikes.length >= 4) {
@@ -605,7 +605,8 @@ export function extractSingleLegPair(
 
     const expirationDate = this.parseDateValue(expiration);
     const hasExpired = expirationDate && expirationDate < now;
-    const isOpen = openingLegs.length > 0 && closingLegs.length === 0 && !hasExpired && !isTradeClosed;
+    // A partially closed single-leg position is still active while contracts remain.
+    const isOpen = netQuantity > 0 && !hasExpired && !isTradeClosed;
 
     if (netQuantity === 0 && !isOpen) {
         netQuantity = Math.abs(openingLegs.reduce((sum, leg) => {
