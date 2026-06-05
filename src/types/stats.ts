@@ -48,6 +48,27 @@ export interface AssignmentStats {
 }
 
 /**
+ * Risk band for per-ticker collateral concentration.
+ * - critical: share > APP_CONFIG.RISK_RULES.CRITICAL_SHARE_PCT
+ * - high:     share > APP_CONFIG.RISK_RULES.TARGET_SHARE_PCT
+ * - ok:       share ≤ APP_CONFIG.RISK_RULES.TARGET_SHARE_PCT
+ * - caution:  reserved for a future amber-light tier; current aggregator never emits it
+ */
+export type RiskBand = 'critical' | 'high' | 'caution' | 'ok'
+
+/**
+ * Per-ticker collateral concentration row.
+ * Capital and share are both derived from openTrades only.
+ */
+export interface CollateralConcentration {
+  ticker: string
+  capital: DollarAmount
+  /** Decimal 0..1 — share of total collateralAtRisk */
+  share: number
+  band: RiskBand
+}
+
+/**
  * Full advanced stats object returned by calculateAdvancedStats() (§7).
  *
  * NOTE on percentages:
@@ -94,6 +115,12 @@ export interface Stats {
   totalFees: DollarAmount
   totalInvestment: DollarAmount
   collateralAtRisk: DollarAmount
+  /** Sum of trade P&L over fully closed/expired trades. */
+  closedTradesPL: DollarAmount
+  /** Realized option premium captured by in-flight assigned wheel/PMCC positions. */
+  wheelAssignedPremium: DollarAmount
+  /** Per-ticker collateral concentration over open positions, sorted desc by capital. */
+  collateralByTicker: CollateralConcentration[]
 
   closedTradesList: EnrichedTrade[]
   openTradesList: EnrichedTrade[]

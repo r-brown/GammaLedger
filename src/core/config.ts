@@ -47,6 +47,12 @@ interface AppConfigShape {
         readonly CHART_MIN_HEIGHT: number
     }
     PL_RANGES: readonly string[]
+    RISK_RULES: {
+        readonly MAX_COLLATERAL_PER_TRADE_USD: number
+        readonly TARGET_SHARE_PCT: number
+        readonly CRITICAL_SHARE_PCT: number
+        readonly TARGET_POSITION_COUNT: number
+    }
 }
 
 export const APP_CONFIG: AppConfigShape = Object.freeze({
@@ -81,7 +87,13 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         CHART_HEIGHT_RATIO: 0.42,
         CHART_MIN_HEIGHT: 320
     },
-    PL_RANGES: Object.freeze(['7D', 'MTD', '1M', '3M', 'YTD', '1Y', 'ALL'])
+    PL_RANGES: Object.freeze(['7D', 'MTD', '1M', '3M', 'YTD', '1Y', 'ALL']),
+    RISK_RULES: {
+        MAX_COLLATERAL_PER_TRADE_USD: 1000,
+        TARGET_SHARE_PCT: 5,
+        CRITICAL_SHARE_PCT: 20,
+        TARGET_POSITION_COUNT: 20
+    }
 });
 
 // ---------------------------------------------------------------------------
