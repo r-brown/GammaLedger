@@ -20,7 +20,7 @@ interface PnlContext {
     calculateDaysHeld(trade: EnrichedTrade): number
     isClosedStatus(status: string | null | undefined): boolean
     isAssignedStatus(status: string | null | undefined): boolean
-    hasAssignedInventory(trade: Record<string, unknown>): boolean
+    hasAssignedInventory(trade: EnrichedTrade): boolean
     parseDateValue(value: unknown): Date | null
     isPmccTrade(trade: EnrichedTrade): boolean
     calculateLegCashFlow(leg: Record<string, unknown>): number
@@ -68,7 +68,7 @@ export function calculateRealizedPL(
         return Number.isFinite(pl) ? pl : 0;
     }
 
-    if (!this.hasAssignedInventory(trade as unknown as Record<string, unknown>)) {
+    if (!this.hasAssignedInventory(trade)) {
         return 0;
     }
 
