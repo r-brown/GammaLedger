@@ -89,6 +89,20 @@ export function isAwaitingCoverage(this: WheelContext, trade: Record<string, unk
 }
 
 /**
+ * True when a trade has an assignment event in its lifecycle AND still holds
+ * the assigned shares. Independent of CC coverage — covered wheels still
+ * count as "assigned inventory" for tables and risk views.
+ */
+export function hasAssignedInventory(
+    this: WheelContext,
+    trade: Record<string, unknown> = {}
+): boolean {
+    const meta = trade?.lifecycleMeta as { hasAssignmentEvent?: boolean } | undefined;
+    if (!meta?.hasAssignmentEvent) return false;
+    return this.getTradeOpenStockShares(trade) > 0;
+}
+
+/**
  * Lightweight per-trade cost-basis math for wheel/PMCC awaiting-coverage positions.
  */
 export function computeWheelEffectiveCostBasis(

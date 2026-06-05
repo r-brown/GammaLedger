@@ -875,6 +875,13 @@ class GammaLedger {
     isAwaitingCoverage(trade = {}) { return positionsModule.isAwaitingCoverage.call(this, trade); }
 
     /**
+     * True when a trade has an assignment event in its lifecycle AND still holds
+     * the assigned shares. Independent of CC coverage — covered wheels still
+     * count as "assigned inventory" for tables and risk views.
+     */
+    hasAssignedInventory(trade = {}) { return wheelModule.hasAssignedInventory.call(this, trade); }
+
+    /**
      * Lightweight per-trade cost-basis math for wheel/PMCC awaiting-coverage positions.
      * Returns shares, assignmentCostBasis, and effectiveCostBasis (cost basis after
      * subtracting net option premium collected). Used to compute unrealized P&L.
