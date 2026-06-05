@@ -4,7 +4,8 @@
 import type { DollarAmount } from '@types-gl/common'
 import type { EnrichedTrade } from '@types-gl/trade'
 import type { NormalizedLeg } from '@types-gl/leg'
-import type { TickerPerformance, TickerPerformanceItem } from '@types-gl/stats'
+import type { TickerPerformance, TickerPerformanceItem, RiskBand, CollateralConcentration } from '@types-gl/stats'
+import { APP_CONFIG } from '@core/config.js'
 
 /**
  * Minimum GammaLedger context surface required by stats calculations.
@@ -50,6 +51,13 @@ interface StatsContext {
     // Date / format helpers
     parseDateValue(value: unknown): Date | null
     formatDate(dateString: string): string
+}
+
+function classifyShare(sharePct: number): RiskBand {
+    const { TARGET_SHARE_PCT, CRITICAL_SHARE_PCT } = APP_CONFIG.RISK_RULES
+    if (sharePct > CRITICAL_SHARE_PCT) return 'critical'
+    if (sharePct > TARGET_SHARE_PCT) return 'high'
+    return 'ok'
 }
 
 function assertPositiveMultiplier(value: unknown, context: string): number {
@@ -279,6 +287,20 @@ export function calculateAdvancedStats(this: StatsContext) {
         return Number.isFinite(capital) && capital > 0 ? sum + capital : sum;
     }, 0);
 
+    const collateralByTickerMap = new Map<string, number>()
+    for (const trade of openTrades) {
+        const capital = this.getCapitalAtRisk(trade)
+        if (!Number.isFinite(capital) || capital <= 0) continue
+        const ticker = String((trade as { ticker?: unknown }).ticker ?? '').trim() || '—'
+        collateralByTickerMap.set(ticker, (collateralByTickerMap.get(ticker) ?? 0) + capital)
+    }
+    const collateralByTicker: CollateralConcentration[] = Array.from(collateralByTickerMap.entries())
+        .map(([ticker, capital]) => {
+            const share = collateralAtRisk > 0 ? capital / collateralAtRisk : 0
+            return { ticker, capital, share, band: classifyShare(share * 100) }
+        })
+        .sort((a, b) => b.capital - a.capital)
+
     // Promoted assigned wheel/PMCC trades live in openTrades but their option-leg
     // cashflows are already realized cash. Compute per-trade option PL once so we
     // can add it to realizedPL and subtract it from the unrealizedPL contribution
@@ -359,6 +381,9 @@ export function calculateAdvancedStats(this: StatsContext) {
         avgDaysHeld,
         tickerPerformance,
         collateralAtRisk,
+        closedTradesPL: totalPL,
+        wheelAssignedPremium: promotedAssignedOptionPLTotal,
+        collateralByTicker,
         realizedPL,
         unrealizedPL,
         avgWin,
