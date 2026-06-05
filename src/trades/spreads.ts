@@ -32,6 +32,7 @@ interface SpreadsContext {
     parseDateValue(value: unknown): Date | null
     isClosedStatus(status: unknown): boolean
     isAssignedStatus(status: unknown): boolean
+    hasAssignedInventory(trade: Record<string, unknown>): boolean
     extractRolledSpread(trade: Record<string, unknown>, allLegs: Record<string, unknown>[], now: Date, pairs: SpreadPair[]): void
     extractSingleSpread(trade: Record<string, unknown>, groupLegs: Record<string, unknown>[], expiration: string, now: Date, pairs: SpreadPair[]): void
     detectRollChain(sortedLegs: Record<string, unknown>[]): boolean
@@ -173,7 +174,7 @@ export function extractRolledSpread(
         premium: netPremium, entryDate, expirationDate: currentExpiration, dte,
         exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling: isRollingNow,
-        isAssigned: this.isAssignedStatus(trade.status), capital
+        isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
 
@@ -285,7 +286,7 @@ export function extractSingleSpread(
         premium: netPremium, entryDate: entryDateMs !== null ? new Date(entryDateMs) : null, expirationDate: expiration, dte,
         exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling: false,
-        isAssigned: this.isAssignedStatus(trade.status), capital
+        isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
 
@@ -459,7 +460,7 @@ export function extractRolledPositionAcrossStrikes(
         premium: netPremium, entryDate, expirationDate: currentExpiration, dte,
         exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling,
-        isAssigned: this.isAssignedStatus(trade.status), capital
+        isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
 
@@ -547,7 +548,7 @@ export function extractRolledPosition(
         premium: netPremium, entryDate, expirationDate: currentExpiration, dte,
         exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling,
-        isAssigned: this.isAssignedStatus(trade.status), capital
+        isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
 
@@ -637,6 +638,6 @@ export function extractSingleLegPair(
         premium: netPremium, entryDate, expirationDate: expiration, dte,
         exitDate: effectiveExitDate, daysHeld,
         pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling: false,
-        isAssigned: this.isAssignedStatus(trade.status), capital
+        isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
