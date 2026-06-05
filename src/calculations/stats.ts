@@ -74,7 +74,10 @@ export function calculateAdvancedStats(this: StatsContext) {
     // trades whose option exposure has fully unwound (i.e. not promoted to
     // active via the wheel/PMCC active-short-calls path).
     const closedTrades = this.trades.filter(trade => this.isFullyRealizedTrade(trade));
-    const assignedTrades = this.trades.filter(trade => this.isAssignedStatus(trade.status));
+    const assignedTrades = this.trades.filter(trade => {
+        const meta = (trade as unknown as Record<string, unknown>).lifecycleMeta as { hasAssignmentEvent?: boolean } | undefined;
+        return Boolean(meta?.hasAssignmentEvent);
+    });
     // Awaiting-coverage trades (uncovered/partial wheel/PMCC) live only in the
     // Wheel/PMCC tracker — exclude from Active Trades and from "expired" buckets.
     let openTrades = this.trades.filter(trade =>
@@ -83,7 +86,8 @@ export function calculateAdvancedStats(this: StatsContext) {
     const awaitingCoverageTrades = this.trades.filter(trade => trade.lifecycleStatus === 'awaiting_coverage');
     const wheelPmccTrades = this.trades.filter(trade => {
         const isWheelPmcc = this.isWheelOrPmccTrade(trade);
-        const isAssigned = this.isAssignedStatus(trade.status);
+        const meta = (trade as unknown as Record<string, unknown>).lifecycleMeta as { hasAssignmentEvent?: boolean } | undefined;
+        const isAssigned = Boolean(meta?.hasAssignmentEvent);
         // Include all Wheel/PMCC and Assigned trades — closed ones are shown
         // when the user selects the "Closed" filter in the tracker table.
         return isWheelPmcc || isAssigned;
@@ -411,7 +415,8 @@ export function calculateAssignmentStats(this: StatsContext, assignedTrades: Enr
         // Assigned CSP trades may not have stock legs (e.g. import created
         // the stock in a separate trade entry).  Treat them as wheel so they
         // show up in the wheel/assignment tracker.
-        if (positionType === 'other' && this.isAssignedStatus(trade.status)) {
+        const tradeMeta = (trade as unknown as Record<string, unknown>).lifecycleMeta as { hasAssignmentEvent?: boolean } | undefined;
+        if (positionType === 'other' && Boolean(tradeMeta?.hasAssignmentEvent)) {
             positionType = 'wheel';
         }
         const stockDate = stockLegInfo?.executionDate || null;
