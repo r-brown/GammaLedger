@@ -49,6 +49,7 @@ interface AssignedPositionsContext extends PositionDetailPanelContext {
   expandedAssignedTradeId: string | null
   filteredAssignmentEntries: Record<string, unknown>[]
   isClosedStatus(status: unknown): boolean
+  hasAssignedInventory(trade: Record<string, unknown>): boolean
   createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
   openTradesFilteredByTicker(ticker: unknown): void
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
