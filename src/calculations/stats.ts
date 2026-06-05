@@ -28,6 +28,7 @@ interface StatsContext {
     // Trade-shape predicates
     isWheelOrPmccTrade(trade: EnrichedTrade): boolean
     isPmccTrade(trade: EnrichedTrade): boolean
+    hasAssignedInventory(trade: EnrichedTrade): boolean
 
     // Open-leg helpers
     hasNetOpenOptionLegs(trade: EnrichedTrade): boolean
@@ -74,10 +75,11 @@ export function calculateAdvancedStats(this: StatsContext) {
     // trades whose option exposure has fully unwound (i.e. not promoted to
     // active via the wheel/PMCC active-short-calls path).
     const closedTrades = this.trades.filter(trade => this.isFullyRealizedTrade(trade));
-    const assignedTrades = this.trades.filter(trade => {
-        const meta = (trade as unknown as Record<string, unknown>).lifecycleMeta as { hasAssignmentEvent?: boolean } | undefined;
-        return Boolean(meta?.hasAssignmentEvent);
-    });
+    // Use hasAssignedInventory (event + shares still held) so fully-closed
+    // wheel cycles aren't re-promoted into openTrades via assignedWithActiveOptions.
+    // Assigned options never get explicit closing legs, so hasNetOpenOptionLegs
+    // alone would let closed wheels slip through and inflate collateralAtRisk.
+    const assignedTrades = this.trades.filter(trade => this.hasAssignedInventory(trade));
     // Awaiting-coverage trades (uncovered/partial wheel/PMCC) live only in the
     // Wheel/PMCC tracker — exclude from Active Trades and from "expired" buckets.
     let openTrades = this.trades.filter(trade =>
