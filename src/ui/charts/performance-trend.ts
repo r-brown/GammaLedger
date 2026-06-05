@@ -76,10 +76,13 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     const cumulative = this.computeCumulativePLSeries(this.cumulativePLRange)
     const monthlyMap: Map<string, number> = computeMonthlyPL.call(this)
 
+    const toMonthKey = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+
     let monthKeys: string[]
     if (cumulative && cumulative.dates.length) {
         const set = new Set<string>()
-        for (const d of cumulative.dates) set.add(d.toISOString().slice(0, 7))
+        for (const d of cumulative.dates) set.add(toMonthKey(d))
         monthKeys = Array.from(set).sort()
     } else {
         monthKeys = Array.from(monthlyMap.keys()).sort()
@@ -137,7 +140,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                 yAxisIndex: 0,
                 data: monthlyValues.map(v => ({
                     value: v,
-                    itemStyle: { color: v >= 0 ? '#1D9E75' : '#E24B4A' }
+                    itemStyle: { color: v >= 0 ? '#1FB8CD' : '#B4413C' }
                 })),
                 barMaxWidth: 28
             },

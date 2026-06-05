@@ -28,13 +28,13 @@ export function renderConcentration(this: ConcentrationContext, stats: Stats): v
     const fmt$ = (v: number) => this.formatCurrency(v, { decimals: 0 })
 
     if (!stats.collateralByTicker.length) {
-        root.innerHTML = `<div class="concentration-empty">No open positions.</div>`
+        root.innerHTML = `<h3>Collateral Concentration</h3><div class="concentration-empty">No open positions.</div>`
         return
     }
 
     const rows = stats.collateralByTicker.map(row => {
         const widthPct = Math.max(0, Math.min(100, row.share * 100))
-        const sharePct = (row.share * 100).toFixed(2)
+        const sharePct = (row.share * 100).toFixed(1)
         const flag = row.band !== 'ok' ? ' &#x26A0;' : ''
         return `
           <div class="conc-row">
@@ -47,13 +47,14 @@ export function renderConcentration(this: ConcentrationContext, stats: Stats): v
     }).join('')
 
     root.innerHTML = `
-      <div class="conc-caption">Collateral committed per position &middot; target &le;${rules.TARGET_SHARE_PCT}% per trade &middot; ${fmt$(total)} total</div>
+      <h3>Collateral Concentration</h3>
       ${rows}
       <div class="conc-legend">
         <span><span class="conc-swatch conc-swatch--critical"></span>Critical (&gt;${rules.CRITICAL_SHARE_PCT}%)</span>
         <span><span class="conc-swatch conc-swatch--high"></span>High (&gt;${rules.TARGET_SHARE_PCT}%)</span>
         <span><span class="conc-swatch conc-swatch--ok"></span>On target (&le;${rules.TARGET_SHARE_PCT}%)</span>
-        <span class="conc-rule">Rule: max $${rules.MAX_COLLATERAL_PER_TRADE_USD} / ${rules.TARGET_SHARE_PCT}% per trade</span>
+        <span class="conc-rule">Rule: &le;${rules.TARGET_SHARE_PCT}% / $${rules.MAX_COLLATERAL_PER_TRADE_USD} per trade</span>
       </div>
+      <div class="conc-footer">Collateral committed per position &middot; target &le;${rules.TARGET_SHARE_PCT}% per trade &middot; ${fmt$(total)} total</div>
     `
 }

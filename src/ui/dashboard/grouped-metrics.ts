@@ -20,6 +20,13 @@ function bar(widthPct: number, bg: string, fg: string): string {
     return `<div class="bridge-bar" style="width:${w}%;background:${bg};color:${fg}"></div>`
 }
 
+function valClass(value: number, override?: string): string {
+    if (override) return override
+    if (value > 0) return 'rv-pos'
+    if (value < 0) return 'rv-neg'
+    return 'rv'
+}
+
 function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
     const fmt = (v: number) => this.formatCurrency(v)
     const closed = stats.closedTradesPL
@@ -35,23 +42,24 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         sub: string,
         value: number,
         bg: string,
+        cls: string,
         isTotal = false
     ) => `
       <div class="bridge-row${isTotal ? ' bridge-total' : ''}">
         <div class="bridge-label"><span>${escapeHtml(label)}</span><small>${escapeHtml(sub)}</small></div>
         <div class="bridge-bar-area">
           ${bar((Math.abs(value) / scale) * 100, bg, 'transparent')}
-          <span class="bridge-val${isTotal ? ' bridge-val-large' : ''}">${fmt(value)}</span>
+          <span class="bridge-val${isTotal ? ' bridge-val-large' : ''} ${cls}">${fmt(value)}</span>
         </div>
       </div>`
 
     return `
       <h3>How realized P&amp;L is built</h3>
-      ${row('Closed trades', `${stats.closedTrades} closed`, closed, 'var(--color-bridge-closed-bg)')}
-      ${row('+ Wheel premium', `${assigned.length} assigned`, wheel, 'var(--color-bridge-wheel-bg)')}
-      ${row('= Realized P&L', 'completed option flows', realized, 'var(--color-bridge-realized-bg)', true)}
-      ${row('+ Unrealized', `${stats.activePositions} open positions MTM`, unrealized, 'var(--color-bridge-unrealized-bg)')}
-      ${row('= Total P&L', 'all-in portfolio view', total, 'var(--color-bridge-total-bg)', true)}
+      ${row('Closed trades', `${stats.closedTrades} closed`, closed, 'var(--color-bridge-closed-bg)', valClass(closed))}
+      ${row('+ Wheel premium', `${assigned.length} assigned`, wheel, 'var(--color-bridge-wheel-bg)', 'rv-pur')}
+      ${row('= Realized P&L', 'completed option flows', realized, 'var(--color-bridge-realized-bg)', 'rv-pur', true)}
+      ${row('+ Unrealized', `${stats.activePositions} open MTM`, unrealized, 'var(--color-bridge-unrealized-bg)', valClass(unrealized))}
+      ${row('= Total P&L', 'all-in portfolio view', total, 'var(--color-bridge-total-bg)', valClass(total), true)}
     `
 }
 
