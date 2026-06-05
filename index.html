@@ -206,89 +206,16 @@
 
             <!-- Enhanced Dashboard View with Integrated Analytics -->
             <div class="view dashboard-view active">
-                <!-- Portfolio Overview -->
-                <div class="portfolio-overview">
-                    <div class="overview-cards-row">
-                        <div class="overview-card">
-                            <h3>Realized P&L</h3>
-                            <p class="card-value" id="realized-pl">$0.00</p>
-                            <small class="card-subtitle">Closed Trades</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Unrealized P&L</h3>
-                            <p class="card-value" id="unrealized-pl">$0.00</p>
-                            <small class="card-subtitle">Open Positions</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Collateral at Risk</h3>
-                            <p class="card-value" id="collateral-at-risk">$0.00</p>
-                            <small class="card-subtitle">Capital Committed</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Active Positions</h3>
-                            <p class="card-value" id="active-positions">0</p>
-                            <small class="card-subtitle">Open Trades</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Assigned Positions</h3>
-                            <p class="card-value" id="assigned-positions">0</p>
-                            <small class="card-subtitle">Wheel / PMCC</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Win Rate</h3>
-                            <p class="card-value" id="win-rate">0%</p>
-                            <small class="card-subtitle" id="win-loss-count">0W / 0L</small>
-                        </div>
-                    </div>
-                    <div class="overview-cards-row">
-                        <div class="overview-card">
-                            <h3>Profit Factor</h3>
-                            <p class="card-value" id="profit-factor">0.00</p>
-                            <small class="card-subtitle">Risk/Reward</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Total ROI</h3>
-                            <p class="card-value" id="total-roi">0%</p>
-                            <small class="card-subtitle">Annualized</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Max Drawdown</h3>
-                            <p class="card-value" id="max-drawdown">0%</p>
-                            <small class="card-subtitle">Peak to Trough</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Avg Win / Loss</h3>
-                            <p class="card-value" id="avg-win-loss">$0 / $0</p>
-                            <small class="card-subtitle">Per Trade</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Expectancy</h3>
-                            <p class="card-value" id="expectancy">$0.00</p>
-                            <small class="card-subtitle">Expected $/Trade</small>
-                        </div>
-                        <div class="overview-card">
-                            <h3>Sharpe Ratio</h3>
-                            <p class="card-value" id="sharpe-ratio">—</p>
-                            <small class="card-subtitle">Risk-Adjusted</small>
-                        </div>
-                    </div>
-                </div>
+                <section id="pl-bridge" class="card dashboard-bridge" aria-label="P&L decomposition"></section>
 
-                <!-- Monthly P&L Performance - Full Width -->
-                <div class="monthly-pl-section">
-                    <div class="chart-container chart-full-width">
-                        <h3>Monthly P&L Performance</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
-                            <div id="monthlyPLChart" class="echarts-chart" role="img" aria-label="Monthly profit and loss chart"></div>
-                        </div>
-                    </div>
-                </div>
+                <section id="grouped-metrics" class="metric-grid" aria-label="Portfolio metrics"></section>
 
-                <!-- Cumulative P&L Growth - Full Width -->
-                <div class="cumulative-pl-section">
-                    <div class="chart-container chart-full-width">
-                        <h3>Cumulative P&L Growth</h3>
-                        <div class="chart-range" id="cumulative-pl-controls" role="group" aria-label="Cumulative P&L time range">
+                <section id="collateral-concentration" class="card dashboard-concentration" aria-label="Collateral concentration by ticker"></section>
+
+                <section class="card dashboard-performance-trend">
+                    <div class="card-header">
+                        <h3>Performance Trend</h3>
+                        <div class="chart-range" id="cumulative-pl-controls" role="group" aria-label="Performance trend time range">
                             <button type="button" class="chart-range__button" data-range="7D">7D</button>
                             <button type="button" class="chart-range__button" data-range="MTD">MTD</button>
                             <button type="button" class="chart-range__button" data-range="1M">1M</button>
@@ -297,11 +224,11 @@
                             <button type="button" class="chart-range__button" data-range="1Y">1Y</button>
                             <button type="button" class="chart-range__button" data-range="ALL">All</button>
                         </div>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <div id="cumulativePLChart" class="echarts-chart" role="img" aria-label="Cumulative profit and loss chart"></div>
-                        </div>
                     </div>
-                </div>
+                    <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
+                        <div id="performanceTrendChart" class="echarts-chart" role="img" aria-label="Monthly P&L bars with cumulative growth line"></div>
+                    </div>
+                </section>
 
                 <!-- Strategy Analysis Row -->
                 <div class="strategy-analysis-row">
