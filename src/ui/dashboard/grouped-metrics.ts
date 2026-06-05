@@ -1,4 +1,4 @@
-// src/ui/dashboard/grouped-metrics.ts — Three-column grouped metric panel.
+// src/ui/dashboard/grouped-metrics.ts — Four-column grouped metric panel (bridge + 3 metric cols).
 // Uses the .call(this, …) delegation pattern.
 
 import { APP_CONFIG } from '@core/config.js'
@@ -8,10 +8,51 @@ import type { Stats } from '@types-gl/stats'
 interface GroupedMetricsContext {
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
+  calculateRealizedPL(trade: EnrichedTrade): number
 }
 
 function escapeHtml(s: string): string {
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] as string))
+}
+
+function bar(widthPct: number, bg: string, fg: string): string {
+    const w = Math.max(0, Math.min(100, widthPct))
+    return `<div class="bridge-bar" style="width:${w}%;background:${bg};color:${fg}"></div>`
+}
+
+function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
+    const fmt = (v: number) => this.formatCurrency(v)
+    const closed = stats.closedTradesPL
+    const wheel = stats.wheelAssignedPremium
+    const realized = stats.realizedPL
+    const unrealized = stats.unrealizedPL
+    const total = realized + unrealized
+    const scale = Math.max(Math.abs(closed), Math.abs(realized), Math.abs(total), 1)
+    const assigned = (stats.assignedTradesList ?? []) as EnrichedTrade[]
+
+    const row = (
+        label: string,
+        sub: string,
+        value: number,
+        bg: string,
+        isTotal = false
+    ) => `
+      <div class="bridge-row${isTotal ? ' bridge-total' : ''}">
+        <div class="bridge-label"><span>${escapeHtml(label)}</span><small>${escapeHtml(sub)}</small></div>
+        <div class="bridge-bar-area">
+          ${bar((Math.abs(value) / scale) * 100, bg, 'transparent')}
+          <span class="bridge-val${isTotal ? ' bridge-val-large' : ''}">${fmt(value)}</span>
+        </div>
+      </div>`
+
+    return `
+      <h3>How realized P&amp;L is built</h3>
+      ${row('Closed trades', `${stats.closedTrades} closed`, closed, 'var(--color-bridge-closed-bg)')}
+      ${row('+ Wheel premium', `${assigned.length} assigned`, wheel, 'var(--color-bridge-wheel-bg)')}
+      ${row('= Realized P&L', 'completed option flows', realized, 'var(--color-bridge-realized-bg)', true)}
+      ${row('+ Unrealized', `${stats.activePositions} open positions MTM`, unrealized, 'var(--color-bridge-unrealized-bg)')}
+      ${row('= Total P&L', 'all-in portfolio view', total, 'var(--color-bridge-total-bg)', true)}
+    `
 }
 
 function ytdRealized(closed: EnrichedTrade[]): number {
@@ -57,7 +98,10 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
 
     root.innerHTML = `
       <div class="metric-col">
-        <div class="metric-col-head">P&amp;L performance</div>
+        ${buildBridgeColumn.call(this, stats)}
+      </div>
+      <div class="metric-col">
+        <h3>P&amp;L performance</h3>
         <div class="row"><span class="rl">Realized P&amp;L</span><span class="rv-pur">${fmt$(stats.realizedPL)}</span></div>
         <div class="row"><span class="rl">Unrealized P&amp;L</span><span class="${plClass(stats.unrealizedPL)}">${fmt$(stats.unrealizedPL)}</span></div>
         <div class="row"><span class="rl">YTD P&amp;L</span><span class="${plClass(ytd)}">${fmt$(ytd)}</span></div>
@@ -65,7 +109,7 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
         <div class="row"><span class="rl">Total ROI</span><span class="${plClass(stats.totalROI)}">${fmtPct(stats.totalROI)}</span></div>
       </div>
       <div class="metric-col">
-        <div class="metric-col-head">Risk &amp; exposure</div>
+        <h3>Risk &amp; exposure</h3>
         <div class="row"><span class="rl">Collateral at risk</span><span class="rv-warn">${fmt$(stats.collateralAtRisk)}</span></div>
         <div class="row"><span class="rl">Top-ticker concentration</span><span class="${topOver ? 'rv-warn' : 'rv'}">${topLabel}${topOver ? ` <span class="chip chip-warn">&#x26A0; limit ${APP_CONFIG.RISK_RULES.TARGET_SHARE_PCT}%</span>` : ''}</span></div>
         <div class="row"><span class="rl">Active positions</span><span class="rv">${stats.activePositions} / ${APP_CONFIG.RISK_RULES.TARGET_POSITION_COUNT}</span></div>
@@ -73,7 +117,7 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
         <div class="row"><span class="rl">Max drawdown</span><span class="${stats.maxDrawdown > 20 ? 'rv-neg' : 'rv-warn'}">${stats.maxDrawdown.toFixed(1)}%</span></div>
       </div>
       <div class="metric-col">
-        <div class="metric-col-head">Trade quality</div>
+        <h3>Trade quality</h3>
         <div class="row"><span class="rl">Win rate</span><span class="rv-pos">${stats.winRate.toFixed(1)}%</span></div>
         <div class="win-bar-wrap"><div class="win-bar" style="width:${Math.max(0, Math.min(100, stats.winRate))}%"></div></div>
         <div class="win-bar-foot"><span>${stats.wins}W</span><span>${stats.losses}L</span></div>

@@ -21,7 +21,6 @@ interface DashboardContext {
   setAssignedPositionsStatusFilter(status: string): void
   syncAssignedPositionsStatusFilter(): void
   calculateAdvancedStats(): Stats
-  renderBridge(stats: Stats): void
   renderGroupedMetrics(stats: Stats): void
   renderConcentration(stats: Stats): void
 }
@@ -36,7 +35,6 @@ export function updateDashboard(this: DashboardContext): void {
         this.aiAgent.updateContext({ stats, openTrades: openTradesList })
     }
 
-    this.renderBridge(stats)
     this.renderGroupedMetrics(stats)
     this.renderConcentration(stats)
 

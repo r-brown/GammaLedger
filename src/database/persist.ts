@@ -343,9 +343,9 @@ export async function loadDatabase(this: PersistContext): Promise<void> {
             this.loadWithFileInput();
         }
     } catch (error) {
-        console.error('Load error:', error);
         if ((error as { name?: string })?.name !== 'AbortError') {
-            this.loadWithFileInput();
+            console.error('Load error:', error);
+            this.showNotification('Failed to open file. Please try again.', 'error');
         }
     }
 
