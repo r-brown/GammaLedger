@@ -109,7 +109,7 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
         ${buildBridgeColumn.call(this, stats)}
       </div>
       <div class="metric-col">
-        <h3>P&amp;L performance</h3>
+        <h3>P&amp;L Performance</h3>
         <div class="row"><span class="rl">Realized P&amp;L</span><span class="rv-pur">${fmt$(stats.realizedPL)}</span></div>
         <div class="row"><span class="rl">Unrealized P&amp;L</span><span class="${plClass(stats.unrealizedPL)}">${fmt$(stats.unrealizedPL)}</span></div>
         <div class="row"><span class="rl">YTD P&amp;L</span><span class="${plClass(ytd)}">${fmt$(ytd)}</span></div>
@@ -117,7 +117,7 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
         <div class="row"><span class="rl">Total ROI</span><span class="${plClass(stats.totalROI)}">${fmtPct(stats.totalROI)}</span></div>
       </div>
       <div class="metric-col">
-        <h3>Risk &amp; exposure</h3>
+        <h3>Risk &amp; Exposure</h3>
         <div class="row"><span class="rl">Collateral at risk</span><span class="rv-warn">${fmt$(stats.collateralAtRisk)}</span></div>
         <div class="row"><span class="rl">Top-ticker concentration</span><span class="${topOver ? 'rv-warn' : 'rv'}">${topLabel}${topOver ? ` <span class="chip chip-warn">&#x26A0; limit ${APP_CONFIG.RISK_RULES.TARGET_SHARE_PCT}%</span>` : ''}</span></div>
         <div class="row"><span class="rl">Active positions</span><span class="rv">${stats.activePositions} / ${APP_CONFIG.RISK_RULES.TARGET_POSITION_COUNT}</span></div>
@@ -125,7 +125,7 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
         <div class="row"><span class="rl">Max drawdown</span><span class="${stats.maxDrawdown > 20 ? 'rv-neg' : 'rv-warn'}">${stats.maxDrawdown.toFixed(1)}%</span></div>
       </div>
       <div class="metric-col">
-        <h3>Trade quality</h3>
+        <h3>Trade Quality</h3>
         <div class="row"><span class="rl">Win rate</span><span class="rv-pos">${stats.winRate.toFixed(1)}%</span></div>
         <div class="win-bar-wrap"><div class="win-bar" style="width:${Math.max(0, Math.min(100, stats.winRate))}%"></div></div>
         <div class="win-bar-foot"><span>${stats.wins}W</span><span>${stats.losses}L</span></div>
