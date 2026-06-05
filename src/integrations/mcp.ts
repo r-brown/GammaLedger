@@ -4,7 +4,19 @@
 type AnyRecord = Record<string, any>
 type Streak = { type: 'win' | 'loss' | null; count: number }
 
-export function buildMCPContext(this: any) {
+interface MCPContextBuilderContext {
+  trades: Record<string, unknown>[]
+  currentDate: Date | unknown
+  calculateAdvancedStats(): any
+  getClosedTradesInRange(range: string): Record<string, unknown>[]
+  isClosedStatus(status: unknown): boolean
+  hasAssignedInventory(trade: Record<string, unknown>): boolean
+  isActiveStatus(status: unknown): boolean
+  buildMCPTrade(trade: Record<string, unknown>, opts?: Record<string, unknown>): Record<string, unknown> | null
+  buildMCPAssignment(a: Record<string, unknown>): Record<string, unknown> | null
+}
+
+export function buildMCPContext(this: MCPContextBuilderContext) {
     try {
         const stats = this.calculateAdvancedStats();
         const closedTrades: AnyRecord[] = stats.closedTradesList || [];
@@ -95,7 +107,7 @@ export function buildMCPContext(this: any) {
                 e.totalPL += pl;
                 if (pl > 0) e.wins++;
                 else if (pl < 0) e.losses++;
-            } else if (this.isAssignedStatus(t.status)) {
+            } else if (this.hasAssignedInventory(t) && !this.isClosedStatus(t.status)) {
                 e.assigned++;
             } else if (this.isActiveStatus(t.status)) {
                 e.open++;
