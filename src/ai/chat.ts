@@ -670,24 +670,24 @@ export function renderAIDraftImport(this: AIChatContext): void {
         ].filter(Boolean);
         return `
             <tr data-draft-row="${index}" data-confidence="${row.confidence}" data-needs-review="${row.needsUserReview}" data-warnings="${this.escapeHTML(warnings.join('\n'))}" data-raw-text="${this.escapeHTML(row.rawText)}">
-                <td><input type="checkbox" data-draft-field="selected" checked aria-label="Select draft row ${index + 1}"></td>
-                <td><input type="text" data-draft-field="underlying" value="${this.escapeHTML(row.underlying)}" aria-label="Ticker"></td>
+                <td><input type="checkbox" name="draft-${index}-selected" data-draft-field="selected" checked aria-label="Select draft row ${index + 1}"></td>
+                <td><input type="text" name="draft-${index}-underlying" data-draft-field="underlying" value="${this.escapeHTML(row.underlying)}" aria-label="Ticker"></td>
                 <td>
-                    <select data-draft-field="orderType" aria-label="Action">
+                    <select name="draft-${index}-orderType" data-draft-field="orderType" aria-label="Action">
                         ${['', 'BTO', 'STO', 'BTC', 'STC'].map(value => `<option value="${value}"${row.orderType === value ? ' selected' : ''}>${value || 'Review'}</option>`).join('')}
                     </select>
                 </td>
                 <td>
-                    <select data-draft-field="type" aria-label="Instrument">
+                    <select name="draft-${index}-type" data-draft-field="type" aria-label="Instrument">
                         ${['', 'CALL', 'PUT', 'STOCK', 'CASH'].map(value => `<option value="${value}"${row.type === value ? ' selected' : ''}>${value || 'Review'}</option>`).join('')}
                     </select>
                 </td>
-                <td><input type="number" data-draft-field="quantity" min="0" step="1" value="${this.escapeHTML(row.quantity)}" aria-label="Quantity"></td>
-                <td><input type="date" data-draft-field="executionDate" value="${this.escapeHTML(row.executionDate)}" aria-label="Trade date"></td>
-                <td><input type="date" data-draft-field="expirationDate" value="${this.escapeHTML(row.expirationDate)}" aria-label="Expiration"></td>
-                <td><input type="number" data-draft-field="strike" step="0.01" value="${this.escapeHTML(row.strike)}" aria-label="Strike"></td>
-                <td><input type="number" data-draft-field="premium" step="0.000001" min="0" value="${this.escapeHTML(row.premium)}" aria-label="Price"></td>
-                <td><input type="number" data-draft-field="fees" step="0.0000001" value="${this.escapeHTML(row.fees)}" aria-label="Fees"></td>
+                <td><input type="number" name="draft-${index}-quantity" data-draft-field="quantity" min="0" step="1" value="${this.escapeHTML(row.quantity)}" aria-label="Quantity"></td>
+                <td><input type="date" name="draft-${index}-executionDate" data-draft-field="executionDate" value="${this.escapeHTML(row.executionDate)}" aria-label="Trade date"></td>
+                <td><input type="date" name="draft-${index}-expirationDate" data-draft-field="expirationDate" value="${this.escapeHTML(row.expirationDate)}" aria-label="Expiration"></td>
+                <td><input type="number" name="draft-${index}-strike" data-draft-field="strike" step="0.01" value="${this.escapeHTML(row.strike)}" aria-label="Strike"></td>
+                <td><input type="number" name="draft-${index}-premium" data-draft-field="premium" step="0.000001" min="0" value="${this.escapeHTML(row.premium)}" aria-label="Price"></td>
+                <td><input type="number" name="draft-${index}-fees" data-draft-field="fees" step="0.0000001" value="${this.escapeHTML(row.fees)}" aria-label="Fees"></td>
                 <td class="ai-draft-import__confidence">${confidenceLabel}</td>
                 <td class="ai-draft-import__row-warning">${this.escapeHTML(warnings.join('; '))}</td>
             </tr>

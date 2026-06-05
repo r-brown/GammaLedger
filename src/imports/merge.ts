@@ -152,7 +152,7 @@ export function refreshImportMergeList(this: any) {
         return `
             <div class="${esc(cardClasses.join(' '))}" data-trade-id="${esc(trade.id)}">
                 <label class="import-merge-card__label">
-                    <input type="checkbox" value="${esc(trade.id)}" ${isChecked ? 'checked' : ''} aria-label="Select ${esc(trade.ticker || trade.id)} for bulk action" />
+                    <input type="checkbox" name="trade-select" value="${esc(trade.id)}" ${isChecked ? 'checked' : ''} aria-label="Select ${esc(trade.ticker || trade.id)} for bulk action" />
                     <div class="import-merge-card__content">
                         <div class="import-merge-card__header">
                             <span class="import-merge-card__ticker">${esc(trade.ticker || '—')}</span>
