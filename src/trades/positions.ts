@@ -19,6 +19,7 @@ interface PositionsContext {
   isCashSettledTrade(trade: Record<string, unknown>): boolean
   isClosedStatus(status: unknown): boolean
   isAssignedStatus(status: unknown): boolean
+  hasAssignedInventory(trade: Record<string, unknown>): boolean
   normalizeStatus(status: unknown): string
   hasNetOpenOptionLegs(trade: Record<string, unknown>): boolean
   isAssignmentReason(reason: unknown): boolean
@@ -331,7 +332,7 @@ export function isWheelOrPmccTrade(
     // Assigned trades are inherently wheel trades — the short option
     // was closed via assignment.  Stock legs may live in a separate
     // trade entry when imported from Robinhood CSV, so don't require them.
-    if (this.isAssignedStatus(trade.status)) {
+    if (this.hasAssignedInventory(trade)) {
         return true;
     }
 
