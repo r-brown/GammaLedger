@@ -50,15 +50,16 @@ function renderLegPreview(legs: AnyRecord[], escapeHTML: (v: unknown) => string)
     return `<div class="import-merge-card__legs-preview">${items.join('')}${more}</div>`;
 }
 
-function isPendingImportedTrade(trade: AnyRecord): boolean {
-    return Boolean(trade?.importReview);
+function isImportedTrade(trade: AnyRecord): boolean {
+    // Covers pending-review trades and approved imports that still carry an importBatchId
+    return Boolean(trade?.importReview) || Boolean(trade?.importBatchId);
 }
 
 function orderMergeCandidates(candidates: AnyRecord[]): AnyRecord[] {
     return candidates
         .map((trade, index) => ({ trade, index }))
         .sort((a, b) => {
-            const importRank = Number(isPendingImportedTrade(a.trade)) - Number(isPendingImportedTrade(b.trade));
+            const importRank = Number(isImportedTrade(a.trade)) - Number(isImportedTrade(b.trade));
             return importRank || a.index - b.index;
         })
         .map(({ trade }) => trade);
@@ -324,7 +325,7 @@ export function createMergedTradeFromTrades(this: any, trades: AnyRecord[] = [],
     }
 
     const sequencedLegs = assignMergedLegIds(mergedLegs, mergedId);
-    const baseTrade = (options.baseTrade || orderedCandidates.find((trade) => !isPendingImportedTrade(trade)) || orderedCandidates[0]) as AnyRecord;
+    const baseTrade = (options.baseTrade || orderedCandidates.find((trade) => !isImportedTrade(trade)) || orderedCandidates[0]) as AnyRecord;
     const ticker = tickerSet.size ? Array.from(tickerSet)[0] : 'UNKNOWN';
 
     const strategyOverride = options.strategyOverride && options.strategyOverride.toString().trim();
