@@ -54,7 +54,7 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
       </div>`
 
     return `
-      <h3>How realized P&amp;L is built</h3>
+      <h3>How P&amp;L is built</h3>
       ${row('Closed trades', `${stats.closedTrades} closed`, closed, 'var(--color-bridge-closed-bg)', valClass(closed))}
       ${row('+ Wheel premium', `${assigned.length} assigned`, wheel, 'var(--color-bridge-wheel-bg)', 'rv-pur')}
       ${row('= Realized P&L', 'completed option flows', realized, 'var(--color-bridge-realized-bg)', 'rv-pur', true)}

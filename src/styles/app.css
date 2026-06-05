@@ -5999,6 +5999,6 @@ tr.position-itm.position-expiring-critical td,
 .concentration-empty { font-size: 12px; color: var(--color-text-secondary); padding: 8px 0; }
 
 /* Performance Trend card — same panel style as metric-col */
-.dashboard-performance-trend { padding: var(--space-20); }
+.dashboard-performance-trend { padding: var(--space-20); margin: 0 0 var(--space-24, 24px); }
 .dashboard-performance-trend .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 var(--space-16); }
 .dashboard-performance-trend .card-header h3 { font-size: var(--font-size-lg); color: var(--color-text); margin: 0; }

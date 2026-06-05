@@ -3,19 +3,13 @@
 
 import { renderEChart } from './echarts.js'
 
-interface CumulativePLSeries {
-  labels: string[]
-  dataPoints: number[]
-  dates: Date[]
-}
-
 interface TradeLike { status?: unknown; closedDate?: unknown; openedDate?: unknown; legs?: unknown }
 
 interface PerformanceTrendContext {
   charts: Record<string, { destroy(): void }>
   cumulativePLRange: string
   trades: TradeLike[]
-  computeCumulativePLSeries(range: string): CumulativePLSeries | null
+  getCumulativePLRangeWindow(range: string): { start: Date | null; end: Date | null }
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   calculateLegCashFlow(leg: unknown): number
   calculateRealizedPL(trade: unknown): number
@@ -25,6 +19,10 @@ interface PerformanceTrendContext {
 function toFiniteNumber(v: unknown, fallback = 0): number {
     const n = Number(v)
     return Number.isFinite(n) ? n : fallback
+}
+
+function toMonthKey(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 function monthLabel(monthKey: string): string {
@@ -73,20 +71,18 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     const root = document.getElementById('performanceTrendChart')
     if (!root) return
 
-    const cumulative = this.computeCumulativePLSeries(this.cumulativePLRange)
     const monthlyMap: Map<string, number> = computeMonthlyPL.call(this)
 
-    const toMonthKey = (d: Date) =>
-        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    // Apply range filter using the range window — always driven from monthlyMap,
+    // never from computeCumulativePLSeries (which excludes Rolling/Assigned trades
+    // and would drop recent months that have option leg activity but no Closed trade).
+    const { start, end } = this.getCumulativePLRangeWindow(this.cumulativePLRange)
+    const startMonth = start ? toMonthKey(start) : null
+    const endMonth = end ? toMonthKey(end) : null
 
-    let monthKeys: string[]
-    if (cumulative && cumulative.dates.length) {
-        const set = new Set<string>()
-        for (const d of cumulative.dates) set.add(toMonthKey(d))
-        monthKeys = Array.from(set).sort()
-    } else {
-        monthKeys = Array.from(monthlyMap.keys()).sort()
-    }
+    let monthKeys = Array.from(monthlyMap.keys()).sort()
+    if (startMonth) monthKeys = monthKeys.filter(k => k >= startMonth)
+    if (endMonth) monthKeys = monthKeys.filter(k => k <= endMonth)
 
     const labels = monthKeys.map(monthLabel)
     const monthlyValues = monthKeys.map(k => Number((monthlyMap.get(k) ?? 0).toFixed(2)))
@@ -142,7 +138,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                     value: v,
                     itemStyle: { color: v >= 0 ? '#1FB8CD' : '#B4413C' }
                 })),
-                barMaxWidth: 28
+                barMaxWidth: 42
             },
             {
                 type: 'line',

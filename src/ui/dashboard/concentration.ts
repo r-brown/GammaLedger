@@ -55,6 +55,5 @@ export function renderConcentration(this: ConcentrationContext, stats: Stats): v
         <span><span class="conc-swatch conc-swatch--ok"></span>On target (&le;${rules.TARGET_SHARE_PCT}%)</span>
         <span class="conc-rule">Rule: &le;${rules.TARGET_SHARE_PCT}% / $${rules.MAX_COLLATERAL_PER_TRADE_USD} per trade</span>
       </div>
-      <div class="conc-footer">Collateral committed per position &middot; target &le;${rules.TARGET_SHARE_PCT}% per trade &middot; ${fmt$(total)} total</div>
     `
 }
