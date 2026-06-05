@@ -514,6 +514,7 @@ These are hard constraints. Any plan review must flag violations before executio
 - `index.html` references `/src/index.js` — Vite resolves this to `src/index.ts`; do not rename the HTML reference
 - AG Grid tables use `theme: 'legacy'` — do not change; the app loads `ag-grid.css` + `ag-theme-quartz.css` directly
 - ECharts: always update via `renderEChart(...)` so instances are reused; do not create new chart instances for existing chart roots
+- Auto-status promotes covered Wheel/PMCC trades to `Open`; `Assigned` means shares held with no active short call. Use `hasAssignedInventory()` to ask "is there assigned inventory?" regardless of CC coverage — do not key consumer logic off `trade.status === 'Assigned'` alone. Trades with a manual `statusOverride` in storage ignore auto-derivation; users must clear the override (set status to "Auto" in the edit form) to get the new behavior.
 
 ---
 
