@@ -1,0 +1,23 @@
+{
+  "version": "2.5",
+  "exportDate": "2026-06-05T00:00:00.000Z",
+  "trades": [
+    {
+      "id": "TRD-FX02",
+      "ticker": "SPY",
+      "strategy": "Wheel",
+      "status": "",
+      "underlyingType": "ETF",
+      "openedDate": "2026-04-01",
+      "closedDate": "",
+      "expirationDate": "2026-06-19",
+      "exitReason": "",
+      "notes": "Fixture: assigned with one CC open. Expect auto-status Open.",
+      "legs": [
+        { "id": "TRD-FX02-L1", "orderType": "STO", "type": "PUT",   "quantity": 1, "multiplier": 100, "strike": 500, "premium": 5.00, "fees": 0.65, "executionDate": "2026-04-01", "expirationDate": "2026-05-15" },
+        { "id": "TRD-FX02-L2", "orderType": "BTO", "type": "STOCK", "quantity": 100, "multiplier": 1,  "strike": 500, "premium": 500.00, "fees": 0,     "executionDate": "2026-05-15", "expirationDate": "" },
+        { "id": "TRD-FX02-L3", "orderType": "STO", "type": "CALL",  "quantity": 1, "multiplier": 100, "strike": 520, "premium": 3.50, "fees": 0.65, "executionDate": "2026-05-20", "expirationDate": "2026-06-19" }
+      ]
+    }
+  ]
+}
