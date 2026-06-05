@@ -1000,6 +1000,12 @@ export function determineTradeLifecycleStatus(
     }
 
     if (hasAssignmentEvent && hasOpenStockPosition) {
+        const shortCallContracts = this.getNetOpenShortCalls(legs).contracts;
+        if (shortCallContracts > 0) {
+            result.status = 'Open';
+            result.exitReason = null;
+            return result;
+        }
         result.status = 'Assigned';
         result.exitReason = null;
         return result;
