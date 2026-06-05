@@ -38,6 +38,10 @@ interface ViewsContext {
 }
 
 export function showView(this: ViewsContext, viewName: string): void {
+    if (viewName === 'credit-playbook') {
+        viewName = 'dashboard';
+    }
+
     // Update navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
