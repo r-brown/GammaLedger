@@ -5,7 +5,6 @@ interface WheelContext {
   isWheelTrade(trade: Record<string, unknown>): boolean
   isPmccTrade(trade: Record<string, unknown>): boolean
   isCashSettledTrade(trade: Record<string, unknown>): boolean
-  isAssignedStatus(status: unknown): boolean
   isAssignmentTrade(trade: Record<string, unknown>): boolean
   getNetOpenLongCallContracts(trade: Record<string, unknown>): number
   getTradeOpenStockShares(trade: Record<string, unknown>): number
@@ -41,9 +40,11 @@ export function isWheelOrPmccTrade(this: WheelContext, trade: Record<string, unk
         return false;
     }
 
-    // Assigned trades are inherently wheel trades — the short option
-    // was closed via assignment.
-    if (this.isAssignedStatus(trade.status)) {
+    // Trades that had an assignment event are inherently wheel trades —
+    // the short option was closed via share assignment. Read the lifecycle
+    // event rather than the (possibly promoted) current status label.
+    const meta = trade?.lifecycleMeta as { hasAssignmentEvent?: boolean } | undefined;
+    if (meta?.hasAssignmentEvent) {
         return true;
     }
 
