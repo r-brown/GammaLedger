@@ -79,6 +79,10 @@ import type { StockMetrics } from '@types-gl/integrations';
 import * as filtersModule from './ui/filters.js';
 import * as dashboardChartsModule from './ui/charts/dashboard-charts.js';
 import * as cumulativePLModule from './ui/charts/cumulative-pl.js';
+import * as bridgeModule from './ui/dashboard/bridge.js';
+import * as groupedMetricsModule from './ui/dashboard/grouped-metrics.js';
+import * as concentrationModule from './ui/dashboard/concentration.js';
+import * as performanceTrendModule from './ui/charts/performance-trend.js';
 import * as chartDestroyModule from './ui/charts/destroy.js';
 import * as highlightsModule from './ui/tables/highlights.js';
 import * as tradesTableModule from './ui/tables/trades-table.js';
@@ -1467,9 +1471,13 @@ class GammaLedger {
 
     inferOptionFlavor(trade = {}) { return dashboardChartsModule.inferOptionFlavor.call(this, trade); }
 
-    updateMonthlyPLChart() { return dashboardChartsModule.updateMonthlyPLChart.call(this); }
+    renderBridge(stats) { return bridgeModule.renderBridge.call(this, stats); }
 
-    updateCumulativePLChart() { return cumulativePLModule.updateCumulativePLChart.call(this); }
+    renderGroupedMetrics(stats) { return groupedMetricsModule.renderGroupedMetrics.call(this, stats); }
+
+    renderConcentration(stats) { return concentrationModule.renderConcentration.call(this, stats); }
+
+    updatePerformanceTrendChart() { return performanceTrendModule.updatePerformanceTrendChart.call(this); }
 
     getWeekEndingFriday(dateInput) { return dates.getWeekEndingFriday(dateInput); }
 

@@ -32,8 +32,7 @@ interface DashboardChartsContext {
   openTradesFilteredByTicker(ticker: unknown): void
   openTradesFilteredByStrategy(strategy: unknown): void
   renderRatioGauge(opts: RatioGaugeOptions): void
-  updateMonthlyPLChart(): void
-  updateCumulativePLChart(): void
+  updatePerformanceTrendChart(): void
   updateStrategyPerformanceChart(): void
   updateWinRateByStrategyChart(): void
   updatePerformanceGauges(): void
@@ -92,8 +91,7 @@ function toFiniteNumber(value: unknown, fallback = 0): number {
 }
 
 export function updateAllCharts(this: DashboardChartsContext): void {
-    this.updateMonthlyPLChart();
-    this.updateCumulativePLChart();
+    this.updatePerformanceTrendChart();
     this.updateStrategyPerformanceChart();
     this.updateWinRateByStrategyChart();
     this.updatePerformanceGauges();
@@ -655,100 +653,6 @@ export function generateMonteCarloProjection(
             p90: percentileSeries[4]
         }
     };
-}
-
-export function updateMonthlyPLChart(this: DashboardChartsContext): void {
-    const root = getChartRoot('monthlyPLChart');
-    if (!root) return;
-
-    const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
-    const monthlyData: Record<string, number> = {};
-
-    const addToMonth = (monthKey: string, amount: number): void => {
-        if (!monthlyData[monthKey]) monthlyData[monthKey] = 0;
-        monthlyData[monthKey] += amount;
-    };
-
-    this.trades.forEach(trade => {
-        const legs = Array.isArray(trade.legs) ? trade.legs as Record<string, unknown>[] : [];
-        const hasOptionLegs = legs.some(leg => {
-            const t = String(leg.type || '').toUpperCase().trim();
-            return t === 'CALL' || t === 'PUT';
-        });
-        if (!hasOptionLegs) return;
-
-        // Step 1: Attribute each option leg's cashflow to its execution month (cash-basis).
-        // STO credit lands in the month the option was sold; BTC debit in the month
-        // it was bought back. Expired options have only an STO leg — credit stays there.
-        let totalOptionCashFlow = 0;
-        legs.forEach(leg => {
-            const legType = String(leg.type || '').toUpperCase().trim();
-            if (legType === 'STOCK' || legType === 'CASH') return;
-
-            const dateStr = String(leg.executionDate || '');
-            if (!dateStr) return;
-            const monthKey = dateStr.substring(0, 7);
-
-            const cashFlow = this.calculateLegCashFlow(leg);
-            if (Number.isFinite(cashFlow)) {
-                addToMonth(monthKey, cashFlow);
-                totalOptionCashFlow += cashFlow;
-            }
-        });
-
-        // Step 2: Attribute net stock P&L to the close month (closed trades only).
-        // Stock purchase is capital deployment, not a P&L event — excluded.
-        // Stock gain/loss = total trade P&L minus all option-leg cashflows.
-        if (this.isClosedStatus(trade.status)) {
-            const tradePL = toFiniteNumber(this.calculateRealizedPL(trade));
-            const stockPL = tradePL - totalOptionCashFlow;
-            if (Math.abs(stockPL) > 0.01) {
-                const closedDate = String(trade.closedDate || trade.openedDate || '');
-                if (closedDate) {
-                    addToMonth(closedDate.substring(0, 7), stockPL);
-                }
-            }
-        }
-    });
-
-    const sortedMonths = Object.keys(monthlyData).sort();
-    const labels = sortedMonths.map(month => {
-        const date = new Date(`${month}-01`);
-        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    });
-
-    renderStoredChart(this.charts, 'monthlyPL', root, {
-        aria: { enabled: true },
-        grid: { top: 12, right: 18, bottom: 54, left: 10, containLabel: true },
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: { type: 'shadow' },
-            formatter: (params: unknown) => {
-                const item = Array.isArray(params) ? params[0] as { value?: unknown } : null;
-                return item ? `P&L: ${formatCurrencyValue(item.value)}` : '';
-            }
-        },
-        xAxis: {
-            type: 'category',
-            data: labels,
-            axisLabel: { color: AXIS_TEXT_COLOR, rotate: 45 },
-            axisTick: { show: false },
-            axisLine: { lineStyle: { color: GRID_LINE_COLOR } }
-        },
-        yAxis: {
-            type: 'value',
-            axisLabel: { color: AXIS_TEXT_COLOR, formatter: (value: unknown) => formatCurrencyValue(value, 0) },
-            splitLine: { lineStyle: { color: GRID_LINE_COLOR } }
-        },
-        series: [{
-            type: 'bar',
-            name: 'Monthly P&L',
-            data: sortedMonths.map(month => ({
-                value: monthlyData[month],
-                itemStyle: { color: monthlyData[month] >= 0 ? PROFIT_COLOR : LOSS_COLOR }
-            }))
-        }]
-    });
 }
 
 export function updateStrategyPerformanceChart(this: DashboardChartsContext): void {
