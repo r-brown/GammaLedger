@@ -73,6 +73,9 @@ interface RiskFormulaContext {
     verticalSpreadWidth: number | null
     S: number | null
     hasStockExposure: boolean
+    shortPutsCollateralDollars: number | null
+    shortPutDistinctStrikeCount: number
+    netCreditDollars: number
     toNotional: (perShare: number | null | undefined) => number | undefined
     contractCount: number
     multiplierValue: number
@@ -245,6 +248,32 @@ export function buildRiskFormulaContext(
     const longCallStrike = longCalls.length ? longCalls[longCalls.length - 1] : null;
     const shortPutStrikeLow = shortPuts.length ? shortPuts[0] : null;
     const shortPutStrike = shortPuts.length ? shortPuts[shortPuts.length - 1] : null;
+
+    // Aggregate per-leg collateral across all open short put legs so multi-CSP
+    // positions (e.g. one trade holding P160 + P185) do not collapse to a single
+    // strike. Use leg-level quantity × multiplier instead of trade-level
+    // contractValue, which can underrepresent positions with stacked strikes.
+    const shortPutLegs = optionLegs.filter((leg) => leg.type === 'PUT' && this.getLegAction(leg) === 'SELL');
+    let shortPutsCollateralDollars: number | null = null;
+    let shortPutDistinctStrikeCount = 0;
+    if (shortPutLegs.length > 0) {
+        const seenStrikes = new Set<number>();
+        let total = 0;
+        for (const leg of shortPutLegs) {
+            const strike = Number(leg.strike);
+            const qty = Math.abs(Number(leg.quantity)) || 0;
+            const legMult = Math.abs(Number(this.getLegMultiplier(leg))) || 100;
+            if (!(Number.isFinite(strike) && strike > 0) || qty <= 0) continue;
+            total += strike * qty * legMult;
+            seenStrikes.add(strike);
+        }
+        if (total > 0) {
+            shortPutsCollateralDollars = total;
+            shortPutDistinctStrikeCount = seenStrikes.size;
+        }
+    }
+
+    const netCreditDollars = Math.max(creditDollars - debitDollars, 0);
     const longPutStrikeLow = longPuts.length ? longPuts[0] : null;
     const longPutStrike = longPuts.length ? longPuts[longPuts.length - 1] : null;
 
@@ -317,6 +346,7 @@ export function buildRiskFormulaContext(
         shortPutStrike, shortPutStrikeLow, longPutStrike, longPutStrikeLow,
         verticalSpreadWidth, S,
         hasStockExposure: stockLegs.length > 0,
+        shortPutsCollateralDollars, shortPutDistinctStrikeCount, netCreditDollars,
         toNotional, contractCount: contracts, multiplierValue: multiplier
     };
 }
@@ -404,6 +434,9 @@ export function getStrategyRiskHandlers(
         register('Call Ratio Backspread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
         register('Call Ratio Spread', (ctx) => creditWidthRisk(ctx, ctx.K1, ctx.K2));
         register('Cash-Secured Put', (ctx) => {
+            if (ctx.shortPutDistinctStrikeCount >= 2 && ctx.shortPutsCollateralDollars !== null) {
+                return Math.max(ctx.shortPutsCollateralDollars - ctx.netCreditDollars, 0);
+            }
             const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K, ctx.K1);
             return Number.isFinite(strike) ? ctx.toNotional((strike as number) - ctx.netCredit) : undefined;
         });
@@ -460,6 +493,9 @@ export function getStrategyRiskHandlers(
         register('Short Call Condor', condorWidthRisk);
         register('Short Guts', () => Number.POSITIVE_INFINITY);
         register('Short Put', (ctx) => {
+            if (ctx.shortPutDistinctStrikeCount >= 2 && ctx.shortPutsCollateralDollars !== null) {
+                return Math.max(ctx.shortPutsCollateralDollars - ctx.netCreditDollars, 0);
+            }
             const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K, ctx.K1);
             return Number.isFinite(strike) ? ctx.toNotional((strike as number) - ctx.netCredit) : undefined;
         });
@@ -473,6 +509,9 @@ export function getStrategyRiskHandlers(
         register('Synthetic Short Stock', () => Number.POSITIVE_INFINITY);
         register('Synthetic Put', () => Number.POSITIVE_INFINITY);
         register('Wheel', (ctx) => {
+            if (ctx.shortPutDistinctStrikeCount >= 2 && ctx.shortPutsCollateralDollars !== null) {
+                return Math.max(ctx.shortPutsCollateralDollars - ctx.netCreditDollars, 0);
+            }
             const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K1);
             return Number.isFinite(strike) ? ctx.toNotional((strike as number) - ctx.netCredit) : undefined;
         });

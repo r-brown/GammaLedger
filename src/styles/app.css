@@ -5977,7 +5977,7 @@ tr.position-itm.position-expiring-critical td,
 .dashboard-concentration { margin: 0 0 1.5rem; padding: var(--space-20); }
 .dashboard-concentration h3 { margin-bottom: var(--space-16); font-size: var(--font-size-lg); color: var(--color-text); }
 .conc-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 12px; }
-.conc-ticker { width: 52px; font-size: 12px; font-weight: 500; color: var(--color-text); }
+.conc-ticker { min-width: 64px; display: inline-flex; justify-content: flex-start; font-size: 12px; font-weight: 500; color: var(--color-text); }
 .conc-bar-wrap { flex: 1; height: 8px; background: var(--color-card-border-inner); border-radius: 2px; overflow: hidden; }
 .conc-bar { height: 100%; border-radius: 2px; }
 .conc-bar--critical { background: var(--color-risk-critical); }

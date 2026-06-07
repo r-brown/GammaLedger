@@ -6,6 +6,8 @@ import type { Stats, RiskBand } from '@types-gl/stats'
 
 interface ConcentrationContext {
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
+  createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
+  openTradesFilteredByTicker(ticker: unknown): void
 }
 
 const BAND_CLASS: Record<RiskBand, string> = {
@@ -38,7 +40,7 @@ export function renderConcentration(this: ConcentrationContext, stats: Stats): v
         const flag = row.band !== 'ok' ? ' &#x26A0;' : ''
         return `
           <div class="conc-row">
-            <span class="conc-ticker">${escapeHtml(row.ticker)}</span>
+            <span class="conc-ticker" data-ticker="${escapeHtml(row.ticker)}"></span>
             <div class="conc-bar-wrap"><div class="conc-bar ${BAND_CLASS[row.band]}" style="width:${widthPct}%"></div></div>
             <span class="conc-pct conc-pct--${row.band}">${sharePct}%${flag}</span>
             <span class="conc-amount">${fmt$(row.capital)}</span>
@@ -56,4 +58,14 @@ export function renderConcentration(this: ConcentrationContext, stats: Stats): v
         <span class="conc-rule">Rule: &le;${rules.TARGET_SHARE_PCT}% / $${rules.MAX_COLLATERAL_PER_TRADE_USD} per trade</span>
       </div>
     `
+
+    root.querySelectorAll<HTMLElement>('.conc-ticker[data-ticker]').forEach(slot => {
+        const ticker = slot.dataset.ticker || ''
+        const link = this.createTickerElement(ticker, 'ticker-pill', {
+            behavior: 'filter',
+            onClick: (value: unknown) => this.openTradesFilteredByTicker(value),
+            title: ticker ? `View all trades for ${ticker}` : ''
+        })
+        slot.replaceChildren(link)
+    })
 }
