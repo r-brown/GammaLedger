@@ -19,10 +19,13 @@ function bar(widthPct: number, bg: string, fg: string): string {
     return `<div class="bridge-bar" style="width:${w}%;background:${bg};color:${fg}"></div>`
 }
 
-function valClass(value: number, override?: string): string {
-    if (override) return override
-    if (value > 0) return 'rv-pos'
+// Sign-driven color, with an optional override applied only when the value is
+// positive. Negative values always go red; zero stays neutral. This is what
+// the bucket-color rows (Wheel premium, Realized) need: purple on profit,
+// red on loss, never a misleading green.
+function valClass(value: number, positiveOverride?: string): string {
     if (value < 0) return 'rv-neg'
+    if (value > 0) return positiveOverride ?? 'rv-pos'
     return 'rv'
 }
 
@@ -34,7 +37,23 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
     const unrealized = stats.unrealizedPL
     const total = realized + unrealized
     const scale = Math.max(Math.abs(closed), Math.abs(realized), Math.abs(total), 1)
-    const assigned = (stats.assignedTradesList ?? []) as EnrichedTrade[]
+
+    const assignmentRecords = (stats.assignedTradesList ?? []) as EnrichedTrade[]
+    const wheelOpen = stats.assignedPositions
+    const wheelClosed = Math.max(0, assignmentRecords.length - wheelOpen)
+    const awaitingCC = stats.awaitingCoveragePositions
+    const fullyClosed = Math.max(0, stats.closedTrades - awaitingCC)
+    const unrealizedPositions = stats.activePositions + awaitingCC
+
+    const closedSub = awaitingCC > 0
+        ? `${fullyClosed} closed · ${awaitingCC} awaiting CC`
+        : `${fullyClosed} closed`
+
+    const wheelSub = assignmentRecords.length === 0
+        ? 'no wheel/PMCC cycles'
+        : `${wheelOpen} open · ${wheelClosed} closed`
+
+    const unrealizedSub = `${unrealizedPositions} ${unrealizedPositions === 1 ? 'position' : 'positions'} MTM`
 
     const row = (
         label: string,
@@ -42,9 +61,10 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         value: number,
         bg: string,
         cls: string,
+        title: string,
         isTotal = false
     ) => `
-      <div class="bridge-row${isTotal ? ' bridge-total' : ''}">
+      <div class="bridge-row${isTotal ? ' bridge-total' : ''}" title="${escapeHtml(title)}">
         <div class="bridge-label"><span>${escapeHtml(label)}</span><small>${escapeHtml(sub)}</small></div>
         <div class="bridge-bar-area">
           ${bar((Math.abs(value) / scale) * 100, bg, 'transparent')}
@@ -54,11 +74,48 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
 
     return `
       <h3>P&amp;L Performance</h3>
-      ${row('Closed trades', `${stats.closedTrades} closed`, closed, 'var(--color-bridge-closed-bg)', valClass(closed))}
-      ${row('+ Wheel premium', `${assigned.length} assigned`, wheel, 'var(--color-bridge-wheel-bg)', 'rv-pur')}
-      ${row('= Realized P&L', 'completed option flows', realized, 'var(--color-bridge-realized-bg)', 'rv-pur', true)}
-      ${row('+ Unrealized', `${stats.activePositions} open MTM`, unrealized, 'var(--color-bridge-unrealized-bg)', valClass(unrealized))}
-      ${row('= Total P&L', 'all-in portfolio view', total, 'var(--color-bridge-total-bg)', valClass(total), true)}
+      ${row(
+        'Closed trades',
+        closedSub,
+        closed,
+        'var(--color-bridge-closed-bg)',
+        valClass(closed),
+        'Realized P&L from fully exited trades plus stock-side gains/losses from closed wheel cycles.\nExcludes option premium from wheel/PMCC cycles — that is shown separately on the next line as Wheel premium.\nAwaiting-coverage assigned wheels are listed here only to disclose count; their option premium lives in Wheel premium and their share-side MTM lives in Unrealized.'
+      )}
+      ${row(
+        '+ Wheel premium',
+        wheelSub,
+        wheel,
+        'var(--color-bridge-wheel-bg)',
+        valClass(wheel, 'rv-pur'),
+        'Net option premium across every wheel/PMCC cycle (open + closed), net of buy-back debits and fees.\nMatches the sum of the "Premium" column on the Wheel/PMCC Tracker.\nCash-basis: a credit counts the moment the option is sold, regardless of whether the contract is still live.'
+      )}
+      ${row(
+        '= Realized P&L',
+        'closed + wheel premium',
+        realized,
+        'var(--color-bridge-realized-bg)',
+        valClass(realized, 'rv-pur'),
+        'Closed trades + Wheel premium. Identity holds by construction.\nCash-basis realized: includes premium collected on still-open wheel/PMCC cycles.',
+        true
+      )}
+      ${row(
+        '+ Unrealized',
+        unrealizedSub,
+        unrealized,
+        'var(--color-bridge-unrealized-bg)',
+        valClass(unrealized),
+        'Mark-to-market on open positions, minus per-trade wheel premium already booked above (no double-count).\nIncludes share-side MTM on awaiting-coverage assigned wheels.\nFor trades without a live quote, falls back to raw cashflow — may understate buy-back obligation on short options.'
+      )}
+      ${row(
+        '= Total P&L',
+        'all-in portfolio view',
+        total,
+        'var(--color-bridge-total-bg)',
+        valClass(total),
+        'Realized P&L + Unrealized P&L. Portfolio-wide view combining booked cash with MTM exposure on open positions.',
+        true
+      )}
     `
 }
 

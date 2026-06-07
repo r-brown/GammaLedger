@@ -359,6 +359,7 @@ export function calculateAdvancedStats(this: StatsContext) {
         profitFactor,
         activePositions: openTrades.length,
         assignedPositions: assignmentStats.totalAssignments,
+        awaitingCoveragePositions: awaitingCoverageTrades.length,
         totalROI,
         annualizedROI,
         maxDrawdown,

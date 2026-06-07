@@ -80,6 +80,10 @@ export interface Stats {
   closedTrades: number
   activePositions: number
   assignedPositions: number
+  /** Count of assigned wheel/PMCC trades currently awaiting a covered call
+   *  (shares held with no active short call). Subset of `closedTrades` for
+   *  realized-P&L purposes, but also contributes share-side MTM to unrealizedPL. */
+  awaitingCoveragePositions: number
 
   totalPL: DollarAmount
   realizedPL: DollarAmount
