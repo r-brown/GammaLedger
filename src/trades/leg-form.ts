@@ -3,6 +3,10 @@
 
 import { LegFormInputSchema, formatZodIssues } from '@core/schema'
 
+function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] as string))
+}
+
 interface LegFormContext {
     currentView: string
     currentEditingId: string | null | undefined
@@ -297,6 +301,7 @@ export function addLegFormRow(
     const existingRows = container.querySelectorAll('.trade-leg').length;
     const legId = (leg?.id as string) || this.generateLegId(existingRows);
     row.dataset.legId = legId;
+    const eid = escapeHtml(legId);
 
     row.innerHTML = `
         <div class="trade-leg__header">
@@ -308,8 +313,8 @@ export function addLegFormRow(
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label" for="leg-${legId}-orderType">Action</label>
-                <select id="leg-${legId}-orderType" class="form-control" name="leg-${legId}-orderType" data-leg-field="orderType">
+                <label class="form-label" for="leg-${eid}-orderType">Action</label>
+                <select id="leg-${eid}-orderType" class="form-control" name="leg-${eid}-orderType" data-leg-field="orderType">
                     <option value="BTO">BTO (Buy to Open)</option>
                     <option value="STO">STO (Sell to Open)</option>
                     <option value="BTC">BTC (Buy to Close)</option>
@@ -319,8 +324,8 @@ export function addLegFormRow(
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label" for="leg-${legId}-type">Instrument</label>
-                <select id="leg-${legId}-type" class="form-control" name="leg-${legId}-type" data-leg-field="type">
+                <label class="form-label" for="leg-${eid}-type">Instrument</label>
+                <select id="leg-${eid}-type" class="form-control" name="leg-${eid}-type" data-leg-field="type">
                     <option value="CALL">Call</option>
                     <option value="PUT">Put</option>
                     <option value="STOCK">Stock</option>
@@ -328,38 +333,38 @@ export function addLegFormRow(
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label" for="leg-${legId}-quantity">Quantity</label>
-                <input id="leg-${legId}-quantity" type="number" class="form-control" name="leg-${legId}-quantity" data-leg-field="quantity" min="0" step="1">
+                <label class="form-label" for="leg-${eid}-quantity">Quantity</label>
+                <input id="leg-${eid}-quantity" type="number" class="form-control" name="leg-${eid}-quantity" data-leg-field="quantity" min="0" step="1">
             </div>
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label" for="leg-${legId}-executionDate">Entry Date</label>
-                <input id="leg-${legId}-executionDate" type="date" class="form-control" name="leg-${legId}-executionDate" data-leg-field="executionDate">
+                <label class="form-label" for="leg-${eid}-executionDate">Entry Date</label>
+                <input id="leg-${eid}-executionDate" type="date" class="form-control" name="leg-${eid}-executionDate" data-leg-field="executionDate">
             </div>
             <div class="form-group" data-leg-group="expiration-group">
-                <label class="form-label" for="leg-${legId}-expirationDate">Expiration Date</label>
-                <input id="leg-${legId}-expirationDate" type="date" class="form-control" name="leg-${legId}-expirationDate" data-leg-field="expirationDate">
+                <label class="form-label" for="leg-${eid}-expirationDate">Expiration Date</label>
+                <input id="leg-${eid}-expirationDate" type="date" class="form-control" name="leg-${eid}-expirationDate" data-leg-field="expirationDate">
             </div>
         </div>
         <div class="form-row">
             <div class="form-group" data-leg-group="strike-group">
-                <label class="form-label" for="leg-${legId}-strike">Strike</label>
-                <input id="leg-${legId}-strike" type="number" class="form-control" name="leg-${legId}-strike" data-leg-field="strike" step="0.01">
+                <label class="form-label" for="leg-${eid}-strike">Strike</label>
+                <input id="leg-${eid}-strike" type="number" class="form-control" name="leg-${eid}-strike" data-leg-field="strike" step="0.01">
             </div>
             <div class="form-group">
-                <label class="form-label" for="leg-${legId}-premium" data-leg-label="premium">Premium (per share)</label>
-                <input id="leg-${legId}-premium" type="number" class="form-control" name="leg-${legId}-premium" data-leg-field="premium" step="0.000001" min="0">
+                <label class="form-label" for="leg-${eid}-premium" data-leg-label="premium">Premium (per share)</label>
+                <input id="leg-${eid}-premium" type="number" class="form-control" name="leg-${eid}-premium" data-leg-field="premium" step="0.000001" min="0">
             </div>
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label" for="leg-${legId}-fees">Fees</label>
-                <input id="leg-${legId}-fees" type="number" class="form-control" name="leg-${legId}-fees" data-leg-field="fees" step="0.0000001">
+                <label class="form-label" for="leg-${eid}-fees">Fees</label>
+                <input id="leg-${eid}-fees" type="number" class="form-control" name="leg-${eid}-fees" data-leg-field="fees" step="0.0000001">
             </div>
             <div class="form-group is-hidden" data-leg-group="multiplier">
-                <label class="form-label" for="leg-${legId}-multiplier">Multiplier</label>
-                <input id="leg-${legId}-multiplier" type="number" class="form-control" name="leg-${legId}-multiplier" data-leg-field="multiplier" step="1" min="1">
+                <label class="form-label" for="leg-${eid}-multiplier">Multiplier</label>
+                <input id="leg-${eid}-multiplier" type="number" class="form-control" name="leg-${eid}-multiplier" data-leg-field="multiplier" step="1" min="1">
                 <span class="form-help-text">Used to scale option premiums (100 for standard contracts, 1 for stock).</span>
             </div>
         </div>
@@ -371,8 +376,8 @@ export function addLegFormRow(
         </div>
         <div class="form-row">
             <div class="form-group">
-                <label class="form-label" for="leg-${legId}-underlyingPrice">Entry Underlying Price</label>
-                <input id="leg-${legId}-underlyingPrice" type="number" class="form-control" name="leg-${legId}-underlyingPrice" data-leg-field="underlyingPrice" step="0.0000001" min="0">
+                <label class="form-label" for="leg-${eid}-underlyingPrice">Entry Underlying Price</label>
+                <input id="leg-${eid}-underlyingPrice" type="number" class="form-control" name="leg-${eid}-underlyingPrice" data-leg-field="underlyingPrice" step="0.0000001" min="0">
             </div>
         </div>
     `;

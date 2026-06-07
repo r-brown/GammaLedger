@@ -27,7 +27,7 @@ export function renderConcentration(this: ConcentrationContext, stats: Stats): v
 
     const rules = APP_CONFIG.RISK_RULES
     const total = stats.collateralAtRisk
-    const fmt$ = (v: number) => this.formatCurrency(v, { decimals: 0 })
+    const fmt$ = (v: number) => escapeHtml(this.formatCurrency(v, { decimals: 0 }))
 
     if (!stats.collateralByTicker.length) {
         root.innerHTML = `<h3>Collateral Concentration</h3><div class="concentration-empty">No open positions.</div>`
@@ -41,8 +41,8 @@ export function renderConcentration(this: ConcentrationContext, stats: Stats): v
         return `
           <div class="conc-row">
             <span class="conc-ticker" data-ticker="${escapeHtml(row.ticker)}"></span>
-            <div class="conc-bar-wrap"><div class="conc-bar ${BAND_CLASS[row.band]}" style="width:${widthPct}%"></div></div>
-            <span class="conc-pct conc-pct--${row.band}">${sharePct}%${flag}</span>
+            <div class="conc-bar-wrap"><div class="conc-bar ${escapeHtml(BAND_CLASS[row.band])}" style="width:${widthPct}%"></div></div>
+            <span class="conc-pct conc-pct--${escapeHtml(String(row.band))}">${sharePct}%${flag}</span>
             <span class="conc-amount">${fmt$(row.capital)}</span>
           </div>
         `

@@ -43,7 +43,7 @@ export function renderBridge(this: BridgeContext, stats: Stats): void {
     const unrealized = stats.unrealizedPL
     const total = realized + unrealized
     const scale = Math.max(Math.abs(closed), Math.abs(realized), Math.abs(total), 1)
-    const fmt = (v: number) => this.formatCurrency(v)
+    const fmt = (v: number) => escapeHtml(this.formatCurrency(v))
 
     const assigned = (stats.assignedTradesList ?? []) as EnrichedTrade[]
     const ticks = premiumByTicker.call(this, assigned)
@@ -57,11 +57,11 @@ export function renderBridge(this: BridgeContext, stats: Stats): void {
         <div>
           <div class="bridge-caption">How realized P&amp;L is built</div>
           <div class="bridge-row">
-            <div class="bridge-label"><span>Closed trades</span><small>${stats.closedTrades} closed</small></div>
+            <div class="bridge-label"><span>Closed trades</span><small>${escapeHtml(String(stats.closedTrades))} closed</small></div>
             <div class="bridge-bar-area">${bar((Math.abs(closed)/scale)*100, 'var(--color-bridge-closed-bg)', 'var(--color-bridge-closed-fg)', fmt(closed))}<span class="bridge-val">${fmt(closed)}</span></div>
           </div>
           <div class="bridge-row">
-            <div class="bridge-label"><span>+ Wheel premium</span><small>${assigned.length} assigned</small></div>
+            <div class="bridge-label"><span>+ Wheel premium</span><small>${escapeHtml(String(assigned.length))} assigned</small></div>
             <div class="bridge-bar-area">${bar((Math.abs(wheel)/scale)*100, 'var(--color-bridge-wheel-bg)', 'var(--color-bridge-wheel-fg)', '+' + fmt(wheel))}<span class="bridge-val">${fmt(wheel)}</span></div>
           </div>
           <div class="bridge-row bridge-total">
@@ -69,7 +69,7 @@ export function renderBridge(this: BridgeContext, stats: Stats): void {
             <div class="bridge-bar-area">${bar((Math.abs(realized)/scale)*100, 'var(--color-bridge-realized-bg)', 'var(--color-bridge-realized-fg)', fmt(realized))}<span class="bridge-val bridge-val-large">${fmt(realized)}</span></div>
           </div>
           <div class="bridge-row">
-            <div class="bridge-label"><span>+ Unrealized</span><small>${stats.activePositions} open positions MTM</small></div>
+            <div class="bridge-label"><span>+ Unrealized</span><small>${escapeHtml(String(stats.activePositions))} open positions MTM</small></div>
             <div class="bridge-bar-area">${bar((Math.abs(unrealized)/scale)*100, 'var(--color-bridge-unrealized-bg)', 'var(--color-bridge-unrealized-fg)', (unrealized >= 0 ? '+' : '') + fmt(unrealized))}<span class="bridge-val">${fmt(unrealized)}</span></div>
           </div>
           <div class="bridge-row bridge-total">
