@@ -47,7 +47,6 @@ src/
   imports/           # controls, log, merge, ofx, position-keys, robinhood
   database/          # persist
   integrations/      # finnhub, gemini, mcp
-  payoff/            # pricing, render, series, summary
   settings/          # default-fee
   types/             # 17 domain type files, re-exported via @types-gl
 index.html           # SPA shell; all views defined here
@@ -70,7 +69,7 @@ docs/superpowers/
 
 ### Delegation Pattern — Not Pure ES Modules
 
-All 59 feature modules export plain functions that use the **`.call(this, …)` delegation
+All feature modules export plain functions that use the **`.call(this, …)` delegation
 pattern**. The `GammaLedger` class in `src/index.ts` imports every module and wires its
 methods as thin delegators:
 
@@ -114,7 +113,7 @@ class GammaLedger {
 
 ### TypeScript Configuration
 
-Root `tsconfig.json` is `strict: false` (broad compatibility layer). Eight subdirectories
+Root `tsconfig.json` is `strict: false` (broad compatibility layer). Seven subdirectories
 have their own `tsconfig.json` with `strict: true`, checked via `npm run typecheck:strict`:
 
 ```
@@ -125,7 +124,6 @@ src/utils/tsconfig.json          strict: true
 src/ui/tsconfig.json             strict: true
 src/imports/tsconfig.json        strict: true
 src/integrations/tsconfig.json   strict: true
-src/payoff/tsconfig.json         strict: true
 ```
 
 New modules placed in these directories must satisfy strict checks before the plan task is
@@ -172,7 +170,7 @@ directly. The wrapper handles quota errors, private-mode failures, and logs warn
 {
   id: string               // 'TRD-XXXX'
   ticker: string           // e.g. 'SPY'
-  strategy: string         // one of 62 supported strategy names
+  strategy: string         // one of 63 supported strategy names
   status: 'Open' | 'Closed' | 'Expired' | 'Assigned' | 'Rolling'
   underlyingType: 'Stock' | 'ETF' | 'Index' | 'Future'
   openedDate: ISODate | ''

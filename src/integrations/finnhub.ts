@@ -1377,8 +1377,8 @@ export async function fetchStockMetrics(
         }
 
         const quoteCache = this.finnhub?.cache;
-        const cachedQuote = (quoteCache instanceof Map ? quoteCache.get(ticker.toUpperCase()) : null) as Record<string, unknown> | null;
-        const currentPrice = safeNum(cachedQuote?.c);
+        const cachedEntry = (quoteCache instanceof Map ? quoteCache.get(ticker.toUpperCase()) : null) as { value?: Record<string, unknown> } | null;
+        const currentPrice = safeNum(cachedEntry?.value?.c);
 
         return {
             currentPrice,

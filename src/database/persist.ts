@@ -367,9 +367,14 @@ export async function loadWithFileSystemAPI(this: PersistContext): Promise<void>
 
     const file = await fileHandle.getFile();
     const text = await file.text();
-    const data = JSON.parse(text);
+    let data: unknown;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        throw new Error(`"${fileHandle.name}" does not appear to be a valid GammaLedger JSON file.`);
+    }
 
-    this.processLoadedData(data, { fileName: fileHandle.name, source: 'file-open' });
+    this.processLoadedData(data as Record<string, unknown>, { fileName: fileHandle.name, source: 'file-open' });
     this.currentFileHandle = fileHandle;
     this.showNotification(`Loaded ${this.trades.length} trades successfully!`, 'success');
 }

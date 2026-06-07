@@ -382,7 +382,24 @@ export async function loadGeminiConfigFromStorage(this: any) {
             return false;
         }
 
-        const parsed = JSON.parse(raw);
+        let parsed: Record<string, unknown>;
+        try {
+            const raw_parsed = JSON.parse(raw);
+            if (!raw_parsed || typeof raw_parsed !== 'object') {
+                this.setGeminiApiKey('', { persist: false, updateUI: false });
+                this.gemini.pendingStatus = null;
+                this.syncGeminiControlsFromState({ preserveStatus: true });
+                return false;
+            }
+            parsed = raw_parsed as Record<string, unknown>;
+        } catch {
+            console.warn('Gemini config storage corrupted — resetting.');
+            this.safeLocalStorage.removeItem(GEMINI_STORAGE_KEY);
+            this.setGeminiApiKey('', { persist: false, updateUI: false });
+            this.gemini.pendingStatus = null;
+            this.syncGeminiControlsFromState({ preserveStatus: true });
+            return false;
+        }
         if (!parsed || typeof parsed !== 'object') {
             this.setGeminiApiKey('', { persist: false, updateUI: false });
             this.gemini.pendingStatus = null;
