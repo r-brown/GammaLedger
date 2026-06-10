@@ -20,11 +20,9 @@ interface PnlContext {
     calculateROI(trade: EnrichedTrade): number
     calculateDaysHeld(trade: EnrichedTrade): number
     isClosedStatus(status: string | null | undefined): boolean
-    isAssignedStatus(status: string | null | undefined): boolean
     summarizeLegRealization(trade: EnrichedTrade): LegRealizationSummary
     parseDateValue(value: unknown): Date | null
     isPmccTrade(trade: EnrichedTrade): boolean
-    calculateLegCashFlow(leg: Record<string, unknown>): number
     readonly currentDate: Date
 }
 
