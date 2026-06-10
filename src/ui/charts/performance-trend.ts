@@ -5,17 +5,17 @@ import { renderEChart } from './echarts.js'
 
 interface TradeLike { status?: unknown; closedDate?: unknown; openedDate?: unknown; legs?: unknown }
 
+interface LegRealizationLike { realizedMonthly: Map<string, number> }
+
 interface PerformanceTrendContext {
   charts: Record<string, { destroy(): void }>
   cumulativePLRange: string
   trades: TradeLike[]
   getCumulativePLRangeWindow(range: string): { start: Date | null; end: Date | null }
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
-  calculateLegCashFlow(leg: unknown): number
   calculateRealizedPL(trade: unknown): number
   isClosedStatus(status: unknown): boolean
-  isFullyRealizedTrade(trade: TradeLike): boolean
-  hasAssignedInventory(trade: TradeLike): boolean
+  summarizeLegRealization(trade: TradeLike): LegRealizationLike
 }
 
 function toFiniteNumber(v: unknown, fallback = 0): number {
@@ -37,25 +37,14 @@ function computeMonthlyPL(this: PerformanceTrendContext): Map<string, number> {
     const add = (key: string, amount: number) => { monthly.set(key, (monthly.get(key) ?? 0) + amount) }
 
     for (const trade of this.trades) {
-        // Realized-only gate, mirroring calculateRealizedPL routing: closed/expired
-        // trades plus wheels still holding assigned inventory (their option premiums
-        // are realized cash). Open/Rolling trades contribute nothing — without live
-        // pricing an open debit would otherwise render as a fake realized loss.
-        if (!this.isFullyRealizedTrade(trade) && !this.hasAssignedInventory(trade)) continue
-
-        const legs = Array.isArray(trade.legs) ? trade.legs as Record<string, unknown>[] : []
-
+        // Leg-level realization gate: only cash flows from terminated contract
+        // groups count — open debit legs, in-flight covered calls, and active
+        // rolling puts contribute nothing until they terminate.
+        const { realizedMonthly } = this.summarizeLegRealization(trade)
         let totalOptionCF = 0
-        for (const leg of legs) {
-            const legType = String((leg.type ?? '') as string).toUpperCase().trim()
-            if (legType === 'STOCK' || legType === 'CASH') continue
-            const dateStr = String(leg.executionDate ?? '')
-            if (!dateStr) continue
-            const cf = this.calculateLegCashFlow(leg)
-            if (Number.isFinite(cf)) {
-                add(dateStr.slice(0, 7), cf)
-                totalOptionCF += cf
-            }
+        for (const [month, amount] of realizedMonthly) {
+            add(month, amount)
+            totalOptionCF += amount
         }
 
         if (this.isClosedStatus(trade.status)) {
