@@ -14,6 +14,8 @@ interface PerformanceTrendContext {
   calculateLegCashFlow(leg: unknown): number
   calculateRealizedPL(trade: unknown): number
   isClosedStatus(status: unknown): boolean
+  isFullyRealizedTrade(trade: TradeLike): boolean
+  hasAssignedInventory(trade: TradeLike): boolean
 }
 
 function toFiniteNumber(v: unknown, fallback = 0): number {
@@ -35,12 +37,13 @@ function computeMonthlyPL(this: PerformanceTrendContext): Map<string, number> {
     const add = (key: string, amount: number) => { monthly.set(key, (monthly.get(key) ?? 0) + amount) }
 
     for (const trade of this.trades) {
+        // Realized-only gate, mirroring calculateRealizedPL routing: closed/expired
+        // trades plus wheels still holding assigned inventory (their option premiums
+        // are realized cash). Open/Rolling trades contribute nothing — without live
+        // pricing an open debit would otherwise render as a fake realized loss.
+        if (!this.isFullyRealizedTrade(trade) && !this.hasAssignedInventory(trade)) continue
+
         const legs = Array.isArray(trade.legs) ? trade.legs as Record<string, unknown>[] : []
-        const hasOptionLegs = legs.some(leg => {
-            const t = String((leg.type ?? '') as string).toUpperCase().trim()
-            return t === 'CALL' || t === 'PUT'
-        })
-        if (!hasOptionLegs) continue
 
         let totalOptionCF = 0
         for (const leg of legs) {
