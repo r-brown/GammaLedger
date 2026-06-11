@@ -123,6 +123,8 @@ export interface Stats {
   closedTradesPL: DollarAmount
   /** Realized option premium captured by in-flight assigned wheel/PMCC positions. */
   wheelAssignedPremium: DollarAmount
+  /** Realized P&L from terminated legs inside open non-wheel positions (PMCC short-call cycles, rolling cycles). */
+  openTradeRealizedPL: DollarAmount
   /** Per-ticker collateral concentration over open positions, sorted desc by capital. */
   collateralByTicker: CollateralConcentration[]
 

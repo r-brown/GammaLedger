@@ -513,7 +513,7 @@ These are hard constraints. Any plan review must flag violations before executio
 - AG Grid tables use `theme: 'legacy'` — do not change; the app loads `ag-grid.css` + `ag-theme-quartz.css` directly
 - ECharts: always update via `renderEChart(...)` so instances are reused; do not create new chart instances for existing chart roots
 - Auto-status promotes covered Wheel/PMCC trades to `Open`; `Assigned` means shares held with no active short call. Use `hasAssignedInventory()` to ask "is there assigned inventory?" regardless of CC coverage — do not key consumer logic off `trade.status === 'Assigned'` alone. Trades with a manual `statusOverride` in storage ignore auto-derivation; users must clear the override (set status to "Auto" in the edit form) to get the new behavior.
-- Realized P&L is leg-level: `calculateRealizedPL` / `summarizeLegRealization` count only terminated contract groups (closed, expired, or assigned). An open short call's credit — even inside an assigned wheel — is not realized until the leg terminates. Monthly P&L bars must always sum to `stats.realizedPL`.
+- Realized P&L is leg-level: `calculateRealizedPL` / `summarizeLegRealization` count only terminated contract groups (closed, expired, or assigned short puts). An open short call's credit — even inside an assigned wheel — is not realized until the leg terminates. Monthly P&L bars must always sum to `stats.realizedPL`.
 
 ---
 

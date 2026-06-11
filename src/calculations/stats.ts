@@ -335,6 +335,12 @@ export function calculateAdvancedStats(this: StatsContext) {
     const wheelAssignedPremiumTotal = assignedWithActiveOptions.reduce(
         (sum, trade) => sum + (openTradeRealizedPL.get(trade) ?? 0), 0);
 
+    // Realized P&L inside open positions that is NOT wheel-assigned premium
+    // (PMCC short-call cycles, rolling CSP cycles, expired legs of open
+    // trades). Third term of the dashboard bridge:
+    // realizedPL = closedTradesPL + wheelAssignedPremium + openTradeRealizedPL.
+    const openTradeRealizedPLResidual = openTradeRealizedPLTotal - wheelAssignedPremiumTotal;
+
     // Realized P&L: closed/expired trades + realized option premiums from
     // terminated contract groups inside non-closed trades.
     const realizedPL = totalPL + openTradeRealizedPLTotal;
@@ -404,6 +410,7 @@ export function calculateAdvancedStats(this: StatsContext) {
         collateralAtRisk,
         closedTradesPL: totalPL,
         wheelAssignedPremium: wheelAssignedPremiumTotal,
+        openTradeRealizedPL: openTradeRealizedPLResidual,
         collateralByTicker,
         realizedPL,
         unrealizedPL,
