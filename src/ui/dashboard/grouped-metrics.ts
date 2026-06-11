@@ -96,7 +96,7 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         realized,
         'var(--color-bridge-realized-bg)',
         valClass(realized, 'rv-pur'),
-        'Closed trades + Wheel premium. Identity holds by construction.\nCash-basis realized: includes premium collected on still-open wheel/PMCC cycles.',
+        'Closed trades + Wheel premium.\nRealized-basis: an open short call is not counted until the contract expires or is bought back.',
         true
       )}
       ${row(
