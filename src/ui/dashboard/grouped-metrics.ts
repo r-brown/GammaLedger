@@ -88,7 +88,7 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         wheel,
         'var(--color-bridge-wheel-bg)',
         valClass(wheel, 'rv-pur'),
-        'Net option premium across every wheel/PMCC cycle (open + closed), net of buy-back debits and fees.\nMatches the sum of the "Premium" column on the Wheel/PMCC Tracker.\nCash-basis: a credit counts the moment the option is sold, regardless of whether the contract is still live.'
+        'Net option premium across every wheel/PMCC cycle (open + closed), net of buy-back debits and fees.\nPremium realized to date on cycles still holding shares (an open short call counts once it expires or is bought back).\nThe Wheel/PMCC Tracker\'s "Premium" column is cash-basis (credits a short call the moment it is sold) so its total will be higher while open calls are live.'
       )}
       ${row(
         '= Realized P&L',

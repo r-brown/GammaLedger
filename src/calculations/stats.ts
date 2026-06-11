@@ -318,6 +318,13 @@ export function calculateAdvancedStats(this: StatsContext) {
         openTradeRealizedPLTotal += finite;
     }
 
+    // wheelAssignedPremium stays scoped to in-flight assigned wheel/PMCC
+    // positions (see types/stats.ts) — the dashboard renders it as
+    // "Wheel premium", so the broader open-trade realized total must not
+    // leak into it.
+    const wheelAssignedPremiumTotal = assignedWithActiveOptions.reduce(
+        (sum, trade) => sum + (openTradeRealizedPL.get(trade) ?? 0), 0);
+
     // Realized P&L: closed/expired trades + realized option premiums from
     // terminated contract groups inside non-closed trades.
     const realizedPL = totalPL + openTradeRealizedPLTotal;
@@ -384,7 +391,7 @@ export function calculateAdvancedStats(this: StatsContext) {
         tickerPerformance,
         collateralAtRisk,
         closedTradesPL: totalPL,
-        wheelAssignedPremium: openTradeRealizedPLTotal,
+        wheelAssignedPremium: wheelAssignedPremiumTotal,
         collateralByTicker,
         realizedPL,
         unrealizedPL,
