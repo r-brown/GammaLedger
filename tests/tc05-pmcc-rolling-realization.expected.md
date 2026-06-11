@@ -11,7 +11,7 @@ Leg cash flow = ±premium·multiplier·qty − fees (STO/STC positive, BTO/BTC n
 | CALL|65|2026-09-18  | L5 (+199.35)  | no (open, unexpired) | — |
 
 realizedCashFlow = 238.05; hasOpenGroups = true
-realizedMonthly: 2026-01 → +149.35, 2026-02 → +119.35, 2026-03 → −30.65
+realizedMonthly (termination-month attribution): 2026-02 → +149.35 (expiry), 2026-03 → +88.70 (cycle closed 2026-03-10)
 
 ## TRD-TC5R (Rolling CSP)
 | Group | Legs | Terminated? | Realized CF |
@@ -20,9 +20,11 @@ realizedMonthly: 2026-01 → +149.35, 2026-02 → +119.35, 2026-03 → −30.65
 | PUT|95|2026-07-17  | L3 (+309.35) | no (open, unexpired) | — |
 
 realizedCashFlow = −71.30; hasOpenGroups = true
-realizedMonthly: 2026-03 → +249.35, 2026-04 → −320.65
+realizedMonthly (termination-month attribution): 2026-04 → −71.30 (cycle closed 2026-04-10)
 
 ## Combined (Monthly P&L bars for this fixture alone)
-2026-01: +149.35 | 2026-02: +119.35 | 2026-03: +218.70 | 2026-04: −320.65
+2026-02: +149.35 | 2026-03: +88.70 | 2026-04: −71.30
 Bar sum = realizedPL stat = 166.75
+A terminated group's NET P&L lands in the month the group terminated (last
+closing execution, or expiration for expired groups) — roll cycles stay atomic.
 Pre-change behavior (for contrast): both trades contribute 0.
