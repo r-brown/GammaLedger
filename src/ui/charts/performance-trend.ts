@@ -127,7 +127,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
         legend: {
             show: true,
             top: 0,
-            right: 8,
+            left: 'center',
             itemWidth: 12,
             itemHeight: 8,
             textStyle: { color: 'rgba(100, 116, 139, 0.9)', fontSize: 11 },
