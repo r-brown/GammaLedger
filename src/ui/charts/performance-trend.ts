@@ -66,8 +66,8 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     const monthlyMap: Map<string, number> = computeMonthlyPL.call(this)
 
     // Apply range filter using the range window — always driven from monthlyMap,
-    // never from computeCumulativePLSeries (which excludes Rolling/Assigned trades
-    // and would drop recent months that have option leg activity but no Closed trade).
+    // never from computeCumulativePLSeries (which only processes Closed trades and
+    // would drop months where terminated option groups exist on non-Closed trades).
     const { start, end } = this.getCumulativePLRangeWindow(this.cumulativePLRange)
     const startMonth = start ? toMonthKey(start) : null
     const endMonth = end ? toMonthKey(end) : null
