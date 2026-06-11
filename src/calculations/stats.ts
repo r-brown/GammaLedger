@@ -309,9 +309,19 @@ export function calculateAdvancedStats(this: StatsContext) {
     // to realizedPL and subtract it from the unrealizedPL contribution (it is
     // embedded in trade.pl either via the effectiveCostBasis reduction in the
     // priced branch or via raw cashFlow in the fallback — consistent either way).
+    // Awaiting-coverage actives are included — see awaitingCoverageActives above.
+
+    // Active awaiting-coverage trades (e.g. an uncovered PMCC whose earlier
+    // short calls already terminated) are excluded from openTrades but can
+    // still hold realized leg P&L. Fully-realized awaiting-coverage trades
+    // (assigned wheels) are already inside closedTrades/totalPL — exclude
+    // them here to avoid double counting.
+    const awaitingCoverageActives = awaitingCoverageTrades.filter(
+        trade => !this.isFullyRealizedTrade(trade));
+
     const openTradeRealizedPL = new Map<EnrichedTrade, number>();
     let openTradeRealizedPLTotal = 0;
-    for (const trade of openTrades) {
+    for (const trade of [...openTrades, ...awaitingCoverageActives]) {
         const realized = Number(this.calculateRealizedPL(trade));
         const finite = Number.isFinite(realized) ? realized : 0;
         if (finite !== 0) openTradeRealizedPL.set(trade, finite);
@@ -339,7 +349,9 @@ export function calculateAdvancedStats(this: StatsContext) {
         return sum + pl - adjustment;
     }, 0) + awaitingCoverageTrades.reduce((sum, trade) => {
         const pl = Number(trade.unrealizedPL);
-        return Number.isFinite(pl) ? sum + pl : sum;
+        if (!Number.isFinite(pl)) return sum;
+        const adjustment = openTradeRealizedPL.get(trade) ?? 0;
+        return sum + pl - adjustment;
     }, 0);
 
     // Calculate average win and average loss
