@@ -549,6 +549,72 @@ Red → (typecheck fails or fixture diverges) → Green → (typecheck passes, f
 
 ---
 
+## Knowledge Graph (graphify)
+
+The codebase has a persistent knowledge graph at `graphify-out/` built by
+[graphify](https://github.com/safishamsi/graphify). It maps 2,037 nodes across
+99 communities covering all source modules, types, docs, blog posts, images, and
+config files.
+
+### Querying the graph
+
+```bash
+graphify query "How does the AI coach work?"          # BFS — broad context
+graphify query "Trace P&L calculation" --dfs           # DFS — specific path
+graphify path "GammaLedger" "GeminiInsightsAgent"      # shortest path between nodes
+graphify explain "RiskValue"                           # plain-language explanation
+```
+
+### Rebuilding
+
+```bash
+/graphify .              # full rebuild (all files)
+/graphify . --update     # incremental — only new/changed files
+```
+
+### Key structural findings
+
+| God Node | Edges | Role |
+|---|---|---|
+| `GammaLedger` | 439 | Central hub — imports every module, delegates to all features |
+| `AGENTS.md` | 36 | Architecture documentation bridge |
+| `EnrichedTrade` | 30 | Core runtime data type |
+| `GeminiInsightsAgent` | 27 | AI coach class, bridges to app config |
+| `NormalizedLeg` | 26 | Leg normalization type |
+
+### Community map (top 20)
+
+| # | Community | Nodes | Cohesion |
+|---|---|---|---|
+| 0 | GammaLedger Core Class | 396 | 0.005 |
+| 1 | MCP Server & Database | 71 | 0.06 |
+| 2 | Dashboard Charts | 67 | 0.06 |
+| 3 | Trade Legs & Lifecycle | 57 | 0.07 |
+| 4 | Gemini AI Agent | 56 | 0.06 |
+| 5 | Finnhub Integration | 52 | 0.07 |
+| 6 | App State & Config | 49 | 0.07 |
+| 7 | Package Dependencies | 46 | 0.05 |
+| 8 | Position Detail Panel | 45 | 0.09 |
+| 9 | Options Glossary | 42 | 0.12 |
+| 10 | AI Chat System | 40 | 0.08 |
+| 11 | Schema & Validation | 38 | 0.10 |
+| 12 | OFX Import | 34 | 0.11 |
+| 13 | UI Views & Assets | 32 | 0.04 |
+| 14 | Position Analytics | 32 | 0.09 |
+| 15 | Type Definitions | 30 | 0.11 |
+| 16 | Architecture Docs | 28 | 0.13 |
+| 17 | Credit Playbook Render | 28 | 0.14 |
+| 18 | Database Persistence | 27 | 0.10 |
+| 19 | Blog Strategy Posts | 26 | 0.11 |
+
+### Outputs
+
+- `graphify-out/graph.html` — interactive visualization (open in browser)
+- `graphify-out/GRAPH_REPORT.md` — full audit report with god nodes, surprising connections, suggested questions
+- `graphify-out/graph.json` — raw graph data for programmatic use
+
+---
+
 ## Superpowers Workflow
 
 > **Superpowers plugin is active.** Skills auto-trigger based on task type.

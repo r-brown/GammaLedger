@@ -11,3 +11,7 @@ test-results
 .claude
 .superpowers
 docs/superpowers
+
+# graphify knowledge-graph output (local exploration aid, regenerable)
+graphify-out/cache
+graphify-out/cost.json

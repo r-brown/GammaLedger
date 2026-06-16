@@ -1,0 +1,962 @@
+{
+  "/Users/alexey/work/projects/gammaledger/mcp/examples/claude_code_config.json": {
+    "mtime": 1779256950.1333342,
+    "ast_hash": "4c45267c7ca67266befb8457c4a1d516",
+    "semantic_hash": "4c45267c7ca67266befb8457c4a1d516"
+  },
+  "/Users/alexey/work/projects/gammaledger/mcp/examples/claude_desktop_config.json": {
+    "mtime": 1779256950.13365,
+    "ast_hash": "dfd9eb3256be6b792761cd4b3b555f4c",
+    "semantic_hash": "dfd9eb3256be6b792761cd4b3b555f4c"
+  },
+  "/Users/alexey/work/projects/gammaledger/mcp/src/__init__.py": {
+    "mtime": 1779256950.1342485,
+    "ast_hash": "d92051c97f6c03907091a175e7ee1dc8",
+    "semantic_hash": "d92051c97f6c03907091a175e7ee1dc8"
+  },
+  "/Users/alexey/work/projects/gammaledger/mcp/src/_version.py": {
+    "mtime": 1780605852.6013317,
+    "ast_hash": "09946bf96289fa6648865b84316328ec",
+    "semantic_hash": "09946bf96289fa6648865b84316328ec"
+  },
+  "/Users/alexey/work/projects/gammaledger/mcp/src/database.py": {
+    "mtime": 1779256950.1345925,
+    "ast_hash": "9d7f9d94cee15cf9631a647d208c001d",
+    "semantic_hash": "9d7f9d94cee15cf9631a647d208c001d"
+  },
+  "/Users/alexey/work/projects/gammaledger/mcp/src/prompts/__init__.py": {
+    "mtime": 1779256950.1348681,
+    "ast_hash": "f4074f157639b0bce871f95f2ec74a16",
+    "semantic_hash": "f4074f157639b0bce871f95f2ec74a16"
+  },
+  "/Users/alexey/work/projects/gammaledger/mcp/src/prompts/analysis.py": {
+    "mtime": 1779256950.135103,
+    "ast_hash": "aa9bf24cf996afd938da980bda246e18",
+    "semantic_hash": "aa9bf24cf996afd938da980bda246e18"
+  },
+  "/Users/alexey/work/projects/gammaledger/mcp/src/server.py": {
+    "mtime": 1779256950.135413,
+    "ast_hash": "7b2f87ad0ce34090a5f552d33a621b2b",
+    "semantic_hash": "7b2f87ad0ce34090a5f552d33a621b2b"
+  },
+  "/Users/alexey/work/projects/gammaledger/package.json": {
+    "mtime": 1781587740.7636201,
+    "ast_hash": "1a5defab42e31fe66ccbf39861b9d6b6",
+    "semantic_hash": "1a5defab42e31fe66ccbf39861b9d6b6"
+  },
+  "/Users/alexey/work/projects/gammaledger/scripts/verify-app-artifact.mjs": {
+    "mtime": 1780559236.3893418,
+    "ast_hash": "87b0b54137dca6e36ba6446332fa66d3",
+    "semantic_hash": "87b0b54137dca6e36ba6446332fa66d3"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ai/chat.ts": {
+    "mtime": 1780639025.9777992,
+    "ast_hash": "dc3cdeee39b41b87bad2b6c8e0737f06",
+    "semantic_hash": "dc3cdeee39b41b87bad2b6c8e0737f06"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ai/gemini-agent.ts": {
+    "mtime": 1779257061.4406707,
+    "ast_hash": "4d3dac085accfdb16c3b8164b09afab4",
+    "semantic_hash": "4d3dac085accfdb16c3b8164b09afab4"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ai/local-agent.ts": {
+    "mtime": 1779259608.3499422,
+    "ast_hash": "8e61f8180271a76a14d25eec83dff630",
+    "semantic_hash": "8e61f8180271a76a14d25eec83dff630"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/calculations/daysheld.ts": {
+    "mtime": 1779257061.4411247,
+    "ast_hash": "e2ffba6d10b48bcb0600ad62fd468e3c",
+    "semantic_hash": "e2ffba6d10b48bcb0600ad62fd468e3c"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/calculations/leg-realization.ts": {
+    "mtime": 1781587740.7637582,
+    "ast_hash": "bbab3bacd0494ee37086b4bef845c067",
+    "semantic_hash": "bbab3bacd0494ee37086b4bef845c067"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/calculations/monte-carlo.ts": {
+    "mtime": 1779257061.4413,
+    "ast_hash": "a14124b18966a7eb849d1781db7a6d3e",
+    "semantic_hash": "a14124b18966a7eb849d1781db7a6d3e"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/calculations/pnl.ts": {
+    "mtime": 1781587740.7639973,
+    "ast_hash": "61d5f7a4d1099ceff24894432ed622c0",
+    "semantic_hash": "61d5f7a4d1099ceff24894432ed622c0"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/calculations/stats.ts": {
+    "mtime": 1781587740.7642088,
+    "ast_hash": "e9abe7cb55fc6d427defa493472d3f22",
+    "semantic_hash": "e9abe7cb55fc6d427defa493472d3f22"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/calculations/tsconfig.json": {
+    "mtime": 1779257061.4418802,
+    "ast_hash": "53ba37594d5d921d41dfa85f6982c412",
+    "semantic_hash": "53ba37594d5d921d41dfa85f6982c412"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/core/config.ts": {
+    "mtime": 1780860183.8017364,
+    "ast_hash": "7e38e9a08017c0e58eb9badb8b49ff39",
+    "semantic_hash": "7e38e9a08017c0e58eb9badb8b49ff39"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/core/migration.ts": {
+    "mtime": 1779257061.4422736,
+    "ast_hash": "4801b45801f30dd849513e22ce1eb09d",
+    "semantic_hash": "4801b45801f30dd849513e22ce1eb09d"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/core/sample-data.ts": {
+    "mtime": 1779257061.4424827,
+    "ast_hash": "b7936d9ecdb21e499a381d50f8ffe44b",
+    "semantic_hash": "b7936d9ecdb21e499a381d50f8ffe44b"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/core/schema.ts": {
+    "mtime": 1780824546.4746501,
+    "ast_hash": "8e07ee8220e435ebbb8d0a9be7c6c257",
+    "semantic_hash": "8e07ee8220e435ebbb8d0a9be7c6c257"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/core/state.ts": {
+    "mtime": 1779259608.3512387,
+    "ast_hash": "61a164d402c21908a2f31e6ba158af50",
+    "semantic_hash": "61a164d402c21908a2f31e6ba158af50"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/core/storage.ts": {
+    "mtime": 1779257061.4430175,
+    "ast_hash": "94f05ce69178e768c4cdcaba119a7dd9",
+    "semantic_hash": "94f05ce69178e768c4cdcaba119a7dd9"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/core/tsconfig.json": {
+    "mtime": 1779257061.4431586,
+    "ast_hash": "53ba37594d5d921d41dfa85f6982c412",
+    "semantic_hash": "53ba37594d5d921d41dfa85f6982c412"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/database/persist.ts": {
+    "mtime": 1780862161.5939593,
+    "ast_hash": "77ebe7d4e20544c56e7796a20a079e00",
+    "semantic_hash": "77ebe7d4e20544c56e7796a20a079e00"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/imports/controls.ts": {
+    "mtime": 1779257061.44367,
+    "ast_hash": "db8bbee11f0f853fdccb2bc55fa2846d",
+    "semantic_hash": "db8bbee11f0f853fdccb2bc55fa2846d"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/imports/log.ts": {
+    "mtime": 1780824546.4750814,
+    "ast_hash": "4076da84a0e0c1418ed4656298b27972",
+    "semantic_hash": "4076da84a0e0c1418ed4656298b27972"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/imports/merge.ts": {
+    "mtime": 1780639005.63789,
+    "ast_hash": "5feca55bdb6fa8a5db0b58fb580b1954",
+    "semantic_hash": "5feca55bdb6fa8a5db0b58fb580b1954"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/imports/ofx.ts": {
+    "mtime": 1780824546.4754188,
+    "ast_hash": "66dc11995fcb63ac35b9f08939ac4d8f",
+    "semantic_hash": "66dc11995fcb63ac35b9f08939ac4d8f"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/imports/position-keys.ts": {
+    "mtime": 1779257061.444571,
+    "ast_hash": "c819b51b4cf74f49a0d9edfb860874ee",
+    "semantic_hash": "c819b51b4cf74f49a0d9edfb860874ee"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/imports/robinhood.ts": {
+    "mtime": 1780824546.4758682,
+    "ast_hash": "d4bf8bdb0bdddfdf329ef2a7a69dad2e",
+    "semantic_hash": "d4bf8bdb0bdddfdf329ef2a7a69dad2e"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/imports/tsconfig.json": {
+    "mtime": 1779257061.4449527,
+    "ast_hash": "53ba37594d5d921d41dfa85f6982c412",
+    "semantic_hash": "53ba37594d5d921d41dfa85f6982c412"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/index.ts": {
+    "mtime": 1781587740.76448,
+    "ast_hash": "4c872273051568bab8b81e77092e686d",
+    "semantic_hash": "4c872273051568bab8b81e77092e686d"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/integrations/finnhub.ts": {
+    "mtime": 1780862068.1880903,
+    "ast_hash": "327e837b11381f084e45b4982d0a1eb8",
+    "semantic_hash": "327e837b11381f084e45b4982d0a1eb8"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/integrations/gemini.ts": {
+    "mtime": 1780862155.7117672,
+    "ast_hash": "5546efeed27dbf2ef96ae7d2d6ecddac",
+    "semantic_hash": "5546efeed27dbf2ef96ae7d2d6ecddac"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/integrations/mcp.ts": {
+    "mtime": 1780824546.476876,
+    "ast_hash": "00593d65d074e7b02dc816f0ed7402e9",
+    "semantic_hash": "00593d65d074e7b02dc816f0ed7402e9"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/integrations/tsconfig.json": {
+    "mtime": 1779257061.4461539,
+    "ast_hash": "53ba37594d5d921d41dfa85f6982c412",
+    "semantic_hash": "53ba37594d5d921d41dfa85f6982c412"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/settings/default-fee.ts": {
+    "mtime": 1779259608.3540761,
+    "ast_hash": "7a0bd0adf378992831993c3eb569574e",
+    "semantic_hash": "7a0bd0adf378992831993c3eb569574e"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/trades/leg-form.ts": {
+    "mtime": 1780861576.6052077,
+    "ast_hash": "e81e24aef28cbc7a853f3f8b70c04ba3",
+    "semantic_hash": "e81e24aef28cbc7a853f3f8b70c04ba3"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/trades/legs.ts": {
+    "mtime": 1780837420.5432186,
+    "ast_hash": "13dcd05878583937007d8e5f991f9350",
+    "semantic_hash": "13dcd05878583937007d8e5f991f9350"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/trades/pmcc.ts": {
+    "mtime": 1779259608.3552368,
+    "ast_hash": "43092d9af1b6c130764a2302a56e82aa",
+    "semantic_hash": "43092d9af1b6c130764a2302a56e82aa"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/trades/positions.ts": {
+    "mtime": 1780824546.4785419,
+    "ast_hash": "38e0d68dd928455b0a3f874758c780d6",
+    "semantic_hash": "38e0d68dd928455b0a3f874758c780d6"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/trades/risk.ts": {
+    "mtime": 1780837895.5157208,
+    "ast_hash": "3aa2503cb5f1cd5f67211b73c9296bff",
+    "semantic_hash": "3aa2503cb5f1cd5f67211b73c9296bff"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/trades/spreads.ts": {
+    "mtime": 1780656516.7563925,
+    "ast_hash": "96c056ef0eceb0dd513106070a31cbc6",
+    "semantic_hash": "96c056ef0eceb0dd513106070a31cbc6"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/trades/tsconfig.json": {
+    "mtime": 1779257061.448375,
+    "ast_hash": "53ba37594d5d921d41dfa85f6982c412",
+    "semantic_hash": "53ba37594d5d921d41dfa85f6982c412"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/trades/wheel.ts": {
+    "mtime": 1780824546.4795282,
+    "ast_hash": "7b7d917858d1058807d5e21f5b158e20",
+    "semantic_hash": "7b7d917858d1058807d5e21f5b158e20"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/ai.ts": {
+    "mtime": 1779259608.3567817,
+    "ast_hash": "c6c8bf37d5c5fad9ee71a16d900dd913",
+    "semantic_hash": "c6c8bf37d5c5fad9ee71a16d900dd913"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/common.ts": {
+    "mtime": 1780591459.6685052,
+    "ast_hash": "46c1fb52e4c2843c26bf9bcc0243d5ac",
+    "semantic_hash": "46c1fb52e4c2843c26bf9bcc0243d5ac"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/credit-playbook.ts": {
+    "mtime": 1779259608.3572733,
+    "ast_hash": "e63d6f449a7d4d064293da07831cc601",
+    "semantic_hash": "e63d6f449a7d4d064293da07831cc601"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/imports.ts": {
+    "mtime": 1779259608.3574636,
+    "ast_hash": "6fc0a4cc5d6b9b3435d2f6ad0d3e63b9",
+    "semantic_hash": "6fc0a4cc5d6b9b3435d2f6ad0d3e63b9"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/index.ts": {
+    "mtime": 1780824546.479823,
+    "ast_hash": "a431a1a697f8fa5ac5d67f7c4b1def23",
+    "semantic_hash": "a431a1a697f8fa5ac5d67f7c4b1def23"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/integrations.ts": {
+    "mtime": 1779257061.4496782,
+    "ast_hash": "8c1bbeefed04de83dc9be714e3e8ba2a",
+    "semantic_hash": "8c1bbeefed04de83dc9be714e3e8ba2a"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/leg-summary.ts": {
+    "mtime": 1779259608.3579931,
+    "ast_hash": "4225b028d84db87c47e1ffcd7ceef001",
+    "semantic_hash": "4225b028d84db87c47e1ffcd7ceef001"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/leg.ts": {
+    "mtime": 1780824546.4802206,
+    "ast_hash": "531d04a4cb3b8eb5398f8cfe5c4c7665",
+    "semantic_hash": "531d04a4cb3b8eb5398f8cfe5c4c7665"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/lifecycle.ts": {
+    "mtime": 1779257061.4504962,
+    "ast_hash": "88e76a5f7c224956e2b21fc2e7a97da4",
+    "semantic_hash": "88e76a5f7c224956e2b21fc2e7a97da4"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/mcp.ts": {
+    "mtime": 1779259608.3583345,
+    "ast_hash": "33a8356ce4eb9b4e8a9ae3b9f0cfb3b2",
+    "semantic_hash": "33a8356ce4eb9b4e8a9ae3b9f0cfb3b2"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/spreads.ts": {
+    "mtime": 1779259608.3585153,
+    "ast_hash": "087307a622a13ae39f3f57b50e149555",
+    "semantic_hash": "087307a622a13ae39f3f57b50e149555"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/state.ts": {
+    "mtime": 1780559236.3911161,
+    "ast_hash": "edd680d01f11c0b7d6085ad179d99501",
+    "semantic_hash": "edd680d01f11c0b7d6085ad179d99501"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/stats.ts": {
+    "mtime": 1781587740.7646437,
+    "ast_hash": "ad107cfb4674b7f0170b7b51f8f34c76",
+    "semantic_hash": "ad107cfb4674b7f0170b7b51f8f34c76"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/storage.ts": {
+    "mtime": 1779257061.4514976,
+    "ast_hash": "6841a695ce754f9b38132de013eb77d6",
+    "semantic_hash": "6841a695ce754f9b38132de013eb77d6"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/trade.ts": {
+    "mtime": 1779257061.4517424,
+    "ast_hash": "587643d1759b7898cdaffd606bffff05",
+    "semantic_hash": "587643d1759b7898cdaffd606bffff05"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/ui.ts": {
+    "mtime": 1779257061.4519377,
+    "ast_hash": "df62baf6664fbcde73754eac577c1a65",
+    "semantic_hash": "df62baf6664fbcde73754eac577c1a65"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/types/wheel.ts": {
+    "mtime": 1779259608.3592455,
+    "ast_hash": "040d87a1eee1a52e080f98131a5286bd",
+    "semantic_hash": "040d87a1eee1a52e080f98131a5286bd"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/charts/cumulative-pl.ts": {
+    "mtime": 1780691400.335261,
+    "ast_hash": "1383210ad609b66fe885e50958c58810",
+    "semantic_hash": "1383210ad609b66fe885e50958c58810"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/charts/dashboard-charts.ts": {
+    "mtime": 1780691343.928765,
+    "ast_hash": "21cff6bd8d251940926b3f9d6641ab75",
+    "semantic_hash": "21cff6bd8d251940926b3f9d6641ab75"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/charts/destroy.ts": {
+    "mtime": 1779257061.4528458,
+    "ast_hash": "87684a09113a787701bf9ec43f011b26",
+    "semantic_hash": "87684a09113a787701bf9ec43f011b26"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/charts/echarts.ts": {
+    "mtime": 1779257061.4530065,
+    "ast_hash": "795d81f7e3fe3b84fdb0a14a6c507954",
+    "semantic_hash": "795d81f7e3fe3b84fdb0a14a6c507954"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/charts/performance-trend.ts": {
+    "mtime": 1781587740.764897,
+    "ast_hash": "a75096df8c54a5288df219e484a9b999",
+    "semantic_hash": "a75096df8c54a5288df219e484a9b999"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/credit-playbook/data.ts": {
+    "mtime": 1780657576.3842,
+    "ast_hash": "63b0cd1c3349b3b30707354922090482",
+    "semantic_hash": "63b0cd1c3349b3b30707354922090482"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/credit-playbook/index.ts": {
+    "mtime": 1779259608.3600652,
+    "ast_hash": "c29e1b6deab86b5865cb2484c974b4b2",
+    "semantic_hash": "c29e1b6deab86b5865cb2484c974b4b2"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/credit-playbook/render.ts": {
+    "mtime": 1779257061.4536161,
+    "ast_hash": "5902b19f2ef1f75054264633a46925ff",
+    "semantic_hash": "5902b19f2ef1f75054264633a46925ff"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/dashboard.ts": {
+    "mtime": 1780692987.4319437,
+    "ast_hash": "e1c880a2bbc03237c31bdcadbd5a92ff",
+    "semantic_hash": "e1c880a2bbc03237c31bdcadbd5a92ff"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/dashboard/bridge.ts": {
+    "mtime": 1781587740.7650568,
+    "ast_hash": "ee2ce3d407746025c979e68a23b945b3",
+    "semantic_hash": "ee2ce3d407746025c979e68a23b945b3"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/dashboard/concentration.ts": {
+    "mtime": 1780861576.6140578,
+    "ast_hash": "8001d545bb1075785859227f9e229fab",
+    "semantic_hash": "8001d545bb1075785859227f9e229fab"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/dashboard/grouped-metrics.ts": {
+    "mtime": 1781587740.7652903,
+    "ast_hash": "ec384b71e0cd07d23a26e42102a80b05",
+    "semantic_hash": "ec384b71e0cd07d23a26e42102a80b05"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/filters.ts": {
+    "mtime": 1779257061.4541106,
+    "ast_hash": "3045429e3d430e61085da30c04588a61",
+    "semantic_hash": "3045429e3d430e61085da30c04588a61"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/modals/ai-coach-consent.ts": {
+    "mtime": 1779257061.4543378,
+    "ast_hash": "f26d30c8c4386b6ab227cbb17e7a115f",
+    "semantic_hash": "f26d30c8c4386b6ab227cbb17e7a115f"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/modals/disclaimer.ts": {
+    "mtime": 1779257061.4545043,
+    "ast_hash": "11d71a6a64832b59617b6be00d84fe0a",
+    "semantic_hash": "11d71a6a64832b59617b6be00d84fe0a"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/notifications.ts": {
+    "mtime": 1779257061.4546788,
+    "ast_hash": "0dbf29ec3d20c2f101c7eb4781843be3",
+    "semantic_hash": "0dbf29ec3d20c2f101c7eb4781843be3"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/share-card.ts": {
+    "mtime": 1779257061.4548812,
+    "ast_hash": "880dd2a476c0d7a6410e28e18791f85c",
+    "semantic_hash": "880dd2a476c0d7a6410e28e18791f85c"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/sidebar.ts": {
+    "mtime": 1780606544.362288,
+    "ast_hash": "6f5bec4d880fd45433c238775624d7d0",
+    "semantic_hash": "6f5bec4d880fd45433c238775624d7d0"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/tables/active-positions.ts": {
+    "mtime": 1779257061.455321,
+    "ast_hash": "fb118d8779e0d0b96408d64888d228ec",
+    "semantic_hash": "fb118d8779e0d0b96408d64888d228ec"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/tables/ag-grid.ts": {
+    "mtime": 1779257061.455503,
+    "ast_hash": "1a279907aab6ccfc009c5c7fa7dfa5d9",
+    "semantic_hash": "1a279907aab6ccfc009c5c7fa7dfa5d9"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/tables/assigned-positions.ts": {
+    "mtime": 1780657595.7163556,
+    "ast_hash": "32bc49cef01641c2a78e32c9910009d5",
+    "semantic_hash": "32bc49cef01641c2a78e32c9910009d5"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/tables/highlights.ts": {
+    "mtime": 1779259608.3618736,
+    "ast_hash": "3e2761b9f8cb7037864530bcfdc2229e",
+    "semantic_hash": "3e2761b9f8cb7037864530bcfdc2229e"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/tables/position-detail-panel.ts": {
+    "mtime": 1779257061.4564235,
+    "ast_hash": "fa19a46c523d41807a42e1e4d1d0bd70",
+    "semantic_hash": "fa19a46c523d41807a42e1e4d1d0bd70"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/tables/recent-trades.ts": {
+    "mtime": 1779257061.4566836,
+    "ast_hash": "e1397ee3c79660f50dbea44ebc8f0b97",
+    "semantic_hash": "e1397ee3c79660f50dbea44ebc8f0b97"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/tables/trade-breakdown-column.ts": {
+    "mtime": 1779257061.456951,
+    "ast_hash": "a3aebc0fca2fe57a35e5d25eeec7c0a2",
+    "semantic_hash": "a3aebc0fca2fe57a35e5d25eeec7c0a2"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/tables/trades-table.ts": {
+    "mtime": 1780559236.3916476,
+    "ast_hash": "4f1febb72cd3ffb716bb91ec6830556c",
+    "semantic_hash": "4f1febb72cd3ffb716bb91ec6830556c"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/tsconfig.json": {
+    "mtime": 1779257061.4574912,
+    "ast_hash": "10dcb2acec5fb141b3d4c0fe4191ceb8",
+    "semantic_hash": "10dcb2acec5fb141b3d4c0fe4191ceb8"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/ui/views.ts": {
+    "mtime": 1780639834.94611,
+    "ast_hash": "836e6dd8a4cfa6fc617d1033f544094a",
+    "semantic_hash": "836e6dd8a4cfa6fc617d1033f544094a"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/utils/crypto.ts": {
+    "mtime": 1779257061.4579422,
+    "ast_hash": "a538c08bb89886e4a52f201524eb8562",
+    "semantic_hash": "a538c08bb89886e4a52f201524eb8562"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/utils/dates.ts": {
+    "mtime": 1779257061.4581065,
+    "ast_hash": "320438679278f461ba3cc7e63fb7305a",
+    "semantic_hash": "320438679278f461ba3cc7e63fb7305a"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/utils/dom.ts": {
+    "mtime": 1779257061.458303,
+    "ast_hash": "95408e6ac6d9b853095b218a058987d7",
+    "semantic_hash": "95408e6ac6d9b853095b218a058987d7"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/utils/export.ts": {
+    "mtime": 1779259608.3632653,
+    "ast_hash": "4e04093510d6422f4f0030cf8803da47",
+    "semantic_hash": "4e04093510d6422f4f0030cf8803da47"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/utils/formatting.ts": {
+    "mtime": 1779257061.4586327,
+    "ast_hash": "87c69f80253920019632b21c0db548e6",
+    "semantic_hash": "87c69f80253920019632b21c0db548e6"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/utils/import-csv.ts": {
+    "mtime": 1779257061.458805,
+    "ast_hash": "40a37d1411d8f81e1c92e74fc2596b3b",
+    "semantic_hash": "40a37d1411d8f81e1c92e74fc2596b3b"
+  },
+  "/Users/alexey/work/projects/gammaledger/src/utils/tsconfig.json": {
+    "mtime": 1779257061.4589572,
+    "ast_hash": "53ba37594d5d921d41dfa85f6982c412",
+    "semantic_hash": "53ba37594d5d921d41dfa85f6982c412"
+  },
+  "/Users/alexey/work/projects/gammaledger/tsconfig.json": {
+    "mtime": 1779257061.459121,
+    "ast_hash": "599ac67c0bd66990cd42f4d32674a795",
+    "semantic_hash": "599ac67c0bd66990cd42f4d32674a795"
+  },
+  "/Users/alexey/work/projects/gammaledger/vite.config.ts": {
+    "mtime": 1780608526.7257967,
+    "ast_hash": "9435222ce65b35a5d4b1f7cafb197807",
+    "semantic_hash": "9435222ce65b35a5d4b1f7cafb197807"
+  },
+  "/Users/alexey/work/projects/gammaledger/.github/FUNDING.yml": {
+    "mtime": 1779256950.0954676,
+    "ast_hash": "5925ffe8909896bbf99a700b06527cc7",
+    "semantic_hash": "5925ffe8909896bbf99a700b06527cc7"
+  },
+  "/Users/alexey/work/projects/gammaledger/.github/copilot-instructions.md": {
+    "mtime": 1779257061.413649,
+    "ast_hash": "2d8c6125f5f67d60cad26f7994996ef8",
+    "semantic_hash": "2d8c6125f5f67d60cad26f7994996ef8"
+  },
+  "/Users/alexey/work/projects/gammaledger/.github/workflows/app-release.yml": {
+    "mtime": 1780559236.3886263,
+    "ast_hash": "104e5aaf40cd79f5c1a886249eaf5036",
+    "semantic_hash": "104e5aaf40cd79f5c1a886249eaf5036"
+  },
+  "/Users/alexey/work/projects/gammaledger/.github/workflows/mcp-release.yml": {
+    "mtime": 1779260932.8115327,
+    "ast_hash": "0b395f383b879f0e01b23bddedad2fe1",
+    "semantic_hash": "0b395f383b879f0e01b23bddedad2fe1"
+  },
+  "/Users/alexey/work/projects/gammaledger/.github/workflows/website-deploy.yml": {
+    "mtime": 1779260852.8499055,
+    "ast_hash": "b35f6e1653ef2b32906c4e90ec05bdd8",
+    "semantic_hash": "b35f6e1653ef2b32906c4e90ec05bdd8"
+  },
+  "/Users/alexey/work/projects/gammaledger/AGENTS.md": {
+    "mtime": 1781587740.7617054,
+    "ast_hash": "4ce6dde6e69a84a2871fd0fff9cac941",
+    "semantic_hash": "4ce6dde6e69a84a2871fd0fff9cac941"
+  },
+  "/Users/alexey/work/projects/gammaledger/CLAUDE.md": {
+    "mtime": 1780568659.4238858,
+    "ast_hash": "d9c1aa00474b45b2de5f587fe328cb8d",
+    "semantic_hash": "d9c1aa00474b45b2de5f587fe328cb8d"
+  },
+  "/Users/alexey/work/projects/gammaledger/CONTRIBUTING.md": {
+    "mtime": 1779256950.0969756,
+    "ast_hash": "a0c40fddb61c784e95671990148e5ebf",
+    "semantic_hash": "a0c40fddb61c784e95671990148e5ebf"
+  },
+  "/Users/alexey/work/projects/gammaledger/DEVELOPERS.md": {
+    "mtime": 1779257061.4160824,
+    "ast_hash": "26d7a8328857163011d81f11555255b5",
+    "semantic_hash": "26d7a8328857163011d81f11555255b5"
+  },
+  "/Users/alexey/work/projects/gammaledger/README.md": {
+    "mtime": 1779257061.416428,
+    "ast_hash": "4fa5b06384f6c6a7e0f30d94e7d94d6d",
+    "semantic_hash": "4fa5b06384f6c6a7e0f30d94e7d94d6d"
+  },
+  "/Users/alexey/work/projects/gammaledger/index.html": {
+    "mtime": 1780734896.9171715,
+    "ast_hash": "05dd9f06e736f80c28b080b96a3a4b55",
+    "semantic_hash": "05dd9f06e736f80c28b080b96a3a4b55"
+  },
+  "/Users/alexey/work/projects/gammaledger/mcp/README.md": {
+    "mtime": 1779256950.1330163,
+    "ast_hash": "b8ff1f0bcbb5c615ae49b2c48baa416a",
+    "semantic_hash": "b8ff1f0bcbb5c615ae49b2c48baa416a"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/README.md": {
+    "mtime": 1779260166.756945,
+    "ast_hash": "44e79ebdeb3cf576a9cb292afd15be07",
+    "semantic_hash": "44e79ebdeb3cf576a9cb292afd15be07"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_config.yml": {
+    "mtime": 1779260146.284413,
+    "ast_hash": "7d95dc07dd6b4ce1f0c985104a97fe8c",
+    "semantic_hash": "7d95dc07dd6b4ce1f0c985104a97fe8c"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_includes/footer.html": {
+    "mtime": 1779259087.2928157,
+    "ast_hash": "b77daf66273eba51aa326c7e365921cf",
+    "semantic_hash": "b77daf66273eba51aa326c7e365921cf"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_includes/head.html": {
+    "mtime": 1779260146.2008722,
+    "ast_hash": "61380cfcb1e0e240c9bff35ce9e176a1",
+    "semantic_hash": "61380cfcb1e0e240c9bff35ce9e176a1"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_includes/nav.html": {
+    "mtime": 1779259087.291102,
+    "ast_hash": "731ba89c50f0d30b32820aea71228cb8",
+    "semantic_hash": "731ba89c50f0d30b32820aea71228cb8"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_layouts/default.html": {
+    "mtime": 1779259087.2891593,
+    "ast_hash": "5da43257209084b5d9084e21daa34006",
+    "semantic_hash": "5da43257209084b5d9084e21daa34006"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_layouts/page.html": {
+    "mtime": 1779260612.1736088,
+    "ast_hash": "4058450cbeac62040d2a6c1f49e2b2fe",
+    "semantic_hash": "4058450cbeac62040d2a6c1f49e2b2fe"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_layouts/post.html": {
+    "mtime": 1779259087.2971575,
+    "ast_hash": "6a423f87cbe301c83de2158e9d310ec9",
+    "semantic_hash": "6a423f87cbe301c83de2158e9d310ec9"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-10-10-getting-started-with-gammaledger.md": {
+    "mtime": 1779260017.963375,
+    "ast_hash": "92bc3ca9972e75d2bde778d27097c252",
+    "semantic_hash": "92bc3ca9972e75d2bde778d27097c252"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-10-18-options-trading-glossary.md": {
+    "mtime": 1779260017.9639206,
+    "ast_hash": "2b5ac12b1cf3aa5205d354f333c41d0c",
+    "semantic_hash": "2b5ac12b1cf3aa5205d354f333c41d0c"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-10-22-essential-options-strategies-2025.md": {
+    "mtime": 1779260017.9645524,
+    "ast_hash": "ea1a68553258e3568dc670b2b12a5455",
+    "semantic_hash": "ea1a68553258e3568dc670b2b12a5455"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-10-26-options-analytics-trade-decisions.md": {
+    "mtime": 1779260017.9651551,
+    "ast_hash": "bf11c8ab57599c03d18eccdd37a6c8f9",
+    "semantic_hash": "bf11c8ab57599c03d18eccdd37a6c8f9"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-10-30-weekly-options-strategies.md": {
+    "mtime": 1779260017.9655666,
+    "ast_hash": "d28b0982eacc9276450540f96718c8cf",
+    "semantic_hash": "d28b0982eacc9276450540f96718c8cf"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-11-03-advanced-options-spreads.md": {
+    "mtime": 1779260017.9659517,
+    "ast_hash": "0ed7687a126b777dfdbb560c9166d832",
+    "semantic_hash": "0ed7687a126b777dfdbb560c9166d832"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-11-07-straddle-strangle-strategies.md": {
+    "mtime": 1779260017.9663684,
+    "ast_hash": "ebd6604343379fa33c70c5fe32fc037e",
+    "semantic_hash": "ebd6604343379fa33c70c5fe32fc037e"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-11-11-gammaledger-setup-tutorial.md": {
+    "mtime": 1779260017.9667413,
+    "ast_hash": "4c663a91588cfd6b03774b4acb5d1262",
+    "semantic_hash": "4c663a91588cfd6b03774b4acb5d1262"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-11-15-risk-management-techniques.md": {
+    "mtime": 1779260017.9671812,
+    "ast_hash": "3ad1d6e0451872f1d924facb05b5ac66",
+    "semantic_hash": "3ad1d6e0451872f1d924facb05b5ac66"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-11-19-time-decay-volatility-pricing.md": {
+    "mtime": 1779260017.967882,
+    "ast_hash": "8ad8878685cc29f4b9b17c3aca63d240",
+    "semantic_hash": "8ad8878685cc29f4b9b17c3aca63d240"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-11-23-delta-neutral-strategies.md": {
+    "mtime": 1779260017.9683015,
+    "ast_hash": "9599cca335dffeacb6857ce512b41ab7",
+    "semantic_hash": "9599cca335dffeacb6857ce512b41ab7"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-11-27-case-studies-successful-trades.md": {
+    "mtime": 1779260017.9687464,
+    "ast_hash": "9a07d028ef940886e304ffb91cb24727",
+    "semantic_hash": "9a07d028ef940886e304ffb91cb24727"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-12-01-complete-wheel-strategy-guide.md": {
+    "mtime": 1779260017.9691534,
+    "ast_hash": "683943fd8908392451793cd7bc20d890",
+    "semantic_hash": "683943fd8908392451793cd7bc20d890"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-12-05-cash-secured-puts-vs-covered-calls.md": {
+    "mtime": 1779260017.9695516,
+    "ast_hash": "0667406aa8e68cfa99f3939178500e66",
+    "semantic_hash": "0667406aa8e68cfa99f3939178500e66"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-12-09-poor-mans-covered-call-guide.md": {
+    "mtime": 1779260017.9700656,
+    "ast_hash": "225f4fd1656752b86b8015b34947fbcc",
+    "semantic_hash": "225f4fd1656752b86b8015b34947fbcc"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-12-13-options-trading-versatility-without-complexity.md": {
+    "mtime": 1779260017.9706297,
+    "ast_hash": "f1266a8e9c3a3010c443a412621b400b",
+    "semantic_hash": "f1266a8e9c3a3010c443a412621b400b"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-12-17-options-trading-strategies-for-small-accounts.md": {
+    "mtime": 1779260017.9709961,
+    "ast_hash": "f5e4951ea4d1afa5fc96aeed95b78cd4",
+    "semantic_hash": "f5e4951ea4d1afa5fc96aeed95b78cd4"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-12-21-options-greeks-delta.md": {
+    "mtime": 1779260017.971354,
+    "ast_hash": "14210ed1eca56dd754c27acd6c2b8c28",
+    "semantic_hash": "14210ed1eca56dd754c27acd6c2b8c28"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-12-25-options-greeks-theta.md": {
+    "mtime": 1779260017.9716175,
+    "ast_hash": "d114967efd0f74084558300eb82b5fe9",
+    "semantic_hash": "d114967efd0f74084558300eb82b5fe9"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2025-12-29-options-greeks-gamma.md": {
+    "mtime": 1779260017.9720955,
+    "ast_hash": "4f4129128d26d2af9c2b776902f167be",
+    "semantic_hash": "4f4129128d26d2af9c2b776902f167be"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-01-06-options-greeks-vega.md": {
+    "mtime": 1779260017.9724216,
+    "ast_hash": "42b90d57694a0d408c2e2320a20add44",
+    "semantic_hash": "42b90d57694a0d408c2e2320a20add44"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-01-10-options-greeks-rho.md": {
+    "mtime": 1779260017.9726796,
+    "ast_hash": "592afdfdaf49ee4251093151259255c1",
+    "semantic_hash": "592afdfdaf49ee4251093151259255c1"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-01-14-understanding-wheel-strategy.md": {
+    "mtime": 1779260017.9729686,
+    "ast_hash": "6ce305c3c3d0415b10a2f666c705ce4a",
+    "semantic_hash": "6ce305c3c3d0415b10a2f666c705ce4a"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-01-23-cash-secured-puts-beginner-strategy.md": {
+    "mtime": 1779260017.9735532,
+    "ast_hash": "3920bef85e99d652d84f8802580b5c0a",
+    "semantic_hash": "3920bef85e99d652d84f8802580b5c0a"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-02-14-how-to-generate-monthly-income-with-covered-calls.md": {
+    "mtime": 1779260017.9739842,
+    "ast_hash": "e24d698512a48c4708969d1dfd2564ea",
+    "semantic_hash": "e24d698512a48c4708969d1dfd2564ea"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-04-05-gammaledger-april-options-watchlist.md": {
+    "mtime": 1779260017.9742863,
+    "ast_hash": "9ad325e563fd0ad98f170dd015147f0a",
+    "semantic_hash": "9ad325e563fd0ad98f170dd015147f0a"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-04-13-gammaledger-local-first-options-journal.md": {
+    "mtime": 1779306216.2576327,
+    "ast_hash": "0f77aa29b6dbfb4da37a92e18f715e06",
+    "semantic_hash": "0f77aa29b6dbfb4da37a92e18f715e06"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-04-22-import-broker-trades-ofx-robinhood-ai-screenshots.md": {
+    "mtime": 1779306216.329043,
+    "ast_hash": "80218e4117535f345160c6b84ebff45e",
+    "semantic_hash": "80218e4117535f345160c6b84ebff45e"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-05-01-multi-leg-options-tracking-gammaledger.md": {
+    "mtime": 1779306216.4002676,
+    "ast_hash": "71f6e4a00d0a72273ede08948d217f87",
+    "semantic_hash": "71f6e4a00d0a72273ede08948d217f87"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-05-09-wheel-pmcc-lifecycle-tracking.md": {
+    "mtime": 1779306216.4715443,
+    "ast_hash": "7c9afe72a155b98691be52e744f7b353",
+    "semantic_hash": "7c9afe72a155b98691be52e744f7b353"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-05-18-dashboard-analytics-options-trading.md": {
+    "mtime": 1779306216.5425808,
+    "ast_hash": "8d35048224abe1d4ef35c3b3004c0e4d",
+    "semantic_hash": "8d35048224abe1d4ef35c3b3004c0e4d"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-05-27-credit-playbook-premium-selling.md": {
+    "mtime": 1779306216.6139205,
+    "ast_hash": "5b3aebaa5a6d2fb7f427c86acbcf33d1",
+    "semantic_hash": "5b3aebaa5a6d2fb7f427c86acbcf33d1"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-06-05-ai-coach-options-trade-review.md": {
+    "mtime": 1779306216.6852024,
+    "ast_hash": "6ad30adc61d50f30ed7f0f2728b018eb",
+    "semantic_hash": "6ad30adc61d50f30ed7f0f2728b018eb"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-06-13-finnhub-market-data-position-context.md": {
+    "mtime": 1779306216.7545114,
+    "ast_hash": "e586bc94eb14b51bf0d5e5ab498e8c74",
+    "semantic_hash": "e586bc94eb14b51bf0d5e5ab498e8c74"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-06-22-export-backup-share-options-portfolio.md": {
+    "mtime": 1779306216.8232083,
+    "ast_hash": "00ad9c29cecb83f7278ac6f29205b4e6",
+    "semantic_hash": "00ad9c29cecb83f7278ac6f29205b4e6"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-07-01-structured-portfolio-context-mcp-workflows.md": {
+    "mtime": 1779306216.8906746,
+    "ast_hash": "db7b5c17ca5a026278f46cfec266f206",
+    "semantic_hash": "db7b5c17ca5a026278f46cfec266f206"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/_posts/2026-07-10-trade-review-ritual-gammaledger.md": {
+    "mtime": 1779306216.9574628,
+    "ast_hash": "71aa8b0c386040d4edb5cbb1b58a1822",
+    "semantic_hash": "71aa8b0c386040d4edb5cbb1b58a1822"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/blog/index.html": {
+    "mtime": 1779260042.0063784,
+    "ast_hash": "6bd4c544cc122db7d38971f1cd7a1edd",
+    "semantic_hash": "6bd4c544cc122db7d38971f1cd7a1edd"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/disclaimer.html": {
+    "mtime": 1779261252.5826786,
+    "ast_hash": "7d04ce25f862658d9c1838c725ff7ce3",
+    "semantic_hash": "7d04ce25f862658d9c1838c725ff7ce3"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/index.html": {
+    "mtime": 1779260041.9205413,
+    "ast_hash": "7b7cad5ee4eecade901e0d07785f846e",
+    "semantic_hash": "7b7cad5ee4eecade901e0d07785f846e"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/privacy.html": {
+    "mtime": 1779261252.4040627,
+    "ast_hash": "a473faa5b307426a0e0251f354a7f578",
+    "semantic_hash": "a473faa5b307426a0e0251f354a7f578"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/terms.html": {
+    "mtime": 1779261252.2214096,
+    "ast_hash": "1693d6501b800b3a8dd2820ada4c46db",
+    "semantic_hash": "1693d6501b800b3a8dd2820ada4c46db"
+  },
+  "/Users/alexey/work/projects/gammaledger/assets/images/gammaledger-banner-01.png": {
+    "mtime": 1779257061.425316,
+    "ast_hash": "f0b967837187eb52c118418988426724",
+    "semantic_hash": "f0b967837187eb52c118418988426724"
+  },
+  "/Users/alexey/work/projects/gammaledger/assets/images/gammaledger-banner-02.png": {
+    "mtime": 1779257061.4315586,
+    "ast_hash": "9b49f33491fc6c7fd7abbf7c461a780a",
+    "semantic_hash": "9b49f33491fc6c7fd7abbf7c461a780a"
+  },
+  "/Users/alexey/work/projects/gammaledger/assets/images/gammaledger-banner-03.png": {
+    "mtime": 1779257061.434677,
+    "ast_hash": "f6a068eb914575786db7c4baefe8e403",
+    "semantic_hash": "f6a068eb914575786db7c4baefe8e403"
+  },
+  "/Users/alexey/work/projects/gammaledger/assets/images/gammaledger-dashboard.png": {
+    "mtime": 1779257061.4362376,
+    "ast_hash": "9ee24e392efec932d2b1d1f51be98198",
+    "semantic_hash": "9ee24e392efec932d2b1d1f51be98198"
+  },
+  "/Users/alexey/work/projects/gammaledger/assets/images/gammaledger-logo-bckg.png": {
+    "mtime": 1779257061.4369903,
+    "ast_hash": "a9ee8a5bdf716d95dd64e1b3073dfee5",
+    "semantic_hash": "a9ee8a5bdf716d95dd64e1b3073dfee5"
+  },
+  "/Users/alexey/work/projects/gammaledger/assets/images/gammaledger-logo.png": {
+    "mtime": 1779257061.437343,
+    "ast_hash": "1734c49cfc93a317c6af2942419d8db1",
+    "semantic_hash": "1734c49cfc93a317c6af2942419d8db1"
+  },
+  "/Users/alexey/work/projects/gammaledger/public/gammaledger-logo-16x16.png": {
+    "mtime": 1779257061.4393425,
+    "ast_hash": "1b9a4eb77b536022e77ab92bf6483d48",
+    "semantic_hash": "1b9a4eb77b536022e77ab92bf6483d48"
+  },
+  "/Users/alexey/work/projects/gammaledger/public/gammaledger-logo-32x32.png": {
+    "mtime": 1779257061.4395661,
+    "ast_hash": "c17f35cdb2ffb94eb872b6f0f11fd3f8",
+    "semantic_hash": "c17f35cdb2ffb94eb872b6f0f11fd3f8"
+  },
+  "/Users/alexey/work/projects/gammaledger/public/gammaledger-logo-64x64.png": {
+    "mtime": 1779257061.4397762,
+    "ast_hash": "c08d6b45ab3d7b291d8cb225cad72498",
+    "semantic_hash": "c08d6b45ab3d7b291d8cb225cad72498"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/delta.png": {
+    "mtime": 1779258152.2465558,
+    "ast_hash": "21dedec8f430ad21bdcf5b28426c60cb",
+    "semantic_hash": "21dedec8f430ad21bdcf5b28426c60cb"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gamma.png": {
+    "mtime": 1779258152.2691915,
+    "ast_hash": "dd3f064118616d435878e95c5f8ba637",
+    "semantic_hash": "dd3f064118616d435878e95c5f8ba637"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-ai-coach-market-data.png": {
+    "mtime": 1779306066.2754266,
+    "ast_hash": "00dbf5b455e44a391356b5c6be4a1ad9",
+    "semantic_hash": "00dbf5b455e44a391356b5c6be4a1ad9"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-credit-playbook.png": {
+    "mtime": 1779306066.2699401,
+    "ast_hash": "13249764767cefd405c50c8ee77eb8c1",
+    "semantic_hash": "13249764767cefd405c50c8ee77eb8c1"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-dashboard-analytics.png": {
+    "mtime": 1779306066.2651546,
+    "ast_hash": "2232067657b6fdacbbce98eede7485d8",
+    "semantic_hash": "2232067657b6fdacbbce98eede7485d8"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-export-share-backup.png": {
+    "mtime": 1779306066.2801914,
+    "ast_hash": "d66f7b2b05ed675a4392bf82c6571278",
+    "semantic_hash": "d66f7b2b05ed675a4392bf82c6571278"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-import-review.png": {
+    "mtime": 1779306066.2481725,
+    "ast_hash": "0db9fadfe5476b4712e26892343bfb2b",
+    "semantic_hash": "0db9fadfe5476b4712e26892343bfb2b"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-local-first-privacy.png": {
+    "mtime": 1779306066.2440572,
+    "ast_hash": "131e93bf50d92364cabe490f23aeff47",
+    "semantic_hash": "131e93bf50d92364cabe490f23aeff47"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-logo-16x16.png": {
+    "mtime": 1779258152.3634126,
+    "ast_hash": "1b9a4eb77b536022e77ab92bf6483d48",
+    "semantic_hash": "1b9a4eb77b536022e77ab92bf6483d48"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-logo-32x32.png": {
+    "mtime": 1779258152.1988554,
+    "ast_hash": "c17f35cdb2ffb94eb872b6f0f11fd3f8",
+    "semantic_hash": "c17f35cdb2ffb94eb872b6f0f11fd3f8"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-logo-64x64.png": {
+    "mtime": 1779258152.3845003,
+    "ast_hash": "c08d6b45ab3d7b291d8cb225cad72498",
+    "semantic_hash": "c08d6b45ab3d7b291d8cb225cad72498"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-market-data-context.png": {
+    "mtime": 1779306066.28835,
+    "ast_hash": "674b95e23536c0c777a38de6548b72ca",
+    "semantic_hash": "674b95e23536c0c777a38de6548b72ca"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-multi-leg-lifecycle.png": {
+    "mtime": 1779306066.2525632,
+    "ast_hash": "316d810814f6a8b8c284acc1f60438c4",
+    "semantic_hash": "316d810814f6a8b8c284acc1f60438c4"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-stage-01.jpg": {
+    "mtime": 1779258152.2238,
+    "ast_hash": "7640d76e961ad65777d5707c261e7ea4",
+    "semantic_hash": "7640d76e961ad65777d5707c261e7ea4"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-structured-context.png": {
+    "mtime": 1779306066.2925367,
+    "ast_hash": "43d1706a30abc28512fb9e05f6a47b69",
+    "semantic_hash": "43d1706a30abc28512fb9e05f6a47b69"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/gammaledger-wheel-pmcc-lifecycle.png": {
+    "mtime": 1779306066.2598212,
+    "ast_hash": "b53ede77dc375d1f426953625f697093",
+    "semantic_hash": "b53ede77dc375d1f426953625f697093"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/rho.png": {
+    "mtime": 1779258152.3419175,
+    "ast_hash": "6ff2f4eb29f230d8a315e2862e56ee67",
+    "semantic_hash": "6ff2f4eb29f230d8a315e2862e56ee67"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/theta.png": {
+    "mtime": 1779258152.2995799,
+    "ast_hash": "02542f0aa70a38980bee69ce2dc37053",
+    "semantic_hash": "02542f0aa70a38980bee69ce2dc37053"
+  },
+  "/Users/alexey/work/projects/gammaledger/website/assets/img/vega.png": {
+    "mtime": 1779258152.32072,
+    "ast_hash": "b7fbda93a19e0f6393ff5553dd7e3c1f",
+    "semantic_hash": "b7fbda93a19e0f6393ff5553dd7e3c1f"
+  }
+}
