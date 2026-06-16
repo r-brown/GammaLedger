@@ -33,6 +33,7 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
     const fmt = (v: number) => escapeHtml(this.formatCurrency(v))
     const closed = stats.closedTradesPL
     const wheel = stats.wheelAssignedPremium
+    const openRealized = stats.openTradeRealizedPL
     const realized = stats.realizedPL
     const unrealized = stats.unrealizedPL
     const total = realized + unrealized
@@ -88,15 +89,23 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         wheel,
         'var(--color-bridge-wheel-bg)',
         valClass(wheel, 'rv-pur'),
-        'Net option premium across every wheel/PMCC cycle (open + closed), net of buy-back debits and fees.\nMatches the sum of the "Premium" column on the Wheel/PMCC Tracker.\nCash-basis: a credit counts the moment the option is sold, regardless of whether the contract is still live.'
+        'Net option premium across every wheel/PMCC cycle (open + closed), net of buy-back debits and fees.\nPremium realized to date on cycles still holding shares (an open short call counts once it expires or is bought back).\nThe Wheel/PMCC Tracker\'s "Premium" column is cash-basis (credits a short call the moment it is sold) so its total will be higher while open calls are live.'
+      )}
+      ${row(
+        '+ Open-trade realized',
+        'terminated legs, open positions',
+        openRealized,
+        'var(--color-bridge-wheel-bg)',
+        valClass(openRealized, 'rv-pur'),
+        'Realized P&L from terminated legs inside open positions — a PMCC\'s expired or bought-back short calls, completed roll cycles. The legs are done even though the position is not.'
       )}
       ${row(
         '= Realized P&L',
-        'closed + wheel premium',
+        'closed + wheel + open-trade realized',
         realized,
         'var(--color-bridge-realized-bg)',
         valClass(realized, 'rv-pur'),
-        'Closed trades + Wheel premium. Identity holds by construction.\nCash-basis realized: includes premium collected on still-open wheel/PMCC cycles.',
+        'Closed trades + Wheel premium + Open-trade realized.\nRealized-basis: an open short call is not counted until the contract expires or is bought back.',
         true
       )}
       ${row(

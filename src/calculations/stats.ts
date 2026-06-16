@@ -132,8 +132,9 @@ export function calculateAdvancedStats(this: StatsContext) {
     // + assigned-without-active-options). Assigned trades with active short
     // calls remain promoted to openTrades and contribute to unrealizedPL.
     //
-    // Use calculateRealizedPL (not trade.pl) so assigned-in-flight trades
-    // contribute only their option-leg P&L, not the stock-leg cost basis.
+    // Use calculateRealizedPL (not trade.pl) so non-closed trades contribute
+    // only realized option P&L from terminated contract groups — never the
+    // stock-leg cost basis or premiums from still-open legs.
     const realizedPLByTrade = new Map<EnrichedTrade, number>();
     closedTrades.forEach(trade => {
         const pl = Number(this.calculateRealizedPL(trade));
@@ -301,37 +302,62 @@ export function calculateAdvancedStats(this: StatsContext) {
         })
         .sort((a, b) => b.capital - a.capital)
 
-    // Promoted assigned wheel/PMCC trades live in openTrades but their option-leg
-    // cashflows are already realized cash. Compute per-trade option PL once so we
-    // can add it to realizedPL and subtract it from the unrealizedPL contribution
-    // (where it was embedded via effectiveCostBasis reduction in trade.pl).
-    const promotedAssignedOptionPL = new Map<EnrichedTrade, number>();
-    let promotedAssignedOptionPLTotal = 0;
-    for (const trade of assignedWithActiveOptions) {
-        const optionPL = Number(this.calculateRealizedPL(trade));
-        const finite = Number.isFinite(optionPL) ? optionPL : 0;
-        promotedAssignedOptionPL.set(trade, finite);
-        promotedAssignedOptionPLTotal += finite;
+    // Non-closed trades (open/rolling/promoted-assigned) can hold realized
+    // option P&L from terminated contract groups: an assigned wheel's CSP
+    // credit and finished CC cycles, a PMCC's expired short calls, a rolling
+    // CSP's completed roll cycles. Compute it once per trade so we can add it
+    // to realizedPL and subtract it from the unrealizedPL contribution (it is
+    // embedded in trade.pl either via the effectiveCostBasis reduction in the
+    // priced branch or via raw cashFlow in the fallback — consistent either way).
+    // Awaiting-coverage actives are included — see awaitingCoverageActives above.
+
+    // Active awaiting-coverage trades (e.g. an uncovered PMCC whose earlier
+    // short calls already terminated) are excluded from openTrades but can
+    // still hold realized leg P&L. Fully-realized awaiting-coverage trades
+    // (assigned wheels) are already inside closedTrades/totalPL — exclude
+    // them here to avoid double counting.
+    const awaitingCoverageActives = awaitingCoverageTrades.filter(
+        trade => !this.isFullyRealizedTrade(trade));
+
+    const openTradeRealizedPL = new Map<EnrichedTrade, number>();
+    let openTradeRealizedPLTotal = 0;
+    for (const trade of [...openTrades, ...awaitingCoverageActives]) {
+        const realized = Number(this.calculateRealizedPL(trade));
+        const finite = Number.isFinite(realized) ? realized : 0;
+        if (finite !== 0) openTradeRealizedPL.set(trade, finite);
+        openTradeRealizedPLTotal += finite;
     }
 
-    // Realized P&L: closed/expired trades + realized option premiums from
-    // in-flight assigned wheels (CSP credit + all CC premiums collected to date).
-    const realizedPL = totalPL + promotedAssignedOptionPLTotal;
+    // wheelAssignedPremium stays scoped to in-flight assigned wheel/PMCC
+    // positions (see types/stats.ts) — the dashboard renders it as
+    // "Wheel premium", so the broader open-trade realized total must not
+    // leak into it.
+    const wheelAssignedPremiumTotal = assignedWithActiveOptions.reduce(
+        (sum, trade) => sum + (openTradeRealizedPL.get(trade) ?? 0), 0);
 
-    // Unrealized P&L: estimated current P&L on open positions plus mark-to-market on
-    // awaiting-coverage wheel/PMCC stock holdings. For promoted assigned wheels, subtract
-    // the option premium moved to realizedPL — it was embedded in trade.pl via the
-    // effectiveCostBasis reduction (priced branch). When no market price is available
-    // trade.pl falls back to raw cashFlow, so the subtraction removes the same premium
-    // that was already added to realizedPL above — consistent either way.
+    // Realized P&L inside open positions that is NOT wheel-assigned premium
+    // (PMCC short-call cycles, rolling CSP cycles, expired legs of open
+    // trades). Third term of the dashboard bridge:
+    // realizedPL = closedTradesPL + wheelAssignedPremium + openTradeRealizedPL.
+    const openTradeRealizedPLResidual = openTradeRealizedPLTotal - wheelAssignedPremiumTotal;
+
+    // Realized P&L: closed/expired trades + realized option premiums from
+    // terminated contract groups inside non-closed trades.
+    const realizedPL = totalPL + openTradeRealizedPLTotal;
+
+    // Unrealized P&L: estimated current P&L on open positions plus mark-to-market
+    // on awaiting-coverage wheel/PMCC stock holdings, minus the realized portion
+    // moved to realizedPL above.
     const unrealizedPL = openTrades.reduce((sum, trade) => {
         const pl = Number(trade.pl);
         if (!Number.isFinite(pl)) return sum;
-        const adjustment = promotedAssignedOptionPL.get(trade) ?? 0;
+        const adjustment = openTradeRealizedPL.get(trade) ?? 0;
         return sum + pl - adjustment;
     }, 0) + awaitingCoverageTrades.reduce((sum, trade) => {
         const pl = Number(trade.unrealizedPL);
-        return Number.isFinite(pl) ? sum + pl : sum;
+        if (!Number.isFinite(pl)) return sum;
+        const adjustment = openTradeRealizedPL.get(trade) ?? 0;
+        return sum + pl - adjustment;
     }, 0);
 
     // Calculate average win and average loss
@@ -383,7 +409,8 @@ export function calculateAdvancedStats(this: StatsContext) {
         tickerPerformance,
         collateralAtRisk,
         closedTradesPL: totalPL,
-        wheelAssignedPremium: promotedAssignedOptionPLTotal,
+        wheelAssignedPremium: wheelAssignedPremiumTotal,
+        openTradeRealizedPL: openTradeRealizedPLResidual,
         collateralByTicker,
         realizedPL,
         unrealizedPL,

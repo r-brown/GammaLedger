@@ -39,6 +39,7 @@ export function renderBridge(this: BridgeContext, stats: Stats): void {
 
     const closed = stats.closedTradesPL
     const wheel = stats.wheelAssignedPremium
+    const openRealized = stats.openTradeRealizedPL
     const realized = stats.realizedPL
     const unrealized = stats.unrealizedPL
     const total = realized + unrealized
@@ -64,6 +65,10 @@ export function renderBridge(this: BridgeContext, stats: Stats): void {
             <div class="bridge-label"><span>+ Wheel premium</span><small>${escapeHtml(String(assigned.length))} assigned</small></div>
             <div class="bridge-bar-area">${bar((Math.abs(wheel)/scale)*100, 'var(--color-bridge-wheel-bg)', 'var(--color-bridge-wheel-fg)', '+' + fmt(wheel))}<span class="bridge-val">${fmt(wheel)}</span></div>
           </div>
+          <div class="bridge-row">
+            <div class="bridge-label"><span>+ Open-trade realized</span><small>terminated legs, open positions</small></div>
+            <div class="bridge-bar-area">${bar((Math.abs(openRealized)/scale)*100, 'var(--color-bridge-wheel-bg)', 'var(--color-bridge-wheel-fg)', (openRealized >= 0 ? '+' : '') + fmt(openRealized))}<span class="bridge-val">${fmt(openRealized)}</span></div>
+          </div>
           <div class="bridge-row bridge-total">
             <div class="bridge-label"><strong>= Realized P&amp;L</strong><small>all completed option flows</small></div>
             <div class="bridge-bar-area">${bar((Math.abs(realized)/scale)*100, 'var(--color-bridge-realized-bg)', 'var(--color-bridge-realized-fg)', fmt(realized))}<span class="bridge-val bridge-val-large">${fmt(realized)}</span></div>
@@ -80,7 +85,7 @@ export function renderBridge(this: BridgeContext, stats: Stats): void {
         <div>
           <div class="bridge-caption">Why Cumulative (${fmt(closed)}) &ne; Realized (${fmt(realized)})</div>
           <div class="bridge-explainer">
-            Cumulative P&amp;L tracks <em>fully exited</em> positions only. Realized adds option premiums earned on Wheel/PMCC cycles still holding shares.
+            Cumulative P&amp;L tracks <em>fully exited</em> positions only. Realized adds option premiums earned on Wheel/PMCC cycles still holding shares, plus realized legs inside other open positions (PMCC short-call cycles, completed roll cycles).
           </div>
           ${top.length === 0
             ? `<div class="bridge-row"><span class="rl">No assigned wheel positions</span></div>`

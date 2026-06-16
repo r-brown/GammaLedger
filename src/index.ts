@@ -53,6 +53,7 @@ import { GeminiInsightsAgent } from './ai/gemini-agent.js';
 import * as legsModule from './trades/legs.js';
 import * as pnlModule from './calculations/pnl.js';
 import * as daysHeldModule from './calculations/daysheld.js';
+import * as legRealizationModule from './calculations/leg-realization.js';
 import * as positionsModule from './trades/positions.js';
 import * as wheelModule from './trades/wheel.js';
 import * as pmccModule from './trades/pmcc.js';
@@ -792,6 +793,8 @@ class GammaLedger {
     calculatePL(trade) { return pnlModule.calculatePL.call(this, trade); }
 
     calculateRealizedPL(trade) { return pnlModule.calculateRealizedPL.call(this, trade); }
+
+    summarizeLegRealization(trade) { return legRealizationModule.summarizeLegRealization.call(this, trade); }
 
     // Fixed ROI calculation
     calculateROI(trade) { return pnlModule.calculateROI.call(this, trade); }

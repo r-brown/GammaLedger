@@ -1,0 +1,42 @@
+{
+  "version": "2.5",
+  "exportDate": "2026-06-10T12:00:00.000Z",
+  "trades": [
+    {
+      "id": "TRD-TC5P",
+      "ticker": "TC5P",
+      "strategy": "Poor Man's Covered Call",
+      "status": "Open",
+      "underlyingType": "Stock",
+      "openedDate": "2026-01-05",
+      "closedDate": "",
+      "expirationDate": "2027-01-15",
+      "exitReason": "",
+      "notes": "tc05: open PMCC — one expired SC, one closed SC cycle, one open SC, open LEAPS",
+      "legs": [
+        { "id": "TRD-TC5P-L1", "orderType": "BTO", "type": "CALL", "quantity": 1, "multiplier": 100, "strike": 50, "premium": 12.0, "fees": 0.65, "executionDate": "2026-01-05", "expirationDate": "2027-01-15" },
+        { "id": "TRD-TC5P-L2", "orderType": "STO", "type": "CALL", "quantity": 1, "multiplier": 100, "strike": 60, "premium": 1.5, "fees": 0.65, "executionDate": "2026-01-06", "expirationDate": "2026-02-20" },
+        { "id": "TRD-TC5P-L3", "orderType": "STO", "type": "CALL", "quantity": 1, "multiplier": 100, "strike": 62, "premium": 1.2, "fees": 0.65, "executionDate": "2026-02-23", "expirationDate": "2026-03-20" },
+        { "id": "TRD-TC5P-L4", "orderType": "BTC", "type": "CALL", "quantity": 1, "multiplier": 100, "strike": 62, "premium": 0.3, "fees": 0.65, "executionDate": "2026-03-10", "expirationDate": "2026-03-20" },
+        { "id": "TRD-TC5P-L5", "orderType": "STO", "type": "CALL", "quantity": 1, "multiplier": 100, "strike": 65, "premium": 2.0, "fees": 0.65, "executionDate": "2026-05-15", "expirationDate": "2026-09-18" }
+      ]
+    },
+    {
+      "id": "TRD-TC5R",
+      "ticker": "TC5R",
+      "strategy": "Cash-Secured Put",
+      "status": "Rolling",
+      "underlyingType": "Stock",
+      "openedDate": "2026-03-02",
+      "closedDate": "",
+      "expirationDate": "2026-07-17",
+      "exitReason": "",
+      "notes": "tc05: rolling CSP — one completed roll cycle, one open STO",
+      "legs": [
+        { "id": "TRD-TC5R-L1", "orderType": "STO", "type": "PUT", "quantity": 1, "multiplier": 100, "strike": 100, "premium": 2.5, "fees": 0.65, "executionDate": "2026-03-02", "expirationDate": "2026-04-17" },
+        { "id": "TRD-TC5R-L2", "orderType": "BTC", "type": "PUT", "quantity": 1, "multiplier": 100, "strike": 100, "premium": 3.2, "fees": 0.65, "executionDate": "2026-04-10", "expirationDate": "2026-04-17" },
+        { "id": "TRD-TC5R-L3", "orderType": "STO", "type": "PUT", "quantity": 1, "multiplier": 100, "strike": 95, "premium": 3.1, "fees": 0.65, "executionDate": "2026-04-10", "expirationDate": "2026-07-17" }
+      ]
+    }
+  ]
+}
