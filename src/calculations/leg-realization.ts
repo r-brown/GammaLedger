@@ -11,6 +11,23 @@ export interface LegRealizationSummary {
     realizedMonthly: Map<string, number>
     /** True when at least one contract group is still open (not terminated). */
     hasOpenGroups: boolean
+    /**
+     * Net cash flow already booked on open (non-terminated) option groups —
+     * "premium pending": realized in full only if the contracts expire
+     * worthless; buybacks and rolls will reduce it.
+     */
+    openCashFlow: number
+    /** 'YYYY-MM' (expiration month) → pending net cash flow of open groups. */
+    openByExpiryMonth: Map<string, number>
+    /**
+     * Data-integrity flags. orphanCloseGroups: groups with more closing than
+     * opening contracts (netOpen < 0) — usually a closing leg keyed to the
+     * wrong expiration, which realizes the debit while its true credit stays
+     * pending. closeAfterExpiryLegs: BTC/STC legs executed after their own
+     * recorded expiration (impossible — the expiration date is wrong).
+     */
+    orphanCloseGroups: number
+    closeAfterExpiryLegs: number
 }
 
 export interface LegRealizationContext {
@@ -53,7 +70,11 @@ export function summarizeLegRealization(
     const result: LegRealizationSummary = {
         realizedCashFlow: 0,
         realizedMonthly: new Map<string, number>(),
-        hasOpenGroups: false
+        hasOpenGroups: false,
+        openCashFlow: 0,
+        openByExpiryMonth: new Map<string, number>(),
+        orphanCloseGroups: 0,
+        closeAfterExpiryLegs: 0
     }
     if (!trade) return result
 
@@ -97,6 +118,10 @@ export function summarizeLegRealization(
         else if (orderType === 'BTC' || orderType === 'STC') group.netOpen -= quantity
         if (orderType === 'STO') group.hasShortOpen = true
         const executionDate = ((leg.executionDate as string) || '').toString()
+        if ((orderType === 'BTC' || orderType === 'STC') && executionDate && group.expiration
+            && executionDate.slice(0, 10) > group.expiration.slice(0, 10)) {
+            result.closeAfterExpiryLegs += 1
+        }
         if (executionDate > group.lastExecDate) group.lastExecDate = executionDate
         if ((orderType === 'BTC' || orderType === 'STC') && executionDate > group.lastCloseDate) {
             group.lastCloseDate = executionDate
@@ -118,14 +143,27 @@ export function summarizeLegRealization(
     }
 
     let total = 0
+    let openTotal = 0
     for (const group of groups.values()) {
         const fullyClosed = group.netOpen <= 0
+        if (group.netOpen < 0) result.orphanCloseGroups += 1
         const expired = isExpired(group.expiration)
         const assigned = hasAssignmentEvent && group.type === 'PUT'
             && group.hasShortOpen && group.netOpen > 0
         const terminated = tradeClosed || fullyClosed || expired || assigned
         if (!terminated) {
             result.hasOpenGroups = true
+            let openGroupTotal = 0
+            for (const leg of group.legs) {
+                const cashFlow = this.calculateLegCashFlow(leg)
+                if (Number.isFinite(cashFlow)) openGroupTotal += cashFlow
+            }
+            openTotal += openGroupTotal
+            const expiryMonth = (group.expiration || group.lastExecDate).slice(0, 7)
+            if (expiryMonth) {
+                result.openByExpiryMonth.set(expiryMonth,
+                    (result.openByExpiryMonth.get(expiryMonth) ?? 0) + openGroupTotal)
+            }
             continue
         }
 
@@ -148,5 +186,6 @@ export function summarizeLegRealization(
         }
     }
     result.realizedCashFlow = parseFloat(total.toFixed(2))
+    result.openCashFlow = parseFloat(openTotal.toFixed(2))
     return result
 }

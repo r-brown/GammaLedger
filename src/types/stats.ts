@@ -88,6 +88,14 @@ export interface Stats {
   totalPL: DollarAmount
   realizedPL: DollarAmount
   unrealizedPL: DollarAmount
+  /** Net cash booked on open option groups — collected but not yet earned */
+  pendingPremium: DollarAmount
+  /** Data-integrity flags from the leg-realization engine */
+  realizationAnomalies: {
+    orphanCloseGroups: number
+    closeAfterExpiryLegs: number
+    tickers: string[]
+  }
 
   wins: number
   losses: number
@@ -106,8 +114,10 @@ export interface Stats {
   totalROI: number
   /** Decimal (0-1) */
   annualizedROI: number
-  /** Percent 0–100 */
+  /** Percent 0–100 of peak cumulative realized P&L (not account equity) */
   maxDrawdown: number
+  /** Peak-to-trough dip of cumulative realized P&L in dollars */
+  maxDrawdownDollars: DollarAmount
 
   dailyReturns: number[]
   meanDailyReturn: number

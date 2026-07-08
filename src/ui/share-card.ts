@@ -117,8 +117,12 @@ export function getClosedTradesInRange(this: ShareCardContext, range: string = t
         if (!exitDateRaw) {
             return false;
         }
-        const exitDate = new Date(exitDateRaw);
-        exitDate.setHours(0, 0, 0, 0);
+        // Date-only strings ('YYYY-MM-DD') parse as UTC midnight; flooring
+        // with local setHours would shift them to the previous day in
+        // UTC-negative timezones. Rebuild the calendar date from UTC parts so
+        // it compares correctly against the local-midnight range window.
+        const exitDate = new Date(
+            exitDateRaw.getUTCFullYear(), exitDateRaw.getUTCMonth(), exitDateRaw.getUTCDate());
 
         if (start && exitDate < start) {
             return false;

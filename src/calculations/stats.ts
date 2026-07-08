@@ -5,6 +5,7 @@ import type { DollarAmount } from '@types-gl/common'
 import type { EnrichedTrade } from '@types-gl/trade'
 import type { NormalizedLeg } from '@types-gl/leg'
 import type { TickerPerformance, TickerPerformanceItem, RiskBand, CollateralConcentration } from '@types-gl/stats'
+import type { LegRealizationSummary } from './leg-realization.js'
 import { APP_CONFIG } from '@core/config.js'
 
 /**
@@ -25,6 +26,7 @@ interface StatsContext {
     isActiveStatus(status: string | null | undefined): boolean
     isFullyRealizedTrade(trade: EnrichedTrade): boolean
     calculateRealizedPL(trade: EnrichedTrade): DollarAmount
+    summarizeLegRealization(trade: EnrichedTrade): LegRealizationSummary
 
     // Trade-shape predicates
     isWheelOrPmccTrade(trade: EnrichedTrade): boolean
@@ -162,8 +164,13 @@ export function calculateAdvancedStats(this: StatsContext) {
         profitFactor = Number.POSITIVE_INFINITY;
     }
 
-    // Calculate max drawdown
+    // Max drawdown of the trade-ordered cumulative realized P&L curve.
+    // Dollars are the primary metric: without an account-capital base,
+    // percent-of-peak-P&L is not an equity drawdown and can read absurdly
+    // large early in a track record. The percent is kept for existing
+    // consumers (MCP context, AI agents) and shown as "% of peak" in the UI.
     let maxDrawdown = 0;
+    let maxDrawdownDollars = 0;
     let peak = 0;
     let cumulativePL = 0;
 
@@ -177,7 +184,11 @@ export function calculateAdvancedStats(this: StatsContext) {
         if (cumulativePL > peak) {
             peak = cumulativePL;
         }
-        const drawdown = peak > 0 ? ((peak - cumulativePL) / peak) * 100 : 0;
+        const drawdownDollars = peak - cumulativePL;
+        if (drawdownDollars > maxDrawdownDollars) {
+            maxDrawdownDollars = drawdownDollars;
+        }
+        const drawdown = peak > 0 ? (drawdownDollars / peak) * 100 : 0;
         if (drawdown > maxDrawdown) {
             maxDrawdown = drawdown;
         }
@@ -260,12 +271,18 @@ export function calculateAdvancedStats(this: StatsContext) {
     }
 
     const downsideReturns = dailyReturns.filter(value => value < 0);
-    const downsideDeviation = downsideReturns.length
-        ? Math.sqrt(downsideReturns.reduce((sum, value) => sum + value * value, 0) / downsideReturns.length)
+    // Standard Sortino denominator: sum of squared downside returns over the
+    // FULL sample size N (MAR = 0). Dividing by only the losing count would
+    // overstate downside deviation and understate the ratio vs. convention.
+    const downsideDeviation = dailyReturns.length
+        ? Math.sqrt(downsideReturns.reduce((sum, value) => sum + value * value, 0) / dailyReturns.length)
         : 0;
 
     // sharpeRatio / sortinoRatio may be null — Stats interface types these as number,
     // acceptable under strictNullChecks: false (Phase 2 permissive mode).
+    // Both are trade-level approximations: one daily-equivalent return per
+    // closed trade (not a daily equity curve), position overlap ignored, no
+    // risk-free rate — labeled "(approx.)" in the UI.
     const sharpeRatio: number | null = dailyStdDev > 0 ? (meanDailyReturn / dailyStdDev) * Math.sqrt(252) : null;
     const sortinoRatio: number | null = downsideDeviation > 0
         ? (meanDailyReturn / downsideDeviation) * Math.sqrt(252)
@@ -328,6 +345,33 @@ export function calculateAdvancedStats(this: StatsContext) {
         openTradeRealizedPLTotal += finite;
     }
 
+    // Disclosure metrics over all non-closed trades:
+    //   pendingPremium — net cash already booked on open option groups
+    //     ("collected but not yet earned"): the number a premium seller
+    //     watches. Realized in full only if the contracts expire worthless.
+    //   realizationAnomalies — data-integrity flags from the realization
+    //     engine (orphan closing legs / closes dated after expiration) that
+    //     silently distort realized P&L until the leg data is corrected.
+    let pendingPremium = 0;
+    let anomalyOrphanGroups = 0;
+    let anomalyCloseAfterExpiry = 0;
+    const anomalyTickers = new Set<string>();
+    for (const trade of this.trades) {
+        if (this.isClosedStatus(trade.status)) continue;
+        const realization = this.summarizeLegRealization(trade);
+        pendingPremium += realization.openCashFlow;
+        if (realization.orphanCloseGroups > 0 || realization.closeAfterExpiryLegs > 0) {
+            anomalyOrphanGroups += realization.orphanCloseGroups;
+            anomalyCloseAfterExpiry += realization.closeAfterExpiryLegs;
+            anomalyTickers.add(String(trade.ticker ?? trade.id ?? '?'));
+        }
+    }
+    const realizationAnomalies = {
+        orphanCloseGroups: anomalyOrphanGroups,
+        closeAfterExpiryLegs: anomalyCloseAfterExpiry,
+        tickers: Array.from(anomalyTickers)
+    };
+
     // wheelAssignedPremium stays scoped to in-flight assigned wheel/PMCC
     // positions (see types/stats.ts) — the dashboard renders it as
     // "Wheel premium", so the broader open-trade realized total must not
@@ -389,6 +433,7 @@ export function calculateAdvancedStats(this: StatsContext) {
         totalROI,
         annualizedROI,
         maxDrawdown,
+        maxDrawdownDollars,
         closedTrades: closedTrades.length,
         totalInvestment: totalMaxRisk,
         totalMaxRisk,
@@ -414,6 +459,8 @@ export function calculateAdvancedStats(this: StatsContext) {
         collateralByTicker,
         realizedPL,
         unrealizedPL,
+        pendingPremium: parseFloat(pendingPremium.toFixed(2)),
+        realizationAnomalies,
         avgWin,
         avgLoss,
         expectancy,

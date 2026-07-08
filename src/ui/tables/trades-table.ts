@@ -402,6 +402,7 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
         {
             colId: 'weeklyROI',
             headerName: 'Weekly ROI',
+            headerTooltip: 'Simple (non-compounded) scaling: ROI × 7 ÷ days held',
             width: 125,
             valueGetter: params => {
                 const trade = params.data;
@@ -422,6 +423,7 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
         {
             colId: 'monthlyROI',
             headerName: 'Monthly ROI',
+            headerTooltip: 'Simple (non-compounded) scaling: ROI × 30 ÷ days held',
             width: 130,
             valueGetter: params => {
                 const trade = params.data;
@@ -442,6 +444,7 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
         {
             colId: 'annualizedROI',
             headerName: 'Annual ROI',
+            headerTooltip: 'Simple (non-compounded) annualization: ROI × 365 ÷ days held — the options convention for annualized return on collateral',
             width: 120,
             valueGetter: params => {
                 const trade = params.data;

@@ -5,12 +5,16 @@ import { renderEChart } from './echarts.js'
 
 interface TradeLike { status?: unknown; closedDate?: unknown; openedDate?: unknown; legs?: unknown }
 
-interface LegRealizationLike { realizedMonthly: Map<string, number> }
+interface LegRealizationLike {
+  realizedMonthly: Map<string, number>
+  openByExpiryMonth: Map<string, number>
+}
 
 interface PerformanceTrendContext {
   charts: Record<string, { destroy(): void }>
   cumulativePLRange: string
   trades: TradeLike[]
+  latestStats: { unrealizedPL?: unknown } | null
   getCumulativePLRangeWindow(range: string): { start: Date | null; end: Date | null }
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   calculateRealizedPL(trade: unknown): number
@@ -33,19 +37,29 @@ function monthLabel(monthKey: string): string {
     return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })
 }
 
-function computeMonthlyPL(this: PerformanceTrendContext): Map<string, number> {
-    const monthly = new Map<string, number>()
-    const add = (key: string, amount: number) => { monthly.set(key, (monthly.get(key) ?? 0) + amount) }
+function computeMonthlyPL(this: PerformanceTrendContext): { realized: Map<string, number>; pending: Map<string, number> } {
+    const realized = new Map<string, number>()
+    const pending = new Map<string, number>()
+    const add = (map: Map<string, number>, key: string, amount: number) => {
+        map.set(key, (map.get(key) ?? 0) + amount)
+    }
 
     for (const trade of this.trades) {
         // Leg-level realization gate: only cash flows from terminated contract
         // groups count — open debit legs, in-flight covered calls, and active
         // rolling puts contribute nothing until they terminate.
-        const { realizedMonthly } = this.summarizeLegRealization(trade)
+        const { realizedMonthly, openByExpiryMonth } = this.summarizeLegRealization(trade)
         let totalOptionCF = 0
         for (const [month, amount] of realizedMonthly) {
-            add(month, amount)
+            add(realized, month, amount)
             totalOptionCF += amount
+        }
+
+        // Pending premium: cash booked on open option groups, shown in the
+        // month those contracts expire — the forward-looking "premium
+        // calendar" a CSP/wheel seller works against.
+        for (const [month, amount] of openByExpiryMonth) {
+            add(pending, month, amount)
         }
 
         if (this.isClosedStatus(trade.status)) {
@@ -53,11 +67,11 @@ function computeMonthlyPL(this: PerformanceTrendContext): Map<string, number> {
             const stockPL = tradePL - totalOptionCF
             if (Math.abs(stockPL) > 0.01) {
                 const closedDate = String(trade.closedDate ?? trade.openedDate ?? '')
-                if (closedDate) add(closedDate.slice(0, 7), stockPL)
+                if (closedDate) add(realized, closedDate.slice(0, 7), stockPL)
             }
         }
     }
-    return monthly
+    return { realized, pending }
 }
 
 // Net option premium cash flow per month (broker-cash view): every CALL/PUT
@@ -84,7 +98,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     const root = document.getElementById('performanceTrendChart')
     if (!root) return
 
-    const monthlyMap: Map<string, number> = computeMonthlyPL.call(this)
+    const { realized: monthlyMap, pending: pendingMap } = computeMonthlyPL.call(this)
     const premiumMap: Map<string, number> = computeMonthlyPremiumFlow.call(this)
 
     // Apply range filter using the range window — always driven from monthlyMap,
@@ -98,11 +112,50 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     if (startMonth) monthKeys = monthKeys.filter(k => k >= startMonth)
     if (endMonth) monthKeys = monthKeys.filter(k => k <= endMonth)
 
+    // Pending premium is "now" state keyed by future expirations — it bypasses
+    // the lookback end filter so upcoming expiry months always stay visible.
+    const lastHistoryKey = monthKeys.length ? monthKeys[monthKeys.length - 1] : null
+    monthKeys = Array.from(new Set([...monthKeys, ...pendingMap.keys()])).sort()
+
     const labels = monthKeys.map(monthLabel)
-    const monthlyValues = monthKeys.map(k => Number((monthlyMap.get(k) ?? 0).toFixed(2)))
-    const premiumValues = monthKeys.map(k => Number((premiumMap.get(k) ?? 0).toFixed(2)))
+    // Index of the last month with realized/premium history — pending-only
+    // future months sit past it and carry no bars, cumulative, or MTM point.
+    const lastHistoryIdx = lastHistoryKey ? monthKeys.indexOf(lastHistoryKey) : -1
+    const monthlyValues = monthKeys.map((k, i) =>
+        i <= lastHistoryIdx ? Number((monthlyMap.get(k) ?? 0).toFixed(2)) : null)
+    const premiumValues = monthKeys.map((k, i) =>
+        i <= lastHistoryIdx ? Number((premiumMap.get(k) ?? 0).toFixed(2)) : null)
+    const pendingValues = monthKeys.map(k => {
+        const v = pendingMap.get(k)
+        return v === undefined ? null : Number(v.toFixed(2))
+    })
+
+    // Carry the pre-range balance into the cumulative line: "Cumulative" keeps
+    // broker-statement semantics (all-time running realized P&L) instead of
+    // resetting to zero at the window start when a range filter is active.
     let running = 0
-    const cumulativeValues = monthlyValues.map(v => { running += v; return Number(running.toFixed(2)) })
+    if (startMonth) {
+        for (const [month, amount] of monthlyMap) {
+            if (month < startMonth) running += amount
+        }
+    }
+    const cumulativeValues: Array<number | null> = monthlyValues.map(v => {
+        if (v === null) return null
+        running += v
+        return Number(running.toFixed(2))
+    })
+
+    // Mark-to-market exists only for "now" — historical quotes are not stored —
+    // so the incl.-unrealized overlay is a single point on the latest history
+    // month (cumulative realized + current open-position MTM), not a fabricated series.
+    const unrealizedNow = toFiniteNumber(this.latestStats?.unrealizedPL)
+    const inclUnrealizedValues: Array<number | null> = monthKeys.map(() => null)
+    if (lastHistoryIdx >= 0) {
+        const cumAtLast = cumulativeValues[lastHistoryIdx]
+        if (cumAtLast !== null) {
+            inclUnrealizedValues[lastHistoryIdx] = Number((cumAtLast + unrealizedNow).toFixed(2))
+        }
+    }
 
     const fmt = (v: unknown, decimals = 0) => this.formatCurrency(v, { decimals })
 
@@ -119,8 +172,9 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
             axisPointer: { type: 'shadow' },
             formatter: (params: unknown) => {
                 const arr = Array.isArray(params) ? params as Array<{ axisValueLabel?: string; seriesName?: string; value?: unknown }> : []
-                const head = arr[0]?.axisValueLabel ?? ''
-                const body = arr.map(p => `${p.seriesName}: ${fmt(p.value, 2)}`).join('<br>')
+                const rows = arr.filter(p => Number.isFinite(Number(p.value)))
+                const head = rows[0]?.axisValueLabel ?? arr[0]?.axisValueLabel ?? ''
+                const body = rows.map(p => `${p.seriesName}: ${fmt(p.value, 2)}`).join('<br>')
                 return head ? `${head}<br>${body}` : body
             }
         },
@@ -131,8 +185,8 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
             itemWidth: 12,
             itemHeight: 8,
             textStyle: { color: 'rgba(100, 116, 139, 0.9)', fontSize: 11 },
-            data: ['Monthly P&L', 'Premium flow', 'Cumulative'],
-            ...(isFirstRender ? { selected: { 'Premium flow': false } } : {})
+            data: ['Monthly P&L', 'Pending by expiry', 'Premium flow', 'Cumulative', 'Incl. unrealized'],
+            ...(isFirstRender ? { selected: { 'Premium flow': false, 'Incl. unrealized': false } } : {})
         },
         xAxis: {
             type: 'category',
@@ -163,7 +217,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                 type: 'bar',
                 name: 'Monthly P&L',
                 yAxisIndex: 0,
-                data: monthlyValues.map(v => ({
+                data: monthlyValues.map(v => (v === null ? null : {
                     value: v,
                     itemStyle: { color: v >= 0 ? '#1FB8CD' : '#B4413C' }
                 })),
@@ -184,11 +238,40 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                 type: 'bar',
                 name: 'Premium flow',
                 yAxisIndex: 0,
-                data: premiumValues.map(v => ({
+                data: premiumValues.map(v => (v === null ? null : {
                     value: v,
                     itemStyle: { color: v >= 0 ? '#94A3B8' : '#E8A33D' }
                 })),
                 barMaxWidth: 42
+            },
+            {
+                // Forward-looking premium calendar: net cash booked on open
+                // option groups, in their expiration month. Dashed outline +
+                // translucent fill signal "not yet earned".
+                type: 'bar',
+                name: 'Pending by expiry',
+                yAxisIndex: 0,
+                data: pendingValues.map(v => (v === null ? null : {
+                    value: v,
+                    itemStyle: {
+                        color: v >= 0 ? 'rgba(31, 184, 205, 0.25)' : 'rgba(180, 65, 60, 0.25)',
+                        borderColor: v >= 0 ? '#1FB8CD' : '#B4413C',
+                        borderWidth: 1,
+                        borderType: 'dashed'
+                    }
+                })),
+                barMaxWidth: 42
+            },
+            {
+                type: 'line',
+                name: 'Incl. unrealized',
+                yAxisIndex: 1,
+                data: inclUnrealizedValues,
+                showSymbol: true,
+                symbol: 'diamond',
+                symbolSize: 10,
+                lineStyle: { width: 0 },
+                itemStyle: { color: '#E8A33D' }
             }
         ]
     })

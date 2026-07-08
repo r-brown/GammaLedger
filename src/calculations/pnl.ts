@@ -165,7 +165,13 @@ export function getCapitalAtRisk(this: PnlContext, trade: EnrichedTrade | null |
     return 0;
 }
 
-/** Annualized ROI as a percentage (annualized over 365 days). */
+/**
+ * Annualized ROI as a percentage, via simple (non-compounded) annualization:
+ * ROI × 365 ÷ daysHeld — the options-industry convention for annualized
+ * return on collateral. Deliberately not geometric compounding, which
+ * extrapolates short-DTE income trades to absurd figures (a 2% one-day
+ * trade would compound to ~137,000%/yr). Disclosed in the UI tooltips.
+ */
 export function calculateAnnualizedROI(this: PnlContext, trade: EnrichedTrade | null | undefined): number {
     if (!trade || !this.isClosedStatus(trade.status)) {
         return 0;
@@ -187,7 +193,7 @@ export function calculateAnnualizedROI(this: PnlContext, trade: EnrichedTrade | 
     return parseFloat(annualizedROI.toFixed(2));
 }
 
-/** ROI normalized to a 7-day period. */
+/** ROI normalized to a 7-day period (simple scaling — see calculateAnnualizedROI). */
 export function calculateWeeklyROI(this: PnlContext, trade: EnrichedTrade | null | undefined): number {
     if (!trade || !this.isClosedStatus(trade.status)) {
         return 0;
@@ -209,7 +215,7 @@ export function calculateWeeklyROI(this: PnlContext, trade: EnrichedTrade | null
     return parseFloat(weeklyROI.toFixed(2));
 }
 
-/** ROI normalized to a 30-day period. */
+/** ROI normalized to a 30-day period (simple scaling — see calculateAnnualizedROI). */
 export function calculateMonthlyROI(this: PnlContext, trade: EnrichedTrade | null | undefined): number {
     if (!trade || !this.isClosedStatus(trade.status)) {
         return 0;

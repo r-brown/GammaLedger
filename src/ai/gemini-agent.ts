@@ -541,6 +541,7 @@ ${metadata}`;
                 totalROI: this.formatNumber(stats.totalROI, { style: 'percent' }),
                 annualizedROI: this.formatNumber(stats.annualizedROI, { style: 'percent' }),
                 maxDrawdown: this.formatNumber(stats.maxDrawdown, { style: 'percent' }),
+                maxDrawdownDollars: this.formatNumber(stats.maxDrawdownDollars, { style: 'currency' }),
                 closedTrades: stats.closedTrades ?? 0,
                 openPositions: stats.activePositions ?? (this.context.openTrades?.length || 0)
             };
