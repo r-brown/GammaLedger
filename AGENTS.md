@@ -613,51 +613,16 @@ graphify explain "RiskValue"                           # plain-language explanat
 - `graphify-out/GRAPH_REPORT.md` — full audit report with god nodes, surprising connections, suggested questions
 - `graphify-out/graph.json` — raw graph data for programmatic use
 
----
+## Graphify Knowledge graph
 
-## Superpowers Workflow
+This repo uses Graphify to build a knowledge graph of the codebase. The graph is stored in `graphify-out/` and can be queried for relationships, explanations, and paths between nodes.
 
-> **Superpowers plugin is active.** Skills auto-trigger based on task type.
-> Never skip the brainstorm → plan → execute pipeline for any non-trivial change.
+## Superpowers
 
-### When to Use Each Skill
+Always create a new plan and spec for any new feature or major refactor. Plans and specs are stored in the following directories:
 
-| Task type | Entry point | Notes |
-|---|---|---|
-| New feature / module | `/superpowers:brainstorm` → `/superpowers:write-plan` → `/superpowers:execute-plan` | Mandatory for anything touching >1 file |
-| Bug fix | `/superpowers:debug` | Four-phase: observe → hypothesize → isolate → fix |
-| Refactor | `/superpowers:brainstorm` → `/superpowers:write-plan` → `/superpowers:execute-plan` | Never refactor without a written plan |
-| Quick single-file fix | Direct edit + `npm run typecheck` | Only when scope is unambiguous and contained |
-
-### Core Rules (enforced by Superpowers)
-
-- **Brainstorm first** — resolve architectural decisions before touching any file; use Socratic questioning to surface hidden constraints
-- **Write a plan** — break work into 2–5 minute tasks with exact file paths and commands; store in a `.plan.md` file; check off tasks as they complete (checkboxes are the session recovery mechanism)
-- **Execute via subagent** — the plan drives a subagent that implements each task and runs a two-stage review after each one; do not deviate from the approved plan mid-session
-- **TDD — red/green/refactor** — write a failing typecheck or test assertion first, make it pass with minimal code, then refactor; never write implementation before the failure is confirmed
-- **YAGNI** — build only what the plan specifies; resist scope creep during execution
-- **DRY** — before adding any helper, search the codebase for an existing one; GammaLedger's 60-module codebase has extensive utilities already
-
-### Token-Saving Practices
-
-- Reference the plan document instead of re-explaining context in every message
-- Use `npm run typecheck` (fast) rather than full builds for incremental feedback
-- Scope subagent tasks tightly — one file, one concern, one checkpoint
-- Re-read only the files a task actually needs; do not pre-load the whole `src/` tree
-- Plan documents carry forward session state; expired sessions resume from unchecked checkboxes, not re-read code
-
-### New Feature Checklist
-
-- [ ] `/superpowers:brainstorm` — clarify requirements, surface constraints, agree on design
-- [ ] `/superpowers:write-plan` — 2–5 min tasks, exact file paths, commands, type signatures
-- [ ] Review plan; confirm no rule violations before approving
-- [ ] `/superpowers:execute-plan` — subagent executes; two-stage review per task
-- [ ] Each task: write types/interface → `typecheck` fails → implement → `typecheck` passes → refactor
-- [ ] New module in strict dir → `npm run typecheck:strict` green
-- [ ] New `localStorage` key → registered in `APP_CONFIG.STORAGE`
-- [ ] Thin delegator added to `GammaLedger` in `src/index.ts`
-- [ ] Manual smoke test with sample data
-- [ ] Plan checkboxes all checked; commit
+- **Plans:** `.claude/superpowers/plans/YYYY-MM-DD-{session-slug}.md`
+- **Specs:** `.claude/superpowers/specs/YYYY-MM-DD-{session-slug}.md`
 
 ### Session Recovery
 
