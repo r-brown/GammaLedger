@@ -4,7 +4,7 @@
 
 GammaLedger is a **privacy-first, local-first options trading journal and analytics dashboard**.
 It is a single-page web application (SPA) built with **TypeScript + Vite**, compiled from
-~60 ES modules into a single JS bundle served from `dist/`. No server-side component.
+~83 ES modules into a single JS bundle served from `dist/`. No server-side component.
 
 - **Live app**: https://gammaledger.com
 - **GitHub**: https://github.com/r-brown/GammaLedger
@@ -31,16 +31,16 @@ File System Access API (save/load `.json` database files directly).
 
 ```
 src/
-  index.ts           # 1,711 lines — GammaLedger class + bootstrap; entry point
-  styles/app.css     # ~4,700 lines — full design system with light/dark tokens
+  index.ts           # 1,778 lines — GammaLedger class + bootstrap; entry point
+  styles/app.css     # ~6,004 lines — full design system with light/dark tokens
   core/              # config, migration, sample-data, state, storage
   utils/             # crypto, dates, dom, export, formatting, import-csv
   trades/            # leg-form, legs, pmcc, positions, risk, spreads, wheel
   calculations/      # daysheld, monte-carlo, pnl, stats
   ai/                # chat, gemini-agent, local-agent
   ui/
-    charts/          # cumulative-pl, dashboard-charts, destroy
-    tables/          # active-positions, assigned-positions, highlights, recent-trades, trades-table
+    charts/          # cumulative-pl, dashboard-charts, destroy, echarts, performance-trend
+    tables/          # active-positions, ag-grid, assigned-positions, highlights, position-detail-panel, recent-trades, trade-breakdown-column, trades-table
     modals/          # ai-coach-consent, disclaimer
     credit-playbook/ # data, index, render
     dashboard.ts, filters.ts, notifications.ts, share-card.ts, sidebar.ts, views.ts
@@ -80,7 +80,7 @@ export function formatDate(dateString: string): string { /* … */ }
 // src/index.ts — GammaLedger delegates to the module function
 import * as dates from './utils/dates.js'
 class GammaLedger {
-  formatDate(d: string) { return dates.formatDate.call(this, d) }
+  formatDate(dateString) { return dates.formatDate(dateString) }
 }
 ```
 
@@ -152,6 +152,8 @@ All constants are exported from here and re-imported in `src/index.ts`. Key ones
 | `localStorage` | `GammaLedgerDisclaimerAcceptedAt` | Disclaimer acceptance timestamp |
 | `localStorage` | `GammaLedgerSidebarCollapsed` | Sidebar UI preference |
 | `localStorage` | `GammaLedgerDefaultFeePerContract` | Default commission fee |
+| `localStorage` | `GammaLedgerFinnhubConfig` | Finnhub API key config |
+| `localStorage` | `GammaLedgerFinnhubSecret` | Encrypted Finnhub API key |
 | `localStorage` | `GammaLedgerFinnhubRateLimit` | Finnhub API rate limit setting |
 | `localStorage` | `GammaLedgerAICoachConsentAt` | AI coach consent timestamp |
 | File System | JSON file via File System Access API | Portable database backup |
@@ -176,8 +178,7 @@ directly. The wrapper handles quota errors, private-mode failures, and logs warn
   openedDate: ISODate | ''
   closedDate: ISODate | ''
   expirationDate: ISODate | ''
-  exitReason: string
-  notes: string            // markdown supported
+  notes?: string           // markdown supported (optional)
   legs: PersistedLeg[]
 }
 
@@ -206,7 +207,7 @@ directly. The wrapper handles quota errors, private-mode failures, and logs warn
 // src/types/leg.ts — interface PersistedLeg
 {
   id: string                       // 'TRD-XXXX-L1'
-  orderType: 'BTO' | 'STO' | 'BTC' | 'STC'
+  orderType: 'BTO' | 'STO' | 'BTC' | 'STC' | null
   type: 'CALL' | 'PUT' | 'STOCK' | 'CASH'
   quantity: number
   multiplier: number               // 100 for standard equity options
@@ -272,6 +273,11 @@ Sub-module imports: `import type { RiskValue } from '@types-gl/common'`.
 | `integrations.ts` | `FinnhubQuote`, `GeminiApiResponse` + runtime guards `isGeminiApiResponse()`, `extractGeminiText()`, `extractGeminiError()` |
 | `imports.ts` | `OFXImportPayload`, `RobinhoodImportPayload`, `ImportLogEntry` |
 | `ai.ts` | `AIAgentContext`, `Message`, `AIChatSession` |
+| `credit-playbook.ts` | `CreditPlaybookEntry`, `CreditPlaybookContext` |
+| `mcp.ts` | `MCPContext`, `MCPToolResult` |
+| `spreads.ts` | `SpreadShape`, `VerticalSpreadParams` |
+| `ui.ts` | `FilterState`, `QuoteEntry`, `PositionHighlightConfig`, `CumulativePLRange` |
+| `wheel.ts` | `WheelCoverage`, `WheelPosition` |
 | `index.ts` | Barrel — re-exports everything |
 
 ---
@@ -334,8 +340,7 @@ works through `this.destroyChart(chart)`.
 
 | Chart key | Root ID | Type | Description |
 |---|---|---|---|
-| `monthlyPL` | `monthlyPLChart` | Bar | Monthly P&L |
-| `cumulativePL` | `cumulativePLChart` | Line+fill | Cumulative P&L (range-filtered) |
+| `performanceTrend` | `performanceTrendChart` | Combined | Monthly P&L + cumulative P&L (range-filtered) |
 | `strategy` | `strategyChart` | Horiz. bar | P&L by strategy |
 | `winRate` | `winRateChart` | Pie/doughnut | Win rate by strategy |
 | `commissionImpact` | `commissionImpactChart` | Bar | Commission drag vs gross P&L |
@@ -420,10 +425,12 @@ Import browser libraries through Vite/npm instead of CDN globals.
 ### npm (bundled)
 
 - `ag-grid-community ^35.2.1` — trade table virtualization, sorting, filters, resize/reorder
-- `echarts ^6.0.0` — dashboard, payoff, heatmap, and share-card charts
+- `echarts ^6.1.0` — dashboard, payoff, heatmap, and share-card charts
+- `dompurify ^3.4.11` — HTML sanitization for markdown rendering
+- `marked ^18.0.3` — markdown-to-HTML rendering for notes
 - `zod ^4.4.3` — storage payload and trade form validation schemas
 - `typescript ^6.0.3` — type checking
-- `vite ^8.0.10` — bundler and dev server
+- `vite ^8.0.16` — bundler and dev server
 - `vite-plugin-checker ^0.13.0` — inline TS error overlay in dev
 - `@types/node ^25.6.0` — Node type declarations for vite config
 
@@ -470,6 +477,7 @@ Standalone Python package exposing the GammaLedger database as an MCP server for
 | `gammaledger_recent_closed_trades` | Most recently closed trades (by close date) |
 | `gammaledger_strategy_breakdown` | Per-strategy stats: counts, wins, P&L, win rate |
 | `gammaledger_ticker_exposure` | Per-ticker performance sorted by absolute P&L |
+| `gammaledger_underlying_breakdown` | Breakdown by underlying type (Stock/ETF/Index/Future): counts, P&L, capital at risk |
 | `gammaledger_concentration_risk` | Top positions by capital at risk and collateral share |
 | `gammaledger_expiring_positions` | Positions expiring within N days, sorted by DTE |
 | `gammaledger_audit_risk` | Concentration, drawdown, expiring, underwater, Wheel/PMCC gaps |
@@ -552,8 +560,8 @@ Red → (typecheck fails or fixture diverges) → Green → (typecheck passes, f
 ## Knowledge Graph (graphify)
 
 The codebase has a persistent knowledge graph at `graphify-out/` built by
-[graphify](https://github.com/safishamsi/graphify). It maps 2,037 nodes across
-99 communities covering all source modules, types, docs, blog posts, images, and
+[graphify](https://github.com/safishamsi/graphify). It maps 2,044 nodes across
+108 communities covering all source modules, types, docs, blog posts, images, and
 config files.
 
 ### Querying the graph
@@ -572,61 +580,9 @@ graphify explain "RiskValue"                           # plain-language explanat
 /graphify . --update     # incremental — only new/changed files
 ```
 
-### Key structural findings
-
-| God Node | Edges | Role |
-|---|---|---|
-| `GammaLedger` | 439 | Central hub — imports every module, delegates to all features |
-| `AGENTS.md` | 36 | Architecture documentation bridge |
-| `EnrichedTrade` | 30 | Core runtime data type |
-| `GeminiInsightsAgent` | 27 | AI coach class, bridges to app config |
-| `NormalizedLeg` | 26 | Leg normalization type |
-
-### Community map (top 20)
-
-| # | Community | Nodes | Cohesion |
-|---|---|---|---|
-| 0 | GammaLedger Core Class | 396 | 0.005 |
-| 1 | MCP Server & Database | 71 | 0.06 |
-| 2 | Dashboard Charts | 67 | 0.06 |
-| 3 | Trade Legs & Lifecycle | 57 | 0.07 |
-| 4 | Gemini AI Agent | 56 | 0.06 |
-| 5 | Finnhub Integration | 52 | 0.07 |
-| 6 | App State & Config | 49 | 0.07 |
-| 7 | Package Dependencies | 46 | 0.05 |
-| 8 | Position Detail Panel | 45 | 0.09 |
-| 9 | Options Glossary | 42 | 0.12 |
-| 10 | AI Chat System | 40 | 0.08 |
-| 11 | Schema & Validation | 38 | 0.10 |
-| 12 | OFX Import | 34 | 0.11 |
-| 13 | UI Views & Assets | 32 | 0.04 |
-| 14 | Position Analytics | 32 | 0.09 |
-| 15 | Type Definitions | 30 | 0.11 |
-| 16 | Architecture Docs | 28 | 0.13 |
-| 17 | Credit Playbook Render | 28 | 0.14 |
-| 18 | Database Persistence | 27 | 0.10 |
-| 19 | Blog Strategy Posts | 26 | 0.11 |
-
-### Outputs
-
-- `graphify-out/graph.html` — interactive visualization (open in browser)
-- `graphify-out/GRAPH_REPORT.md` — full audit report with god nodes, surprising connections, suggested questions
-- `graphify-out/graph.json` — raw graph data for programmatic use
-
-## Graphify Knowledge graph
-
-This repo uses Graphify to build a knowledge graph of the codebase. The graph is stored in `graphify-out/` and can be queried for relationships, explanations, and paths between nodes.
-
 ## Superpowers
 
 Always create a new plan and spec for any new feature or major refactor. Plans and specs are stored in the following directories:
 
 - **Plans:** `.claude/superpowers/plans/YYYY-MM-DD-{session-slug}.md`
 - **Specs:** `.claude/superpowers/specs/YYYY-MM-DD-{session-slug}.md`
-
-### Session Recovery
-
-If a AI agent session dies mid-plan:
-1. Open the `.plan.md` file in the project root
-2. Find the first unchecked checkbox — that is where execution resumes
-3. Run `/superpowers:execute-plan` pointing at the plan file; do not restart from brainstorm
