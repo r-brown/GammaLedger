@@ -1196,7 +1196,10 @@ export function enrichTradeData(
     }
 
     if (!this.isPmccTrade(enriched) && this.isWheelOrPmccTrade(enriched)) {
-        const hasActiveOptions = this.hasNetOpenOptionLegs({ ...enriched, legs: legSummary.legs });
+        // hasNetOpenOptionLegs would count an assignment-closed put as still
+        // open (assignment terminates it via a stock leg, not a BTC leg), which
+        // kept a bought-back covered call's expiration/DTE alive (issue #40).
+        const hasActiveOptions = this.hasNonExpiredOpenShortOptions({ ...enriched, legs: legSummary.legs });
         if (hasActiveOptions && pmccShortExpiration) {
             expirationDate = pmccShortExpiration;
         } else if (!hasActiveOptions && this.getTradeOpenStockShares(enriched) > 0) {
