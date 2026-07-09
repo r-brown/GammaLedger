@@ -73,6 +73,7 @@ interface RiskFormulaContext {
     verticalSpreadWidth: number | null
     S: number | null
     hasStockExposure: boolean
+    stockCostPerShare: number | null
     shortPutsCollateralDollars: number | null
     shortPutDistinctStrikeCount: number
     netCreditDollars: number
@@ -294,6 +295,27 @@ export function buildRiskFormulaContext(
 
     const stockLegs = openLegs.filter((leg) => leg.type === 'STOCK');
 
+    // Weighted-average purchase price of BUY-OPEN stock legs. Stock legs store
+    // the per-share price in `premium` (assignment-created legs also mirror it
+    // in `strike`), so shares bought outright carry their real cost basis here.
+    let stockCostPerShare: number | null = null;
+    let stockCostTotal = 0;
+    let stockCostShares = 0;
+    stockLegs.forEach((leg) => {
+        if (this.getLegAction(leg) !== 'BUY') return;
+        const legShares = Math.abs(Number(leg.quantity) || 0) * (this.getLegMultiplier(leg) || 1);
+        let pricePerShare = Number(leg.premium);
+        if (!(Number.isFinite(pricePerShare) && pricePerShare > 0)) {
+            pricePerShare = Number(leg.strike);
+        }
+        if (!(Number.isFinite(pricePerShare) && pricePerShare > 0) || !(legShares > 0)) return;
+        stockCostTotal += pricePerShare * legShares;
+        stockCostShares += legShares;
+    });
+    if (stockCostShares > 0) {
+        stockCostPerShare = stockCostTotal / stockCostShares;
+    }
+
     const underlyingCandidates: number[] = [];
     const addCandidate = (value: unknown) => {
         const numeric = Number(value);
@@ -346,6 +368,7 @@ export function buildRiskFormulaContext(
         shortPutStrike, shortPutStrikeLow, longPutStrike, longPutStrikeLow,
         verticalSpreadWidth, S,
         hasStockExposure: stockLegs.length > 0,
+        stockCostPerShare,
         shortPutsCollateralDollars, shortPutDistinctStrikeCount, netCreditDollars,
         toNotional, contractCount: contracts, multiplierValue: multiplier
     };
@@ -446,7 +469,7 @@ export function getStrategyRiskHandlers(
             return (underlying === null || putStrike === null) ? undefined : ctx.toNotional(underlying - putStrike - ctx.netCredit);
         });
         register('Covered Call', (ctx) => {
-            const underlying = pickStrike(ctx.S, ctx.referenceStrike);
+            const underlying = pickStrike(ctx.stockCostPerShare, ctx.S, ctx.referenceStrike);
             return underlying === null ? undefined : ctx.toNotional(underlying - ctx.netCredit);
         });
         register('Covered Put', () => Number.POSITIVE_INFINITY);
@@ -512,7 +535,9 @@ export function getStrategyRiskHandlers(
             if (ctx.shortPutDistinctStrikeCount >= 2 && ctx.shortPutsCollateralDollars !== null) {
                 return Math.max(ctx.shortPutsCollateralDollars - ctx.netCreditDollars, 0);
             }
-            const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.K1);
+            // Shares bought outright (no put assignment): capital at risk is the
+            // actual purchase price, not a call strike (issue #48).
+            const strike = pickStrike(ctx.shortPutStrike, ctx.shortPutStrikeLow, ctx.stockCostPerShare, ctx.K1);
             return Number.isFinite(strike) ? ctx.toNotional((strike as number) - ctx.netCredit) : undefined;
         });
 
