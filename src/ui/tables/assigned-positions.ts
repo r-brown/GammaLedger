@@ -42,6 +42,7 @@ interface AssignmentEntry {
 
 interface AssignedPositionsContext extends PositionDetailPanelContext {
   latestStats: Record<string, unknown> | null
+  summarizeLegRealization(trade: TradeRecord): { realizedCashFlow: number }
   assignedPositionsGridApi?: GridApi<AssignedGridRow> | null
   assignedPositionsStatusFilter: string
   assignedPositionsQuoteEntries?: Map<string, Record<string, unknown>>
@@ -299,6 +300,26 @@ function buildAssignedColumnDefs(
     this: AssignedPositionsContext,
     quoteEntries: Map<string, Record<string, unknown>>
 ): ColDef<AssignedGridRow>[] {
+    // Realized ("earned") option premium per entry. Closed cycles have earned
+    // everything they collected (a called-away short call terminates via the
+    // stock leg, which the realization engine deliberately does not treat as a
+    // short-call termination — so realizedCashFlow undercounts closed wheels).
+    // Open cycles use the realization engine, matching the bridge convention.
+    // Cached per render pass so sorting doesn't re-run the engine per cell.
+    const earnedCache = new Map<TradeRecord, number>();
+    const premiumEarnedOf = (entry: AssignmentEntry | undefined): number | null => {
+        const trade = entry?.trade;
+        if (!trade) return null;
+        if (this.isClosedStatus(trade.status)) {
+            const collected = Number(entry.premiumCollected);
+            return Number.isFinite(collected) ? collected : 0;
+        }
+        if (!earnedCache.has(trade)) {
+            const realized = Number(this.summarizeLegRealization(trade).realizedCashFlow);
+            earnedCache.set(trade, Number.isFinite(realized) ? realized : 0);
+        }
+        return earnedCache.get(trade) ?? 0;
+    };
     return [
         {
             colId: 'ticker',
@@ -386,10 +407,26 @@ function buildAssignedColumnDefs(
             colId: 'premiumCollected',
             field: 'premiumCollected',
             headerName: 'Premium Collected',
+            headerTooltip: 'Cash-basis: option credits count the moment they are sold, including still-open short calls. Hover a value for the full breakdown.',
             width: 170,
             cellRenderer: (params: ICellRendererParams<AssignedGridRow>) => {
                 const entry = params.data as AssignmentEntry | undefined;
                 return entry?.trade ? createPremiumRenderer.call(this, entry) : '—';
+            },
+            filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'premiumEarned',
+            headerName: 'Premium Earned',
+            headerTooltip: 'Realized-basis: option credits count only once the contract expires or is bought back — this is the convention behind the dashboard’s "Wheel premium" row. Equals Premium Collected once every contract in the cycle has terminated.',
+            width: 160,
+            valueGetter: params => premiumEarnedOf(params.data as AssignmentEntry | undefined),
+            valueFormatter: params => params.value === null || params.value === undefined
+                ? '—'
+                : this.formatCurrency(params.value),
+            cellClass: params => {
+                const v = Number(params.value);
+                return v > 0 ? 'pl-positive' : v < 0 ? 'pl-negative' : 'pl-neutral';
             },
             filter: 'agNumberColumnFilter'
         },
