@@ -2,6 +2,8 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { TradeFormInputSchema, formatZodIssues } from '@core/schema'
+import { APP_CONFIG } from '@core/config'
+import { safeLocalStorage } from '@core/storage'
 
 type TradeRecord = Record<string, unknown>
 
@@ -123,6 +125,20 @@ export function resetAddTradeForm(this: ViewsContext): void {
         tradeStatusSelect.value = '';
     }
 
+    // Preselect the last-used strategy (no leg scaffolding — that only runs
+    // on an explicit user change of the select).
+    const strategySelect = document.getElementById('strategy') as HTMLSelectElement | null;
+    const lastStrategy = safeLocalStorage.getItem(APP_CONFIG.STORAGE.LAST_STRATEGY);
+    if (strategySelect && lastStrategy
+        && Array.from(strategySelect.options).some(option => option.value === lastStrategy)) {
+        strategySelect.value = lastStrategy;
+    }
+    const strategySearch = document.getElementById('strategy-search') as HTMLInputElement | null;
+    if (strategySearch && strategySearch.value) {
+        strategySearch.value = '';
+        strategySearch.dispatchEvent(new Event('input'));
+    }
+
     this.currentEditingId = null;
     this.currentEditingTrade = null;
     this.renderLegForms([]);
@@ -161,6 +177,9 @@ export function handleTradeSubmit(this: ViewsContext): void {
     }
 
     const formValues = parsedTrade.data;
+    if (formValues.strategy) {
+        safeLocalStorage.setItem(APP_CONFIG.STORAGE.LAST_STRATEGY, String(formValues.strategy));
+    }
     const underlyingType = this.normalizeUnderlyingType(formValues.underlyingType, { fallback: 'Stock' });
     const statusOverride = this.normalizeTradeStatusInput(formValues.tradeStatus || '');
 

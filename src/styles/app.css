@@ -1764,6 +1764,11 @@ select.form-control {
 }
 
 /* Compatibility Notice */
+/* Strategy type-ahead filter above the picker */
+.strategy-search {
+  margin-bottom: var(--space-8);
+}
+
 /* Sample-data first-run banner */
 .sample-data-banner {
   display: flex;

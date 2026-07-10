@@ -100,6 +100,7 @@ import * as assignedPositionsModule from './ui/tables/assigned-positions.js';
 import * as creditPlaybookModule from './ui/credit-playbook/index.js';
 import * as viewsModule from './ui/views.js';
 import * as announcementModule from './ui/announcement.js';
+import * as strategyTemplatesModule from './trades/strategy-templates.js';
 
 
 class GammaLedger {
@@ -985,6 +986,9 @@ class GammaLedger {
             });
         }
 
+        // Strategy picker: ⭐ templates + type-ahead filter
+        this.setupStrategyPicker();
+
         // Trades list filters
         ['filter-strategy', 'filter-status'].forEach(filterId => {
             const filterElement = document.getElementById(filterId);
@@ -1321,6 +1325,10 @@ class GammaLedger {
      * Returns the total fee (defaultFeePerContract * quantity) or null if not set.
      */
     getDefaultFeeForQuantity(quantity = 1) { return defaultFeeModule.getDefaultFeeForQuantity.call(this, quantity); }
+
+    buildStrategyTemplateLegs(strategy) { return strategyTemplatesModule.buildStrategyTemplateLegs.call(this, strategy); }
+
+    setupStrategyPicker() { return strategyTemplatesModule.setupStrategyPicker.call(this); }
 
     initializeAnnouncementBanner() { return announcementModule.initializeAnnouncementBanner.call(this); }
 

@@ -39,6 +39,7 @@ interface AppConfigShape {
         readonly FINNHUB_SECRET: string
         readonly GEMINI_MAX_TOKENS: string
         readonly ANNOUNCEMENT_DISMISSED: string
+        readonly LAST_STRATEGY: string
         readonly LEGACY_KEYS: readonly string[]
     }
     SHARE_CARD: {
@@ -76,6 +77,7 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         FINNHUB_SECRET: 'GammaLedgerFinnhubSecret',
         GEMINI_MAX_TOKENS: 'GammaLedgerGeminiMaxTokens',
         ANNOUNCEMENT_DISMISSED: 'GammaLedgerAnnouncementDismissedId',
+        LAST_STRATEGY: 'GammaLedgerLastStrategy',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',
