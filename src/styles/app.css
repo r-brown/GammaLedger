@@ -1826,6 +1826,101 @@ select.form-control {
   box-shadow: none;
 }
 
+/* Generic CSV column-mapper dialog */
+.csv-mapper {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0;
+  max-width: 860px;
+  width: calc(100vw - 2 * var(--space-24));
+}
+
+.csv-mapper::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.csv-mapper__panel {
+  padding: var(--space-20, 20px) var(--space-24);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.csv-mapper__title {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-lg);
+}
+
+.csv-mapper__intro {
+  margin: 0 0 var(--space-16);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.csv-mapper__preview {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+  margin-bottom: var(--space-16);
+}
+
+.csv-mapper__preview table {
+  border-collapse: collapse;
+  font-size: var(--font-size-xs, 11px);
+  width: 100%;
+}
+
+.csv-mapper__preview th,
+.csv-mapper__preview td {
+  padding: var(--space-4, 4px) var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  text-align: left;
+}
+
+.csv-mapper__preview th {
+  background: var(--color-bg-2);
+  position: sticky;
+  top: 0;
+}
+
+.csv-mapper__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--space-12);
+  margin-bottom: var(--space-16);
+}
+
+.csv-mapper__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 4px);
+  font-size: var(--font-size-sm);
+}
+
+.csv-mapper__subtitle {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-base);
+}
+
+.csv-mapper__actions-map {
+  margin-bottom: var(--space-16);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--space-12);
+}
+
+.csv-mapper__actions-map .csv-mapper__subtitle {
+  grid-column: 1 / -1;
+}
+
+.csv-mapper__buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
 /* Keyboard-shortcut help dialog */
 .shortcut-help {
   border: 1px solid var(--color-border);

@@ -70,6 +70,8 @@ import * as importLogModule from './imports/log.js';
 import * as importMergeModule from './imports/merge.js';
 import * as importPositionKeysModule from './imports/position-keys.js';
 import * as importRobinhoodModule from './imports/robinhood.js';
+import * as importSchwabModule from './imports/schwab.js';
+import * as csvMapperModule from './imports/csv-mapper.js';
 import * as importOfxModule from './imports/ofx.js';
 import * as notificationsModule from './ui/notifications.js';
 import * as sidebarModule from './ui/sidebar.js';
@@ -1664,6 +1666,18 @@ class GammaLedger {
     async importRobinhoodCsvContent(raw: string, context: Record<string, unknown> = {}) { return importControlsModule.importRobinhoodCsvContent.call(this, raw, context); }
 
     parseRobinhoodCsv(raw) { return importRobinhoodModule.parseRobinhoodCsv.call(this, raw); }
+
+    // --- Schwab CSV + generic CSV mapper (S3) ---
+
+    detectCsvFormat(raw) { return importSchwabModule.detectCsvFormat.call(this, raw); }
+    handleSchwabCsvFileSelection(event) { return importSchwabModule.handleSchwabCsvFileSelection.call(this, event); }
+    async importSchwabCsvFile(file, context = {}) { return importSchwabModule.importSchwabCsvFile.call(this, file, context); }
+    async importSchwabCsvContent(raw: string, context: Record<string, unknown> = {}) { return importSchwabModule.importSchwabCsvContent.call(this, raw, context); }
+    parseSchwabCsv(raw) { return importSchwabModule.parseSchwabCsv.call(this, raw); }
+    parseSchwabTransaction(row) { return importSchwabModule.parseSchwabTransaction.call(this, row); }
+    mapSchwabAction(action) { return importSchwabModule.mapSchwabAction.call(this, action); }
+    openCsvColumnMapper(raw, context = {}) { return csvMapperModule.openCsvColumnMapper.call(this, raw, context); }
+    async importMappedCsvTransactions(transactions, context = {}) { return csvMapperModule.importMappedCsvTransactions.call(this, transactions, context); }
 
     parseCsvRow(line) { return parseCsvRow(line); }
 

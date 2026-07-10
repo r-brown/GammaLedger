@@ -66,6 +66,21 @@ export function setupImportControls(this: any) {
         });
     }
 
+    const schwabButton = document.getElementById('import-schwab-btn');
+    const schwabInput = document.getElementById('import-schwab-input') as HTMLInputElement | null;
+
+    if (schwabButton && schwabInput) {
+        schwabButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            schwabInput.value = '';
+            schwabInput.click();
+        });
+
+        schwabInput.addEventListener('change', (event) => {
+            this.handleSchwabCsvFileSelection(event);
+        });
+    }
+
     const mergeButton = document.getElementById('import-merge-btn');
     if (mergeButton) {
         mergeButton.addEventListener('click', (event) => {
@@ -131,13 +146,31 @@ export function setupImportControls(this: any) {
                     ofxInput.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             } else if (name.endsWith('.csv')) {
-                // Trigger the Robinhood CSV import path
-                const dt = new DataTransfer();
-                dt.items.add(file);
-                if (robinhoodInput) {
-                    robinhoodInput.files = dt.files;
-                    robinhoodInput.dispatchEvent(new Event('change', { bubbles: true }));
-                }
+                // Sniff the CSV format and route to the right importer;
+                // unknown layouts open the column mapper.
+                file.text().then((text: string) => {
+                    const format = this.detectCsvFormat(text);
+                    const fileName = file.name || 'CSV import';
+                    if (format === 'robinhood') {
+                        return this.importRobinhoodCsvContent(text, { fileName });
+                    }
+                    if (format === 'schwab') {
+                        return this.importSchwabCsvContent(text, { fileName });
+                    }
+                    this.openCsvColumnMapper(text, { fileName });
+                    return undefined;
+                }).catch((error: unknown) => {
+                    console.error('CSV import error:', error);
+                    const message = error instanceof Error ? error.message : 'Unknown error';
+                    this.showNotification(`Failed to import CSV: ${message}`, 'error');
+                    this.appendImportLog({
+                        type: 'error',
+                        message: `Failed to import ${file.name || 'CSV file'}: ${message}`,
+                        timestamp: new Date()
+                    });
+                }).finally(() => {
+                    this.hideLoadingIndicator();
+                });
             } else {
                 this.showNotification('Unsupported file type. Please use OFX, QFX, or CSV files.', 'error');
             }

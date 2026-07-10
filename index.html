@@ -707,8 +707,9 @@
                         <div class="import-actions">
                             <button type="button" class="btn btn--primary" id="import-ofx-btn">Import OFX…</button>
                             <button type="button" class="btn btn--primary" id="import-robinhood-btn">Import Robinhood CSV…</button>
+                            <button type="button" class="btn btn--primary" id="import-schwab-btn">Import Schwab CSV…</button>
                         </div>
-                        <p class="import-dropzone__hint">or drag &amp; drop an OFX or CSV file here</p>
+                        <p class="import-dropzone__hint">or drag &amp; drop an OFX or CSV file here — CSVs are auto-detected (Robinhood, Schwab, or a column-mapper for anything else)</p>
                     </div>
                     <section class="import-stats" aria-live="polite">
                         <h3>Latest Import Summary</h3>
@@ -734,6 +735,8 @@
                         <ul>
                             <li><strong>OFX / QFX:</strong> Download your activity or transaction history from your broker as an OFX or QFX file. Most brokers offer this under Account → History → Export.</li>
                             <li><strong>Robinhood CSV:</strong> Export your trade history from the Robinhood app under Account → Statements &amp; History → Download CSV.</li>
+                            <li><strong>Schwab CSV:</strong> Export transactions from Schwab under Accounts → History → Export. Options symbols, rolls, and assignments are detected; expiration rows are skipped (open contracts auto-expire from their expiration date).</li>
+                            <li><strong>Other broker CSVs:</strong> Drop any CSV on the import zone — unrecognized formats open a column mapper where you match columns (date, action, symbol, …) and action values (BTO/STO/BTC/STC) before importing.</li>
                             <li><strong>AI Screenshot:</strong> Open the AI Coach, attach a screenshot of your broker's trade history, and click <em>Extract draft legs</em>. Extracted trades land here for review before being added to your portfolio.</li>
                             <li><strong>Multi-leg grouping:</strong> Legs that share the same timestamp are grouped into a single trade automatically.</li>
                             <li><strong>Open/close matching:</strong> BTC and STC legs are matched to open positions with the same ticker, strike, and expiration. Unmatched closing legs are placed in the review queue.</li>
@@ -843,6 +846,7 @@
     <input type="file" id="file-input" accept=".json" class="hidden">
     <input type="file" id="import-ofx-input" accept=".ofx,.OFX" class="hidden">
     <input type="file" id="import-robinhood-input" accept=".csv,.CSV" class="hidden">
+    <input type="file" id="import-schwab-input" accept=".csv,.CSV" class="hidden">
     <input type="file" id="ai-chat-image-input" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" class="hidden">
 
     <div class="ai-chat" id="ai-chat">
