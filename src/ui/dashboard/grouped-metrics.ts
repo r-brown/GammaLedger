@@ -2,7 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { APP_CONFIG } from '@core/config.js'
-import { infoPopoverIcon, setupInfoPopovers } from './popover.js'
+import { infoPopoverIcon, infoPopoverTrigger, setupInfoPopovers } from './popover.js'
 import type { EnrichedTrade } from '@types-gl/trade'
 import type { Stats } from '@types-gl/stats'
 
@@ -57,6 +57,21 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
 
     const unrealizedSub = `${unrealizedPositions} ${unrealizedPositions === 1 ? 'position' : 'positions'} MTM`
 
+    // Quote-coverage chip: how many of the positions behind this number carry
+    // a real mark vs. raw cashflow (open short options at full credit).
+    const coverage = stats.unrealizedQuoteCoverage ?? { marked: 0, total: 0, unmarkedTickers: [] }
+    const unquoted = coverage.total - coverage.marked
+    let coverageChip = ''
+    if (coverage.total > 0) {
+        const label = unquoted > 0
+            ? `MTM ${coverage.marked}/${coverage.total} · ${unquoted} @ full credit`
+            : `MTM ${coverage.marked}/${coverage.total}`
+        const detail = unquoted > 0
+            ? `${unquoted} of ${coverage.total} position${coverage.total === 1 ? '' : 's'} ha${unquoted === 1 ? 's' : 've'} no live quote and count at raw cashflow — open short options are valued at full credit (best case), which may understate the buy-back obligation.\nUnquoted: ${coverage.unmarkedTickers.join(', ') || '—'}\nAdd a Finnhub API key in Settings (or set a market-price snapshot on the trade) to mark these positions to market.`
+            : `All ${coverage.total} open position${coverage.total === 1 ? ' is' : 's are'} marked to market with a live quote or snapshot price.`
+        coverageChip = infoPopoverTrigger(label, detail, `chip mtm-chip${unquoted > 0 ? ' chip-warn' : ''}`)
+    }
+
     const row = (
         label: string,
         sub: string,
@@ -64,10 +79,11 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         bg: string,
         cls: string,
         explanation: string,
-        isTotal = false
+        isTotal = false,
+        extraLabelHtml = ''
     ) => `
       <div class="bridge-row${isTotal ? ' bridge-total' : ''}">
-        <div class="bridge-label"><span>${escapeHtml(label)}&nbsp;${infoPopoverIcon(explanation)}</span><small>${escapeHtml(sub)}</small></div>
+        <div class="bridge-label"><span>${escapeHtml(label)}&nbsp;${infoPopoverIcon(explanation)}${extraLabelHtml ? `&nbsp;${extraLabelHtml}` : ''}</span><small>${escapeHtml(sub)}</small></div>
         <div class="bridge-bar-area">
           ${bar((Math.abs(value) / scale) * 100, bg, 'transparent')}
           <span class="bridge-val${isTotal ? ' bridge-val-large' : ''} ${cls}">${fmt(value)}</span>
@@ -115,7 +131,9 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         unrealized,
         'var(--color-bridge-unrealized-bg)',
         valClass(unrealized),
-        'Mark-to-market on open positions, minus per-trade wheel premium already booked above (no double-count).\nIncludes share-side MTM on awaiting-coverage assigned wheels.\nFor trades without a live quote, falls back to raw cashflow — open short options count at full credit (as if expiring worthless), which may understate the buy-back obligation. The Open premium pending row shows how much of this is unearned premium.'
+        'Mark-to-market on open positions, minus per-trade wheel premium already booked above (no double-count).\nIncludes share-side MTM on awaiting-coverage assigned wheels.\nFor trades without a live quote, falls back to raw cashflow — open short options count at full credit (as if expiring worthless), which may understate the buy-back obligation. The Open premium pending row shows how much of this is unearned premium.',
+        false,
+        coverageChip
       )}
       ${row(
         '= Total P&L',

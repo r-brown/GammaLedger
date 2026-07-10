@@ -22,6 +22,15 @@ export function infoPopoverIcon(content: string): string {
         `<span class="info-pop__content" hidden>${escapeHtml(content)}</span>`
 }
 
+/**
+ * A visible-label popover trigger (e.g. the MTM coverage chip). `className`
+ * styles the button; the shared panel/open behavior is identical to the ⓘ icon.
+ */
+export function infoPopoverTrigger(label: string, content: string, className: string): string {
+    return `<button type="button" class="info-pop-trigger ${className}" aria-expanded="false" aria-haspopup="dialog">${escapeHtml(label)}</button>` +
+        `<span class="info-pop__content" hidden>${escapeHtml(content)}</span>`
+}
+
 function getPanel(): PopoverPanel {
     let panel = document.getElementById(PANEL_ID) as PopoverPanel | null
     if (!panel) {
@@ -115,7 +124,7 @@ export function setupInfoPopovers(root: HTMLElement): void {
     if (root.dataset.infoPopBound === '1') return
     root.dataset.infoPopBound = '1'
     root.addEventListener('click', (event) => {
-        const button = (event.target as HTMLElement).closest('.info-pop')
+        const button = (event.target as HTMLElement).closest('.info-pop, .info-pop-trigger')
         if (!(button instanceof HTMLButtonElement) || !root.contains(button)) return
         event.preventDefault()
         event.stopPropagation()

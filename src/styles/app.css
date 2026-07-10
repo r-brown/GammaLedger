@@ -6039,6 +6039,10 @@ tr.position-itm.position-expiring-critical td,
 
 .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 4px; }
 .chip-warn { background: #FAEEDA; color: #633806; }
+/* Quote-coverage chip is a popover trigger (button) */
+button.mtm-chip { border: 0; cursor: pointer; font-family: inherit; line-height: 1.4; white-space: nowrap; background: var(--color-bg-2); color: var(--color-text-secondary); }
+button.mtm-chip.chip-warn { background: #FAEEDA; color: #633806; }
+button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96); outline-offset: 1px; }
 
 @media (prefers-color-scheme: dark) {
   .metric-col .rv-pos  { color: #34D399; }
