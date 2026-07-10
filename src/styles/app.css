@@ -1764,6 +1764,68 @@ select.form-control {
 }
 
 /* Compatibility Notice */
+/* Dashboard tab groups (analytics + positions cards) */
+.gl-tabs {
+  margin-bottom: var(--space-32);
+}
+
+.gl-tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4, 4px);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-16);
+}
+
+.gl-tabs__tab {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-8) var(--space-12);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+.gl-tabs__tab:hover {
+  color: var(--color-text);
+}
+
+.gl-tabs__tab.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.gl-tabs__panel[hidden] {
+  display: none;
+}
+
+/* Tabbed cards carry the card chrome; inner chart/table blocks drop theirs */
+.dashboard-analytics,
+.dashboard-positions {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-20);
+}
+
+.dashboard-analytics .chart-container,
+.dashboard-positions .active-positions,
+.dashboard-positions .recent-trades,
+.dashboard-positions .assigned-positions {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin-top: 0;
+  box-shadow: none;
+}
+
 /* Keyboard-shortcut help dialog */
 .shortcut-help {
   border: 1px solid var(--color-border);

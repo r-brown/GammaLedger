@@ -103,6 +103,7 @@ import * as announcementModule from './ui/announcement.js';
 import * as strategyTemplatesModule from './trades/strategy-templates.js';
 import * as filterChipsModule from './ui/filter-chips.js';
 import * as shortcutsModule from './ui/shortcuts.js';
+import { initDashboardTabs } from './ui/dashboard/tabs.js';
 
 
 class GammaLedger {
@@ -993,6 +994,9 @@ class GammaLedger {
 
         // Global keyboard shortcuts + `?` help dialog
         this.setupKeyboardShortcuts();
+
+        // Dashboard tab groups (analytics charts, positions tables)
+        initDashboardTabs();
 
         // Trades list filters
         ['filter-strategy', 'filter-status'].forEach(filterId => {

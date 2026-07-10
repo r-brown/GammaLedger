@@ -235,53 +235,65 @@
                     </div>
                 </section>
 
-                <!-- Strategy Analysis Row -->
-                <div class="strategy-analysis-row">
-                    <div class="chart-container">
-                        <h3>Strategy Performance</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
+                <!-- Analytics (tabbed — one chart visible at a time) -->
+                <section class="card dashboard-analytics gl-tabs" data-tab-group>
+                    <div class="gl-tabs__list" role="tablist" aria-label="Analytics charts">
+                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="analytics-strategy">Strategy</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-winrate">Win rate</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-fees">Fees</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-heatmap">Heatmap</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-time">Time in trade</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-montecarlo">Monte Carlo</button>
+                    </div>
+                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="analytics-strategy">
+                        <div class="chart-container">
+                            <h3>Strategy Performance</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                                <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
+                            </div>
                         </div>
                     </div>
-                    <div class="chart-container">
-                        <h3>Win Rate by Strategy</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
-                            <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-winrate" hidden>
+                        <div class="chart-container">
+                            <h3>Win Rate by Strategy</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
+                                <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Fees & Ticker Analytics -->
-                <div class="advanced-analytics-row">
-                    <div class="chart-container">
-                        <h3>Commission Impact</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
-                            <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
-                        </div>
-                        <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
-                    </div>
-                    <div class="chart-container heatmap-container">
-                        <h3>Ticker Performance Heatmap</h3>
-                        <div id="tickerHeatmap" class="echarts-chart heatmap-chart" role="img" aria-label="Ticker performance heatmap" aria-live="polite"></div>
-                    </div>
-                </div>
-
-                <!-- Holding Period & Projections -->
-                <div class="advanced-analytics-row">
-                    <div class="chart-container">
-                        <h3>Time in Trade (Average Days)</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
-                            <div id="timeInTradeChart" class="echarts-chart" role="img" aria-label="Average time in trade chart"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-fees" hidden>
+                        <div class="chart-container">
+                            <h3>Commission Impact</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
+                                <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
+                            </div>
+                            <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
                         </div>
                     </div>
-                    <div class="chart-container">
-                        <h3>Monte Carlo Projection (60 Days)</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-heatmap" hidden>
+                        <div class="chart-container heatmap-container">
+                            <h3>Ticker Performance Heatmap</h3>
+                            <div id="tickerHeatmap" class="echarts-chart heatmap-chart" role="img" aria-label="Ticker performance heatmap" aria-live="polite"></div>
                         </div>
-                        <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
                     </div>
-                </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-time" hidden>
+                        <div class="chart-container">
+                            <h3>Time in Trade (Average Days)</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
+                                <div id="timeInTradeChart" class="echarts-chart" role="img" aria-label="Average time in trade chart"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-montecarlo" hidden>
+                        <div class="chart-container">
+                            <h3>Monte Carlo Projection (60 Days)</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                                <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
+                            </div>
+                            <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
+                        </div>
+                    </div>
+                </section>
 
                 <!-- Performance Gauges -->
                 <!--
@@ -305,35 +317,41 @@
                 </div>
                 -->
 
-                <!-- Active Positions & Recent Trades -->
-                <div class="dashboard-tables">
-                    <div class="active-positions">
-                        <h3>Active Positions</h3>
-                        <div class="table-container dashboard-grid-container">
-                            <div id="active-positions-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Active positions"></div>
+                <!-- Positions & trades (tabbed — Wheel/PMCC tracker promoted to a peer tab) -->
+                <section class="card dashboard-positions gl-tabs" data-tab-group>
+                    <div class="gl-tabs__list" role="tablist" aria-label="Positions and trades tables">
+                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="tables-active">Active Positions</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="tables-wheel">Wheel / PMCC Tracker</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="tables-recent">Recent Closed</button>
+                    </div>
+                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="tables-active">
+                        <div class="active-positions">
+                            <div class="table-container dashboard-grid-container">
+                                <div id="active-positions-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Active positions"></div>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="recent-trades">
-                        <h3>Recent Closed Trades</h3>
-                        <div class="table-container dashboard-grid-container">
-                            <div id="recent-trades-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Recent closed trades"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="tables-wheel" hidden>
+                        <!-- Assigned Positions / Wheel Strategy Tracking -->
+                        <div class="assigned-positions">
+                            <p class="section-help-text">Positions from assigned Cash-Secured Puts / Wheel or PMCC strategies. "Premium Collected" is cash-basis (counts credits when sold); "Premium Earned" is realized-basis (counts credits when the contract terminates) and matches the dashboard's Wheel premium row.</p>
+                            <div class="chart-range" id="assigned-positions-status-filter" role="group" aria-label="Position status filter">
+                                <button type="button" class="chart-range__button is-active" data-status="open">Open</button>
+                                <button type="button" class="chart-range__button" data-status="closed">Closed</button>
+                            </div>
+                            <div class="table-container dashboard-grid-container">
+                                <div id="assigned-positions-table" class="dashboard-ag-grid dashboard-ag-grid--assigned ag-theme-quartz" aria-label="Wheel and PMCC tracker"></div>
+                            </div>
                         </div>
                     </div>
-
-                    <!-- Assigned Positions / Wheel Strategy Tracking -->
-                    <div class="assigned-positions">
-                        <h3>Wheel / PMCC Tracker</h3>
-                        <p class="section-help-text">Positions from assigned Cash-Secured Puts / Wheel or PMCC strategies. "Premium Collected" is cash-basis (counts credits when sold); "Premium Earned" is realized-basis (counts credits when the contract terminates) and matches the dashboard's Wheel premium row.</p>
-                        <div class="chart-range" id="assigned-positions-status-filter" role="group" aria-label="Position status filter">
-                            <button type="button" class="chart-range__button is-active" data-status="open">Open</button>
-                            <button type="button" class="chart-range__button" data-status="closed">Closed</button>
-                        </div>
-                        <div class="table-container dashboard-grid-container">
-                            <div id="assigned-positions-table" class="dashboard-ag-grid dashboard-ag-grid--assigned ag-theme-quartz" aria-label="Wheel and PMCC tracker"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="tables-recent" hidden>
+                        <div class="recent-trades">
+                            <div class="table-container dashboard-grid-container">
+                                <div id="recent-trades-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Recent closed trades"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </section>
             </div>
 
             <!-- Add Trade View -->
