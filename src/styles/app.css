@@ -1764,6 +1764,31 @@ select.form-control {
 }
 
 /* Compatibility Notice */
+/* Sample-data first-run banner */
+.sample-data-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-16);
+  flex-wrap: wrap;
+  background-color: var(--color-bg-2);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-base);
+  margin: var(--space-16) var(--space-24) 0;
+  padding: var(--space-12) var(--space-16);
+  font-size: var(--font-size-sm);
+}
+
+.sample-data-banner.hidden {
+  display: none;
+}
+
+.sample-data-banner__actions {
+  display: flex;
+  gap: var(--space-8);
+  flex-shrink: 0;
+}
+
 .compatibility-notice {
   background-color: var(--color-bg-2);
   border: 1px solid var(--color-warning);

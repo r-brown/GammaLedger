@@ -99,6 +99,7 @@ import * as recentTradesModule from './ui/tables/recent-trades.js';
 import * as assignedPositionsModule from './ui/tables/assigned-positions.js';
 import * as creditPlaybookModule from './ui/credit-playbook/index.js';
 import * as viewsModule from './ui/views.js';
+import * as announcementModule from './ui/announcement.js';
 
 
 class GammaLedger {
@@ -508,6 +509,8 @@ class GammaLedger {
                 }
             }
             this.initializeDefaultFeeControls();
+            this.initializeAnnouncementBanner();
+            this.setupSampleDataBannerActions();
             this.initializeDisclaimerBanner();
             this.initializeAICoachConsent();
             this.initializeSidebarToggle();
@@ -1318,6 +1321,12 @@ class GammaLedger {
      * Returns the total fee (defaultFeePerContract * quantity) or null if not set.
      */
     getDefaultFeeForQuantity(quantity = 1) { return defaultFeeModule.getDefaultFeeForQuantity.call(this, quantity); }
+
+    initializeAnnouncementBanner() { return announcementModule.initializeAnnouncementBanner.call(this); }
+
+    updateSampleDataBanner() { return announcementModule.updateSampleDataBanner.call(this); }
+
+    setupSampleDataBannerActions() { return announcementModule.setupSampleDataBannerActions.call(this); }
 
     initializeDisclaimerBanner() { return disclaimerModule.initializeDisclaimerBanner.call(this); }
 

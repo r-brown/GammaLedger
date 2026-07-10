@@ -50,7 +50,7 @@
 </head>
 
 <body>
-    <!-- Announcement banner — rendered by ANNOUNCEMENT_BANNER_CONFIG below -->
+    <!-- Announcement banner — rendered by src/ui/announcement.ts -->
     <div id="announcement-banner"></div>
 
     <dialog id="disclaimer-banner" class="disclaimer-banner" aria-labelledby="disclaimer-title">
@@ -192,6 +192,15 @@
                     </div>
                 </div>
             </header>
+
+            <!-- Sample-data first-run banner — toggled by src/ui/announcement.ts -->
+            <div id="sample-data-banner" class="sample-data-banner hidden" role="status">
+                <span class="sample-data-banner__message">You're viewing <strong>sample data</strong>. Import your own trades or start a fresh database — your data never leaves this browser.</span>
+                <div class="sample-data-banner__actions">
+                    <button type="button" class="btn btn--sm btn--primary" id="sample-banner-import">Import your trades</button>
+                    <button type="button" class="btn btn--sm btn--secondary" id="sample-banner-fresh">Start fresh</button>
+                </div>
+            </div>
 
             <!-- Browser Compatibility Notice -->
             <div id="compatibility-notice" class="compatibility-notice hidden">
@@ -866,54 +875,6 @@
     <div id="toast-region" class="toast-region" aria-label="Notifications" role="region"></div>
 
     <script type="module" src="/src/index.js"></script>
-
-    <!-- ANNOUNCEMENT BANNER CONFIG & SCRIPT -->
-    <script>
-        /**
-         * Announcement Banner Configuration
-         * -----------------------------------
-         * enabled : set to true to show the banner, false to hide it.
-         * html    : the banner message (supports any HTML, including links).
-         *
-         * ⚠️  IMPORTANT: `html` is injected as innerHTML — only use trusted,
-         *     hardcoded content here. Never populate from user input or external sources.
-         */
-        const ANNOUNCEMENT_BANNER_CONFIG = {
-            enabled: true,
-            html: '✨&nbsp; Welcome to <strong>GammaLedger v2</strong> — early access! Prefer the classic experience? <a href="https://gammaledger.com/appv1/">Back to v1 →</a>'
-        };
-
-        (function () {
-            const cfg = window.ANNOUNCEMENT_BANNER_CONFIG;
-            const container = document.getElementById('announcement-banner');
-            if (!cfg || !cfg.enabled || !cfg.html || !container) {
-                if (container) container.remove();
-                document.documentElement.style.setProperty('--app-top-offset', '0px');
-                return;
-            }
-
-            container.className = 'announcement-banner';
-            container.innerHTML =
-                '<span class="announcement-banner__message">' + cfg.html + '</span>' +
-                '<button class="announcement-banner__dismiss" aria-label="Dismiss">✕</button>';
-
-            const syncAppTopOffset = function () {
-                const isHidden = container.classList.contains('announcement-banner--hidden');
-                const offset = isHidden ? 0 : container.offsetHeight;
-                document.documentElement.style.setProperty('--app-top-offset', offset + 'px');
-            };
-
-            container.querySelector('.announcement-banner__dismiss')
-                .addEventListener('click', function () {
-                    container.classList.add('announcement-banner--hidden');
-                    syncAppTopOffset();
-                });
-
-            window.addEventListener('resize', syncAppTopOffset);
-            syncAppTopOffset();
-        })();
-    </script>
-    <!-- end announcement banner script -->
 </body>
 
 </html>

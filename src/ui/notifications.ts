@@ -9,6 +9,7 @@ interface NotificationsContext {
   currentFileName: string
   updateUnsavedIndicator(): void
   updateFileNameDisplay(): void
+  updateSampleDataBanner(): void
 }
 
 interface ToastOptions {
@@ -180,6 +181,8 @@ export function updateFileNameDisplay(this: NotificationsContext): void {
     } else {
         nameEl.classList.remove('is-unsaved')
     }
+
+    this.updateSampleDataBanner()
 }
 
 export function updateUnsavedIndicator(this: NotificationsContext): void {
