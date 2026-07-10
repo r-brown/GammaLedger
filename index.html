@@ -895,6 +895,27 @@
         </div>
     </div>
 
+    <dialog id="shortcut-help" class="shortcut-help" aria-labelledby="shortcut-help-title">
+        <div class="shortcut-help__panel">
+            <h2 id="shortcut-help-title" class="shortcut-help__title">Keyboard shortcuts</h2>
+            <table class="shortcut-help__table">
+                <tbody>
+                    <tr><td><kbd>n</kbd></td><td>New trade</td></tr>
+                    <tr><td><kbd>/</kbd></td><td>Search trades</td></tr>
+                    <tr><td><kbd>g</kbd> then <kbd>d</kbd></td><td>Go to Dashboard</td></tr>
+                    <tr><td><kbd>g</kbd> then <kbd>t</kbd></td><td>Go to All Trades</td></tr>
+                    <tr><td><kbd>g</kbd> then <kbd>i</kbd></td><td>Go to Import</td></tr>
+                    <tr><td><kbd>g</kbd> then <kbd>s</kbd></td><td>Go to Settings</td></tr>
+                    <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
+                    <tr><td><kbd>Esc</kbd></td><td>Close dialogs, popovers, and the AI chat panel</td></tr>
+                </tbody>
+            </table>
+            <div class="shortcut-help__actions">
+                <button type="button" class="btn btn--sm btn--secondary" data-action="shortcut-help-close">Close</button>
+            </div>
+        </div>
+    </dialog>
+
     <div id="toast-region" class="toast-region" aria-label="Notifications" role="region"></div>
 
     <script type="module" src="/src/index.js"></script>

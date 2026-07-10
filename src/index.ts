@@ -102,6 +102,7 @@ import * as viewsModule from './ui/views.js';
 import * as announcementModule from './ui/announcement.js';
 import * as strategyTemplatesModule from './trades/strategy-templates.js';
 import * as filterChipsModule from './ui/filter-chips.js';
+import * as shortcutsModule from './ui/shortcuts.js';
 
 
 class GammaLedger {
@@ -990,6 +991,9 @@ class GammaLedger {
         // Strategy picker: ⭐ templates + type-ahead filter
         this.setupStrategyPicker();
 
+        // Global keyboard shortcuts + `?` help dialog
+        this.setupKeyboardShortcuts();
+
         // Trades list filters
         ['filter-strategy', 'filter-status'].forEach(filterId => {
             const filterElement = document.getElementById(filterId);
@@ -1531,6 +1535,8 @@ class GammaLedger {
     populateFilters() { return filtersModule.populateFilters.call(this); }
 
     renderFilterChips() { return filterChipsModule.renderFilterChips.call(this); }
+
+    setupKeyboardShortcuts() { return shortcutsModule.setupKeyboardShortcuts.call(this); }
 
     filterTrades() { return filtersModule.filterTrades.call(this); }
 

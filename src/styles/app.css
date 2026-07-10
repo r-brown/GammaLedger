@@ -1764,6 +1764,63 @@ select.form-control {
 }
 
 /* Compatibility Notice */
+/* Keyboard-shortcut help dialog */
+.shortcut-help {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0;
+  max-width: 420px;
+  width: calc(100vw - 2 * var(--space-24));
+}
+
+.shortcut-help::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.shortcut-help__panel {
+  padding: var(--space-20, 20px) var(--space-24);
+}
+
+.shortcut-help__title {
+  margin: 0 0 var(--space-12);
+  font-size: var(--font-size-lg);
+}
+
+.shortcut-help__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.shortcut-help__table td {
+  padding: var(--space-6, 6px) var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.shortcut-help__table td:first-child {
+  white-space: nowrap;
+  width: 40%;
+}
+
+.shortcut-help__table kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-bg-2);
+  font-size: var(--font-size-xs, 11px);
+  font-family: var(--font-family-mono, monospace);
+}
+
+.shortcut-help__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-16);
+}
+
 /* Checkbox-chip filters on All Trades */
 .filter-chip-group {
   display: flex;
