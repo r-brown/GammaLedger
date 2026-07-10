@@ -519,20 +519,27 @@
                         </div>
                     </div>
                     <div class="trades-filters is-open" id="trades-filters-panel">
-                        <div class="trades-filters-grid trades-filters-grid--compact">
-                            <select id="filter-strategy" class="form-control" multiple size="6" aria-label="Filter by strategy">
-                                <option value="">All Strategies</option>
-                            </select>
-                            <select id="filter-status" class="form-control" multiple size="6" aria-label="Filter by status">
-                                <option value="">All Status</option>
-                                <option value="Open">Open</option>
-                                <option value="Rolling">Rolling</option>
-                                <option value="Closed">Closed</option>
-                                <option value="Assigned">Assigned</option>
-                                <option value="Expired">Expired</option>
-                            </select>
+                        <!-- The multi-selects stay as the canonical filter state (hidden);
+                             the chip groups below are the visible UI. -->
+                        <select id="filter-strategy" class="sr-only" multiple size="6" aria-hidden="true" tabindex="-1">
+                            <option value="">All Strategies</option>
+                        </select>
+                        <select id="filter-status" class="sr-only" multiple size="6" aria-hidden="true" tabindex="-1">
+                            <option value="">All Status</option>
+                            <option value="Open">Open</option>
+                            <option value="Rolling">Rolling</option>
+                            <option value="Closed">Closed</option>
+                            <option value="Assigned">Assigned</option>
+                            <option value="Expired">Expired</option>
+                        </select>
+                        <div class="filter-chip-group" role="group" aria-label="Filter by status">
+                            <span class="filter-chip-group__label">Status</span>
+                            <div class="filter-chips" id="filter-status-chips"></div>
                         </div>
-                        <div class="trades-filters-hint" id="trades-filters-hint">Hold Cmd (Mac) or Ctrl (Windows) to select multiple options.</div>
+                        <div class="filter-chip-group" role="group" aria-label="Filter by strategy">
+                            <span class="filter-chip-group__label">Strategy</span>
+                            <div class="filter-chips" id="filter-strategy-chips"></div>
+                        </div>
                         <div class="trades-filters-search">
                             <input type="text" id="search-ticker" class="form-control" placeholder="Search ticker, strategy, or notes...">
                         </div>

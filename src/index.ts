@@ -101,6 +101,7 @@ import * as creditPlaybookModule from './ui/credit-playbook/index.js';
 import * as viewsModule from './ui/views.js';
 import * as announcementModule from './ui/announcement.js';
 import * as strategyTemplatesModule from './trades/strategy-templates.js';
+import * as filterChipsModule from './ui/filter-chips.js';
 
 
 class GammaLedger {
@@ -1528,6 +1529,8 @@ class GammaLedger {
     applySortToTrades(trades, sortKey, direction = 'asc') { return filtersModule.applySortToTrades.call(this, trades, sortKey, direction); }
 
     populateFilters() { return filtersModule.populateFilters.call(this); }
+
+    renderFilterChips() { return filterChipsModule.renderFilterChips.call(this); }
 
     filterTrades() { return filtersModule.filterTrades.call(this); }
 

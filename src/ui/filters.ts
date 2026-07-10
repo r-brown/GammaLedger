@@ -19,6 +19,7 @@ interface FiltersContext {
   applySortToTrades(trades: TradeRecord[], sortKey: string, direction: string): TradeRecord[]
   filterTrades(): void
   renderTradesTable(trades: TradeRecord[]): void
+  renderFilterChips(): void
   showView(viewName: string): void
 }
 
@@ -222,6 +223,8 @@ export function populateFilters(this: FiltersContext): void {
     if (statusSelect) {
         this.normalizeFilterSelect(statusSelect);
     }
+
+    this.renderFilterChips();
 }
 
 export function filterTrades(this: FiltersContext): void {
@@ -270,6 +273,7 @@ export function filterTrades(this: FiltersContext): void {
 
     this.currentFilteredTrades = result.slice();
     this.renderTradesTable(result);
+    this.renderFilterChips();
 }
 
 export function openTradesFilteredByTicker(this: FiltersContext, ticker: unknown): void {
