@@ -5293,6 +5293,71 @@ tr.position-itm.position-expiring-critical td,
   margin-left: 8px;
 }
 
+/* Click-to-open info popovers (metric explanations) */
+.info-pop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(var(--color-teal-500-rgb), 0.12);
+  color: var(--color-teal-500);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  font-style: italic;
+  font-family: var(--font-family-base);
+  cursor: pointer;
+  border: 1px solid rgba(var(--color-teal-500-rgb), 0.2);
+  flex-shrink: 0;
+  user-select: none;
+  vertical-align: text-bottom;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.info-pop:hover,
+.info-pop:focus-visible,
+.info-pop[aria-expanded="true"] {
+  background: rgba(var(--color-teal-500-rgb), 0.22);
+  border-color: rgba(var(--color-teal-500-rgb), 0.45);
+}
+
+.info-popover {
+  position: fixed;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-12) var(--space-16);
+  max-width: 380px;
+  box-shadow:
+    0 12px 32px rgba(var(--color-slate-900-rgb), 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-fast) var(--ease-standard),
+              visibility var(--duration-fast) var(--ease-standard);
+  pointer-events: none;
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
+  color: var(--color-text);
+}
+
+.info-popover.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.info-popover p {
+  margin: 0 0 var(--space-8);
+}
+
+.info-popover p:last-child {
+  margin-bottom: 0;
+}
+
 .formula-info-icon {
   display: inline-flex;
   align-items: center;
