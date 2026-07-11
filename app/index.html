@@ -3,14 +3,13 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://finnhub.io https://generativelanguage.googleapis.com; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely</title>
-    <!-- Security Headers -->
+    <!-- Security Headers (Content-Security-Policy is injected at build time — see injectCsp in vite.config.ts) -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-XSS-Protection" content="1; mode=block">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <!-- Content Security Policy (Recommended - uncomment and adjust for production) -->
-    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://generativelanguage.googleapis.com https://finnhub.io; frame-ancestors 'none';"> -->
     <meta name="description" content="Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.">
     <meta name="keywords" content="GammaLedger, options analytics, options trading journal, portfolio tracker, derivatives analytics, options strategy management">
     <meta name="author" content="GammaLedger Contributors">
@@ -46,12 +45,12 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/app/gammaledger-logo-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/app/gammaledger-logo-32x32.png">
     <link rel="icon" type="image/png" sizes="64x64" href="/app/gammaledger-logo-64x64.png">
-  <script type="module" crossorigin src="/app/assets/index-DkiJ0pIF.js"></script>
-  <link rel="stylesheet" crossorigin href="/app/assets/index-Dhu0EnaY.css">
+  <script type="module" crossorigin src="/app/assets/index-6BM2bSQb.js"></script>
+  <link rel="stylesheet" crossorigin href="/app/assets/index-Q_Uaxr6k.css">
 </head>
 
 <body>
-    <!-- Announcement banner — rendered by ANNOUNCEMENT_BANNER_CONFIG below -->
+    <!-- Announcement banner — rendered by src/ui/announcement.ts -->
     <div id="announcement-banner"></div>
 
     <dialog id="disclaimer-banner" class="disclaimer-banner" aria-labelledby="disclaimer-title">
@@ -194,6 +193,15 @@
                 </div>
             </header>
 
+            <!-- Sample-data first-run banner — toggled by src/ui/announcement.ts -->
+            <div id="sample-data-banner" class="sample-data-banner hidden" role="status">
+                <span class="sample-data-banner__message">You're viewing <strong>sample data</strong>. Import your own trades or start a fresh database — your data never leaves this browser.</span>
+                <div class="sample-data-banner__actions">
+                    <button type="button" class="btn btn--sm btn--primary" id="sample-banner-import">Import your trades</button>
+                    <button type="button" class="btn btn--sm btn--secondary" id="sample-banner-fresh">Start fresh</button>
+                </div>
+            </div>
+
             <!-- Browser Compatibility Notice -->
             <div id="compatibility-notice" class="compatibility-notice hidden">
                 <div class="notice-content">
@@ -227,53 +235,41 @@
                     </div>
                 </section>
 
-                <!-- Strategy Analysis Row -->
-                <div class="strategy-analysis-row">
-                    <div class="chart-container">
-                        <h3>Strategy Performance</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
+                <!-- Positions & trades (tabbed — Wheel/PMCC tracker promoted to a peer tab) -->
+                <section class="card dashboard-positions gl-tabs" data-tab-group>
+                    <div class="gl-tabs__list" role="tablist" aria-label="Positions and trades tables">
+                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="tables-active">Active Positions</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="tables-wheel">Wheel / PMCC Tracker</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="tables-recent">Recent Closed</button>
+                    </div>
+                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="tables-active">
+                        <div class="active-positions">
+                            <div class="table-container dashboard-grid-container">
+                                <div id="active-positions-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Active positions"></div>
+                            </div>
                         </div>
                     </div>
-                    <div class="chart-container">
-                        <h3>Win Rate by Strategy</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
-                            <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="tables-wheel" hidden>
+                        <!-- Assigned Positions / Wheel Strategy Tracking -->
+                        <div class="assigned-positions">
+                            <p class="section-help-text">Positions from assigned Cash-Secured Puts / Wheel or PMCC strategies. "Premium Collected" is cash-basis (counts credits when sold); "Premium Earned" is realized-basis (counts credits when the contract terminates) and matches the dashboard's Wheel premium row.</p>
+                            <div class="chart-range" id="assigned-positions-status-filter" role="group" aria-label="Position status filter">
+                                <button type="button" class="chart-range__button is-active" data-status="open">Open</button>
+                                <button type="button" class="chart-range__button" data-status="closed">Closed</button>
+                            </div>
+                            <div class="table-container dashboard-grid-container">
+                                <div id="assigned-positions-table" class="dashboard-ag-grid dashboard-ag-grid--assigned ag-theme-quartz" aria-label="Wheel and PMCC tracker"></div>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Fees & Ticker Analytics -->
-                <div class="advanced-analytics-row">
-                    <div class="chart-container">
-                        <h3>Commission Impact</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
-                            <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
-                        </div>
-                        <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
-                    </div>
-                    <div class="chart-container heatmap-container">
-                        <h3>Ticker Performance Heatmap</h3>
-                        <div id="tickerHeatmap" class="echarts-chart heatmap-chart" role="img" aria-label="Ticker performance heatmap" aria-live="polite"></div>
-                    </div>
-                </div>
-
-                <!-- Holding Period & Projections -->
-                <div class="advanced-analytics-row">
-                    <div class="chart-container">
-                        <h3>Time in Trade (Average Days)</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
-                            <div id="timeInTradeChart" class="echarts-chart" role="img" aria-label="Average time in trade chart"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="tables-recent" hidden>
+                        <div class="recent-trades">
+                            <div class="table-container dashboard-grid-container">
+                                <div id="recent-trades-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Recent closed trades"></div>
+                            </div>
                         </div>
                     </div>
-                    <div class="chart-container">
-                        <h3>Monte Carlo Projection (60 Days)</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                            <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
-                        </div>
-                        <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
-                    </div>
-                </div>
+                </section>
 
                 <!-- Performance Gauges -->
                 <!--
@@ -297,35 +293,65 @@
                 </div>
                 -->
 
-                <!-- Active Positions & Recent Trades -->
-                <div class="dashboard-tables">
-                    <div class="active-positions">
-                        <h3>Active Positions</h3>
-                        <div class="table-container dashboard-grid-container">
-                            <div id="active-positions-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Active positions"></div>
+                <!-- Analytics (tabbed — one chart visible at a time) -->
+                <section class="card dashboard-analytics gl-tabs" data-tab-group>
+                    <div class="gl-tabs__list" role="tablist" aria-label="Analytics charts">
+                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="analytics-strategy">Strategy</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-winrate">Win rate</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-fees">Fees</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-heatmap">Heatmap</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-time">Time in trade</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-montecarlo">Monte Carlo</button>
+                    </div>
+                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="analytics-strategy">
+                        <div class="chart-container">
+                            <h3>Strategy Performance</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                                <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="recent-trades">
-                        <h3>Recent Closed Trades</h3>
-                        <div class="table-container dashboard-grid-container">
-                            <div id="recent-trades-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Recent closed trades"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-winrate" hidden>
+                        <div class="chart-container">
+                            <h3>Win Rate by Strategy</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
+                                <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
+                            </div>
                         </div>
                     </div>
-
-                    <!-- Assigned Positions / Wheel Strategy Tracking -->
-                    <div class="assigned-positions">
-                        <h3>Wheel / PMCC Tracker</h3>
-                        <p class="section-help-text">Positions from assigned Cash-Secured Puts / Wheel or PMCC strategies. Premium collected includes only covered calls sold after assignment.</p>
-                        <div class="chart-range" id="assigned-positions-status-filter" role="group" aria-label="Position status filter">
-                            <button type="button" class="chart-range__button is-active" data-status="open">Open</button>
-                            <button type="button" class="chart-range__button" data-status="closed">Closed</button>
-                        </div>
-                        <div class="table-container dashboard-grid-container">
-                            <div id="assigned-positions-table" class="dashboard-ag-grid dashboard-ag-grid--assigned ag-theme-quartz" aria-label="Wheel and PMCC tracker"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-fees" hidden>
+                        <div class="chart-container">
+                            <h3>Commission Impact</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
+                                <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
+                            </div>
+                            <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
                         </div>
                     </div>
-                </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-heatmap" hidden>
+                        <div class="chart-container heatmap-container">
+                            <h3>Ticker Performance Heatmap</h3>
+                            <div id="tickerHeatmap" class="echarts-chart heatmap-chart" role="img" aria-label="Ticker performance heatmap" aria-live="polite"></div>
+                        </div>
+                    </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-time" hidden>
+                        <div class="chart-container">
+                            <h3>Time in Trade (Average Days)</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
+                                <div id="timeInTradeChart" class="echarts-chart" role="img" aria-label="Average time in trade chart"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-montecarlo" hidden>
+                        <div class="chart-container">
+                            <h3>Monte Carlo Projection (60 Days)</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                                <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
+                            </div>
+                            <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <!-- Add Trade View -->
@@ -356,72 +382,88 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label" for="strategy">Strategy</label>
+                                    <input type="search" id="strategy-search" class="form-control strategy-search" placeholder="Type to filter strategies…" aria-label="Filter strategies" autocomplete="off">
                                     <select id="strategy" name="strategy" class="form-control" required>
                                         <option value="">Select Strategy</option>
-                                        <option value="Bear Call Ladder">Bear Call Ladder</option>
-                                        <option value="Bear Call Spread">Bear Call Spread</option>
-                                        <option value="Bear Put Ladder">Bear Put Ladder</option>
-                                        <option value="Bear Put Spread">Bear Put Spread</option>
-                                        <option value="Box Spread">Box Spread</option>
-                                        <option value="Bull Call Ladder">Bull Call Ladder</option>
-                                        <option value="Bull Call Spread">Bull Call Spread</option>
-                                        <option value="Bull Put Ladder">Bull Put Ladder</option>
-                                        <option value="Bull Put Spread">Bull Put Spread</option>
-                                        <option value="Calendar Call Spread">Calendar Call Spread</option>
-                                        <option value="Calendar Put Spread">Calendar Put Spread</option>
-                                        <option value="Calendar Straddle">Calendar Straddle</option>
-                                        <option value="Calendar Strangle">Calendar Strangle</option>
-                                        <option value="Call Broken Wing">Call Broken Wing</option>
-                                        <option value="Call Ratio Backspread">Call Ratio Backspread</option>
-                                        <option value="Call Ratio Spread">Call Ratio Spread</option>
-                                        <option value="Cash-Secured Put">⭐ Cash-Secured Put</option>
-                                        <option value="Collar">Collar</option>
-                                        <option value="Covered Call">⭐ Covered Call</option>
-                                        <option value="Covered Put">Covered Put</option>
-                                        <option value="Covered Short Straddle">Covered Short Straddle</option>
-                                        <option value="Covered Short Strangle">Covered Short Strangle</option>
-                                        <option value="Diagonal Call Spread">Diagonal Call Spread</option>
-                                        <option value="Diagonal Put Spread">Diagonal Put Spread</option>
-                                        <option value="Double Diagonal">Double Diagonal</option>
-                                        <option value="Guts">Guts</option>
-                                        <option value="Inverse Call Broken Wing">Inverse Call Broken Wing</option>
-                                        <option value="Inverse Iron Butterfly">Inverse Iron Butterfly</option>
-                                        <option value="Inverse Iron Condor">Inverse Iron Condor</option>
-                                        <option value="Inverse Put Broken Wing">Inverse Put Broken Wing</option>
-                                        <option value="Iron Albatross">Iron Albatross</option>
-                                        <option value="Iron Butterfly">Iron Butterfly</option>
-                                        <option value="Iron Condor">Iron Condor</option>
-                                        <option value="Jade Lizard">Jade Lizard</option>
-                                        <option value="Long Call">Long Call</option>
-                                        <option value="Long Call Butterfly">Long Call Butterfly</option>
-                                        <option value="Long Call Condor">Long Call Condor</option>
-                                        <option value="Long Put">Long Put</option>
-                                        <option value="Long Put Butterfly">Long Put Butterfly</option>
-                                        <option value="Long Put Condor">Long Put Condor</option>
-                                        <option value="Long Straddle">Long Straddle</option>
-                                        <option value="Long Strangle">Long Strangle</option>
-                                        <option value="Poor Man's Covered Call">⭐ Poor Man's Covered Call</option>
-                                        <option value="Protective Put">Protective Put</option>
-                                        <option value="Put Broken Wing">Put Broken Wing</option>
-                                        <option value="Put Ratio Backspread">Put Ratio Backspread</option>
-                                        <option value="Put Ratio Spread">Put Ratio Spread</option>
-                                        <option value="Reverse Jade Lizard">Reverse Jade Lizard</option>
-                                        <option value="Short Call">Short Call</option>
-                                        <option value="Short Call Butterfly">Short Call Butterfly</option>
-                                        <option value="Short Call Condor">Short Call Condor</option>
-                                        <option value="Short Guts">Short Guts</option>
-                                        <option value="Short Put">Short Put</option>
-                                        <option value="Short Put Butterfly">Short Put Butterfly</option>
-                                        <option value="Short Put Condor">Short Put Condor</option>
-                                        <option value="Short Straddle">Short Straddle</option>
-                                        <option value="Short Strangle">Short Strangle</option>
-                                        <option value="Strap">Strap</option>
-                                        <option value="Strip">Strip</option>
-                                        <option value="Synthetic Long Stock">Synthetic Long Stock</option>
-                                        <option value="Synthetic Short Stock">Synthetic Short Stock</option>
-                                        <option value="Synthetic Put">Synthetic Put</option>
-                                        <option value="Wheel">⭐ Wheel</option>
+                                        <optgroup label="⭐ Favorites">
+                                            <option value="Cash-Secured Put">⭐ Cash-Secured Put</option>
+                                            <option value="Covered Call">⭐ Covered Call</option>
+                                            <option value="Poor Man's Covered Call">⭐ Poor Man's Covered Call</option>
+                                            <option value="Wheel">⭐ Wheel</option>
+                                        </optgroup>
+                                        <optgroup label="Income &amp; covered">
+                                            <option value="Collar">Collar</option>
+                                            <option value="Covered Put">Covered Put</option>
+                                            <option value="Covered Short Straddle">Covered Short Straddle</option>
+                                            <option value="Covered Short Strangle">Covered Short Strangle</option>
+                                            <option value="Jade Lizard">Jade Lizard</option>
+                                            <option value="Protective Put">Protective Put</option>
+                                            <option value="Reverse Jade Lizard">Reverse Jade Lizard</option>
+                                            <option value="Short Call">Short Call</option>
+                                            <option value="Short Put">Short Put</option>
+                                        </optgroup>
+                                        <optgroup label="Vertical spreads &amp; ladders">
+                                            <option value="Bear Call Ladder">Bear Call Ladder</option>
+                                            <option value="Bear Call Spread">Bear Call Spread</option>
+                                            <option value="Bear Put Ladder">Bear Put Ladder</option>
+                                            <option value="Bear Put Spread">Bear Put Spread</option>
+                                            <option value="Box Spread">Box Spread</option>
+                                            <option value="Bull Call Ladder">Bull Call Ladder</option>
+                                            <option value="Bull Call Spread">Bull Call Spread</option>
+                                            <option value="Bull Put Ladder">Bull Put Ladder</option>
+                                            <option value="Bull Put Spread">Bull Put Spread</option>
+                                        </optgroup>
+                                        <optgroup label="Calendars &amp; diagonals">
+                                            <option value="Calendar Call Spread">Calendar Call Spread</option>
+                                            <option value="Calendar Put Spread">Calendar Put Spread</option>
+                                            <option value="Calendar Straddle">Calendar Straddle</option>
+                                            <option value="Calendar Strangle">Calendar Strangle</option>
+                                            <option value="Diagonal Call Spread">Diagonal Call Spread</option>
+                                            <option value="Diagonal Put Spread">Diagonal Put Spread</option>
+                                            <option value="Double Diagonal">Double Diagonal</option>
+                                        </optgroup>
+                                        <optgroup label="Condors, butterflies &amp; wings">
+                                            <option value="Call Broken Wing">Call Broken Wing</option>
+                                            <option value="Inverse Call Broken Wing">Inverse Call Broken Wing</option>
+                                            <option value="Inverse Iron Butterfly">Inverse Iron Butterfly</option>
+                                            <option value="Inverse Iron Condor">Inverse Iron Condor</option>
+                                            <option value="Inverse Put Broken Wing">Inverse Put Broken Wing</option>
+                                            <option value="Iron Albatross">Iron Albatross</option>
+                                            <option value="Iron Butterfly">Iron Butterfly</option>
+                                            <option value="Iron Condor">Iron Condor</option>
+                                            <option value="Long Call Butterfly">Long Call Butterfly</option>
+                                            <option value="Long Call Condor">Long Call Condor</option>
+                                            <option value="Long Put Butterfly">Long Put Butterfly</option>
+                                            <option value="Long Put Condor">Long Put Condor</option>
+                                            <option value="Put Broken Wing">Put Broken Wing</option>
+                                            <option value="Short Call Butterfly">Short Call Butterfly</option>
+                                            <option value="Short Call Condor">Short Call Condor</option>
+                                            <option value="Short Put Butterfly">Short Put Butterfly</option>
+                                            <option value="Short Put Condor">Short Put Condor</option>
+                                        </optgroup>
+                                        <optgroup label="Volatility (straddles &amp; strangles)">
+                                            <option value="Guts">Guts</option>
+                                            <option value="Long Straddle">Long Straddle</option>
+                                            <option value="Long Strangle">Long Strangle</option>
+                                            <option value="Short Guts">Short Guts</option>
+                                            <option value="Short Straddle">Short Straddle</option>
+                                            <option value="Short Strangle">Short Strangle</option>
+                                            <option value="Strap">Strap</option>
+                                            <option value="Strip">Strip</option>
+                                        </optgroup>
+                                        <optgroup label="Advanced &amp; synthetic">
+                                            <option value="Call Ratio Backspread">Call Ratio Backspread</option>
+                                            <option value="Call Ratio Spread">Call Ratio Spread</option>
+                                            <option value="Long Call">Long Call</option>
+                                            <option value="Long Put">Long Put</option>
+                                            <option value="Put Ratio Backspread">Put Ratio Backspread</option>
+                                            <option value="Put Ratio Spread">Put Ratio Spread</option>
+                                            <option value="Synthetic Long Stock">Synthetic Long Stock</option>
+                                            <option value="Synthetic Put">Synthetic Put</option>
+                                            <option value="Synthetic Short Stock">Synthetic Short Stock</option>
+                                        </optgroup>
                                     </select>
+                                    <p class="form-help-text">Picking a ⭐ strategy pre-fills its opening legs.</p>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="tradeStatus">Trade Status</label>
@@ -495,20 +537,27 @@
                         </div>
                     </div>
                     <div class="trades-filters is-open" id="trades-filters-panel">
-                        <div class="trades-filters-grid trades-filters-grid--compact">
-                            <select id="filter-strategy" class="form-control" multiple size="6" aria-label="Filter by strategy">
-                                <option value="">All Strategies</option>
-                            </select>
-                            <select id="filter-status" class="form-control" multiple size="6" aria-label="Filter by status">
-                                <option value="">All Status</option>
-                                <option value="Open">Open</option>
-                                <option value="Rolling">Rolling</option>
-                                <option value="Closed">Closed</option>
-                                <option value="Assigned">Assigned</option>
-                                <option value="Expired">Expired</option>
-                            </select>
+                        <!-- The multi-selects stay as the canonical filter state (hidden);
+                             the chip groups below are the visible UI. -->
+                        <select id="filter-strategy" class="sr-only" multiple size="6" aria-hidden="true" tabindex="-1">
+                            <option value="">All Strategies</option>
+                        </select>
+                        <select id="filter-status" class="sr-only" multiple size="6" aria-hidden="true" tabindex="-1">
+                            <option value="">All Status</option>
+                            <option value="Open">Open</option>
+                            <option value="Rolling">Rolling</option>
+                            <option value="Closed">Closed</option>
+                            <option value="Assigned">Assigned</option>
+                            <option value="Expired">Expired</option>
+                        </select>
+                        <div class="filter-chip-group" role="group" aria-label="Filter by status">
+                            <span class="filter-chip-group__label">Status</span>
+                            <div class="filter-chips" id="filter-status-chips"></div>
                         </div>
-                        <div class="trades-filters-hint" id="trades-filters-hint">Hold Cmd (Mac) or Ctrl (Windows) to select multiple options.</div>
+                        <div class="filter-chip-group" role="group" aria-label="Filter by strategy">
+                            <span class="filter-chip-group__label">Strategy</span>
+                            <div class="filter-chips" id="filter-strategy-chips"></div>
+                        </div>
                         <div class="trades-filters-search">
                             <input type="text" id="search-ticker" class="form-control" placeholder="Search ticker, strategy, or notes...">
                         </div>
@@ -658,8 +707,9 @@
                         <div class="import-actions">
                             <button type="button" class="btn btn--primary" id="import-ofx-btn">Import OFX…</button>
                             <button type="button" class="btn btn--primary" id="import-robinhood-btn">Import Robinhood CSV…</button>
+                            <button type="button" class="btn btn--primary" id="import-schwab-btn">Import Schwab CSV…</button>
                         </div>
-                        <p class="import-dropzone__hint">or drag &amp; drop an OFX or CSV file here</p>
+                        <p class="import-dropzone__hint">or drag &amp; drop an OFX or CSV file here — CSVs are auto-detected (Robinhood, Schwab, or a column-mapper for anything else)</p>
                     </div>
                     <section class="import-stats" aria-live="polite">
                         <h3>Latest Import Summary</h3>
@@ -685,6 +735,8 @@
                         <ul>
                             <li><strong>OFX / QFX:</strong> Download your activity or transaction history from your broker as an OFX or QFX file. Most brokers offer this under Account → History → Export.</li>
                             <li><strong>Robinhood CSV:</strong> Export your trade history from the Robinhood app under Account → Statements &amp; History → Download CSV.</li>
+                            <li><strong>Schwab CSV:</strong> Export transactions from Schwab under Accounts → History → Export. Options symbols, rolls, and assignments are detected; expiration rows are skipped (open contracts auto-expire from their expiration date).</li>
+                            <li><strong>Other broker CSVs:</strong> Drop any CSV on the import zone — unrecognized formats open a column mapper where you match columns (date, action, symbol, …) and action values (BTO/STO/BTC/STC) before importing.</li>
                             <li><strong>AI Screenshot:</strong> Open the AI Coach, attach a screenshot of your broker's trade history, and click <em>Extract draft legs</em>. Extracted trades land here for review before being added to your portfolio.</li>
                             <li><strong>Multi-leg grouping:</strong> Legs that share the same timestamp are grouped into a single trade automatically.</li>
                             <li><strong>Open/close matching:</strong> BTC and STC legs are matched to open positions with the same ticker, strike, and expiration. Unmatched closing legs are placed in the review queue.</li>
@@ -794,6 +846,7 @@
     <input type="file" id="file-input" accept=".json" class="hidden">
     <input type="file" id="import-ofx-input" accept=".ofx,.OFX" class="hidden">
     <input type="file" id="import-robinhood-input" accept=".csv,.CSV" class="hidden">
+    <input type="file" id="import-schwab-input" accept=".csv,.CSV" class="hidden">
     <input type="file" id="ai-chat-image-input" accept="image/png,image/jpeg,image/webp,image/heic,image/heif" class="hidden">
 
     <div class="ai-chat" id="ai-chat">
@@ -864,56 +917,29 @@
         </div>
     </div>
 
+    <dialog id="shortcut-help" class="shortcut-help" aria-labelledby="shortcut-help-title">
+        <div class="shortcut-help__panel">
+            <h2 id="shortcut-help-title" class="shortcut-help__title">Keyboard shortcuts</h2>
+            <table class="shortcut-help__table">
+                <tbody>
+                    <tr><td><kbd>n</kbd></td><td>New trade</td></tr>
+                    <tr><td><kbd>/</kbd></td><td>Search trades</td></tr>
+                    <tr><td><kbd>g</kbd> then <kbd>d</kbd></td><td>Go to Dashboard</td></tr>
+                    <tr><td><kbd>g</kbd> then <kbd>t</kbd></td><td>Go to All Trades</td></tr>
+                    <tr><td><kbd>g</kbd> then <kbd>i</kbd></td><td>Go to Import</td></tr>
+                    <tr><td><kbd>g</kbd> then <kbd>s</kbd></td><td>Go to Settings</td></tr>
+                    <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
+                    <tr><td><kbd>Esc</kbd></td><td>Close dialogs, popovers, and the AI chat panel</td></tr>
+                </tbody>
+            </table>
+            <div class="shortcut-help__actions">
+                <button type="button" class="btn btn--sm btn--secondary" data-action="shortcut-help-close">Close</button>
+            </div>
+        </div>
+    </dialog>
+
     <div id="toast-region" class="toast-region" aria-label="Notifications" role="region"></div>
 
-
-    <!-- ANNOUNCEMENT BANNER CONFIG & SCRIPT -->
-    <script>
-        /**
-         * Announcement Banner Configuration
-         * -----------------------------------
-         * enabled : set to true to show the banner, false to hide it.
-         * html    : the banner message (supports any HTML, including links).
-         *
-         * ⚠️  IMPORTANT: `html` is injected as innerHTML — only use trusted,
-         *     hardcoded content here. Never populate from user input or external sources.
-         */
-        const ANNOUNCEMENT_BANNER_CONFIG = {
-            enabled: true,
-            html: '✨&nbsp; Welcome to <strong>GammaLedger v2</strong> — early access! Prefer the classic experience? <a href="https://gammaledger.com/appv1/">Back to v1 →</a>'
-        };
-
-        (function () {
-            const cfg = window.ANNOUNCEMENT_BANNER_CONFIG;
-            const container = document.getElementById('announcement-banner');
-            if (!cfg || !cfg.enabled || !cfg.html || !container) {
-                if (container) container.remove();
-                document.documentElement.style.setProperty('--app-top-offset', '0px');
-                return;
-            }
-
-            container.className = 'announcement-banner';
-            container.innerHTML =
-                '<span class="announcement-banner__message">' + cfg.html + '</span>' +
-                '<button class="announcement-banner__dismiss" aria-label="Dismiss">✕</button>';
-
-            const syncAppTopOffset = function () {
-                const isHidden = container.classList.contains('announcement-banner--hidden');
-                const offset = isHidden ? 0 : container.offsetHeight;
-                document.documentElement.style.setProperty('--app-top-offset', offset + 'px');
-            };
-
-            container.querySelector('.announcement-banner__dismiss')
-                .addEventListener('click', function () {
-                    container.classList.add('announcement-banner--hidden');
-                    syncAppTopOffset();
-                });
-
-            window.addEventListener('resize', syncAppTopOffset);
-            syncAppTopOffset();
-        })();
-    </script>
-    <!-- end announcement banner script -->
 </body>
 
 </html>
