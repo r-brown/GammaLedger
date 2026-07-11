@@ -88,6 +88,14 @@ export interface Stats {
   totalPL: DollarAmount
   realizedPL: DollarAmount
   unrealizedPL: DollarAmount
+  /** Quote coverage of the positions feeding unrealizedPL: `marked` counts
+   *  positions valued with a real price (live quote or snapshot); the rest
+   *  are valued at raw cashflow — open short options at full credit. */
+  unrealizedQuoteCoverage: {
+    marked: number
+    total: number
+    unmarkedTickers: string[]
+  }
   /** Net cash booked on open option groups — collected but not yet earned */
   pendingPremium: DollarAmount
   /** Data-integrity flags from the leg-realization engine */

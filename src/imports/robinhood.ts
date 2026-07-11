@@ -859,7 +859,7 @@ export function buildLegFromRobinhoodTransaction(this: any, transaction: AnyReco
         underlyingPrice: null,
         externalId: transaction.externalId || null,
         importGroupId: transaction.groupKey || null,
-        importSource: 'Robinhood',
+        importSource: transaction.importSource || 'Robinhood',
         tickerSymbol: (transaction.underlying || transaction.ticker || '').toUpperCase()
     };
 
@@ -905,7 +905,7 @@ export function applyRobinhoodImportResult(this: any, importResult: AnyRecord, c
             const mergedLegs = [...existing.legs, ...legs.map((leg: AnyRecord) => ({ ...leg }))];
             const note = this.composeImportNotes(context, {
                 legCount: legs.length,
-                note: 'Existing trade updated from Robinhood CSV import.'
+                note: `Existing trade updated from ${context.sourceLabel || 'Robinhood'} CSV import.`
             });
 
             const updatedTrade = this.enrichTradeData({
@@ -933,7 +933,8 @@ export function applyRobinhoodImportResult(this: any, importResult: AnyRecord, c
         });
     }
 
-    const fileName = context?.fileName || 'Robinhood CSV file';
+    const sourceLabel = context?.sourceLabel || 'Robinhood';
+    const fileName = context?.fileName || `${sourceLabel} CSV file`;
 
     stats.totalTradesCreated = stats.totalTradesCreated ?? created;
     stats.tradesUpdated = updated;
@@ -953,14 +954,14 @@ export function applyRobinhoodImportResult(this: any, importResult: AnyRecord, c
         }
 
         const summary = segments.join(', ');
-        this.showNotification(`Robinhood import complete: ${summary}.`, 'success');
+        this.showNotification(`${sourceLabel} import complete: ${summary}.`, 'success');
         this.appendImportLog({
             type: 'success',
             message: `Imported from ${fileName}: ${summary}.`,
             timestamp: new Date()
         });
     } else {
-        this.showNotification('No new trades or updates found in the Robinhood CSV file.', 'info');
+        this.showNotification(`No new trades or updates found in the ${sourceLabel} CSV file.`, 'info');
         this.appendImportLog({
             type: 'info',
             message: `No new data in ${fileName}. All transactions may already exist.`,

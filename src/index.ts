@@ -70,6 +70,8 @@ import * as importLogModule from './imports/log.js';
 import * as importMergeModule from './imports/merge.js';
 import * as importPositionKeysModule from './imports/position-keys.js';
 import * as importRobinhoodModule from './imports/robinhood.js';
+import * as importSchwabModule from './imports/schwab.js';
+import * as csvMapperModule from './imports/csv-mapper.js';
 import * as importOfxModule from './imports/ofx.js';
 import * as notificationsModule from './ui/notifications.js';
 import * as sidebarModule from './ui/sidebar.js';
@@ -99,6 +101,11 @@ import * as recentTradesModule from './ui/tables/recent-trades.js';
 import * as assignedPositionsModule from './ui/tables/assigned-positions.js';
 import * as creditPlaybookModule from './ui/credit-playbook/index.js';
 import * as viewsModule from './ui/views.js';
+import * as announcementModule from './ui/announcement.js';
+import * as strategyTemplatesModule from './trades/strategy-templates.js';
+import * as filterChipsModule from './ui/filter-chips.js';
+import * as shortcutsModule from './ui/shortcuts.js';
+import { initDashboardTabs } from './ui/dashboard/tabs.js';
 
 
 class GammaLedger {
@@ -508,6 +515,8 @@ class GammaLedger {
                 }
             }
             this.initializeDefaultFeeControls();
+            this.initializeAnnouncementBanner();
+            this.setupSampleDataBannerActions();
             this.initializeDisclaimerBanner();
             this.initializeAICoachConsent();
             this.initializeSidebarToggle();
@@ -982,6 +991,15 @@ class GammaLedger {
             });
         }
 
+        // Strategy picker: ⭐ templates + type-ahead filter
+        this.setupStrategyPicker();
+
+        // Global keyboard shortcuts + `?` help dialog
+        this.setupKeyboardShortcuts();
+
+        // Dashboard tab groups (analytics charts, positions tables)
+        initDashboardTabs();
+
         // Trades list filters
         ['filter-strategy', 'filter-status'].forEach(filterId => {
             const filterElement = document.getElementById(filterId);
@@ -1319,6 +1337,16 @@ class GammaLedger {
      */
     getDefaultFeeForQuantity(quantity = 1) { return defaultFeeModule.getDefaultFeeForQuantity.call(this, quantity); }
 
+    buildStrategyTemplateLegs(strategy) { return strategyTemplatesModule.buildStrategyTemplateLegs.call(this, strategy); }
+
+    setupStrategyPicker() { return strategyTemplatesModule.setupStrategyPicker.call(this); }
+
+    initializeAnnouncementBanner() { return announcementModule.initializeAnnouncementBanner.call(this); }
+
+    updateSampleDataBanner() { return announcementModule.updateSampleDataBanner.call(this); }
+
+    setupSampleDataBannerActions() { return announcementModule.setupSampleDataBannerActions.call(this); }
+
     initializeDisclaimerBanner() { return disclaimerModule.initializeDisclaimerBanner.call(this); }
 
     showDisclaimerBanner() { return disclaimerModule.showDisclaimerBanner.call(this); }
@@ -1512,6 +1540,10 @@ class GammaLedger {
 
     populateFilters() { return filtersModule.populateFilters.call(this); }
 
+    renderFilterChips() { return filterChipsModule.renderFilterChips.call(this); }
+
+    setupKeyboardShortcuts() { return shortcutsModule.setupKeyboardShortcuts.call(this); }
+
     filterTrades() { return filtersModule.filterTrades.call(this); }
 
     openTradesFilteredByTicker(ticker) { return filtersModule.openTradesFilteredByTicker.call(this, ticker); }
@@ -1634,6 +1666,18 @@ class GammaLedger {
     async importRobinhoodCsvContent(raw: string, context: Record<string, unknown> = {}) { return importControlsModule.importRobinhoodCsvContent.call(this, raw, context); }
 
     parseRobinhoodCsv(raw) { return importRobinhoodModule.parseRobinhoodCsv.call(this, raw); }
+
+    // --- Schwab CSV + generic CSV mapper (S3) ---
+
+    detectCsvFormat(raw) { return importSchwabModule.detectCsvFormat.call(this, raw); }
+    handleSchwabCsvFileSelection(event) { return importSchwabModule.handleSchwabCsvFileSelection.call(this, event); }
+    async importSchwabCsvFile(file, context = {}) { return importSchwabModule.importSchwabCsvFile.call(this, file, context); }
+    async importSchwabCsvContent(raw: string, context: Record<string, unknown> = {}) { return importSchwabModule.importSchwabCsvContent.call(this, raw, context); }
+    parseSchwabCsv(raw) { return importSchwabModule.parseSchwabCsv.call(this, raw); }
+    parseSchwabTransaction(row) { return importSchwabModule.parseSchwabTransaction.call(this, row); }
+    mapSchwabAction(action) { return importSchwabModule.mapSchwabAction.call(this, action); }
+    openCsvColumnMapper(raw, context = {}) { return csvMapperModule.openCsvColumnMapper.call(this, raw, context); }
+    async importMappedCsvTransactions(transactions, context = {}) { return csvMapperModule.importMappedCsvTransactions.call(this, transactions, context); }
 
     parseCsvRow(line) { return parseCsvRow(line); }
 

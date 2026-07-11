@@ -404,6 +404,27 @@ export function calculateAdvancedStats(this: StatsContext) {
         return sum + pl - adjustment;
     }, 0);
 
+    // Quote coverage over the positions feeding unrealizedPL. A position is
+    // "marked" when its value uses a real price (live quote or user snapshot);
+    // everything else is valued at raw cashflow — open short options count at
+    // full credit — which the UI must disclose next to the headline number.
+    const unrealizedTrades = [...openTrades, ...awaitingCoverageTrades];
+    const markedTrades = unrealizedTrades.filter(trade => {
+        const source = (trade as unknown as Record<string, unknown>).marketPriceSource;
+        return source === 'live' || source === 'snapshot';
+    });
+    const unmarkedTickers = Array.from(new Set(
+        unrealizedTrades
+            .filter(trade => !markedTrades.includes(trade))
+            .map(trade => String(trade.ticker ?? '').trim().toUpperCase())
+            .filter(Boolean)
+    )).sort();
+    const unrealizedQuoteCoverage = {
+        marked: markedTrades.length,
+        total: unrealizedTrades.length,
+        unmarkedTickers
+    };
+
     // Calculate average win and average loss
     const avgWin: DollarAmount = winningTrades.length > 0
         ? winningTrades.reduce((sum, trade) => sum + realizedPLOf(trade), 0) / winningTrades.length
@@ -459,6 +480,7 @@ export function calculateAdvancedStats(this: StatsContext) {
         collateralByTicker,
         realizedPL,
         unrealizedPL,
+        unrealizedQuoteCoverage,
         pendingPremium: parseFloat(pendingPremium.toFixed(2)),
         realizationAnomalies,
         avgWin,

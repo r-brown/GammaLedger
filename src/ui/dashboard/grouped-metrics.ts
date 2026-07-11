@@ -2,6 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { APP_CONFIG } from '@core/config.js'
+import { infoPopoverIcon, infoPopoverTrigger, setupInfoPopovers } from './popover.js'
 import type { EnrichedTrade } from '@types-gl/trade'
 import type { Stats } from '@types-gl/stats'
 
@@ -56,17 +57,33 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
 
     const unrealizedSub = `${unrealizedPositions} ${unrealizedPositions === 1 ? 'position' : 'positions'} MTM`
 
+    // Quote-coverage chip: how many of the positions behind this number carry
+    // a real mark vs. raw cashflow (open short options at full credit).
+    const coverage = stats.unrealizedQuoteCoverage ?? { marked: 0, total: 0, unmarkedTickers: [] }
+    const unquoted = coverage.total - coverage.marked
+    let coverageChip = ''
+    if (coverage.total > 0) {
+        const label = unquoted > 0
+            ? `MTM ${coverage.marked}/${coverage.total} · ${unquoted} @ full credit`
+            : `MTM ${coverage.marked}/${coverage.total}`
+        const detail = unquoted > 0
+            ? `${unquoted} of ${coverage.total} position${coverage.total === 1 ? '' : 's'} ha${unquoted === 1 ? 's' : 've'} no live quote and count at raw cashflow — open short options are valued at full credit (best case), which may understate the buy-back obligation.\nUnquoted: ${coverage.unmarkedTickers.join(', ') || '—'}\nAdd a Finnhub API key in Settings (or set a market-price snapshot on the trade) to mark these positions to market.`
+            : `All ${coverage.total} open position${coverage.total === 1 ? ' is' : 's are'} marked to market with a live quote or snapshot price.`
+        coverageChip = infoPopoverTrigger(label, detail, `chip mtm-chip${unquoted > 0 ? ' chip-warn' : ''}`)
+    }
+
     const row = (
         label: string,
         sub: string,
         value: number,
         bg: string,
         cls: string,
-        title: string,
-        isTotal = false
+        explanation: string,
+        isTotal = false,
+        extraLabelHtml = ''
     ) => `
-      <div class="bridge-row${isTotal ? ' bridge-total' : ''}" title="${escapeHtml(title)}">
-        <div class="bridge-label"><span>${escapeHtml(label)}</span><small>${escapeHtml(sub)}</small></div>
+      <div class="bridge-row${isTotal ? ' bridge-total' : ''}">
+        <div class="bridge-label"><span>${escapeHtml(label)}&nbsp;${infoPopoverIcon(explanation)}${extraLabelHtml ? `&nbsp;${extraLabelHtml}` : ''}</span><small>${escapeHtml(sub)}</small></div>
         <div class="bridge-bar-area">
           ${bar((Math.abs(value) / scale) * 100, bg, 'transparent')}
           <span class="bridge-val${isTotal ? ' bridge-val-large' : ''} ${cls}">${fmt(value)}</span>
@@ -89,7 +106,7 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         wheel,
         'var(--color-bridge-wheel-bg)',
         valClass(wheel, 'rv-pur'),
-        'Net option premium across every wheel/PMCC cycle (open + closed), net of buy-back debits and fees.\nPremium realized to date on cycles still holding shares (an open short call counts once it expires or is bought back).\nCan be NEGATIVE after credit rolls: the buyback loss is realized now while the replacement contract\'s credit sits in "premium pending" until it terminates.\nThe Wheel/PMCC Tracker\'s "Premium" column is cash-basis (credits a short call the moment it is sold) so its total will be higher while open calls are live.'
+        'Net option premium across every wheel/PMCC cycle (open + closed), net of buy-back debits and fees.\nPremium realized to date on cycles still holding shares (an open short call counts once it expires or is bought back).\nCan be NEGATIVE after credit rolls: the buyback loss is realized now while the replacement contract\'s credit sits in "premium pending" until it terminates.\nMatches the Wheel/PMCC Tracker\'s "Premium Earned" column (realized-basis). The tracker\'s "Premium Collected" column is cash-basis — it credits a short call the moment it is sold, so it runs higher while calls are open.'
       )}
       ${row(
         '+ Open-trade realized',
@@ -114,7 +131,9 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         unrealized,
         'var(--color-bridge-unrealized-bg)',
         valClass(unrealized),
-        'Mark-to-market on open positions, minus per-trade wheel premium already booked above (no double-count).\nIncludes share-side MTM on awaiting-coverage assigned wheels.\nFor trades without a live quote, falls back to raw cashflow — open short options count at full credit (as if expiring worthless), which may understate the buy-back obligation. The Open premium pending row shows how much of this is unearned premium.'
+        'Mark-to-market on open positions, minus per-trade wheel premium already booked above (no double-count).\nIncludes share-side MTM on awaiting-coverage assigned wheels.\nFor trades without a live quote, falls back to raw cashflow — open short options count at full credit (as if expiring worthless), which may understate the buy-back obligation. The Open premium pending row shows how much of this is unearned premium.',
+        false,
+        coverageChip
       )}
       ${row(
         '= Total P&L',
@@ -161,16 +180,16 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
       <div class="metric-col">
         <h3>Risk &amp; Exposure</h3>
         <div class="row"><span class="rl">Collateral at risk</span><span class="rv-warn">${fmt$(stats.collateralAtRisk)}</span></div>
-        <div class="row" title="Net cash already booked on open option contracts (credits minus debits, net of fees), grouped by expiration. Collected but NOT yet earned: it becomes Realized only when each contract expires worthless or is closed — buybacks and rolls will reduce it. This is the premium a CSP/wheel seller is still working for."><span class="rl">Open premium pending</span><span class="${valClass(stats.pendingPremium, 'rv-pur')}">${fmt$(stats.pendingPremium)}</span></div>
-        ${anomalies > 0 ? `<div class="row" title="The leg-realization engine found ${escapeHtml(String(stats.realizationAnomalies.orphanCloseGroups))} option group(s) with more closing than opening contracts and ${escapeHtml(String(stats.realizationAnomalies.closeAfterExpiryLegs))} closing leg(s) executed after their recorded expiration date. This usually means a buyback leg carries the wrong expiration — its debit is realized immediately while the matching credit stays pending, understating realized P&L. Fix: edit the trade and correct the closing leg's expiration date."><span class="rl">&#x26A0; Leg data anomalies</span><span class="rv-neg">${escapeHtml(stats.realizationAnomalies.tickers.join(', '))}</span></div>` : ''}
+        <div class="row"><span class="rl">Open premium pending&nbsp;${infoPopoverIcon('Net cash already booked on open option contracts (credits minus debits, net of fees), grouped by expiration.\nCollected but NOT yet earned: it becomes Realized only when each contract expires worthless or is closed — buybacks and rolls will reduce it. This is the premium a CSP/wheel seller is still working for.')}</span><span class="${valClass(stats.pendingPremium, 'rv-pur')}">${fmt$(stats.pendingPremium)}</span></div>
+        ${anomalies > 0 ? `<div class="row"><span class="rl">&#x26A0; Leg data anomalies&nbsp;${infoPopoverIcon(`The leg-realization engine found ${String(stats.realizationAnomalies.orphanCloseGroups)} option group(s) with more closing than opening contracts and ${String(stats.realizationAnomalies.closeAfterExpiryLegs)} closing leg(s) executed after their recorded expiration date.\nThis usually means a buyback leg carries the wrong expiration — its debit is realized immediately while the matching credit stays pending, understating realized P&L.\nFix: edit the trade and correct the closing leg's expiration date.`)}</span><span class="rv-neg">${escapeHtml(stats.realizationAnomalies.tickers.join(', '))}</span></div>` : ''}
         <div class="row"><span class="rl">Top-ticker concentration</span><span class="${topOver ? 'rv-warn' : 'rv'}">${topLabel}${topOver ? ` <span class="chip chip-warn">&#x26A0; limit ${APP_CONFIG.RISK_RULES.TARGET_SHARE_PCT}%</span>` : ''}</span></div>
         <div class="row"><span class="rl">Active positions</span><span class="rv">${escapeHtml(String(stats.activePositions))} / ${APP_CONFIG.RISK_RULES.TARGET_POSITION_COUNT}</span></div>
         <div class="row"><span class="rl">Assigned (Wheel/PMCC)</span><span class="rv">${escapeHtml(String(stats.assignedPositions))} positions</span></div>
-        <div class="row" title="Largest peak-to-trough dip of the cumulative realized P&L curve, in trade-close order. The percentage is relative to the P&L peak — not to account equity, since GammaLedger does not track account size."><span class="rl">Max drawdown</span><span class="${stats.maxDrawdown > 20 ? 'rv-neg' : 'rv-warn'}">${fmt$(stats.maxDrawdownDollars)} (${stats.maxDrawdown.toFixed(1)}% of peak)</span></div>
+        <div class="row"><span class="rl">Max drawdown&nbsp;${infoPopoverIcon('Largest peak-to-trough dip of the cumulative realized P&L curve, in trade-close order.\nThe percentage is relative to the P&L peak — not to account equity, since GammaLedger does not track account size.')}</span><span class="${stats.maxDrawdown > 20 ? 'rv-neg' : 'rv-warn'}">${fmt$(stats.maxDrawdownDollars)} (${stats.maxDrawdown.toFixed(1)}% of peak)</span></div>
       </div>
       <div class="metric-col">
         <h3>Trade Quality</h3>
-        <div class="row" title="Capital-days weighted average of per-trade annualized returns. Uses simple (non-compounded) annualization — ROI × 365 ÷ days held — the options-industry convention for annualized return on collateral."><span class="rl">Total ROI</span><span class="${plClass(stats.totalROI)}">${fmtPct(stats.totalROI)}</span></div>
+        <div class="row"><span class="rl">Total ROI&nbsp;${infoPopoverIcon('Capital-days weighted average of per-trade annualized returns.\nUses simple (non-compounded) annualization — ROI × 365 ÷ days held — the options-industry convention for annualized return on collateral.')}</span><span class="${plClass(stats.totalROI)}">${fmtPct(stats.totalROI)}</span></div>
         <div class="row"><span class="rl">Win rate</span><span class="rv-pos">${stats.winRate.toFixed(1)}%</span></div>
         <div class="win-bar-wrap"><div class="win-bar" style="width:${Math.max(0, Math.min(100, stats.winRate))}%"></div></div>
         <div class="win-bar-foot"><span>${escapeHtml(String(stats.wins))}W</span><span>${escapeHtml(String(stats.losses))}L</span></div>
@@ -178,8 +197,10 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
         <div class="row"><span class="rl">Risk / Reward ratio</span><span class="${rrInverted ? 'rv-neg' : 'rv'}">${rrText}${rrInverted ? ' <span class="chip chip-warn">inverted</span>' : ''}</span></div>
         <div class="row"><span class="rl">Profit factor</span><span class="rv">${pf}</span></div>
         <div class="row"><span class="rl">Expectancy</span><span class="${plClass(stats.expectancy)}">${fmt$(stats.expectancy)} / trade</span></div>
-        <div class="row" title="Trade-level approximation: one daily-equivalent return per closed trade, annualized ×√252. Ignores position overlap (not a daily equity curve) and subtracts no risk-free rate — not comparable to fund-reported Sharpe ratios."><span class="rl">Sharpe ratio (approx.)</span><span class="rv">${sharpe}</span></div>
+        <div class="row"><span class="rl">Sharpe ratio (approx.)&nbsp;${infoPopoverIcon('Trade-level approximation: one daily-equivalent return per closed trade, annualized ×√252.\nIgnores position overlap (not a daily equity curve) and subtracts no risk-free rate — not comparable to fund-reported Sharpe ratios.')}</span><span class="rv">${sharpe}</span></div>
       </div>
       <div class="metric-col" id="collateral-concentration"></div>
     `
+
+    setupInfoPopovers(root)
 }
