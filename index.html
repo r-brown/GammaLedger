@@ -233,6 +233,64 @@
                     </div>
                 </section>
 
+                <!-- Positions & trades (tabbed — Wheel/PMCC tracker promoted to a peer tab) -->
+                <section class="card dashboard-positions gl-tabs" data-tab-group>
+                    <div class="gl-tabs__list" role="tablist" aria-label="Positions and trades tables">
+                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="tables-active">Active Positions</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="tables-wheel">Wheel / PMCC Tracker</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="tables-recent">Recent Closed</button>
+                    </div>
+                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="tables-active">
+                        <div class="active-positions">
+                            <div class="table-container dashboard-grid-container">
+                                <div id="active-positions-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Active positions"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="tables-wheel" hidden>
+                        <!-- Assigned Positions / Wheel Strategy Tracking -->
+                        <div class="assigned-positions">
+                            <p class="section-help-text">Positions from assigned Cash-Secured Puts / Wheel or PMCC strategies. "Premium Collected" is cash-basis (counts credits when sold); "Premium Earned" is realized-basis (counts credits when the contract terminates) and matches the dashboard's Wheel premium row.</p>
+                            <div class="chart-range" id="assigned-positions-status-filter" role="group" aria-label="Position status filter">
+                                <button type="button" class="chart-range__button is-active" data-status="open">Open</button>
+                                <button type="button" class="chart-range__button" data-status="closed">Closed</button>
+                            </div>
+                            <div class="table-container dashboard-grid-container">
+                                <div id="assigned-positions-table" class="dashboard-ag-grid dashboard-ag-grid--assigned ag-theme-quartz" aria-label="Wheel and PMCC tracker"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="tables-recent" hidden>
+                        <div class="recent-trades">
+                            <div class="table-container dashboard-grid-container">
+                                <div id="recent-trades-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Recent closed trades"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Performance Gauges -->
+                <!--
+                <div class="advanced-analytics-gauges">
+                    <div class="chart-container gauge-card">
+                        <h3>Sharpe Ratio</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--compact">
+                            <div id="sharpeGaugeChart" class="echarts-chart" role="img" aria-label="Sharpe ratio gauge"></div>
+                        </div>
+                        <p class="chart-metric" id="sharpeGaugeValue">—</p>
+                        <p class="chart-subtext">Risk-adjusted return</p>
+                    </div>
+                    <div class="chart-container gauge-card">
+                        <h3>Sortino Ratio</h3>
+                        <div class="chart-responsive-wrapper chart-responsive-wrapper--compact">
+                            <div id="sortinoGaugeChart" class="echarts-chart" role="img" aria-label="Sortino ratio gauge"></div>
+                        </div>
+                        <p class="chart-metric" id="sortinoGaugeValue">—</p>
+                        <p class="chart-subtext">Focus on downside risk</p>
+                    </div>
+                </div>
+                -->
+
                 <!-- Analytics (tabbed — one chart visible at a time) -->
                 <section class="card dashboard-analytics gl-tabs" data-tab-group>
                     <div class="gl-tabs__list" role="tablist" aria-label="Analytics charts">
@@ -289,64 +347,6 @@
                                 <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
                             </div>
                             <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Performance Gauges -->
-                <!--
-                <div class="advanced-analytics-gauges">
-                    <div class="chart-container gauge-card">
-                        <h3>Sharpe Ratio</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--compact">
-                            <div id="sharpeGaugeChart" class="echarts-chart" role="img" aria-label="Sharpe ratio gauge"></div>
-                        </div>
-                        <p class="chart-metric" id="sharpeGaugeValue">—</p>
-                        <p class="chart-subtext">Risk-adjusted return</p>
-                    </div>
-                    <div class="chart-container gauge-card">
-                        <h3>Sortino Ratio</h3>
-                        <div class="chart-responsive-wrapper chart-responsive-wrapper--compact">
-                            <div id="sortinoGaugeChart" class="echarts-chart" role="img" aria-label="Sortino ratio gauge"></div>
-                        </div>
-                        <p class="chart-metric" id="sortinoGaugeValue">—</p>
-                        <p class="chart-subtext">Focus on downside risk</p>
-                    </div>
-                </div>
-                -->
-
-                <!-- Positions & trades (tabbed — Wheel/PMCC tracker promoted to a peer tab) -->
-                <section class="card dashboard-positions gl-tabs" data-tab-group>
-                    <div class="gl-tabs__list" role="tablist" aria-label="Positions and trades tables">
-                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="tables-active">Active Positions</button>
-                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="tables-wheel">Wheel / PMCC Tracker</button>
-                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="tables-recent">Recent Closed</button>
-                    </div>
-                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="tables-active">
-                        <div class="active-positions">
-                            <div class="table-container dashboard-grid-container">
-                                <div id="active-positions-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Active positions"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="tables-wheel" hidden>
-                        <!-- Assigned Positions / Wheel Strategy Tracking -->
-                        <div class="assigned-positions">
-                            <p class="section-help-text">Positions from assigned Cash-Secured Puts / Wheel or PMCC strategies. "Premium Collected" is cash-basis (counts credits when sold); "Premium Earned" is realized-basis (counts credits when the contract terminates) and matches the dashboard's Wheel premium row.</p>
-                            <div class="chart-range" id="assigned-positions-status-filter" role="group" aria-label="Position status filter">
-                                <button type="button" class="chart-range__button is-active" data-status="open">Open</button>
-                                <button type="button" class="chart-range__button" data-status="closed">Closed</button>
-                            </div>
-                            <div class="table-container dashboard-grid-container">
-                                <div id="assigned-positions-table" class="dashboard-ag-grid dashboard-ag-grid--assigned ag-theme-quartz" aria-label="Wheel and PMCC tracker"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="tables-recent" hidden>
-                        <div class="recent-trades">
-                            <div class="table-container dashboard-grid-container">
-                                <div id="recent-trades-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Recent closed trades"></div>
-                            </div>
                         </div>
                     </div>
                 </section>
