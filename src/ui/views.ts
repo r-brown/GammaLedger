@@ -31,6 +31,7 @@ interface ViewsContext {
   markUnsavedChanges(): void
   filterTrades(): void
   renderLegForms(legs: unknown[]): void
+  buildStrategyTemplateLegs(strategy: string): unknown[] | null
   setTodayDate(): void
   updateTickerPreview(ticker: string): void
   generateTickerLink(ticker: string): string
@@ -125,13 +126,17 @@ export function resetAddTradeForm(this: ViewsContext): void {
         tradeStatusSelect.value = '';
     }
 
-    // Preselect the last-used strategy (no leg scaffolding — that only runs
-    // on an explicit user change of the select).
+    // Preselect the last-used strategy and scaffold its template legs so the
+    // remembered strategy pre-fills exactly like an explicit user change would.
+    // Setting `.value` programmatically doesn't fire `change`, so the picker's
+    // change handler never runs — build the template here instead.
     const strategySelect = document.getElementById('strategy') as HTMLSelectElement | null;
     const lastStrategy = safeLocalStorage.getItem(APP_CONFIG.STORAGE.LAST_STRATEGY);
+    let templateLegs: unknown[] | null = null;
     if (strategySelect && lastStrategy
         && Array.from(strategySelect.options).some(option => option.value === lastStrategy)) {
         strategySelect.value = lastStrategy;
+        templateLegs = this.buildStrategyTemplateLegs(lastStrategy);
     }
     const strategySearch = document.getElementById('strategy-search') as HTMLInputElement | null;
     if (strategySearch && strategySearch.value) {
@@ -141,7 +146,7 @@ export function resetAddTradeForm(this: ViewsContext): void {
 
     this.currentEditingId = null;
     this.currentEditingTrade = null;
-    this.renderLegForms([]);
+    this.renderLegForms(templateLegs ?? []);
 
     this.setTodayDate();
     this.updateTickerPreview('');
