@@ -836,6 +836,30 @@
                         </div>
                     </div>
                 </section>
+            <br>
+            <section class="settings-section">
+                    <header class="settings-section__header">
+                        <h2>Database Startup Behavior</h2>
+                        <p>Control what GammaLedger loads when you open the app.</p>
+                    </header>
+                    <div class="settings-card" id="startup-behavior-controls">
+                        <div class="settings-card__header">
+                            <h3>On Open</h3>
+                            <p class="settings-card__subtitle">Choose whether to auto-load this browser's cached copy or always start blank.</p>
+                        </div>
+                        <div class="settings-card__body">
+                            <label for="startup-behavior-select" class="form-label">Startup Behavior</label>
+                            <div class="settings-input-row">
+                                <select id="startup-behavior-select" class="form-control">
+                                    <option value="cache">Load from this browser's cache automatically</option>
+                                    <option value="manual">Always start blank (require manual Load)</option>
+                                </select>
+                            </div>
+                            <p class="settings-help-text">If your database file lives in a synced folder (Google Drive, Dropbox, etc.) and you open GammaLedger from multiple computers, "Always start blank" prevents accidentally viewing — or saving over — a stale cached copy. Use Load Database each time to pick up the latest synced file.</p>
+                            <div class="default-fee-status" id="startup-behavior-status" role="status"></div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>

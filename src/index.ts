@@ -65,6 +65,8 @@ import * as finnhubModule from './integrations/finnhub.js';
 import * as geminiIntegrationModule from './integrations/gemini.js';
 import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
+import * as startupBehaviorModule from './settings/startup-behavior.js';
+import type { StartupBehavior } from './settings/startup-behavior.js';
 import * as importControlsModule from './imports/controls.js';
 import * as importLogModule from './imports/log.js';
 import * as importMergeModule from './imports/merge.js';
@@ -117,8 +119,10 @@ class GammaLedger {
     declare latestStats: unknown
     declare currentFileHandle: FileSystemFileHandle | null
     declare currentFileName: string
+    declare currentFileLastModified: number | null
     declare hasUnsavedChanges: boolean
     declare supportsFileSystemAccess: boolean
+    declare startupBehavior: StartupBehavior
     declare currentEditingId: string | null
     declare currentEditingTrade: Record<string, unknown> | null
     declare importControlsInitialized: boolean
@@ -190,8 +194,10 @@ class GammaLedger {
             this.latestStats = null;
         this.currentFileHandle = null;
         this.currentFileName = 'Unsaved Database';
+        this.currentFileLastModified = null;
         this.hasUnsavedChanges = false;
         this.supportsFileSystemAccess = 'showOpenFilePicker' in window;
+        this.startupBehavior = 'cache';
         this.currentEditingId = null;
         this.currentEditingTrade = null;
         this.importControlsInitialized = false;
@@ -475,10 +481,21 @@ class GammaLedger {
 
     async init() {
         try {
-            await this.loadFromStorage();
+            this.loadStartupBehaviorFromStorage();
+            if (this.startupBehavior === 'manual') {
+                this.currentFileHandle = null;
+                this.currentFileLastModified = null;
+                this.currentFileName = 'Unsaved Database';
+                this.hasUnsavedChanges = false;
+                this.updateUnsavedIndicator();
+            } else {
+                await this.loadFromStorage();
+            }
             await this.loadFinnhubConfigFromStorage();
             await this.loadGeminiConfigFromStorage();
-            if (!this.trades || this.trades.length === 0) {
+            if (this.startupBehavior === 'manual') {
+                this.updateFileNameDisplay();
+            } else if (!this.trades || this.trades.length === 0) {
                 await this.loadDefaultDatabase();
             } else {
                 this.updateFileNameDisplay();
@@ -515,6 +532,7 @@ class GammaLedger {
                 }
             }
             this.initializeDefaultFeeControls();
+            this.initializeStartupBehaviorControls();
             this.initializeAnnouncementBanner();
             this.setupSampleDataBannerActions();
             this.initializeDisclaimerBanner();
@@ -579,11 +597,13 @@ class GammaLedger {
                 source: 'default-sample'
             });
             this.currentFileHandle = null;
+            this.currentFileLastModified = null;
         } catch (error) {
             console.warn('Default database not loaded:', error);
             this.trades = [];
             this.currentFileName = 'Unsaved Database';
             this.currentFileHandle = null;
+            this.currentFileLastModified = null;
             this.hasUnsavedChanges = false;
             this.updateUnsavedIndicator();
             this.saveToStorage({ fileName: this.currentFileName });
@@ -1314,6 +1334,12 @@ class GammaLedger {
     saveDefaultFeeToStorage() { return defaultFeeModule.saveDefaultFeeToStorage.call(this); }
 
     removeDefaultFeeFromStorage() { return defaultFeeModule.removeDefaultFeeFromStorage.call(this); }
+
+    initializeStartupBehaviorControls() { return startupBehaviorModule.initializeStartupBehaviorControls.call(this); }
+
+    loadStartupBehaviorFromStorage() { return startupBehaviorModule.loadStartupBehaviorFromStorage.call(this); }
+
+    saveStartupBehaviorToStorage() { return startupBehaviorModule.saveStartupBehaviorToStorage.call(this); }
 
     // Finnhub rate limit storage methods
     loadFinnhubRateLimitFromStorage() { return finnhubModule.loadFinnhubRateLimitFromStorage.call(this); }

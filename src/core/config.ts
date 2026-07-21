@@ -40,6 +40,7 @@ interface AppConfigShape {
         readonly GEMINI_MAX_TOKENS: string
         readonly ANNOUNCEMENT_DISMISSED: string
         readonly LAST_STRATEGY: string
+        readonly STARTUP_BEHAVIOR: string
         readonly LEGACY_KEYS: readonly string[]
     }
     SHARE_CARD: {
@@ -78,6 +79,7 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         GEMINI_MAX_TOKENS: 'GammaLedgerGeminiMaxTokens',
         ANNOUNCEMENT_DISMISSED: 'GammaLedgerAnnouncementDismissedId',
         LAST_STRATEGY: 'GammaLedgerLastStrategy',
+        STARTUP_BEHAVIOR: 'GammaLedgerStartupBehavior',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',
@@ -122,6 +124,7 @@ export const SHARE_CARD_CHART_HEIGHT_RATIO: number = APP_CONFIG.SHARE_CARD.CHART
 export const SHARE_CARD_CHART_MIN_HEIGHT: number = APP_CONFIG.SHARE_CARD.CHART_MIN_HEIGHT;
 export const CUMULATIVE_PL_RANGES: readonly string[] = APP_CONFIG.PL_RANGES;
 export const DEFAULT_FEE_STORAGE_KEY: string = APP_CONFIG.STORAGE.DEFAULT_FEE_PER_CONTRACT;
+export const STARTUP_BEHAVIOR_STORAGE_KEY: string = APP_CONFIG.STORAGE.STARTUP_BEHAVIOR;
 export const FINNHUB_RATE_LIMIT_STORAGE_KEY: string = APP_CONFIG.STORAGE.FINNHUB_RATE_LIMIT;
 export const FINNHUB_STORAGE_KEY: string = APP_CONFIG.STORAGE.FINNHUB_CONFIG;
 export const FINNHUB_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.FINNHUB_SECRET;

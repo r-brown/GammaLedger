@@ -15,6 +15,13 @@ type TradeRecord = Record<string, unknown>
 type StorageSnapshot = Record<string, unknown>
 const PERSISTED_LEG_PROVENANCE_FIELDS = new Set(['externalId', 'importGroupId', 'importSource']);
 
+class StaleFileError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'StaleFileError';
+    }
+}
+
 interface PickerFileHandle {
     name: string
     getFile(): Promise<File>
@@ -36,6 +43,7 @@ interface PersistContext {
     trades: TradeRecord[]
     currentFileHandle: PickerFileHandle | null
     currentFileName: string | null
+    currentFileLastModified: number | null
     currentView: string
     hasUnsavedChanges: boolean
     supportsFileSystemAccess: boolean
@@ -277,7 +285,12 @@ export async function saveDatabase(this: PersistContext): Promise<void> {
         this.saveToStorage({ fileName: this.currentFileName });
     } catch (error) {
         console.error('Save error:', error);
-        if ((error as { name?: string })?.name !== 'AbortError') {
+        const errorName = (error as { name?: string })?.name;
+        if (errorName === 'AbortError') {
+            // User cancelled the file picker — no-op.
+        } else if (errorName === 'StaleFileError') {
+            this.showNotification((error as Error).message, 'error');
+        } else {
             try {
                 const data = this.buildDatabasePayload();
                 this.saveWithDownload(data);
@@ -308,12 +321,23 @@ export async function saveWithFileSystemAPI(this: PersistContext, data: unknown)
                 accept: { 'application/json': ['.json'] }
             }]
         });
+    } else if (this.currentFileLastModified !== null) {
+        // Guard against overwriting a version of the file that changed on disk
+        // since it was loaded (e.g. synced in from another device) — see #53.
+        const onDiskFile = await this.currentFileHandle.getFile();
+        if (onDiskFile.lastModified !== this.currentFileLastModified) {
+            throw new StaleFileError(
+                `"${this.currentFileHandle.name}" has changed on disk since you loaded it (possibly edited on another device). Reload the file before saving to avoid overwriting those changes.`
+            );
+        }
     }
 
     const writable = await this.currentFileHandle.createWritable();
     await writable.write(JSON.stringify(data, null, 2));
     await writable.close();
 
+    const savedFile = await this.currentFileHandle.getFile();
+    this.currentFileLastModified = savedFile.lastModified;
     this.currentFileName = this.currentFileHandle.name;
     this.updateFileNameDisplay();
 }
@@ -376,6 +400,7 @@ export async function loadWithFileSystemAPI(this: PersistContext): Promise<void>
 
     this.processLoadedData(data as Record<string, unknown>, { fileName: fileHandle.name, source: 'file-open' });
     this.currentFileHandle = fileHandle;
+    this.currentFileLastModified = file.lastModified;
     this.showNotification(`Loaded ${this.trades.length} trades successfully!`, 'success');
 }
 
@@ -565,6 +590,7 @@ export function newDatabase(this: PersistContext): void {
 
     this.trades = [];
     this.currentFileHandle = null;
+    this.currentFileLastModified = null;
     this.currentFileName = 'Unsaved Database';
     this.hasUnsavedChanges = false;
     this.updateFileNameDisplay();
@@ -622,6 +648,7 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
                     this.currentFileName = String(metadata.fileName);
                 }
                 this.currentFileHandle = null;
+                this.currentFileLastModified = null;
                 this.hasUnsavedChanges = false;
                 this.updateUnsavedIndicator();
                 this.updateFileNameDisplay();
