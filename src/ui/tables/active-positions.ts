@@ -405,7 +405,7 @@ function createActivePositionsGridOptions(
             return activeRowKey(params.data);
         },
         isFullWidthRow: params => !!(params.rowNode.data as TradeRecord & { _isDetailRow?: boolean })?._isDetailRow,
-        fullWidthCellRenderer: createPositionDetailPanelRenderer(context),
+        fullWidthCellRenderer: createPositionDetailPanelRenderer(context, { threeCol: true, tradeBreakdown: true }),
         getRowHeight: params => {
             const row = params.node.data as TradeRecord & { _isDetailRow?: boolean };
             return row?._isDetailRow ? 800 : 46;

@@ -4270,17 +4270,6 @@ td {
   white-space: normal;
 }
 
-#active-positions-table .notes-col {
-  width: 30%;
-}
-
-#active-positions-table .notes-cell {
-  max-width: 12rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .form-help-text {
   display: block;
   margin-top: var(--space-4);
