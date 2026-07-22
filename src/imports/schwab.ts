@@ -90,7 +90,11 @@ function summarizeSkips(skipped: Array<{ action: string }>): string {
 
 // Strip the "as of MM/DD/YYYY" suffix Schwab appends to settlement-shifted dates.
 function cleanSchwabDate(value: string): string {
-    return (value || '').split(/\s+as\s+of\s+/i)[0].trim();
+    // Normalize runs of whitespace to single spaces first to avoid backtracking
+    // in a regex with multiple \s+ quantifiers (ReDoS risk).
+    const s = (value || '').replace(/\s+/g, ' ').trim();
+    const marker = s.toLowerCase().indexOf(' as of ');
+    return marker === -1 ? s : s.slice(0, marker);
 }
 
 export function parseSchwabCsv(this: any, raw: string) {
