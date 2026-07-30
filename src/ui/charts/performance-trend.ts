@@ -6,8 +6,8 @@ import { renderEChart } from './echarts.js'
 interface TradeLike { status?: unknown; closedDate?: unknown; openedDate?: unknown; legs?: unknown }
 
 interface LegRealizationLike {
-  realizedMonthly: Map<string, number>
-  openByExpiryMonth: Map<string, number>
+  realizedByDate: Map<string, number>
+  openByExpiryDate: Map<string, number>
 }
 
 interface PerformanceTrendContext {
@@ -48,18 +48,18 @@ function computeMonthlyPL(this: PerformanceTrendContext): { realized: Map<string
         // Leg-level realization gate: only cash flows from terminated contract
         // groups count — open debit legs, in-flight covered calls, and active
         // rolling puts contribute nothing until they terminate.
-        const { realizedMonthly, openByExpiryMonth } = this.summarizeLegRealization(trade)
+        const { realizedByDate, openByExpiryDate } = this.summarizeLegRealization(trade)
         let totalOptionCF = 0
-        for (const [month, amount] of realizedMonthly) {
-            add(realized, month, amount)
+        for (const [date, amount] of realizedByDate) {
+            add(realized, date.slice(0, 7), amount)
             totalOptionCF += amount
         }
 
         // Pending premium: cash booked on open option groups, shown in the
         // month those contracts expire — the forward-looking "premium
         // calendar" a CSP/wheel seller works against.
-        for (const [month, amount] of openByExpiryMonth) {
-            add(pending, month, amount)
+        for (const [date, amount] of openByExpiryDate) {
+            add(pending, date.slice(0, 7), amount)
         }
 
         if (this.isClosedStatus(trade.status)) {
