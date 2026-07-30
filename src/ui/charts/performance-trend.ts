@@ -2,7 +2,13 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { renderEChart } from './echarts.js'
-import { rollUpBuckets, bucketLabel, type Granularity } from '@calculations/time-buckets.js'
+import {
+    bucketKeyOf,
+    bucketLabel,
+    enumerateBuckets,
+    rollUpBuckets,
+    type Granularity
+} from '@calculations/time-buckets.js'
 
 interface TradeLike { status?: unknown; closedDate?: unknown; openedDate?: unknown; legs?: unknown }
 
@@ -30,13 +36,17 @@ function toFiniteNumber(v: unknown, fallback = 0): number {
     return Number.isFinite(n) ? n : fallback
 }
 
-function toMonthKey(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+// getCumulativePLRangeWindow builds LOCAL-time boundaries; enumerateBuckets and
+// bucketKeyOf read UTC fields. Re-anchor the local calendar day at UTC midnight so
+// a UTC+N timezone cannot shift the window a day (and, at month grain, a month).
+function toUtcAnchoredDay(d: Date): Date {
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return new Date(`${iso}T00:00:00Z`)
 }
 
-function monthLabel(monthKey: string): string {
-    const d = new Date(`${monthKey}-01T00:00:00Z`)
-    return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })
+/** UTC midnight of a bucket key — month keys ('2026-07') anchor on the 1st. */
+function bucketKeyToDate(key: string): Date {
+    return new Date(`${key.length === 7 ? `${key}-01` : key}T00:00:00Z`)
 }
 
 function computeRealizedByDate(this: PerformanceTrendContext): { realized: Map<string, number>; pending: Map<string, number> } {
@@ -101,6 +111,10 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     if (!root) return
 
     const granularity: Granularity = this.resolveGranularity()
+    const grainLabel = granularity === 'day' ? 'Daily'
+        : granularity === 'week' ? 'Weekly'
+        : 'Monthly'
+    const realizedSeriesName = `${grainLabel} P&L`
     const { realized: realizedByDate, pending: pendingByDate } = computeRealizedByDate.call(this)
     const premiumByDate: Map<string, number> = computePremiumFlowByDate.call(this)
 
@@ -112,27 +126,45 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     // never from computeCumulativePLSeries (which only processes Closed trades and
     // would drop months where terminated option groups exist on non-Closed trades).
     const { start, end } = this.getCumulativePLRangeWindow(this.cumulativePLRange)
-    const startMonth = start ? toMonthKey(start) : null
-    const endMonth = end ? toMonthKey(end) : null
 
-    let monthKeys = Array.from(new Set([...monthlyMap.keys(), ...premiumMap.keys()])).sort()
-    if (startMonth) monthKeys = monthKeys.filter(k => k >= startMonth)
-    if (endMonth) monthKeys = monthKeys.filter(k => k <= endMonth)
+    // ALL range yields { start: null, end: null } — substitute the data extent.
+    const historyKeys = [...new Set([...monthlyMap.keys(), ...premiumMap.keys()])].sort()
+    const firstKey = historyKeys[0] ?? bucketKeyOf(new Date().toISOString().slice(0, 10), granularity)
+    const lastKey = historyKeys[historyKeys.length - 1] ?? firstKey
+
+    const windowStart = start ? toUtcAnchoredDay(start) : bucketKeyToDate(firstKey)
+    const windowEnd = end ? toUtcAnchoredDay(end) : bucketKeyToDate(lastKey)
+
+    const startKey = bucketKeyOf(windowStart.toISOString().slice(0, 10), granularity)
+    const endKey = bucketKeyOf(windowEnd.toISOString().slice(0, 10), granularity)
+
+    // Enumerate every bucket in the window so empty periods render as real gaps.
+    let bucketKeys = enumerateBuckets(windowStart, windowEnd, granularity)
+
+    // Last bucket carrying realized/premium history. Restricted to enumerated
+    // buckets so a weekend-dated key (dropped at day grain) cannot yield -1.
+    const enumerated = new Set(bucketKeys)
+    const lastHistoryKey = historyKeys
+        .filter(k => k >= startKey && k <= endKey && enumerated.has(k))
+        .pop() ?? null
 
     // Pending premium is "now" state keyed by future expirations — it bypasses
-    // the lookback end filter so upcoming expiry months always stay visible.
-    const lastHistoryKey = monthKeys.length ? monthKeys[monthKeys.length - 1] : null
-    monthKeys = Array.from(new Set([...monthKeys, ...pendingMap.keys()])).sort()
+    // the lookback end filter so upcoming expiry months always stay visible. At
+    // day/week grain that would stretch the axis months into the future, so the
+    // whole series is month-only.
+    if (granularity === 'month') {
+        bucketKeys = [...new Set([...bucketKeys, ...pendingMap.keys()])].sort()
+    }
 
-    const labels = monthKeys.map(monthLabel)
-    // Index of the last month with realized/premium history — pending-only
-    // future months sit past it and carry no bars, cumulative, or MTM point.
-    const lastHistoryIdx = lastHistoryKey ? monthKeys.indexOf(lastHistoryKey) : -1
-    const monthlyValues = monthKeys.map((k, i) =>
+    const labels = bucketKeys.map(key => bucketLabel(key, granularity))
+    // Index of the last bucket with realized/premium history — pending-only
+    // future buckets sit past it and carry no bars, cumulative, or MTM point.
+    const lastHistoryIdx = lastHistoryKey ? bucketKeys.indexOf(lastHistoryKey) : -1
+    const monthlyValues = bucketKeys.map((k, i) =>
         i <= lastHistoryIdx ? Number((monthlyMap.get(k) ?? 0).toFixed(2)) : null)
-    const premiumValues = monthKeys.map((k, i) =>
+    const premiumValues = bucketKeys.map((k, i) =>
         i <= lastHistoryIdx ? Number((premiumMap.get(k) ?? 0).toFixed(2)) : null)
-    const pendingValues = monthKeys.map(k => {
+    const pendingValues = bucketKeys.map(k => {
         const v = pendingMap.get(k)
         return v === undefined ? null : Number(v.toFixed(2))
     })
@@ -141,9 +173,9 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     // broker-statement semantics (all-time running realized P&L) instead of
     // resetting to zero at the window start when a range filter is active.
     let running = 0
-    if (startMonth) {
-        for (const [month, amount] of monthlyMap) {
-            if (month < startMonth) running += amount
+    if (startKey) {
+        for (const [key, amount] of monthlyMap) {
+            if (key < startKey) running += amount
         }
     }
     const cumulativeValues: Array<number | null> = monthlyValues.map(v => {
@@ -156,7 +188,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     // so the incl.-unrealized overlay is a single point on the latest history
     // month (cumulative realized + current open-position MTM), not a fabricated series.
     const unrealizedNow = toFiniteNumber(this.latestStats?.unrealizedPL)
-    const inclUnrealizedValues: Array<number | null> = monthKeys.map(() => null)
+    const inclUnrealizedValues: Array<number | null> = bucketKeys.map(() => null)
     if (lastHistoryIdx >= 0) {
         const cumAtLast = cumulativeValues[lastHistoryIdx]
         if (cumAtLast !== null) {
@@ -192,7 +224,11 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
             itemWidth: 12,
             itemHeight: 8,
             textStyle: { color: 'rgba(100, 116, 139, 0.9)', fontSize: 11 },
-            data: ['Monthly P&L', 'Pending by expiry', 'Premium flow', 'Cumulative', 'Incl. unrealized'],
+            data: [
+                realizedSeriesName,
+                ...(granularity === 'month' ? ['Pending by expiry'] : []),
+                'Premium flow', 'Cumulative', 'Incl. unrealized',
+            ],
             ...(isFirstRender ? { selected: { 'Premium flow': false, 'Incl. unrealized': false } } : {})
         },
         xAxis: {
@@ -204,7 +240,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
         yAxis: [
             {
                 type: 'value',
-                name: 'Monthly',
+                name: grainLabel,
                 position: 'left',
                 nameTextStyle: { color: 'rgba(100, 116, 139, 0.9)', fontSize: 10 },
                 axisLabel: { color: 'rgba(100, 116, 139, 0.9)', formatter: (v: unknown) => fmt(v, 0) },
@@ -222,7 +258,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
         series: [
             {
                 type: 'bar',
-                name: 'Monthly P&L',
+                name: realizedSeriesName,
                 yAxisIndex: 0,
                 data: monthlyValues.map(v => (v === null ? null : {
                     value: v,
@@ -251,7 +287,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                 })),
                 barMaxWidth: 42
             },
-            {
+            ...(granularity === 'month' ? [{
                 // Forward-looking premium calendar: net cash booked on open
                 // option groups, in their expiration month. Dashed outline +
                 // translucent fill signal "not yet earned".
@@ -268,7 +304,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                     }
                 })),
                 barMaxWidth: 42
-            },
+            }] : []),
             {
                 type: 'line',
                 name: 'Incl. unrealized',
@@ -281,5 +317,8 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                 itemStyle: { color: '#E8A33D' }
             }
         ]
-    })
+    // The pending series exists only at month grain. ECharts merges series by
+    // index, so a shrinking array would otherwise leave the stale bar on the
+    // canvas — replaceMerge drops components absent from the new option.
+    }, { replaceMerge: ['series'] })
 }
