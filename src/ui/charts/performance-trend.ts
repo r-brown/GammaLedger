@@ -2,6 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { renderEChart } from './echarts.js'
+import { rollUpBuckets, bucketLabel, type Granularity } from '@calculations/time-buckets.js'
 
 interface TradeLike { status?: unknown; closedDate?: unknown; openedDate?: unknown; legs?: unknown }
 
@@ -37,7 +38,7 @@ function monthLabel(monthKey: string): string {
     return d.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })
 }
 
-function computeMonthlyPL(this: PerformanceTrendContext): { realized: Map<string, number>; pending: Map<string, number> } {
+function computeRealizedByDate(this: PerformanceTrendContext): { realized: Map<string, number>; pending: Map<string, number> } {
     const realized = new Map<string, number>()
     const pending = new Map<string, number>()
     const add = (map: Map<string, number>, key: string, amount: number) => {
@@ -51,55 +52,60 @@ function computeMonthlyPL(this: PerformanceTrendContext): { realized: Map<string
         const { realizedByDate, openByExpiryDate } = this.summarizeLegRealization(trade)
         let totalOptionCF = 0
         for (const [date, amount] of realizedByDate) {
-            add(realized, date.slice(0, 7), amount)
+            add(realized, date, amount)
             totalOptionCF += amount
         }
 
-        // Pending premium: cash booked on open option groups, shown in the
-        // month those contracts expire — the forward-looking "premium
+        // Pending premium: cash booked on open option groups, shown on the
+        // date those contracts expire — the forward-looking "premium
         // calendar" a CSP/wheel seller works against.
         for (const [date, amount] of openByExpiryDate) {
-            add(pending, date.slice(0, 7), amount)
+            add(pending, date, amount)
         }
 
         if (this.isClosedStatus(trade.status)) {
             const tradePL = toFiniteNumber(this.calculateRealizedPL(trade))
             const stockPL = tradePL - totalOptionCF
             if (Math.abs(stockPL) > 0.01) {
-                const closedDate = String(trade.closedDate ?? trade.openedDate ?? '')
-                if (closedDate) add(realized, closedDate.slice(0, 7), stockPL)
+                const closedDate = String(trade.closedDate ?? trade.openedDate ?? '').slice(0, 10)
+                if (closedDate) add(realized, closedDate, stockPL)
             }
         }
     }
     return { realized, pending }
 }
 
-// Net option premium cash flow per month (broker-cash view): every CALL/PUT
-// leg's cash flow in its execution month, open legs included. Answers "what
-// cash moved this month", not "what P&L was locked in" — rendered as a
-// legend-toggled series, hidden by default.
-function computeMonthlyPremiumFlow(this: PerformanceTrendContext): Map<string, number> {
-    const monthly = new Map<string, number>()
+// Net option premium cash flow per date (broker-cash view): every CALL/PUT
+// leg's cash flow on its execution date, open legs included. Answers "what
+// cash moved", not "what P&L was locked in" — rendered as a legend-toggled
+// series, hidden by default.
+function computePremiumFlowByDate(this: PerformanceTrendContext): Map<string, number> {
+    const byDate = new Map<string, number>()
     for (const trade of this.trades) {
         const legs = Array.isArray(trade.legs) ? trade.legs as Record<string, unknown>[] : []
         for (const leg of legs) {
             const type = String((leg.type ?? '') as string).toUpperCase().trim()
             if (type !== 'CALL' && type !== 'PUT') continue
-            const month = String(leg.executionDate ?? '').slice(0, 7)
-            if (!month) continue
+            const date = String(leg.executionDate ?? '').slice(0, 10)
+            if (!date) continue
             const cf = this.calculateLegCashFlow(leg)
-            if (Number.isFinite(cf)) monthly.set(month, (monthly.get(month) ?? 0) + cf)
+            if (Number.isFinite(cf)) byDate.set(date, (byDate.get(date) ?? 0) + cf)
         }
     }
-    return monthly
+    return byDate
 }
 
 export function updatePerformanceTrendChart(this: PerformanceTrendContext): void {
     const root = document.getElementById('performanceTrendChart')
     if (!root) return
 
-    const { realized: monthlyMap, pending: pendingMap } = computeMonthlyPL.call(this)
-    const premiumMap: Map<string, number> = computeMonthlyPremiumFlow.call(this)
+    const granularity: Granularity = 'month'
+    const { realized: realizedByDate, pending: pendingByDate } = computeRealizedByDate.call(this)
+    const premiumByDate: Map<string, number> = computePremiumFlowByDate.call(this)
+
+    const monthlyMap = rollUpBuckets(realizedByDate, granularity)
+    const pendingMap = rollUpBuckets(pendingByDate, granularity)
+    const premiumMap = rollUpBuckets(premiumByDate, granularity)
 
     // Apply range filter using the range window — always driven from monthlyMap,
     // never from computeCumulativePLSeries (which only processes Closed trades and
