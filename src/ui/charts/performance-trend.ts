@@ -22,6 +22,7 @@ interface PerformanceTrendContext {
   isClosedStatus(status: unknown): boolean
   summarizeLegRealization(trade: TradeLike): LegRealizationLike
   calculateLegCashFlow(leg: unknown): number
+  resolveGranularity(): Granularity
 }
 
 function toFiniteNumber(v: unknown, fallback = 0): number {
@@ -99,7 +100,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     const root = document.getElementById('performanceTrendChart')
     if (!root) return
 
-    const granularity: Granularity = 'month'
+    const granularity: Granularity = this.resolveGranularity()
     const { realized: realizedByDate, pending: pendingByDate } = computeRealizedByDate.call(this)
     const premiumByDate: Map<string, number> = computePremiumFlowByDate.call(this)
 

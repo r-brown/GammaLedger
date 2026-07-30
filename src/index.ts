@@ -84,6 +84,7 @@ import type { StockMetrics } from '@types-gl/integrations';
 import * as filtersModule from './ui/filters.js';
 import * as dashboardChartsModule from './ui/charts/dashboard-charts.js';
 import * as cumulativePLModule from './ui/charts/cumulative-pl.js';
+import type { Granularity } from '@calculations/time-buckets.js';
 import * as bridgeModule from './ui/dashboard/bridge.js';
 import * as groupedMetricsModule from './ui/dashboard/grouped-metrics.js';
 import * as concentrationModule from './ui/dashboard/concentration.js';
@@ -140,6 +141,7 @@ class GammaLedger {
     declare currentFilteredTrades: Record<string, unknown>[]
     declare currentSort: { key: string | null; direction: string }
     declare cumulativePLRange: string
+    declare chartGranularity: Granularity | 'auto'
     declare disclaimerBanner: { element: HTMLDialogElement | null; agreeButton: Element | null; agreeHandler: (() => void) | null }
     declare disclaimerFadeMs: number
     declare aiCoachConsent: AICoachConsentState
@@ -233,6 +235,7 @@ class GammaLedger {
         this.earningsCache = new Map();
         this.earningsPromiseMap = new Map();
         this.cumulativePLRange = 'ALL';
+        this.chartGranularity = 'auto';
 
         this.disclaimerBanner = {
             element: null,
@@ -1120,6 +1123,7 @@ class GammaLedger {
         // Responsive enhancements for trades filters
         this.setupResponsiveFilters();
         this.initializeCumulativePLControls();
+        this.initializeGranularityControls();
         this.initializeAssignedPositionsStatusFilter();
         this.initializeCreditPlaybookControls();
     }
@@ -1131,6 +1135,14 @@ class GammaLedger {
     setCumulativePLRange(range) { return cumulativePLModule.setCumulativePLRange.call(this, range); }
 
     syncCumulativePLControls() { return cumulativePLModule.syncCumulativePLControls.call(this); }
+
+    resolveGranularity() { return cumulativePLModule.resolveGranularity.call(this); }
+
+    setChartGranularity(value: Granularity | 'auto') { return cumulativePLModule.setChartGranularity.call(this, value); }
+
+    syncGranularityControls() { return cumulativePLModule.syncGranularityControls.call(this); }
+
+    initializeGranularityControls() { return cumulativePLModule.initializeGranularityControls.call(this); }
 
     initializeAssignedPositionsStatusFilter() { return dashboardModule.initializeAssignedPositionsStatusFilter.call(this); }
 
