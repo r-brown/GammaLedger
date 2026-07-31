@@ -62,6 +62,16 @@ function classifyShare(sharePct: number): RiskBand {
     return 'ok'
 }
 
+/**
+ * The canonical per-ticker key. Every per-ticker aggregator MUST use this —
+ * collateralByTicker and calculateTickerPerformance previously disagreed
+ * (one uppercased and fell back to 'UNKNOWN', the other did neither), which
+ * silently split the same ticker across two rows when their outputs were joined.
+ */
+function normalizeTickerKey(value: unknown): string {
+    return String(value ?? '').trim().toUpperCase() || 'UNKNOWN'
+}
+
 function assertPositiveMultiplier(value: unknown, context: string): number {
     const multiplier = Number(value);
     if (!Number.isFinite(multiplier) || multiplier <= 0) {
@@ -309,7 +319,7 @@ export function calculateAdvancedStats(this: StatsContext) {
     for (const trade of openTrades) {
         const capital = this.getCapitalAtRisk(trade)
         if (!Number.isFinite(capital) || capital <= 0) continue
-        const ticker = String((trade as { ticker?: unknown }).ticker ?? '').trim() || '—'
+        const ticker = normalizeTickerKey((trade as { ticker?: unknown }).ticker)
         collateralByTickerMap.set(ticker, (collateralByTickerMap.get(ticker) ?? 0) + capital)
     }
     const collateralByTicker: CollateralConcentration[] = Array.from(collateralByTickerMap.entries())
@@ -877,7 +887,7 @@ export function calculateTickerPerformance(
     const map = new Map<string, TickerPerformanceItem>();
 
     trades.forEach(trade => {
-        const ticker = (trade.ticker || 'Unknown').toString().trim().toUpperCase() || 'UNKNOWN';
+        const ticker = normalizeTickerKey(trade.ticker);
         if (!map.has(ticker)) {
             map.set(ticker, {
                 ticker,
