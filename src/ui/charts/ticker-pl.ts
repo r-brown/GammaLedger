@@ -71,7 +71,20 @@ export function renderTickerPLChart(this: TickerPLChartContext, stats: Stats): v
     const categories = ordered.map(row => row.ticker)
     const fmt = (value: number) => this.formatCurrency(value, { decimals: 0 })
 
-    const bar = (pick: (row: TickerPLRow) => number) => ordered.map(row => {
+    // Unrealized bars carry a diagonal decal. Hue is spoken for by polarity, so
+    // texture is the only channel left to separate the two series — and unlike
+    // a second hue it survives every CVD type. The legend swatches reuse it, so
+    // the legend describes what is actually drawn instead of asserting a
+    // series->color mapping that does not exist.
+    const UNREALIZED_DECAL = {
+        symbol: 'rect',
+        color: 'rgba(255, 255, 255, 0.55)',
+        dashArrayX: [1, 0],
+        dashArrayY: [3, 4],
+        rotation: -Math.PI / 4,
+    } as const
+
+    const bar = (pick: (row: TickerPLRow) => number, decal = false) => ordered.map(row => {
         const value = pick(row)
         return {
             value: Number(value.toFixed(2)),
@@ -79,14 +92,33 @@ export function renderTickerPLChart(this: TickerPLChartContext, stats: Stats): v
                 color: paint(value),
                 // 4px rounded data-end only; square at the zero baseline.
                 borderRadius: value >= 0 ? [0, 4, 4, 0] : [4, 0, 0, 4],
+                ...(decal ? { decal: UNREALIZED_DECAL } : {}),
             },
         }
     })
 
+    // Symmetric axis with headroom so an `outside` data label always has room
+    // between its bar end and the plot edge. Without it the longest negative
+    // bar's label overprints the ticker axis labels.
+    const maxAbs = rows.reduce(
+        (max, row) => Math.max(max, Math.abs(row.realizedPL), Math.abs(row.unrealizedPL)),
+        0,
+    )
+    const axisBound = maxAbs > 0 ? Math.ceil(maxAbs * 1.3) : 1
+
+    // Neutral legend swatches: colour means polarity, never series.
+    const legendSwatch = cssVar('--color-text-secondary', '#64748B')
+
     this.charts.tickerPL = renderEChart(root, this.charts.tickerPL, {
         aria: { enabled: true },
         grid: { top: 28, right: 96, bottom: 24, left: 64, containLabel: true },
-        legend: { data: ['Realized', 'Unrealized'], top: 0 },
+        legend: {
+            top: 0,
+            data: [
+                { name: 'Realized', itemStyle: { color: legendSwatch } },
+                { name: 'Unrealized', itemStyle: { color: legendSwatch, decal: UNREALIZED_DECAL } },
+            ],
+        },
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
@@ -115,6 +147,8 @@ export function renderTickerPLChart(this: TickerPLChartContext, stats: Stats): v
         },
         xAxis: {
             type: 'value',
+            min: -axisBound,
+            max: axisBound,
             axisLabel: { formatter: (value: number) => fmt(value) },
             splitLine: { show: true },
         },
@@ -142,7 +176,7 @@ export function renderTickerPLChart(this: TickerPLChartContext, stats: Stats): v
                 id: 'unrealized',
                 name: 'Unrealized',
                 type: 'bar',
-                data: bar(row => row.unrealizedPL),
+                data: bar(row => row.unrealizedPL, true),
                 label: {
                     show: true,
                     position: 'outside',

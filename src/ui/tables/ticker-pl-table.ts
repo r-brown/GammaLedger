@@ -133,6 +133,7 @@ export function renderTickerPLTable(this: TickerPLTableContext, stats: Stats): v
         { field: 'totalPL', headerName: 'Total', cellRenderer: currencyCell, sort: 'desc', sortable: true, type: 'numericColumn' },
         {
             field: 'capitalAtRisk', headerName: 'Capital', sortable: true, type: 'numericColumn',
+            headerTooltip: 'Capital still committed by OPEN positions — $0 once a ticker is fully closed. This is not the RoC denominator; RoC divides by capital deployed across open and closed trades alike.',
             valueFormatter: (params: { value?: unknown }) => money(params.value, 0),
         },
         {
