@@ -129,6 +129,10 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
 
     // ALL range yields { start: null, end: null } — substitute the data extent.
     const historyKeys = [...new Set([...monthlyMap.keys(), ...premiumMap.keys()])].sort()
+    // Genuinely no data (no realized history, no premium history, no pending
+    // premium) — e.g. a freshly started blank database. Restore the explicit
+    // empty state instead of fabricating an axis around today's bucket.
+    const hasData = historyKeys.length > 0 || pendingMap.size > 0
     const firstKey = historyKeys[0] ?? bucketKeyOf(new Date().toISOString().slice(0, 10), granularity)
     const lastKey = historyKeys[historyKeys.length - 1] ?? firstKey
 
@@ -139,7 +143,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     const endKey = bucketKeyOf(windowEnd.toISOString().slice(0, 10), granularity)
 
     // Enumerate every bucket in the window so empty periods render as real gaps.
-    let bucketKeys = enumerateBuckets(windowStart, windowEnd, granularity)
+    let bucketKeys = hasData ? enumerateBuckets(windowStart, windowEnd, granularity) : []
 
     // Last bucket carrying realized/premium history. Restricted to enumerated
     // buckets so a weekend-dated key (dropped at day grain) cannot yield -1.
@@ -257,6 +261,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
         ],
         series: [
             {
+                id: 'realized',
                 type: 'bar',
                 name: realizedSeriesName,
                 yAxisIndex: 0,
@@ -267,6 +272,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                 barMaxWidth: 42
             },
             {
+                id: 'cumulative',
                 type: 'line',
                 name: 'Cumulative',
                 yAxisIndex: 1,
@@ -278,6 +284,7 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                 itemStyle: { color: '#534AB7' }
             },
             {
+                id: 'premium',
                 type: 'bar',
                 name: 'Premium flow',
                 yAxisIndex: 0,
@@ -287,10 +294,30 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                 })),
                 barMaxWidth: 42
             },
+            {
+                id: 'inclUnrealized',
+                type: 'line',
+                name: 'Incl. unrealized',
+                yAxisIndex: 1,
+                data: inclUnrealizedValues,
+                showSymbol: true,
+                symbol: 'diamond',
+                symbolSize: 10,
+                lineStyle: { width: 0 },
+                itemStyle: { color: '#E8A33D' }
+            },
+            // Kept last in the array: when this conditional series is absent,
+            // `getOption()` only trims a *trailing* hole left by replaceMerge
+            // (ECharts nulls out — but does not splice — a removed id-matched
+            // component; only a contiguous run of trailing nulls shortens the
+            // returned array). Placed before another always-present series,
+            // the hole would sit mid-array and getOption().series would
+            // contain a stray `null` entry instead of 4 clean series.
             ...(granularity === 'month' ? [{
                 // Forward-looking premium calendar: net cash booked on open
                 // option groups, in their expiration month. Dashed outline +
                 // translucent fill signal "not yet earned".
+                id: 'pending',
                 type: 'bar',
                 name: 'Pending by expiry',
                 yAxisIndex: 0,
@@ -304,21 +331,14 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
                     }
                 })),
                 barMaxWidth: 42
-            }] : []),
-            {
-                type: 'line',
-                name: 'Incl. unrealized',
-                yAxisIndex: 1,
-                data: inclUnrealizedValues,
-                showSymbol: true,
-                symbol: 'diamond',
-                symbolSize: 10,
-                lineStyle: { width: 0 },
-                itemStyle: { color: '#E8A33D' }
-            }
+            }] : [])
         ]
     // The pending series exists only at month grain. ECharts merges series by
     // index, so a shrinking array would otherwise leave the stale bar on the
-    // canvas — replaceMerge drops components absent from the new option.
+    // canvas — replaceMerge drops components absent from the new option. Each
+    // series carries a stable `id` so replaceMerge matches the four persistent
+    // series by identity (keeping their update animations) and only adds/removes
+    // the pending one — without ids, replaceMerge treats every series as brand
+    // new on every call, killing bar/line transition animations chart-wide.
     }, { replaceMerge: ['series'] })
 }
