@@ -190,6 +190,14 @@
   --color-bridge-unrealized-fg: #0C447C;
   --color-bridge-total-bg: #378ADD;
   --color-bridge-total-fg: #E6F1FB;
+  /* Ticker P&L — hue encodes polarity ONLY. Validated with the dataviz
+     palette validator against surface #FFFFFD:
+       PASS band · PASS chroma · PASS normal-vision dE 26.9 · PASS contrast >= 3:1
+       WARN CVD dE 7.5 (deutan) — the red/green case. Legal ONLY because
+       polarity is redundantly encoded by bar direction and a signed direct
+       label on every bar. Do not remove either. */
+  --color-ticker-pl-profit: #0F8A63;
+  --color-ticker-pl-loss: #C0392B;
 }
 
 /* Dark mode colors */
@@ -274,6 +282,11 @@
     --color-bridge-unrealized-fg: #BFDBFE;
     --color-bridge-total-bg: #3B82F6;
     --color-bridge-total-fg: #DBEAFE;
+    /* Validated against dark surface #262828: PASS band (L 0.48-0.67) ·
+       PASS chroma · PASS normal-vision dE 27.1 · PASS contrast >= 3:1.
+       #199E70 is the dataviz reference palette's own dark aqua step. */
+    --color-ticker-pl-profit: #199E70;
+    --color-ticker-pl-loss: #E2695C;
   }
 }
 
@@ -362,6 +375,15 @@
   --color-bridge-unrealized-fg: #BFDBFE;
   --color-bridge-total-bg: #3B82F6;
   --color-bridge-total-fg: #DBEAFE;
+}
+
+/* Manual theme toggle (data-theme attribute) - covers app's own theme toggle */
+:root[data-theme="dark"] {
+  /* Validated against dark surface #262828: PASS band (L 0.48-0.67) ·
+     PASS chroma · PASS normal-vision dE 27.1 · PASS contrast >= 3:1.
+     #199E70 is the dataviz reference palette's own dark aqua step. */
+  --color-ticker-pl-profit: #199E70;
+  --color-ticker-pl-loss: #E2695C;
 }
 
 [data-color-scheme="light"] {
@@ -2409,16 +2431,6 @@ select.form-control {
   margin: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-}
-
-.heatmap-container {
-  display: flex;
-  flex-direction: column;
-}
-
-.heatmap-chart {
-  min-height: 260px;
-  height: clamp(260px, 52vw, 380px);
 }
 
 .heatmap-card {
@@ -6280,9 +6292,9 @@ tr.position-itm.position-expiring-critical td,
 }
 .metric-col .row:last-child { border-bottom: none; }
 .metric-col .rl { color: var(--color-text-secondary); }
-.metric-col .rv  { font-weight: 500; color: var(--color-text); }
-.metric-col .rv-pos  { font-weight: 500; color: #0F6E56; }
-.metric-col .rv-neg  { font-weight: 500; color: #A32D2D; }
+.metric-col .rv, .last-activity .rv  { font-weight: 500; color: var(--color-text); }
+.metric-col .rv-pos, .last-activity .rv-pos  { font-weight: 500; color: #0F6E56; }
+.metric-col .rv-neg, .last-activity .rv-neg  { font-weight: 500; color: #A32D2D; }
 .metric-col .rv-warn { font-weight: 500; color: #854F0B; }
 .metric-col .rv-pur  { font-weight: 500; color: #534AB7; }
 
@@ -6298,14 +6310,14 @@ button.mtm-chip.chip-warn { background: #FAEEDA; color: #633806; }
 button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96); outline-offset: 1px; }
 
 @media (prefers-color-scheme: dark) {
-  .metric-col .rv-pos  { color: #34D399; }
-  .metric-col .rv-neg  { color: #F87171; }
+  .metric-col .rv-pos, .last-activity .rv-pos  { color: #34D399; }
+  .metric-col .rv-neg, .last-activity .rv-neg  { color: #F87171; }
   .metric-col .rv-warn { color: #FCD34D; }
   .metric-col .rv-pur  { color: #A5B4FC; }
   .chip-warn { background: rgba(251,191,36,0.15); color: #FCD34D; }
 }
-[data-color-scheme="dark"] .metric-col .rv-pos  { color: #34D399; }
-[data-color-scheme="dark"] .metric-col .rv-neg  { color: #F87171; }
+[data-color-scheme="dark"] .metric-col .rv-pos, [data-color-scheme="dark"] .last-activity .rv-pos  { color: #34D399; }
+[data-color-scheme="dark"] .metric-col .rv-neg, [data-color-scheme="dark"] .last-activity .rv-neg  { color: #F87171; }
 [data-color-scheme="dark"] .metric-col .rv-warn { color: #FCD34D; }
 [data-color-scheme="dark"] .metric-col .rv-pur  { color: #A5B4FC; }
 [data-color-scheme="dark"] .chip-warn { background: rgba(251,191,36,0.15); color: #FCD34D; }
@@ -6349,3 +6361,21 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 .dashboard-performance-trend { padding: var(--space-20); margin: 0 0 var(--space-24, 24px); }
 .dashboard-performance-trend .card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 var(--space-16); }
 .dashboard-performance-trend .card-header h3 { font-size: var(--font-size-lg); color: var(--color-text); margin: 0; }
+
+/* "Last realized activity" tile — headline above the trend chart */
+.last-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--space-16, 16px) var(--space-8, 8px);
+}
+.last-activity__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-8, 8px);
+}
+.last-activity__label { color: var(--color-text-secondary); font-size: 13px; }
+.last-activity__value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.last-activity__detail,
+.last-activity__empty { color: var(--color-text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }

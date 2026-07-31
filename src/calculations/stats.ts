@@ -7,6 +7,7 @@ import type { NormalizedLeg } from '@types-gl/leg'
 import type { TickerPerformance, TickerPerformanceItem, RiskBand, CollateralConcentration } from '@types-gl/stats'
 import type { LegRealizationSummary } from './leg-realization.js'
 import { APP_CONFIG } from '@core/config.js'
+import { buildTickerPLRows, type TickerPLInput } from './ticker-pl.js'
 
 /**
  * Minimum GammaLedger context surface required by stats calculations.
@@ -60,6 +61,16 @@ function classifyShare(sharePct: number): RiskBand {
     if (sharePct > CRITICAL_SHARE_PCT) return 'critical'
     if (sharePct > TARGET_SHARE_PCT) return 'high'
     return 'ok'
+}
+
+/**
+ * The canonical per-ticker key. Every per-ticker aggregator MUST use this —
+ * collateralByTicker and calculateTickerPerformance previously disagreed
+ * (one uppercased and fell back to 'UNKNOWN', the other did neither), which
+ * silently split the same ticker across two rows when their outputs were joined.
+ */
+export function normalizeTickerKey(value: unknown): string {
+    return String(value ?? '').trim().toUpperCase() || 'UNKNOWN'
 }
 
 function assertPositiveMultiplier(value: unknown, context: string): number {
@@ -309,7 +320,7 @@ export function calculateAdvancedStats(this: StatsContext) {
     for (const trade of openTrades) {
         const capital = this.getCapitalAtRisk(trade)
         if (!Number.isFinite(capital) || capital <= 0) continue
-        const ticker = String((trade as { ticker?: unknown }).ticker ?? '').trim() || '—'
+        const ticker = normalizeTickerKey((trade as { ticker?: unknown }).ticker)
         collateralByTickerMap.set(ticker, (collateralByTickerMap.get(ticker) ?? 0) + capital)
     }
     const collateralByTicker: CollateralConcentration[] = Array.from(collateralByTickerMap.entries())
@@ -425,6 +436,77 @@ export function calculateAdvancedStats(this: StatsContext) {
         unmarkedTickers
     };
 
+    // Per-ticker rows are BUCKETED from the values computed above — never
+    // re-derived. That is what makes the ticker table's TOTAL row tie exactly
+    // to realizedPL / unrealizedPL / collateralAtRisk (see ticker-pl.ts).
+    const tickerPLInputs: TickerPLInput[] = []
+    const isMarkedTrade = (trade: EnrichedTrade): boolean => {
+        const source = (trade as unknown as Record<string, unknown>).marketPriceSource
+        return source === 'live' || source === 'snapshot'
+    }
+    const finiteCapital = (trade: EnrichedTrade): number => {
+        const capital = this.getCapitalAtRisk(trade)
+        return Number.isFinite(capital) && capital > 0 ? capital : 0
+    }
+
+    for (const trade of closedTrades) {
+        const realized = realizedPLOf(trade)
+        tickerPLInputs.push({
+            ticker: normalizeTickerKey(trade.ticker),
+            closedPL: realized,
+            openRealizedPL: 0,
+            unrealizedPL: 0,
+            capitalAtRisk: 0,                 // closed: capital no longer committed
+            capitalDeployed: finiteCapital(trade),
+            isWin: realized > 0,
+            isLoss: realized < 0,
+            isClosed: true,
+            isOpen: false,
+            isMarked: false,
+        })
+    }
+
+    for (const trade of openTrades) {
+        const adjustment = openTradeRealizedPL.get(trade) ?? 0
+        const pl = Number(trade.pl)
+        const capital = finiteCapital(trade)
+        tickerPLInputs.push({
+            ticker: normalizeTickerKey(trade.ticker),
+            closedPL: 0,
+            openRealizedPL: adjustment,
+            unrealizedPL: (Number.isFinite(pl) ? pl : 0) - adjustment,
+            capitalAtRisk: capital,
+            capitalDeployed: capital,
+            isWin: false,
+            isLoss: false,
+            isClosed: false,
+            isOpen: true,
+            isMarked: isMarkedTrade(trade),
+        })
+    }
+
+    for (const trade of awaitingCoverageTrades) {
+        const adjustment = openTradeRealizedPL.get(trade) ?? 0
+        const pl = Number(trade.unrealizedPL)
+        tickerPLInputs.push({
+            ticker: normalizeTickerKey(trade.ticker),
+            closedPL: 0,
+            // Fully-realized awaiting-coverage trades already contributed their
+            // realized leg P&L via closedTrades above — do not double count.
+            openRealizedPL: this.isFullyRealizedTrade(trade) ? 0 : adjustment,
+            unrealizedPL: (Number.isFinite(pl) ? pl : 0) - adjustment,
+            capitalAtRisk: 0,                 // not in stats.collateralAtRisk
+            capitalDeployed: 0,
+            isWin: false,
+            isLoss: false,
+            isClosed: false,
+            isOpen: true,
+            isMarked: isMarkedTrade(trade),
+        })
+    }
+
+    const tickerPL = buildTickerPLRows(tickerPLInputs)
+
     // Calculate average win and average loss
     const avgWin: DollarAmount = winningTrades.length > 0
         ? winningTrades.reduce((sum, trade) => sum + realizedPLOf(trade), 0) / winningTrades.length
@@ -478,6 +560,7 @@ export function calculateAdvancedStats(this: StatsContext) {
         wheelAssignedPremium: wheelAssignedPremiumTotal,
         openTradeRealizedPL: openTradeRealizedPLResidual,
         collateralByTicker,
+        tickerPL,
         realizedPL,
         unrealizedPL,
         unrealizedQuoteCoverage,
@@ -877,7 +960,7 @@ export function calculateTickerPerformance(
     const map = new Map<string, TickerPerformanceItem>();
 
     trades.forEach(trade => {
-        const ticker = (trade.ticker || 'Unknown').toString().trim().toUpperCase() || 'UNKNOWN';
+        const ticker = normalizeTickerKey(trade.ticker);
         if (!map.has(ticker)) {
             map.set(ticker, {
                 ticker,

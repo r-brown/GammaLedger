@@ -84,10 +84,15 @@ import type { StockMetrics } from '@types-gl/integrations';
 import * as filtersModule from './ui/filters.js';
 import * as dashboardChartsModule from './ui/charts/dashboard-charts.js';
 import * as cumulativePLModule from './ui/charts/cumulative-pl.js';
+import type { Granularity } from '@calculations/time-buckets.js';
 import * as bridgeModule from './ui/dashboard/bridge.js';
 import * as groupedMetricsModule from './ui/dashboard/grouped-metrics.js';
 import * as concentrationModule from './ui/dashboard/concentration.js';
 import * as performanceTrendModule from './ui/charts/performance-trend.js';
+import { renderTickerPLChart } from './ui/charts/ticker-pl.js';
+import { renderTickerPLTable } from './ui/tables/ticker-pl-table.js';
+import { scopeRealizedToRange } from './ui/tables/ticker-pl-range.js';
+import * as lastActivityModule from './ui/charts/last-activity.js';
 import * as chartDestroyModule from './ui/charts/destroy.js';
 import * as highlightsModule from './ui/tables/highlights.js';
 import * as tradesTableModule from './ui/tables/trades-table.js';
@@ -135,11 +140,13 @@ class GammaLedger {
     declare recentTradesGridApi: unknown
     declare assignedPositionsGridApi: unknown
     declare creditPlaybookGridApi: unknown
+    declare tickerPLGridApi: unknown
     declare tradesMergeInitialized: boolean
     declare tradesMergePanelOpen: boolean
     declare currentFilteredTrades: Record<string, unknown>[]
     declare currentSort: { key: string | null; direction: string }
     declare cumulativePLRange: string
+    declare chartGranularity: Granularity | 'auto'
     declare disclaimerBanner: { element: HTMLDialogElement | null; agreeButton: Element | null; agreeHandler: (() => void) | null }
     declare disclaimerFadeMs: number
     declare aiCoachConsent: AICoachConsentState
@@ -233,6 +240,7 @@ class GammaLedger {
         this.earningsCache = new Map();
         this.earningsPromiseMap = new Map();
         this.cumulativePLRange = 'ALL';
+        this.chartGranularity = 'auto';
 
         this.disclaimerBanner = {
             element: null,
@@ -1019,6 +1027,7 @@ class GammaLedger {
 
         // Dashboard tab groups (analytics charts, positions tables)
         initDashboardTabs();
+        this.initTickerPLToggle();
 
         // Trades list filters
         ['filter-strategy', 'filter-status'].forEach(filterId => {
@@ -1120,6 +1129,7 @@ class GammaLedger {
         // Responsive enhancements for trades filters
         this.setupResponsiveFilters();
         this.initializeCumulativePLControls();
+        this.initializeGranularityControls();
         this.initializeAssignedPositionsStatusFilter();
         this.initializeCreditPlaybookControls();
     }
@@ -1131,6 +1141,14 @@ class GammaLedger {
     setCumulativePLRange(range) { return cumulativePLModule.setCumulativePLRange.call(this, range); }
 
     syncCumulativePLControls() { return cumulativePLModule.syncCumulativePLControls.call(this); }
+
+    resolveGranularity() { return cumulativePLModule.resolveGranularity.call(this); }
+
+    setChartGranularity(value: Granularity | 'auto') { return cumulativePLModule.setChartGranularity.call(this, value); }
+
+    syncGranularityControls() { return cumulativePLModule.syncGranularityControls.call(this); }
+
+    initializeGranularityControls() { return cumulativePLModule.initializeGranularityControls.call(this); }
 
     initializeAssignedPositionsStatusFilter() { return dashboardModule.initializeAssignedPositionsStatusFilter.call(this); }
 
@@ -1279,7 +1297,52 @@ class GammaLedger {
 
     updateCommissionImpactChart() { return dashboardChartsModule.updateCommissionImpactChart.call(this); }
 
-    renderTickerHeatmap() { return dashboardChartsModule.renderTickerHeatmap.call(this); }
+    scopeRealizedToRange(rows) { return scopeRealizedToRange.call(this, rows); }
+
+    /** Stats with the per-ticker rows scoped to the active range. Realized is
+     *  filtered leg-level; unrealized is left alone (no historical marks). */
+    tickerPLStatsForRange(stats) {
+        const source = stats ?? this.latestStats;
+        if (!source) {
+            return { tickerPL: [] };
+        }
+        return { ...source, tickerPL: this.scopeRealizedToRange(source.tickerPL ?? []) };
+    }
+
+    renderTickerPLChart(stats = null) { return renderTickerPLChart.call(this, this.tickerPLStatsForRange(stats)); }
+
+    renderTickerPLTable(stats = null) { return renderTickerPLTable.call(this, this.tickerPLStatsForRange(stats)); }
+
+    /** Chart/Table switch inside the Ticker P&L analytics panel. Idempotent. */
+    initTickerPLToggle() {
+        const controls = document.getElementById('tickerpl-view-toggle');
+        if (!controls || controls.dataset.initialized === 'true') {
+            return;
+        }
+        controls.addEventListener('click', (event) => {
+            const target = event.target instanceof HTMLElement
+                ? event.target.closest<HTMLElement>('button[data-tickerpl-view]')
+                : null;
+            if (!target) {
+                return;
+            }
+            const view = target.dataset.tickerplView;
+            controls.querySelectorAll<HTMLElement>('button[data-tickerpl-view]').forEach(button => {
+                const active = button.dataset.tickerplView === view;
+                button.classList.toggle('is-active', active);
+                button.setAttribute('aria-pressed', String(active));
+            });
+            document.querySelectorAll<HTMLElement>('[data-tickerpl-panel]').forEach(panel => {
+                panel.hidden = panel.dataset.tickerplPanel !== view;
+            });
+            if (view === 'table') {
+                this.renderTickerPLTable();
+            } else {
+                this.renderTickerPLChart();
+            }
+        });
+        controls.dataset.initialized = 'true';
+    }
 
     updateTimeInTradeChart() { return dashboardChartsModule.updateTimeInTradeChart.call(this); }
 
@@ -1535,6 +1598,8 @@ class GammaLedger {
     renderConcentration(stats) { return concentrationModule.renderConcentration.call(this, stats); }
 
     updatePerformanceTrendChart() { return performanceTrendModule.updatePerformanceTrendChart.call(this); }
+
+    renderLastActivity() { return lastActivityModule.renderLastActivity.call(this); }
 
     getWeekEndingFriday(dateInput) { return dates.getWeekEndingFriday(dateInput); }
 

@@ -227,7 +227,13 @@
                             <button type="button" class="chart-range__button" data-range="1Y">1Y</button>
                             <button type="button" class="chart-range__button" data-range="ALL">All</button>
                         </div>
+                        <div class="chart-range" id="chart-granularity-controls" role="group" aria-label="Chart granularity">
+                            <button type="button" class="chart-range__button" data-granularity="day">Day</button>
+                            <button type="button" class="chart-range__button" data-granularity="week">Week</button>
+                            <button type="button" class="chart-range__button" data-granularity="month">Month</button>
+                        </div>
                     </div>
+                    <div id="last-activity-summary" class="last-activity" aria-live="polite"></div>
                     <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
                         <div id="performanceTrendChart" class="echarts-chart" role="img" aria-label="Monthly P&L bars with cumulative growth line"></div>
                     </div>
@@ -297,7 +303,7 @@
                         <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="analytics-strategy">Strategy</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-winrate">Win rate</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-fees">Fees</button>
-                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-heatmap">Heatmap</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-tickerpl">Ticker P&amp;L</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-time">Time in trade</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-montecarlo">Monte Carlo</button>
                     </div>
@@ -326,10 +332,26 @@
                             <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
                         </div>
                     </div>
-                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-heatmap" hidden>
-                        <div class="chart-container heatmap-container">
-                            <h3>Ticker Performance Heatmap</h3>
-                            <div id="tickerHeatmap" class="echarts-chart heatmap-chart" role="img" aria-label="Ticker performance heatmap" aria-live="polite"></div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-tickerpl" hidden>
+                        <div class="chart-container">
+                            <div class="card-header">
+                                <h3>Ticker P&amp;L</h3>
+                                <div class="chart-range" id="tickerpl-view-toggle" role="group" aria-label="Ticker P&amp;L view">
+                                    <button type="button" class="chart-range__button is-active" data-tickerpl-view="chart" aria-pressed="true">Chart</button>
+                                    <button type="button" class="chart-range__button" data-tickerpl-view="table" aria-pressed="false">Table</button>
+                                </div>
+                            </div>
+                            <p class="chart-subtext" id="tickerpl-coverage"></p>
+                            <div data-tickerpl-panel="chart">
+                                <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
+                                    <div id="tickerPLChart" class="echarts-chart" role="img" aria-label="Per-ticker realized and unrealized P&amp;L"></div>
+                                </div>
+                            </div>
+                            <div data-tickerpl-panel="table" hidden>
+                                <div class="table-container dashboard-grid-container">
+                                    <div id="ticker-pl-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Per-ticker P&amp;L"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-time" hidden>

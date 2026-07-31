@@ -7,8 +7,9 @@ import type { LegSummary } from '@types-gl/leg-summary'
 export interface LegRealizationSummary {
     /** Total realized option P&L to date (terminated contract groups only). */
     realizedCashFlow: number
-    /** 'YYYY-MM' → realized option P&L attributed to the month each contract group terminated. */
-    realizedMonthly: Map<string, number>
+    /** 'YYYY-MM-DD' → realized option P&L attributed to the date each contract
+     *  group terminated. Roll up to week/month via rollUpBuckets (@calculations/time-buckets). */
+    realizedByDate: Map<string, number>
     /** True when at least one contract group is still open (not terminated). */
     hasOpenGroups: boolean
     /**
@@ -17,8 +18,9 @@ export interface LegRealizationSummary {
      * worthless; buybacks and rolls will reduce it.
      */
     openCashFlow: number
-    /** 'YYYY-MM' (expiration month) → pending net cash flow of open groups. */
-    openByExpiryMonth: Map<string, number>
+    /** 'YYYY-MM-DD' (expiration date) → pending net cash flow of open groups.
+     *  Date-keyed so weekly expirations bucket correctly. */
+    openByExpiryDate: Map<string, number>
     /**
      * Data-integrity flags. orphanCloseGroups: groups with more closing than
      * opening contracts (netOpen < 0) — usually a closing leg keyed to the
@@ -53,14 +55,14 @@ export interface LegRealizationContext {
  *      PUT (early assignment; short CALLs are excluded so an in-flight
  *      wheel's open covered call is not realized prematurely).
  *
- * Termination-month attribution: a terminated group's NET P&L lands in the
- * month the group terminated — last closing execution for fully-closed
- * groups, expiration month for expired/assigned groups, trade close month
+ * Termination-date attribution: a terminated group's NET P&L lands on the
+ * date the group terminated — last closing execution for fully-closed
+ * groups, expiration date for expired/assigned groups, trade close date
  * as the fallback for groups swept in by a Closed/Expired trade. This keeps
- * each roll cycle atomic in the bars: a buyback debit never lands in a
- * different month than the credit it closes out. Groups with no resolvable
- * month contribute to realizedCashFlow but not to realizedMonthly
- * (consumers attribute the residual to the trade close month).
+ * each roll cycle atomic in the bars: a buyback debit never lands on a
+ * different date than the credit it closes out. Groups with no resolvable
+ * date contribute to realizedCashFlow but not to realizedByDate
+ * (consumers attribute the residual to the trade close date).
  * STOCK and CASH legs are ignored here — consumers handle stock residuals.
  */
 export function summarizeLegRealization(
@@ -69,10 +71,10 @@ export function summarizeLegRealization(
 ): LegRealizationSummary {
     const result: LegRealizationSummary = {
         realizedCashFlow: 0,
-        realizedMonthly: new Map<string, number>(),
+        realizedByDate: new Map<string, number>(),
         hasOpenGroups: false,
         openCashFlow: 0,
-        openByExpiryMonth: new Map<string, number>(),
+        openByExpiryDate: new Map<string, number>(),
         orphanCloseGroups: 0,
         closeAfterExpiryLegs: 0
     }
@@ -159,10 +161,10 @@ export function summarizeLegRealization(
                 if (Number.isFinite(cashFlow)) openGroupTotal += cashFlow
             }
             openTotal += openGroupTotal
-            const expiryMonth = (group.expiration || group.lastExecDate).slice(0, 7)
-            if (expiryMonth) {
-                result.openByExpiryMonth.set(expiryMonth,
-                    (result.openByExpiryMonth.get(expiryMonth) ?? 0) + openGroupTotal)
+            const expiryDate = (group.expiration || group.lastExecDate).slice(0, 10)
+            if (expiryDate) {
+                result.openByExpiryDate.set(expiryDate,
+                    (result.openByExpiryDate.get(expiryDate) ?? 0) + openGroupTotal)
             }
             continue
         }
@@ -174,15 +176,16 @@ export function summarizeLegRealization(
         }
         total += groupTotal
 
-        // Termination month: prefer the group's own lifecycle event over the
-        // trade-closed sweep, so a roll cycle stays in the month it ended.
-        let month = ''
-        if (fullyClosed) month = (group.lastCloseDate || group.lastExecDate).slice(0, 7)
-        else if (expired) month = group.expiration.slice(0, 7)
-        else if (assigned) month = (group.expiration || group.lastExecDate).slice(0, 7)
-        else month = String(trade.closedDate ?? trade.openedDate ?? '').slice(0, 7) || group.lastExecDate.slice(0, 7)
-        if (month) {
-            result.realizedMonthly.set(month, (result.realizedMonthly.get(month) ?? 0) + groupTotal)
+        // Termination date: prefer the group's own lifecycle event over the
+        // trade-closed sweep, so a roll cycle stays on the date it ended.
+        let terminatedOn = ''
+        if (fullyClosed) terminatedOn = (group.lastCloseDate || group.lastExecDate).slice(0, 10)
+        else if (expired) terminatedOn = group.expiration.slice(0, 10)
+        else if (assigned) terminatedOn = (group.expiration || group.lastExecDate).slice(0, 10)
+        else terminatedOn = String(trade.closedDate ?? trade.openedDate ?? '').slice(0, 10) || group.lastExecDate.slice(0, 10)
+        if (terminatedOn) {
+            result.realizedByDate.set(terminatedOn,
+                (result.realizedByDate.get(terminatedOn) ?? 0) + groupTotal)
         }
     }
     result.realizedCashFlow = parseFloat(total.toFixed(2))

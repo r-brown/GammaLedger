@@ -1,6 +1,8 @@
 import type { DollarAmount, AssignmentPositionType } from './common'
 import type { EnrichedTrade } from './trade'
 import type { NormalizedLeg } from './leg'
+export type { TickerPLInput, TickerPLRow } from '@calculations/ticker-pl.js'
+import type { TickerPLRow } from '@calculations/ticker-pl.js'
 
 // ---------------------------------------------------------------------------
 // §7 — Stats (AdvancedStats)
@@ -145,6 +147,9 @@ export interface Stats {
   openTradeRealizedPL: DollarAmount
   /** Per-ticker collateral concentration over open positions, sorted desc by capital. */
   collateralByTicker: CollateralConcentration[]
+  /** Per-ticker realized + unrealized breakdown, sorted by |totalPL| desc.
+   *  Column sums reconcile with realizedPL / unrealizedPL / collateralAtRisk. */
+  tickerPL: TickerPLRow[]
 
   closedTradesList: EnrichedTrade[]
   openTradesList: EnrichedTrade[]
