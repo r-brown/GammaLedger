@@ -190,6 +190,14 @@
   --color-bridge-unrealized-fg: #0C447C;
   --color-bridge-total-bg: #378ADD;
   --color-bridge-total-fg: #E6F1FB;
+  /* Ticker P&L — hue encodes polarity ONLY. Validated with the dataviz
+     palette validator against surface #FFFFFD:
+       PASS band · PASS chroma · PASS normal-vision dE 26.9 · PASS contrast >= 3:1
+       WARN CVD dE 7.5 (deutan) — the red/green case. Legal ONLY because
+       polarity is redundantly encoded by bar direction and a signed direct
+       label on every bar. Do not remove either. */
+  --color-ticker-pl-profit: #0F8A63;
+  --color-ticker-pl-loss: #C0392B;
 }
 
 /* Dark mode colors */
@@ -274,6 +282,11 @@
     --color-bridge-unrealized-fg: #BFDBFE;
     --color-bridge-total-bg: #3B82F6;
     --color-bridge-total-fg: #DBEAFE;
+    /* Validated against dark surface #262828: PASS band (L 0.48-0.67) ·
+       PASS chroma · PASS normal-vision dE 27.1 · PASS contrast >= 3:1.
+       #199E70 is the dataviz reference palette's own dark aqua step. */
+    --color-ticker-pl-profit: #199E70;
+    --color-ticker-pl-loss: #E2695C;
   }
 }
 
@@ -362,6 +375,15 @@
   --color-bridge-unrealized-fg: #BFDBFE;
   --color-bridge-total-bg: #3B82F6;
   --color-bridge-total-fg: #DBEAFE;
+}
+
+/* Manual theme toggle (data-theme attribute) - covers app's own theme toggle */
+:root[data-theme="dark"] {
+  /* Validated against dark surface #262828: PASS band (L 0.48-0.67) ·
+     PASS chroma · PASS normal-vision dE 27.1 · PASS contrast >= 3:1.
+     #199E70 is the dataviz reference palette's own dark aqua step. */
+  --color-ticker-pl-profit: #199E70;
+  --color-ticker-pl-loss: #E2695C;
 }
 
 [data-color-scheme="light"] {
