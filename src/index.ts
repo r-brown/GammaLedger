@@ -89,6 +89,7 @@ import * as bridgeModule from './ui/dashboard/bridge.js';
 import * as groupedMetricsModule from './ui/dashboard/grouped-metrics.js';
 import * as concentrationModule from './ui/dashboard/concentration.js';
 import * as performanceTrendModule from './ui/charts/performance-trend.js';
+import { renderTickerPLChart } from './ui/charts/ticker-pl.js';
 import * as lastActivityModule from './ui/charts/last-activity.js';
 import * as chartDestroyModule from './ui/charts/destroy.js';
 import * as highlightsModule from './ui/tables/highlights.js';
@@ -1293,6 +1294,8 @@ class GammaLedger {
     updateCommissionImpactChart() { return dashboardChartsModule.updateCommissionImpactChart.call(this); }
 
     renderTickerHeatmap() { return dashboardChartsModule.renderTickerHeatmap.call(this); }
+
+    renderTickerPLChart(stats) { return renderTickerPLChart.call(this, stats ?? this.latestStats); }
 
     updateTimeInTradeChart() { return dashboardChartsModule.updateTimeInTradeChart.call(this); }
 

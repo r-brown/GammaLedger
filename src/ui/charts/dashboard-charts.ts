@@ -6,6 +6,7 @@ import {
     renderEChart,
     type GammaChartOption
 } from './echarts.js'
+import type { Stats } from '@types-gl/stats'
 
 type TradeRecord = Record<string, unknown>
 
@@ -41,6 +42,7 @@ interface DashboardChartsContext {
   updateTimeInTradeChart(): void
   updateMonteCarloChart(): void
   renderTickerHeatmap(): void
+  renderTickerPLChart(stats?: Stats): void
 }
 
 interface RatioGaugeOptions {
@@ -101,6 +103,7 @@ export function updateAllCharts(this: DashboardChartsContext): void {
     this.updateTimeInTradeChart();
     this.updateMonteCarloChart();
     this.renderTickerHeatmap();
+    this.renderTickerPLChart();
 }
 
 export function updatePerformanceGauges(this: DashboardChartsContext): void {

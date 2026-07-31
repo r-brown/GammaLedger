@@ -3,6 +3,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { defaultGranularityFor, type Granularity } from '@calculations/time-buckets.js'
+import type { Stats } from '@types-gl/stats'
 
 interface CumulativePLContext {
   cumulativePLRange: string
@@ -19,6 +20,7 @@ interface CumulativePLContext {
   updateWinRateByStrategyChart(): void
   updateCommissionImpactChart(): void
   renderTickerHeatmap(): void
+  renderTickerPLChart(stats?: Stats): void
 }
 
 export function initializeCumulativePLControls(this: CumulativePLContext): void {
@@ -67,6 +69,7 @@ export function setCumulativePLRange(this: CumulativePLContext, range: string): 
     this.updateWinRateByStrategyChart();
     this.updateCommissionImpactChart();
     this.renderTickerHeatmap();
+    this.renderTickerPLChart();
 }
 
 export function syncCumulativePLControls(this: CumulativePLContext): void {
