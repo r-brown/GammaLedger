@@ -69,7 +69,7 @@ function classifyShare(sharePct: number): RiskBand {
  * (one uppercased and fell back to 'UNKNOWN', the other did neither), which
  * silently split the same ticker across two rows when their outputs were joined.
  */
-function normalizeTickerKey(value: unknown): string {
+export function normalizeTickerKey(value: unknown): string {
     return String(value ?? '').trim().toUpperCase() || 'UNKNOWN'
 }
 

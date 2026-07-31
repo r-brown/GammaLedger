@@ -6,10 +6,12 @@
 // are unscoped (see the reconciliation contract in @calculations/ticker-pl).
 
 import { createGrid, type ColDef, type GridApi } from './ag-grid.js'
+import { rangeLabelFor } from './ticker-pl-range.js'
 import type { Stats, TickerPLRow } from '@types-gl/stats'
 
 interface TickerPLTableContext {
   tickerPLGridApi?: GridApi<TickerPLRow> | null
+  cumulativePLRange: string
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
   openTradesFilteredByTicker(ticker: unknown): void
@@ -82,6 +84,21 @@ export function renderTickerPLTable(this: TickerPLTableContext, stats: Stats): v
         return span
     }
 
+    // Unrealized carries a per-row coverage warning: an unquoted short option
+    // is valued at full credit (best case), which overstates the row.
+    const unrealizedCell = (params: { value?: unknown; data?: TickerPLRow }) => {
+        const span = currencyCell(params)
+        const unmarked = params.data?.unmarkedPositions ?? 0
+        if (unmarked > 0) {
+            const dot = document.createElement('span')
+            dot.className = 'chip chip-warn'
+            dot.textContent = ' ⚠'
+            dot.title = `${unmarked} position(s) have no live quote and are valued at raw cashflow — open short options count at full credit, which may overstate this row.`
+            span.appendChild(dot)
+        }
+        return span
+    }
+
     const columnDefs: ColDef<TickerPLRow>[] = [
         {
             field: 'ticker',
@@ -101,8 +118,18 @@ export function renderTickerPLTable(this: TickerPLTableContext, stats: Stats): v
                 })
             },
         },
-        { field: 'realizedPL', headerName: 'Realized', cellRenderer: currencyCell, sortable: true, type: 'numericColumn' },
-        { field: 'unrealizedPL', headerName: 'Unrealized (now)', cellRenderer: currencyCell, sortable: true, type: 'numericColumn' },
+        {
+            field: 'realizedPL',
+            headerName: `Realized${rangeLabelFor(this.cumulativePLRange)}`,
+            headerTooltip: 'Realized P&L attributed at leg level — a contract group counts on the date it terminated, not the date its trade was closed.',
+            cellRenderer: currencyCell, sortable: true, type: 'numericColumn',
+        },
+        {
+            field: 'unrealizedPL',
+            headerName: 'Unrealized (now)',
+            headerTooltip: 'Always the current mark, whatever range is selected — GammaLedger stores no historical position marks.',
+            cellRenderer: unrealizedCell, sortable: true, type: 'numericColumn',
+        },
         { field: 'totalPL', headerName: 'Total', cellRenderer: currencyCell, sort: 'desc', sortable: true, type: 'numericColumn' },
         {
             field: 'capitalAtRisk', headerName: 'Capital', sortable: true, type: 'numericColumn',
@@ -131,6 +158,9 @@ export function renderTickerPLTable(this: TickerPLTableContext, stats: Stats): v
     const total = buildTotalRow(rows)
 
     if (this.tickerPLGridApi) {
+        // columnDefs must be re-applied: the Realized header carries the active
+        // range, which changes without the grid being rebuilt.
+        this.tickerPLGridApi.setGridOption('columnDefs', columnDefs)
         this.tickerPLGridApi.setGridOption('rowData', rows)
         this.tickerPLGridApi.setGridOption('pinnedBottomRowData', [total])
         return

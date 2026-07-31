@@ -91,6 +91,7 @@ import * as concentrationModule from './ui/dashboard/concentration.js';
 import * as performanceTrendModule from './ui/charts/performance-trend.js';
 import { renderTickerPLChart } from './ui/charts/ticker-pl.js';
 import { renderTickerPLTable } from './ui/tables/ticker-pl-table.js';
+import { scopeRealizedToRange } from './ui/tables/ticker-pl-range.js';
 import * as lastActivityModule from './ui/charts/last-activity.js';
 import * as chartDestroyModule from './ui/charts/destroy.js';
 import * as highlightsModule from './ui/tables/highlights.js';
@@ -1296,9 +1297,21 @@ class GammaLedger {
 
     updateCommissionImpactChart() { return dashboardChartsModule.updateCommissionImpactChart.call(this); }
 
-    renderTickerPLChart(stats = null) { return renderTickerPLChart.call(this, stats ?? this.latestStats); }
+    scopeRealizedToRange(rows) { return scopeRealizedToRange.call(this, rows); }
 
-    renderTickerPLTable(stats = null) { return renderTickerPLTable.call(this, stats ?? this.latestStats); }
+    /** Stats with the per-ticker rows scoped to the active range. Realized is
+     *  filtered leg-level; unrealized is left alone (no historical marks). */
+    tickerPLStatsForRange(stats) {
+        const source = stats ?? this.latestStats;
+        if (!source) {
+            return { tickerPL: [] };
+        }
+        return { ...source, tickerPL: this.scopeRealizedToRange(source.tickerPL ?? []) };
+    }
+
+    renderTickerPLChart(stats = null) { return renderTickerPLChart.call(this, this.tickerPLStatsForRange(stats)); }
+
+    renderTickerPLTable(stats = null) { return renderTickerPLTable.call(this, this.tickerPLStatsForRange(stats)); }
 
     /** Chart/Table switch inside the Ticker P&L analytics panel. Idempotent. */
     initTickerPLToggle() {

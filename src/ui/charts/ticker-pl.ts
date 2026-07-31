@@ -33,7 +33,26 @@ function cssVar(name: string, fallback: string): string {
     return value || fallback
 }
 
+/** Panel-level disclosure: how many open positions carry a real mark, plus the
+ *  standing caveat that unrealized is always "now" whatever range is selected.
+ *  Mirrors the chip in grouped-metrics.ts so both surfaces tell the same story. */
+function renderCoverageDisclosure(stats: Stats): void {
+    const header = document.getElementById('tickerpl-coverage')
+    if (!header) return
+
+    const coverage = stats.unrealizedQuoteCoverage ?? { marked: 0, total: 0, unmarkedTickers: [] }
+    const unquoted = coverage.total - coverage.marked
+    const caveat = 'Unrealized is always current — GammaLedger does not store historical position marks.'
+
+    header.textContent = coverage.total > 0 && unquoted > 0
+        ? `MTM ${coverage.marked}/${coverage.total} · ${unquoted} @ full credit — ${caveat}`
+        : caveat
+    header.className = unquoted > 0 ? 'chart-subtext chip-warn' : 'chart-subtext'
+}
+
 export function renderTickerPLChart(this: TickerPLChartContext, stats: Stats): void {
+    renderCoverageDisclosure(stats)
+
     const root = document.getElementById('tickerPLChart')
     if (!root) return
 
