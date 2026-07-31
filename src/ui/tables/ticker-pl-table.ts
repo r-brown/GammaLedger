@@ -90,9 +90,14 @@ export function renderTickerPLTable(this: TickerPLTableContext, stats: Stats): v
         const span = currencyCell(params)
         const unmarked = params.data?.unmarkedPositions ?? 0
         if (unmarked > 0) {
+            span.style.display = 'inline-flex'
+            span.style.alignItems = 'center'
+            span.style.gap = '6px'
             const dot = document.createElement('span')
-            dot.className = 'chip chip-warn'
-            dot.textContent = ' ⚠'
+            dot.style.color = 'var(--color-warning)'
+            dot.style.cursor = 'help'
+            dot.style.fontSize = '12px'
+            dot.textContent = '●'
             dot.title = `${unmarked} position(s) have no live quote and are valued at raw cashflow — open short options count at full credit, which may overstate this row.`
             span.appendChild(dot)
         }

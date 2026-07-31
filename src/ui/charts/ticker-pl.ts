@@ -150,7 +150,8 @@ export function renderTickerPLChart(this: TickerPLChartContext, stats: Stats): v
             min: -axisBound,
             max: axisBound,
             axisLabel: { formatter: (value: number) => fmt(value) },
-            splitLine: { show: true },
+            splitLine: { show: true, lineStyle: { color: cssVar('--color-border', '#ccc'), type: 'dashed' } },
+            axisLine: { show: true, onZero: true, lineStyle: { color: cssVar('--color-text-secondary', '#888'), width: 1 } },
         },
         yAxis: {
             type: 'category',
@@ -169,7 +170,10 @@ export function renderTickerPLChart(this: TickerPLChartContext, stats: Stats): v
                 label: {
                     show: true,
                     position: 'outside',
-                    formatter: (p: { value?: unknown }) => fmt(Number(p.value)),
+                    formatter: (p: { value?: unknown }) => {
+                        const val = Number(p.value);
+                        return val === 0 ? '' : fmt(val);
+                    },
                 },
             },
             {
@@ -180,7 +184,10 @@ export function renderTickerPLChart(this: TickerPLChartContext, stats: Stats): v
                 label: {
                     show: true,
                     position: 'outside',
-                    formatter: (p: { value?: unknown }) => fmt(Number(p.value)),
+                    formatter: (p: { value?: unknown }) => {
+                        const val = Number(p.value);
+                        return val === 0 ? '' : fmt(val);
+                    },
                 },
             },
         ],
