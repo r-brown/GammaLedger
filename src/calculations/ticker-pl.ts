@@ -24,7 +24,9 @@ export interface TickerPLInput {
     capitalAtRisk: number
     /** Capital this trade consumed, open or closed. */
     capitalDeployed: number
+    /** True only for closed trades; ignored if isOpen is true. */
     isWin: boolean
+    /** True only for closed trades; ignored if isOpen is true. */
     isLoss: boolean
     isClosed: boolean
     isOpen: boolean
@@ -99,8 +101,8 @@ export function buildTickerPLRows(inputs: TickerPLInput[]): TickerPLRow[] {
             if (input.isMarked) row.markedPositions += 1
             else row.unmarkedPositions += 1
         }
-        if (input.isWin) row.wins += 1
-        if (input.isLoss) row.losses += 1
+        if (input.isClosed && input.isWin) row.wins += 1
+        if (input.isClosed && input.isLoss) row.losses += 1
     }
 
     for (const row of byTicker.values()) {
