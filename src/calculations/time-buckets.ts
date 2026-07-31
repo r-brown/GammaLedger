@@ -11,12 +11,34 @@ export type Granularity = 'day' | 'week' | 'month'
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
 
-/** Parse 'YYYY-MM-DD' as UTC midnight. Returns null when unparseable. */
+/** Parse 'YYYY-MM-DD' as UTC midnight. Returns null when unparseable, INCLUDING
+ *  calendar overflow — `new Date('2026-02-30T00:00:00Z')` silently rolls over
+ *  to March 2 rather than erroring, so the reconstructed y/m/d is checked
+ *  against the input instead of trusting Date's leniency (Finding 2). */
 function parseIsoDay(isoDate: string): Date | null {
     const day = isoDate.slice(0, 10)
-    if (day.length !== 10) return null
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day)
+    if (!match) return null
+    const [, y, m, d] = match
     const parsed = new Date(`${day}T00:00:00Z`)
-    return Number.isNaN(parsed.getTime()) ? null : parsed
+    if (Number.isNaN(parsed.getTime())) return null
+    if (parsed.getUTCFullYear() !== Number(y) ||
+        parsed.getUTCMonth() !== Number(m) - 1 ||
+        parsed.getUTCDate() !== Number(d)) {
+        return null
+    }
+    return parsed
+}
+
+/** Parse the 'YYYY-MM' bucket prefix of an ISO date, validated the same way
+ *  as day/week (Finding 1: the old `isoDate.slice(0, 7)` accepted garbage
+ *  strings like 'not-a-real-date' unvalidated). */
+function parseIsoMonth(isoDate: string): string | null {
+    const parsed = parseIsoDay(isoDate)
+    if (!parsed) return null
+    const year = String(parsed.getUTCFullYear()).padStart(4, '0')
+    const month = String(parsed.getUTCMonth() + 1).padStart(2, '0')
+    return `${year}-${month}`
 }
 
 /** The Monday of the ISO week containing `date`, as 'YYYY-MM-DD'. */
@@ -28,10 +50,12 @@ function mondayOf(date: Date): string {
     return monday.toISOString().slice(0, 10)
 }
 
-/** Bucket key for an ISO date at the given granularity. '' when unparseable. */
+/** Bucket key for an ISO date at the given granularity. '' when unparseable —
+ *  honoured uniformly across all three granularities (Findings 1 & 2), so a
+ *  malformed or calendar-overflowed date can never survive into a bucket map. */
 export function bucketKeyOf(isoDate: string, granularity: Granularity): string {
     if (!isoDate) return ''
-    if (granularity === 'month') return isoDate.slice(0, 7)
+    if (granularity === 'month') return parseIsoMonth(isoDate) ?? ''
     const parsed = parseIsoDay(isoDate)
     if (!parsed) return ''
     if (granularity === 'day') return isoDate.slice(0, 10)

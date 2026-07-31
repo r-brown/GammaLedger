@@ -44,9 +44,21 @@ function toUtcAnchoredDay(d: Date): Date {
     return new Date(`${iso}T00:00:00Z`)
 }
 
-/** UTC midnight of a bucket key — month keys ('2026-07') anchor on the 1st. */
+/** UTC midnight of a bucket key — month keys ('2026-07') anchor on the 1st.
+ *  Defense in depth for Finding 1: `bucketKeyOf` now guarantees every key
+ *  reaching this module is a valid calendar date, but a future caller could
+ *  still hand this an unvalidated string — falling back to today (rather
+ *  than letting an Invalid Date reach `.toISOString()`, which throws and
+ *  used to abort every chart after this one in `updateAllCharts`) keeps a
+ *  bad key from taking down the whole dashboard. */
 function bucketKeyToDate(key: string): Date {
-    return new Date(`${key.length === 7 ? `${key}-01` : key}T00:00:00Z`)
+    const iso = key.length === 7 ? `${key}-01` : key
+    const parsed = new Date(`${iso}T00:00:00Z`)
+    if (Number.isNaN(parsed.getTime())) {
+        console.error(`performance-trend: unparseable bucket key "${key}", falling back to today`)
+        return toUtcAnchoredDay(new Date())
+    }
+    return parsed
 }
 
 function computeRealizedByDate(this: PerformanceTrendContext): { realized: Map<string, number>; pending: Map<string, number> } {
@@ -176,17 +188,53 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     // Carry the pre-range balance into the cumulative line: "Cumulative" keeps
     // broker-statement semantics (all-time running realized P&L) instead of
     // resetting to zero at the window start when a range filter is active.
+    //
+    // Finding 3: the sweep walks EVERY key in monthlyMap in chronological
+    // order, not just the ones enumerateBuckets chose to display as a bar.
+    // At day granularity a weekend-dated realization stays in monthlyMap
+    // (rollUpBuckets does not filter it) but enumerateBuckets omits it from
+    // bucketKeys/monthlyValues, so summing monthlyValues alone would drop
+    // that amount from the running total forever. Sweeping monthlyMap
+    // directly, keyed to each displayed bucket's own key, folds it in as
+    // soon as its chronological position is passed — money is never read
+    // from monthlyValues for the cumulative line, only from monthlyMap.
+    const monthlyEntries = [...monthlyMap.entries()]
     let running = 0
+    let sweepIdx = 0
     if (startKey) {
-        for (const [key, amount] of monthlyMap) {
-            if (key < startKey) running += amount
+        while (sweepIdx < monthlyEntries.length && monthlyEntries[sweepIdx][0] < startKey) {
+            running += monthlyEntries[sweepIdx][1]
+            sweepIdx++
         }
     }
-    const cumulativeValues: Array<number | null> = monthlyValues.map(v => {
+    const cumulativeValues: Array<number | null> = monthlyValues.map((v, i) => {
         if (v === null) return null
-        running += v
+        const key = bucketKeys[i]
+        while (
+            sweepIdx < monthlyEntries.length &&
+            monthlyEntries[sweepIdx][0] <= key &&
+            (!endKey || monthlyEntries[sweepIdx][0] <= endKey)
+        ) {
+            running += monthlyEntries[sweepIdx][1]
+            sweepIdx++
+        }
         return Number(running.toFixed(2))
     })
+
+    // A weekend-dated (or otherwise unenumerated) key chronologically AFTER
+    // the last displayed bucket but still inside the window has no bucket
+    // index to be swept into above — the map() above stops at the last
+    // non-null index. Sweep any such leftover into the running total and
+    // fold it into the final displayed cumulative point, so the window's
+    // last "Cumulative" value always equals the true sum of every in-window
+    // realized amount, not just the ones that landed on a displayed bar.
+    while (sweepIdx < monthlyEntries.length && (!endKey || monthlyEntries[sweepIdx][0] <= endKey)) {
+        running += monthlyEntries[sweepIdx][1]
+        sweepIdx++
+    }
+    if (lastHistoryIdx >= 0 && cumulativeValues[lastHistoryIdx] !== null) {
+        cumulativeValues[lastHistoryIdx] = Number(running.toFixed(2))
+    }
 
     // Mark-to-market exists only for "now" — historical quotes are not stored —
     // so the incl.-unrealized overlay is a single point on the latest history
