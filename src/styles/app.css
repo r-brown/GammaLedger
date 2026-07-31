@@ -2433,16 +2433,6 @@ select.form-control {
   color: var(--color-text-secondary);
 }
 
-.heatmap-container {
-  display: flex;
-  flex-direction: column;
-}
-
-.heatmap-chart {
-  min-height: 260px;
-  height: clamp(260px, 52vw, 380px);
-}
-
 .heatmap-card {
   padding: var(--space-16);
   border-radius: var(--radius-md);

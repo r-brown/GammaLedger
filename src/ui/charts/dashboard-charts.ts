@@ -10,11 +10,6 @@ import type { Stats } from '@types-gl/stats'
 
 type TradeRecord = Record<string, unknown>
 
-interface TickerPerformanceResult {
-  items: Array<{ ticker: string; totalPL: number; tradeCount: number; winRate: number }>
-  maxMagnitude: number
-}
-
 interface DashboardChartsContext {
   charts: Record<string, unknown>
   trades: TradeRecord[]
@@ -28,7 +23,6 @@ interface DashboardChartsContext {
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
   formatPercent(value: unknown, fallback: string, opts?: Record<string, unknown>): string
-  calculateTickerPerformance(trades: TradeRecord[]): TickerPerformanceResult | null
   generateMonteCarloProjection(dailyReturns: number[], opts?: { periods?: number; simulations?: number }): Record<string, unknown> | null
   openTradesFilteredByTicker(ticker: unknown): void
   openTradesFilteredByStrategy(strategy: unknown): void
@@ -41,8 +35,8 @@ interface DashboardChartsContext {
   updateCommissionImpactChart(): void
   updateTimeInTradeChart(): void
   updateMonteCarloChart(): void
-  renderTickerHeatmap(): void
   renderTickerPLChart(stats?: Stats): void
+  renderTickerPLTable(stats?: Stats): void
 }
 
 interface RatioGaugeOptions {
@@ -102,8 +96,8 @@ export function updateAllCharts(this: DashboardChartsContext): void {
     this.updateCommissionImpactChart();
     this.updateTimeInTradeChart();
     this.updateMonteCarloChart();
-    this.renderTickerHeatmap();
     this.renderTickerPLChart();
+    this.renderTickerPLTable();
 }
 
 export function updatePerformanceGauges(this: DashboardChartsContext): void {
@@ -259,154 +253,6 @@ export function updateCommissionImpactChart(this: DashboardChartsContext): void 
             ]
         }]
     });
-}
-
-export function renderTickerHeatmap(this: DashboardChartsContext): void {
-    const root = getChartRoot('tickerHeatmap');
-    if (!root) {
-        return;
-    }
-
-    const filteredTrades = this.getClosedTradesInRange();
-    const tickerPerformance = this.calculateTickerPerformance(filteredTrades);
-    const items = tickerPerformance?.items || [];
-    if (!items.length) {
-        disposeStoredChart(this.charts, 'tickerHeatmap');
-        root.innerHTML = '';
-        const empty = document.createElement('div');
-        empty.className = 'heatmap-empty';
-        empty.textContent = 'Add more closed trades to see per-ticker performance.';
-        root.appendChild(empty);
-        return;
-    }
-
-    if (!this.charts.tickerHeatmap) {
-        root.innerHTML = '';
-    }
-    const subset = items.slice(0, 12);
-    const maxMagnitude = tickerPerformance?.maxMagnitude || 1;
-    const rowCount = Math.min(3, subset.length);
-    const columnCount = Math.ceil(subset.length / rowCount);
-    const xCategories = Array.from({ length: columnCount }, (_, idx) => String(idx + 1));
-    const yCategories = Array.from({ length: rowCount }, (_, idx) => String(idx + 1));
-    const heatmapData = subset.map((item, index) => [
-        Math.floor(index / rowCount),
-        index % rowCount,
-        item.totalPL
-    ]);
-
-    const formatItemLabel = (index: number): string => {
-        const item = subset[index];
-        if (!item) {
-            return '';
-        }
-        const tradeCountLabel = this.formatNumber(item.tradeCount, { decimals: 0, useGrouping: true }) ?? String(item.tradeCount ?? 0);
-        const winRateLabel = this.formatPercent(item.winRate, '0%', { decimals: 0 });
-        const plTag = item.totalPL >= 0 ? 'plPos' : 'plNeg';
-        return `{ticker|${item.ticker}}\n{${plTag}|${this.formatCurrency(item.totalPL)}}\n{meta|${tradeCountLabel} trades • Win ${winRateLabel}}`;
-    };
-
-    const heatmapClickHandler = (params: { dataIndex?: number }) => {
-        const item = subset[params.dataIndex ?? -1];
-        if (item?.ticker) {
-            this.openTradesFilteredByTicker(item.ticker);
-        }
-    };
-
-    renderStoredChart(this.charts, 'tickerHeatmap', root, {
-        aria: { enabled: true },
-        grid: { top: 8, right: 8, bottom: 8, left: 8, containLabel: false },
-        tooltip: {
-            formatter: (params: unknown) => {
-                const dataIndex = Number((params as { dataIndex?: unknown }).dataIndex);
-                const item = subset[dataIndex];
-                if (!item) {
-                    return '';
-                }
-                const winRateLabel = this.formatPercent(item.winRate, '0%', { decimals: 1 });
-                return [
-                    `<strong>${item.ticker}</strong>`,
-                    `P&L: ${this.formatCurrency(item.totalPL)}`,
-                    `Trades: ${item.tradeCount}`,
-                    `Win rate: ${winRateLabel}`
-                ].join('<br>');
-            }
-        },
-        xAxis: {
-            type: 'category',
-            data: xCategories,
-            show: false,
-            splitArea: { show: true }
-        },
-        yAxis: {
-            type: 'category',
-            data: yCategories,
-            show: false,
-            inverse: true,
-            splitArea: { show: true }
-        },
-        visualMap: {
-            show: false,
-            min: -maxMagnitude,
-            max: maxMagnitude,
-            inRange: {
-                color: ['#c0392b', '#e8ecef', '#0fa8c0']
-            }
-        },
-        series: [{
-            type: 'heatmap',
-            data: heatmapData,
-            label: {
-                show: true,
-                overflow: 'break',
-                formatter: (params: { dataIndex?: number }) => formatItemLabel(params.dataIndex ?? 0),
-                rich: {
-                    ticker: {
-                        color: '#111827',
-                        fontWeight: 700,
-                        fontSize: 15,
-                        lineHeight: 20
-                    },
-                    plPos: {
-                        color: '#065f46',
-                        fontWeight: 700,
-                        fontSize: 16,
-                        lineHeight: 22
-                    },
-                    plNeg: {
-                        color: '#7f1d1d',
-                        fontWeight: 700,
-                        fontSize: 16,
-                        lineHeight: 22
-                    },
-                    meta: {
-                        color: '#374151',
-                        fontSize: 12,
-                        lineHeight: 17
-                    }
-                }
-            },
-            itemStyle: {
-                borderColor: 'rgba(255, 255, 255, 0.85)',
-                borderWidth: 3,
-                borderRadius: 8
-            },
-            emphasis: {
-                itemStyle: {
-                    shadowBlur: 12,
-                    shadowColor: 'rgba(15, 23, 42, 0.18)'
-                }
-            }
-        }]
-    });
-
-    const heatmapChart = this.charts.tickerHeatmap as { off?: (e: string) => void; on?: (e: string, h: unknown) => void; getDom?: () => HTMLElement } | undefined;
-    if (heatmapChart?.on) {
-        heatmapChart.off?.('click');
-        heatmapChart.on('click', heatmapClickHandler);
-        const dom = heatmapChart.getDom?.();
-        if (dom) dom.style.cursor = 'pointer';
-    }
 }
 
 export function updateTimeInTradeChart(this: DashboardChartsContext): void {

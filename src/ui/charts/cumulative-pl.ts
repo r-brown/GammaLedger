@@ -19,8 +19,8 @@ interface CumulativePLContext {
   updateStrategyPerformanceChart(): void
   updateWinRateByStrategyChart(): void
   updateCommissionImpactChart(): void
-  renderTickerHeatmap(): void
   renderTickerPLChart(stats?: Stats): void
+  renderTickerPLTable(stats?: Stats): void
 }
 
 export function initializeCumulativePLControls(this: CumulativePLContext): void {
@@ -68,8 +68,8 @@ export function setCumulativePLRange(this: CumulativePLContext, range: string): 
     this.updateStrategyPerformanceChart();
     this.updateWinRateByStrategyChart();
     this.updateCommissionImpactChart();
-    this.renderTickerHeatmap();
     this.renderTickerPLChart();
+    this.renderTickerPLTable();
 }
 
 export function syncCumulativePLControls(this: CumulativePLContext): void {

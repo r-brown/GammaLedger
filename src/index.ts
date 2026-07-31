@@ -90,6 +90,7 @@ import * as groupedMetricsModule from './ui/dashboard/grouped-metrics.js';
 import * as concentrationModule from './ui/dashboard/concentration.js';
 import * as performanceTrendModule from './ui/charts/performance-trend.js';
 import { renderTickerPLChart } from './ui/charts/ticker-pl.js';
+import { renderTickerPLTable } from './ui/tables/ticker-pl-table.js';
 import * as lastActivityModule from './ui/charts/last-activity.js';
 import * as chartDestroyModule from './ui/charts/destroy.js';
 import * as highlightsModule from './ui/tables/highlights.js';
@@ -138,6 +139,7 @@ class GammaLedger {
     declare recentTradesGridApi: unknown
     declare assignedPositionsGridApi: unknown
     declare creditPlaybookGridApi: unknown
+    declare tickerPLGridApi: unknown
     declare tradesMergeInitialized: boolean
     declare tradesMergePanelOpen: boolean
     declare currentFilteredTrades: Record<string, unknown>[]
@@ -1024,6 +1026,7 @@ class GammaLedger {
 
         // Dashboard tab groups (analytics charts, positions tables)
         initDashboardTabs();
+        this.initTickerPLToggle();
 
         // Trades list filters
         ['filter-strategy', 'filter-status'].forEach(filterId => {
@@ -1293,9 +1296,40 @@ class GammaLedger {
 
     updateCommissionImpactChart() { return dashboardChartsModule.updateCommissionImpactChart.call(this); }
 
-    renderTickerHeatmap() { return dashboardChartsModule.renderTickerHeatmap.call(this); }
+    renderTickerPLChart(stats = null) { return renderTickerPLChart.call(this, stats ?? this.latestStats); }
 
-    renderTickerPLChart(stats) { return renderTickerPLChart.call(this, stats ?? this.latestStats); }
+    renderTickerPLTable(stats = null) { return renderTickerPLTable.call(this, stats ?? this.latestStats); }
+
+    /** Chart/Table switch inside the Ticker P&L analytics panel. Idempotent. */
+    initTickerPLToggle() {
+        const controls = document.getElementById('tickerpl-view-toggle');
+        if (!controls || controls.dataset.initialized === 'true') {
+            return;
+        }
+        controls.addEventListener('click', (event) => {
+            const target = event.target instanceof HTMLElement
+                ? event.target.closest<HTMLElement>('button[data-tickerpl-view]')
+                : null;
+            if (!target) {
+                return;
+            }
+            const view = target.dataset.tickerplView;
+            controls.querySelectorAll<HTMLElement>('button[data-tickerpl-view]').forEach(button => {
+                const active = button.dataset.tickerplView === view;
+                button.classList.toggle('is-active', active);
+                button.setAttribute('aria-pressed', String(active));
+            });
+            document.querySelectorAll<HTMLElement>('[data-tickerpl-panel]').forEach(panel => {
+                panel.hidden = panel.dataset.tickerplPanel !== view;
+            });
+            if (view === 'table') {
+                this.renderTickerPLTable();
+            } else {
+                this.renderTickerPLChart();
+            }
+        });
+        controls.dataset.initialized = 'true';
+    }
 
     updateTimeInTradeChart() { return dashboardChartsModule.updateTimeInTradeChart.call(this); }
 
