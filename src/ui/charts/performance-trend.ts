@@ -7,10 +7,17 @@ import {
     bucketLabel,
     enumerateBuckets,
     rollUpBuckets,
+    rollUpNestedBuckets,
     type Granularity
 } from '@calculations/time-buckets.js'
 
-interface TradeLike { status?: unknown; closedDate?: unknown; openedDate?: unknown; legs?: unknown }
+interface TradeLike {
+  ticker?: unknown
+  status?: unknown
+  closedDate?: unknown
+  openedDate?: unknown
+  legs?: unknown
+}
 
 interface LegRealizationLike {
   realizedByDate: Map<string, number>
@@ -34,6 +41,11 @@ interface PerformanceTrendContext {
 function toFiniteNumber(v: unknown, fallback = 0): number {
     const n = Number(v)
     return Number.isFinite(n) ? n : fallback
+}
+
+function escapeHtml(value: string): string {
+    return value.replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
 }
 
 // getCumulativePLRangeWindow builds LOCAL-time boundaries; enumerateBuckets and
@@ -61,14 +73,33 @@ function bucketKeyToDate(key: string): Date {
     return parsed
 }
 
-function computeRealizedByDate(this: PerformanceTrendContext): { realized: Map<string, number>; pending: Map<string, number> } {
+function computeRealizedByDate(this: PerformanceTrendContext): {
+    realized: Map<string, number>
+    pending: Map<string, number>
+    realizedByTicker: Map<string, Map<string, number>>
+} {
     const realized = new Map<string, number>()
     const pending = new Map<string, number>()
+    // Per-date, per-ticker attribution of the SAME amounts that land in
+    // `realized`. Written from the same loop iterations so the breakdown can
+    // never drift from the total it explains — there is no second pass that
+    // could apply a different realization gate.
+    const realizedByTicker = new Map<string, Map<string, number>>()
     const add = (map: Map<string, number>, key: string, amount: number) => {
         map.set(key, (map.get(key) ?? 0) + amount)
     }
+    const attribute = (date: string, ticker: string, amount: number) => {
+        let perTicker = realizedByTicker.get(date)
+        if (!perTicker) {
+            perTicker = new Map<string, number>()
+            realizedByTicker.set(date, perTicker)
+        }
+        perTicker.set(ticker, (perTicker.get(ticker) ?? 0) + amount)
+    }
 
     for (const trade of this.trades) {
+        const ticker = String(trade.ticker ?? '').trim().toUpperCase() || 'UNKNOWN'
+
         // Leg-level realization gate: only cash flows from terminated contract
         // groups count — open debit legs, in-flight covered calls, and active
         // rolling puts contribute nothing until they terminate.
@@ -76,6 +107,7 @@ function computeRealizedByDate(this: PerformanceTrendContext): { realized: Map<s
         let totalOptionCF = 0
         for (const [date, amount] of realizedByDate) {
             add(realized, date, amount)
+            attribute(date, ticker, amount)
             totalOptionCF += amount
         }
 
@@ -91,11 +123,14 @@ function computeRealizedByDate(this: PerformanceTrendContext): { realized: Map<s
             const stockPL = tradePL - totalOptionCF
             if (Math.abs(stockPL) > 0.01) {
                 const closedDate = String(trade.closedDate ?? trade.openedDate ?? '').slice(0, 10)
-                if (closedDate) add(realized, closedDate, stockPL)
+                if (closedDate) {
+                    add(realized, closedDate, stockPL)
+                    attribute(closedDate, ticker, stockPL)
+                }
             }
         }
     }
-    return { realized, pending }
+    return { realized, pending, realizedByTicker }
 }
 
 // Net option premium cash flow per date (broker-cash view): every CALL/PUT
@@ -127,12 +162,19 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
         : granularity === 'week' ? 'Weekly'
         : 'Monthly'
     const realizedSeriesName = `${grainLabel} P&L`
-    const { realized: realizedByDate, pending: pendingByDate } = computeRealizedByDate.call(this)
+    const {
+        realized: realizedByDate,
+        pending: pendingByDate,
+        realizedByTicker
+    } = computeRealizedByDate.call(this)
     const premiumByDate: Map<string, number> = computePremiumFlowByDate.call(this)
 
     const monthlyMap = rollUpBuckets(realizedByDate, granularity)
     const pendingMap = rollUpBuckets(pendingByDate, granularity)
     const premiumMap = rollUpBuckets(premiumByDate, granularity)
+    // Same key derivation as monthlyMap above, so each ticker's contribution
+    // lands in the bucket whose bar it is part of.
+    const tickerMap = rollUpNestedBuckets(realizedByTicker, granularity)
 
     // Apply range filter using the range window — always driven from monthlyMap,
     // never from computeCumulativePLSeries (which only processes Closed trades and
@@ -261,12 +303,49 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
+            // The per-ticker breakdown can outgrow the tooltip on a busy month,
+            // so the tooltip must be reachable by the mouse to be scrolled.
+            // `confine` keeps it inside the chart box and `hideDelay` leaves
+            // time to travel into it without the tooltip vanishing en route.
+            enterable: true,
+            confine: true,
+            hideDelay: 240,
+            extraCssText: 'max-height: 320px; overflow-y: auto; overflow-x: hidden;',
             formatter: (params: unknown) => {
-                const arr = Array.isArray(params) ? params as Array<{ axisValueLabel?: string; seriesName?: string; value?: unknown }> : []
+                const arr = Array.isArray(params) ? params as Array<{ axisValueLabel?: string; seriesName?: string; value?: unknown; dataIndex?: unknown }> : []
                 const rows = arr.filter(p => Number.isFinite(Number(p.value)))
                 const head = rows[0]?.axisValueLabel ?? arr[0]?.axisValueLabel ?? ''
                 const body = rows.map(p => `${p.seriesName}: ${fmt(p.value, 2)}`).join('<br>')
-                return head ? `${head}<br>${body}` : body
+                const summary = head ? `${head}<br>${body}` : body
+
+                // Attribute the realized bar only. Requiring that series to be
+                // present with a real number covers, in one gate, a bucket with
+                // no realized activity, a pending-only future bucket past
+                // `lastHistoryIdx`, and the user toggling the series off.
+                const realizedRow = arr.find(p =>
+                    p.seriesName === realizedSeriesName &&
+                    p.value !== null && p.value !== undefined &&
+                    Number.isFinite(Number(p.value)))
+                if (!realizedRow) return summary
+
+                const key = bucketKeys[Number(realizedRow.dataIndex)]
+                const contributions = key ? tickerMap.get(key) : undefined
+                if (!contributions) return summary
+
+                // Already sorted by descending magnitude by rollUpNestedBuckets.
+                // Sub-cent contributions are noise from rolled-up rounding.
+                const detail = [...contributions.entries()]
+                    .filter(([, amount]) => Math.abs(amount) >= 0.005)
+                    .map(([ticker, amount]) => {
+                        const tone = amount > 0 ? ' gl-tt__amt--pos' : amount < 0 ? ' gl-tt__amt--neg' : ''
+                        // Ticker is imported/user data reaching innerHTML.
+                        return `<div class="gl-tt__row"><span class="gl-tt__sym">${escapeHtml(ticker)}</span>`
+                            + `<span class="gl-tt__amt${tone}">${escapeHtml(fmt(amount, 2))}</span></div>`
+                    })
+                if (!detail.length) return summary
+
+                return `${summary}<div class="gl-tt__break">`
+                    + `<div class="gl-tt__head">Realized by ticker</div>${detail.join('')}</div>`
             }
         },
         legend: {

@@ -92,7 +92,6 @@ import * as performanceTrendModule from './ui/charts/performance-trend.js';
 import { renderTickerPLChart } from './ui/charts/ticker-pl.js';
 import { renderTickerPLTable } from './ui/tables/ticker-pl-table.js';
 import { scopeRealizedToRange } from './ui/tables/ticker-pl-range.js';
-import * as lastActivityModule from './ui/charts/last-activity.js';
 import * as chartDestroyModule from './ui/charts/destroy.js';
 import * as highlightsModule from './ui/tables/highlights.js';
 import * as tradesTableModule from './ui/tables/trades-table.js';
@@ -1598,8 +1597,6 @@ class GammaLedger {
     renderConcentration(stats) { return concentrationModule.renderConcentration.call(this, stats); }
 
     updatePerformanceTrendChart() { return performanceTrendModule.updatePerformanceTrendChart.call(this); }
-
-    renderLastActivity() { return lastActivityModule.renderLastActivity.call(this); }
 
     getWeekEndingFriday(dateInput) { return dates.getWeekEndingFriday(dateInput); }
 
