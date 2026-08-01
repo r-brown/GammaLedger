@@ -659,11 +659,17 @@ export function calculateAssignmentStats(this: StatsContext, assignedTrades: Enr
                 const premiumPerShare = Number(item.leg.premium);
                 const strikeFromLeg = Number(item.leg.strike);
 
+                // Stock legs carry the per-share purchase price in `premium`.
+                // `strike` is only a fallback for assignment/legacy legs that
+                // left premium at 0 (see PersistedLeg docs and
+                // calculateLegCashFlow). Reading strike first made a covered
+                // call written on outright-purchased shares report the call's
+                // strike as the share cost basis.
                 let pricePerShare = 0;
-                if (Number.isFinite(strikeFromLeg) && strikeFromLeg > 0) {
-                    pricePerShare = strikeFromLeg;
-                } else if (Number.isFinite(premiumPerShare) && premiumPerShare > 0) {
+                if (Number.isFinite(premiumPerShare) && premiumPerShare > 0) {
                     pricePerShare = premiumPerShare;
+                } else if (Number.isFinite(strikeFromLeg) && strikeFromLeg > 0) {
+                    pricePerShare = strikeFromLeg;
                 }
 
                 if (pricePerShare > 0 && legShares > 0) {

@@ -4,6 +4,7 @@
 import { TradeFormInputSchema, formatZodIssues } from '@core/schema'
 import { APP_CONFIG } from '@core/config'
 import { safeLocalStorage } from '@core/storage'
+import type { LegFormRowOptions } from '@trades/leg-form'
 
 type TradeRecord = Record<string, unknown>
 
@@ -30,7 +31,7 @@ interface ViewsContext {
   saveToStorage(): void
   markUnsavedChanges(): void
   filterTrades(): void
-  renderLegForms(legs: unknown[]): void
+  renderLegForms(legs: unknown[], options?: LegFormRowOptions): void
   buildStrategyTemplateLegs(strategy: string): unknown[] | null
   setTodayDate(): void
   updateTickerPreview(ticker: string): void
@@ -146,7 +147,7 @@ export function resetAddTradeForm(this: ViewsContext): void {
 
     this.currentEditingId = null;
     this.currentEditingTrade = null;
-    this.renderLegForms(templateLegs ?? []);
+    this.renderLegForms(templateLegs ?? [], { autoFee: true });
 
     this.setTodayDate();
     this.updateTickerPreview('');

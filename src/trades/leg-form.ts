@@ -7,10 +7,20 @@ function escapeHtml(s: string): string {
     return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c] as string))
 }
 
+/** Options for rows built by addLegFormRow / renderLegForms. */
+export interface LegFormRowOptions {
+    /**
+     * Seed the Fees field from the default-fee setting and keep rescaling it
+     * as Quantity changes, until the user edits the fee by hand. Defaults to
+     * true for blank rows; scaffolded rows (strategy templates, closing legs)
+     * must opt in, and rows rendered from a saved trade must not.
+     */
+    autoFee?: boolean
+}
+
 interface LegFormContext {
     currentView: string
     currentEditingId: string | null | undefined
-    defaultFeePerContract: number | null
     finnhub?: { apiKey?: string | null } | null
     normalizeLegType(type: unknown): string
     normalizeUnderlyingType(type: unknown, opts?: { fallback?: string }): string
@@ -22,12 +32,12 @@ interface LegFormContext {
     syncLegTypeFieldVisibility(row: HTMLElement): void
     applyUnderlyingTypeToLegMultipliers(opts?: { row?: HTMLElement | null; force?: boolean }): void
     getLegsContainer(): HTMLElement | null
-    addLegFormRow(leg?: Record<string, unknown> | null): HTMLElement | null
+    addLegFormRow(leg?: Record<string, unknown> | null, options?: LegFormRowOptions): HTMLElement | null
     removeLegFormRow(row: HTMLElement): void
     clearLegFormRows(): void
     updateLegRowNumbers(): void
     generateLegId(index?: number): string
-    renderLegForms(legs?: unknown[]): void
+    renderLegForms(legs?: unknown[], options?: LegFormRowOptions): void
     createClosingLegFromRow(sourceRow: HTMLElement): void
     collectLegsFromForm(): Record<string, unknown>[] | null
     autoFillUnderlyingPrice(input: HTMLInputElement | null): Promise<void>
@@ -204,7 +214,8 @@ export function applyUnderlyingTypeToLegMultipliers(
 
 export function renderLegForms(
     this: LegFormContext,
-    legs: unknown[] = []
+    legs: unknown[] = [],
+    options: LegFormRowOptions = {}
 ): void {
     const container = this.getLegsContainer();
     if (!container) {
@@ -214,9 +225,9 @@ export function renderLegForms(
     this.clearLegFormRows();
 
     if (Array.isArray(legs) && legs.length > 0) {
-        (legs as Record<string, unknown>[]).forEach(leg => this.addLegFormRow(leg));
+        (legs as Record<string, unknown>[]).forEach(leg => this.addLegFormRow(leg, options));
     } else {
-        this.addLegFormRow();
+        this.addLegFormRow(null, options);
     }
 
     this.updateLegRowNumbers();
@@ -288,7 +299,8 @@ export async function autoFillUnderlyingPricesForLegs(this: LegFormContext): Pro
 
 export function addLegFormRow(
     this: LegFormContext,
-    leg: Record<string, unknown> | null = null
+    leg: Record<string, unknown> | null = null,
+    options: LegFormRowOptions = {}
 ): HTMLElement | null {
     const container = this.getLegsContainer();
     if (!container) {
@@ -400,6 +412,20 @@ export function addLegFormRow(
         typeSelect.addEventListener('change', () => {
             this.applyUnderlyingTypeToLegMultipliers({ row, force: true });
             this.syncLegTypeFieldVisibility(row);
+            // Strike/expiration are hidden for share-like legs, so clear them on
+            // the switch too. A strike typed before the change would otherwise be
+            // persisted on a stock leg and later read as its per-share cost.
+            const switchedType = this.normalizeLegType(typeSelect.value || 'CALL');
+            if (switchedType === 'STOCK' || switchedType === 'CASH') {
+                const strikeField = row.querySelector('[data-leg-field="strike"]') as HTMLInputElement | null;
+                if (strikeField) {
+                    strikeField.value = '';
+                }
+                const expirationField = row.querySelector('[data-leg-field="expirationDate"]') as HTMLInputElement | null;
+                if (expirationField) {
+                    expirationField.value = '';
+                }
+            }
         });
     }
 
@@ -435,31 +461,47 @@ export function addLegFormRow(
     }
 
     const feesInput = row.querySelector('[data-leg-field="fees"]') as HTMLInputElement | null;
+
+    // Writes the default-fee-derived amount and tags the field as auto-managed
+    // so later quantity edits keep rescaling it.
+    const applyDefaultFee = (quantity: number): boolean => {
+        if (!feesInput) {
+            return false;
+        }
+        const defaultFee = this.getDefaultFeeForQuantity(Math.abs(quantity) || 1);
+        if (defaultFee === null) {
+            return false;
+        }
+        feesInput.value = String(defaultFee);
+        feesInput.dataset.feeAuto = 'true';
+        return true;
+    };
+
+    // Blank rows auto-fill by default; scaffolded rows opt in explicitly so
+    // legs rendered from a saved trade never have their recorded fees touched.
+    const autoFee = options.autoFee ?? !leg;
+
     if (feesInput) {
         if (Number.isFinite(Number(leg?.fees))) {
-            // Existing leg has a fee value
+            // Existing leg carries a recorded fee - keep it verbatim.
             feesInput.value = String(Number(leg!.fees));
-        } else if (!leg && this.defaultFeePerContract !== null) {
-            // New leg - apply default fee based on quantity (default quantity is 1)
-            const defaultFee = this.getDefaultFeeForQuantity(1);
-            if (defaultFee !== null) {
-                feesInput.value = String(defaultFee);
-            }
-        } else {
+        } else if (!(autoFee && applyDefaultFee(Math.abs(Number(quantityInput?.value) || 1)))) {
             feesInput.value = '';
         }
     }
 
-    // Update fees when quantity changes (only for new legs with default fee set)
-    if (!leg && this.defaultFeePerContract !== null) {
-        quantityInput?.addEventListener('change', () => {
-            const qty = Math.abs(Number(quantityInput!.value) || 1);
-            const defaultFee = this.getDefaultFeeForQuantity(qty);
-            if (defaultFee !== null && feesInput) {
-                feesInput.value = String(defaultFee);
-            }
-        });
-    }
+    // Rescale the fee as the contract count changes, but only while the field
+    // still holds an auto-generated amount - a manual edit opts the row out.
+    // Assigning .value programmatically fires no event, so this cannot loop.
+    feesInput?.addEventListener('input', () => {
+        delete feesInput.dataset.feeAuto;
+    });
+    quantityInput?.addEventListener('input', () => {
+        if (feesInput?.dataset.feeAuto !== 'true') {
+            return;
+        }
+        applyDefaultFee(Math.abs(Number(quantityInput.value) || 1));
+    });
 
     const multiplierInput = row.querySelector('[data-leg-field="multiplier"]') as HTMLInputElement | null;
     if (multiplierInput) {
@@ -589,11 +631,10 @@ export function createClosingLegFromRow(
     // Get today's date as the default execution date for the closing leg
     const today = new Date().toISOString().slice(0, 10);
 
-    // Calculate default fee based on quantity
     const qty = Math.abs(Number(quantity) || 1);
-    const defaultFee = this.getDefaultFeeForQuantity(qty);
 
-    // Build the closing leg data
+    // Build the closing leg data. `fees` is left off deliberately so the row
+    // seeds from the default-fee setting and keeps tracking the quantity field.
     const closingLeg: Record<string, unknown> = {
         orderType: closingOrderType,
         type: instrumentType,
@@ -602,12 +643,11 @@ export function createClosingLegFromRow(
         expirationDate: expirationDate,
         strike: strike,
         premium: '', // User must enter
-        fees: defaultFee !== null ? defaultFee : '',
         multiplier: multiplier
     };
 
     // Add the closing leg
-    const newRow = this.addLegFormRow(closingLeg);
+    const newRow = this.addLegFormRow(closingLeg, { autoFee: true });
 
     // Highlight the new leg briefly
     if (newRow) {
@@ -698,6 +738,14 @@ export function collectLegsFromForm(this: LegFormContext): Record<string, unknow
             ...parsedLeg,
             multiplier
         };
+
+        // Shares have no strike. When a per-share premium is present the hidden
+        // strike box is pure leftover, so drop it rather than let cost-basis math
+        // pick it up - `strike` stays the documented fallback when premium is 0.
+        if ((parsedLeg.type === 'STOCK' || parsedLeg.type === 'CASH')
+            && Number(parsedLeg.premium) > 0) {
+            legData.strike = null;
+        }
 
         legs.push(legData);
     });

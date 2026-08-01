@@ -760,9 +760,9 @@ class GammaLedger {
 
     applyUnderlyingTypeToLegMultipliers(options = {}) { return legFormModule.applyUnderlyingTypeToLegMultipliers.call(this, options); }
 
-    renderLegForms(legs = []) { return legFormModule.renderLegForms.call(this, legs); }
+    renderLegForms(legs = [], options = {}) { return legFormModule.renderLegForms.call(this, legs, options); }
 
-    addLegFormRow(leg = null) { return legFormModule.addLegFormRow.call(this, leg); }
+    addLegFormRow(leg = null, options = {}) { return legFormModule.addLegFormRow.call(this, leg, options); }
 
     async autoFillUnderlyingPrice(inputElement: HTMLInputElement | null) { return legFormModule.autoFillUnderlyingPrice.call(this, inputElement); }
 

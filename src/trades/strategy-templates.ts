@@ -2,18 +2,20 @@
 // leg templates for ⭐ strategies and the type-ahead option filter.
 // Uses the .call(this, …) delegation pattern.
 
+import type { LegFormRowOptions } from './leg-form.js'
+
 interface StrategyTemplatesContext {
     currentEditingId: unknown
     readonly currentDate: Date
-    defaultFeePerContract: number | null
-    getDefaultFeeForQuantity(quantity?: number): number | null
-    renderLegForms(legs?: unknown[]): void
+    renderLegForms(legs?: unknown[], options?: LegFormRowOptions): void
     getLegsContainer(): HTMLElement | null
 }
 
 /**
  * Leg scaffolds for the ⭐ strategies. Field names match what
- * addLegFormRow() reads (orderType, type, quantity, executionDate, fees).
+ * addLegFormRow() reads (orderType, type, quantity, executionDate).
+ * `fees` is intentionally omitted so the row seeds from the default-fee
+ * setting and keeps rescaling as the user edits Quantity.
  * Returns null for strategies without a template.
  */
 export function buildStrategyTemplateLegs(
@@ -28,17 +30,12 @@ export function buildStrategyTemplateLegs(
         return `${y}-${m}-${day}`
     })()
 
-    const fee = this.getDefaultFeeForQuantity(1)
-    const leg = (orderType: string, type: string): Record<string, unknown> => {
-        const scaffold: Record<string, unknown> = {
-            orderType,
-            type,
-            quantity: 1,
-            executionDate: today
-        }
-        if (fee !== null) scaffold.fees = fee
-        return scaffold
-    }
+    const leg = (orderType: string, type: string): Record<string, unknown> => ({
+        orderType,
+        type,
+        quantity: 1,
+        executionDate: today
+    })
 
     switch (strategy) {
         case 'Cash-Secured Put':
@@ -84,7 +81,7 @@ export function setupStrategyPicker(this: StrategyTemplatesContext): void {
         const template = buildStrategyTemplateLegs.call(this, select.value)
         if (!template) return
         if (!legsFormIsPristine.call(this)) return
-        this.renderLegForms(template)
+        this.renderLegForms(template, { autoFee: true })
     })
 
     const search = document.getElementById('strategy-search') as HTMLInputElement | null
