@@ -77,6 +77,38 @@ export function rollUpBuckets(
     return new Map([...out.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
 }
 
+/** Re-key a date-keyed map of per-category maps into coarser buckets, summing
+ *  collisions per category. Uses the same key derivation (and the same
+ *  drop-on-unparseable rule) as `rollUpBuckets`, so a category total always
+ *  lands in the same bucket as the money it contributed to.
+ *  Outer map sorted by key; inner maps sorted by descending magnitude. */
+export function rollUpNestedBuckets(
+    byDate: Map<string, Map<string, number>>,
+    granularity: Granularity
+): Map<string, Map<string, number>> {
+    const out = new Map<string, Map<string, number>>()
+    for (const [isoDate, categories] of byDate) {
+        const key = bucketKeyOf(isoDate, granularity)
+        if (!key) continue
+        let bucket = out.get(key)
+        if (!bucket) {
+            bucket = new Map<string, number>()
+            out.set(key, bucket)
+        }
+        for (const [category, amount] of categories) {
+            bucket.set(category, (bucket.get(category) ?? 0) + amount)
+        }
+    }
+    return new Map(
+        [...out.entries()]
+            .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+            .map(([key, bucket]) => [
+                key,
+                new Map([...bucket.entries()].sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])))
+            ])
+    )
+}
+
 /** Every bucket key in [start, end] inclusive, including empty ones, so the axis
  *  shows real elapsed time instead of compressing inactive periods.
  *  Weekends are omitted at day granularity — options do not settle on weekends.
