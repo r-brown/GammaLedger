@@ -66,26 +66,33 @@ export function renderPayoffChart(
             },
             splitLine: { lineStyle: { opacity: 0.3 } }
         },
-        visualMap: {
-            show: false,
-            dimension: 1,
-            pieces: [
-                { gt: 0, color: profitColor },
-                { lte: 0, color: lossColor }
-            ]
-        },
-        series: [{
-            type: 'line',
-            data: payoff.points,
-            showSymbol: false,
-            lineStyle: { width: 2 },
-            areaStyle: { opacity: 0.12 },
-            markLine: {
-                symbol: 'none',
-                silent: true,
-                data: markLines
+        series: [
+            {
+                name: 'Profit',
+                type: 'line',
+                // Zero-crossings are exact sample points (breakevens are in the
+                // grid), so the profit and loss segments meet at P&L = 0.
+                data: payoff.points.map(([price, pl]) => [price, pl >= 0 ? pl : null]),
+                showSymbol: false,
+                color: profitColor,
+                lineStyle: { width: 2 },
+                areaStyle: { opacity: 0.12 },
+                markLine: {
+                    symbol: 'none',
+                    silent: true,
+                    data: markLines
+                }
+            },
+            {
+                name: 'Loss',
+                type: 'line',
+                data: payoff.points.map(([price, pl]) => [price, pl <= 0 ? pl : null]),
+                showSymbol: false,
+                color: lossColor,
+                lineStyle: { width: 2 },
+                areaStyle: { opacity: 0.12 }
             }
-        }]
+        ]
     }
 
     this.charts[chartKey] = renderEChart(target, this.charts[chartKey], option, { notMerge: true })
