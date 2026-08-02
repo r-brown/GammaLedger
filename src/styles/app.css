@@ -202,7 +202,7 @@
 
 /* Dark mode colors */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-color-scheme="light"]) {
     /* RGB versions for opacity control (Dark Mode) */
     --color-gray-400-rgb: 119, 124, 124;
     --color-teal-300-rgb: 50, 184, 198;
@@ -377,8 +377,8 @@
   --color-bridge-total-fg: #DBEAFE;
 }
 
-/* Manual theme toggle (data-theme attribute) - covers app's own theme toggle */
-:root[data-theme="dark"] {
+/* Manual theme toggle (data-color-scheme attribute) - covers app's own theme toggle */
+[data-color-scheme="dark"] {
   /* Validated against dark surface #262828: PASS band (L 0.48-0.67) ·
      PASS chroma · PASS normal-vision dE 27.1 · PASS contrast >= 3:1.
      #199E70 is the dataviz reference palette's own dark aqua step. */
@@ -418,6 +418,32 @@
   --color-error-rgb: var(--color-red-500-rgb);
   --color-warning-rgb: var(--color-orange-500-rgb);
   --color-info-rgb: var(--color-slate-500-rgb);
+
+  /* Restore light values that the prefers-color-scheme:dark block overrides */
+  --color-bg-1: rgba(59, 130, 246, 0.08);
+  --color-bg-2: rgba(245, 158, 11, 0.08);
+  --color-bg-3: rgba(34, 197, 94, 0.08);
+  --color-bg-4: rgba(239, 68, 68, 0.08);
+  --color-bg-5: rgba(147, 51, 234, 0.08);
+  --color-bg-6: rgba(249, 115, 22, 0.08);
+  --color-bg-7: rgba(236, 72, 153, 0.08);
+  --color-bg-8: rgba(6, 182, 212, 0.08);
+  --color-risk-critical: #E24B4A;
+  --color-risk-high: #EF9F27;
+  --color-risk-caution: #FAC775;
+  --color-risk-ok: #5DCAA5;
+  --color-bridge-closed-bg: #E1F5EE;
+  --color-bridge-closed-fg: #085041;
+  --color-bridge-wheel-bg: #EEEDFE;
+  --color-bridge-wheel-fg: #3C3489;
+  --color-bridge-realized-bg: #1D9E75;
+  --color-bridge-realized-fg: #E1F5EE;
+  --color-bridge-unrealized-bg: #B5D4F4;
+  --color-bridge-unrealized-fg: #0C447C;
+  --color-bridge-total-bg: #378ADD;
+  --color-bridge-total-fg: #E6F1FB;
+  --color-ticker-pl-profit: #0F8A63;
+  --color-ticker-pl-loss: #C0392B;
 }
 
 /* Base styles */
@@ -640,7 +666,7 @@ select.form-control {
 
 /* Dark mode handling for selects */
 @media (prefers-color-scheme: dark) {
-  select.form-control {
+  :root:not([data-color-scheme="light"]) select.form-control {
     color-scheme: dark;
   }
 }
@@ -5856,21 +5882,37 @@ tr.position-itm.position-expiring-critical td,
 
 /* Dark mode adjustments */
 @media (prefers-color-scheme: dark) {
-  .formula-info-icon {
+  :root:not([data-color-scheme="light"]) .formula-info-icon {
     background: rgba(var(--color-teal-300-rgb), 0.15);
     color: var(--color-teal-300);
     border-color: rgba(var(--color-teal-300-rgb), 0.3);
   }
 
-  .formula-info-icon:hover {
+  :root:not([data-color-scheme="light"]) .formula-info-icon:hover {
     background: rgba(var(--color-teal-300-rgb), 0.25);
     border-color: rgba(var(--color-teal-300-rgb), 0.5);
   }
 
-  .formula-tooltip {
+  :root:not([data-color-scheme="light"]) .formula-tooltip {
     background: var(--color-charcoal-800);
     border-color: rgba(var(--color-teal-300-rgb), 0.2);
   }
+}
+
+[data-color-scheme="dark"] .formula-info-icon {
+  background: rgba(var(--color-teal-300-rgb), 0.15);
+  color: var(--color-teal-300);
+  border-color: rgba(var(--color-teal-300-rgb), 0.3);
+}
+
+[data-color-scheme="dark"] .formula-info-icon:hover {
+  background: rgba(var(--color-teal-300-rgb), 0.25);
+  border-color: rgba(var(--color-teal-300-rgb), 0.5);
+}
+
+[data-color-scheme="dark"] .formula-tooltip {
+  background: var(--color-charcoal-800);
+  border-color: rgba(var(--color-teal-300-rgb), 0.2);
 }
 
 /* Info icon styles for table headers */
@@ -6256,11 +6298,17 @@ tr.position-itm.position-expiring-critical td,
 }
 
 @media (prefers-color-scheme: dark) {
-  .premium-breakdown-popup {
+  :root:not([data-color-scheme="light"]) .premium-breakdown-popup {
     background: var(--color-charcoal-800);
     border-color: rgba(var(--color-teal-300-rgb), 0.15);
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4), 0 3px 10px rgba(0, 0, 0, 0.2);
   }
+}
+
+[data-color-scheme="dark"] .premium-breakdown-popup {
+  background: var(--color-charcoal-800);
+  border-color: rgba(var(--color-teal-300-rgb), 0.15);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4), 0 3px 10px rgba(0, 0, 0, 0.2);
 }
 
 /* Toast notifications --------------------------------------------------- */
@@ -6338,22 +6386,39 @@ tr.position-itm.position-expiring-critical td,
 }
 
 @media (prefers-color-scheme: dark) {
-  .info-icon {
+  :root:not([data-color-scheme="light"]) .info-icon {
     color: var(--color-teal-300);
     background: rgba(var(--color-teal-300-rgb), 0.15);
     border-color: rgba(var(--color-teal-300-rgb), 0.3);
   }
 
-  .info-icon:hover {
+  :root:not([data-color-scheme="light"]) .info-icon:hover {
     background: rgba(var(--color-teal-300-rgb), 0.25);
     border-color: rgba(var(--color-teal-300-rgb), 0.5);
   }
 
-  .info-tooltip-popup,
-  .has-tooltip::after {
+  :root:not([data-color-scheme="light"]) .info-tooltip-popup,
+  :root:not([data-color-scheme="light"]) .has-tooltip::after {
     background: var(--color-charcoal-800);
     border-color: rgba(var(--color-teal-300-rgb), 0.2);
   }
+}
+
+[data-color-scheme="dark"] .info-icon {
+  color: var(--color-teal-300);
+  background: rgba(var(--color-teal-300-rgb), 0.15);
+  border-color: rgba(var(--color-teal-300-rgb), 0.3);
+}
+
+[data-color-scheme="dark"] .info-icon:hover {
+  background: rgba(var(--color-teal-300-rgb), 0.25);
+  border-color: rgba(var(--color-teal-300-rgb), 0.5);
+}
+
+[data-color-scheme="dark"] .info-tooltip-popup,
+[data-color-scheme="dark"] .has-tooltip::after {
+  background: var(--color-charcoal-800);
+  border-color: rgba(var(--color-teal-300-rgb), 0.2);
 }
 
 /* --- Dashboard clarity widgets ---------------------------------------- */
@@ -6403,17 +6468,18 @@ button.mtm-chip.chip-warn { background: #FAEEDA; color: #633806; }
 button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96); outline-offset: 1px; }
 
 @media (prefers-color-scheme: dark) {
-  .metric-col .rv-pos  { color: #34D399; }
-  .metric-col .rv-neg  { color: #F87171; }
-  .metric-col .rv-warn { color: #FCD34D; }
-  .metric-col .rv-pur  { color: #A5B4FC; }
-  .chip-warn { background: rgba(251,191,36,0.15); color: #FCD34D; }
+  :root:not([data-color-scheme="light"]) .metric-col .rv-pos  { color: #34D399; }
+  :root:not([data-color-scheme="light"]) .metric-col .rv-neg  { color: #F87171; }
+  :root:not([data-color-scheme="light"]) .metric-col .rv-warn { color: #FCD34D; }
+  :root:not([data-color-scheme="light"]) .metric-col .rv-pur  { color: #A5B4FC; }
+  :root:not([data-color-scheme="light"]) .chip-warn { background: rgba(251,191,36,0.15); color: #FCD34D; }
 }
 [data-color-scheme="dark"] .metric-col .rv-pos  { color: #34D399; }
 [data-color-scheme="dark"] .metric-col .rv-neg  { color: #F87171; }
 [data-color-scheme="dark"] .metric-col .rv-warn { color: #FCD34D; }
 [data-color-scheme="dark"] .metric-col .rv-pur  { color: #A5B4FC; }
 [data-color-scheme="dark"] .chip-warn { background: rgba(251,191,36,0.15); color: #FCD34D; }
+[data-color-scheme="light"] .chip-warn { background: #FAEEDA; color: #633806; }
 
 /* Bridge widget (inside .metric-col) */
 .bridge-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; margin: 5px 0; }
@@ -6484,8 +6550,8 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 .gl-tt__amt--neg { color: #A32D2D; }
 
 @media (prefers-color-scheme: dark) {
-  .gl-tt__amt--pos { color: #34D399; }
-  .gl-tt__amt--neg { color: #F87171; }
+  :root:not([data-color-scheme="light"]) .gl-tt__amt--pos { color: #34D399; }
+  :root:not([data-color-scheme="light"]) .gl-tt__amt--neg { color: #F87171; }
 }
 [data-color-scheme="dark"] .gl-tt__amt--pos { color: #34D399; }
 [data-color-scheme="dark"] .gl-tt__amt--neg { color: #F87171; }

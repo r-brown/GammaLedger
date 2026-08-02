@@ -112,6 +112,8 @@ import * as announcementModule from './ui/announcement.js';
 import * as strategyTemplatesModule from './trades/strategy-templates.js';
 import * as filterChipsModule from './ui/filter-chips.js';
 import * as shortcutsModule from './ui/shortcuts.js';
+import * as themeModule from './ui/theme.js';
+import type { ThemePreference } from './ui/theme.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
 
 
@@ -489,6 +491,7 @@ class GammaLedger {
 
     async init() {
         try {
+            this.initializeThemeControls();
             this.loadStartupBehaviorFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.currentFileHandle = null;
@@ -1469,6 +1472,10 @@ class GammaLedger {
     getAICoachConsent() { return aiCoachConsentModule.getAICoachConsent.call(this); }
 
     setAICoachConsent(value) { return aiCoachConsentModule.setAICoachConsent.call(this, value); }
+
+    initializeThemeControls() { return themeModule.initializeThemeControls.call(this); }
+
+    setThemePreference(pref: ThemePreference) { return themeModule.setThemePreference.call(this, pref); }
 
     initializeSidebarToggle() { return sidebarModule.initializeSidebarToggle.call(this); }
 
