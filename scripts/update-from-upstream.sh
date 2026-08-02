@@ -43,8 +43,15 @@ if [ "$local_head" = "$remote_head" ]; then
     exit 0
 fi
 
+if git merge-base --is-ancestor "$remote_head" "$local_head"; then
+    echo "Local $BRANCH already contains $REMOTE_BRANCH."
+    echo "Local-only commits are ahead; no update is needed."
+    exit 0
+fi
+
 if ! git merge-base --is-ancestor "$local_head" "$remote_head"; then
     echo "Error: local $BRANCH and $REMOTE_BRANCH have diverged." >&2
+    echo "If you want to preserve the local commits, run: git rebase $REMOTE_BRANCH" >&2
     echo "Resolve the branch history manually; no changes were made." >&2
     exit 1
 fi
