@@ -28,7 +28,6 @@ interface DashboardChartsContext {
   openTradesFilteredByStrategy(strategy: unknown): void
   renderRatioGauge(opts: RatioGaugeOptions): void
   updatePerformanceTrendChart(): void
-  renderLastActivity(): void
   updateStrategyPerformanceChart(): void
   updateWinRateByStrategyChart(): void
   updatePerformanceGauges(): void
@@ -89,7 +88,6 @@ function toFiniteNumber(value: unknown, fallback = 0): number {
 
 export function updateAllCharts(this: DashboardChartsContext): void {
     this.updatePerformanceTrendChart();
-    this.renderLastActivity();
     this.updateStrategyPerformanceChart();
     this.updateWinRateByStrategyChart();
     this.updatePerformanceGauges();
