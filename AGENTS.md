@@ -16,7 +16,7 @@ File System Access API (save/load `.json` db files) requires Chrome/Edge.
 ## Structure
 `src/{core,utils,trades,calculations,ai,ui,imports,database,integrations,settings,types}`.
 `mcp/` — Python MCP server (uv-managed, **own nested git repo** — commit separately).
-`.claude/superpowers/{plans,specs}` — feature plans/specs (see Superpowers below).
+`.agents/superpowers/{plans,specs}` — feature plans/specs (see Superpowers below).
 
 ## Architecture
 - **Delegation pattern**: feature modules export plain functions typed `this: SomeContext`
@@ -60,7 +60,7 @@ on external JSON (use `isGeminiApiResponse()`/Zod) · no module-level mutable st
 ## Workflow
 New feature: extend a module in the right `src/` subdir → export `this`-typed functions →
 add a thin delegator in `GammaLedger` → `npm run typecheck`. Write a plan/spec in
-`.claude/superpowers/{plans,specs}/YYYY-MM-DD-{slug}.md` before any new feature or major
+`.agents/superpowers/{plans,specs}/YYYY-MM-DD-{slug}.md` before any new feature or major
 refactor.
 
 ## Knowledge Graph
