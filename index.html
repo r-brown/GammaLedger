@@ -529,6 +529,17 @@
                                 <h3>Trade Legs</h3>
                                 <p class="form-help-text">Add one or more legs to fully describe this trade. Each leg represents a single execution (including rolls).</p>
                             </div>
+                            <div class="leg-paste" id="leg-paste">
+                                <button type="button" class="btn btn--sm btn--secondary" id="leg-paste-toggle" aria-expanded="false" aria-controls="leg-paste-panel">📋 Paste fills…</button>
+                                <div class="leg-paste__panel is-hidden" id="leg-paste-panel">
+                                    <textarea id="leg-paste-input" class="form-control leg-paste__input" rows="6"
+                                        placeholder="Paste broker fills — IBKR Orders &amp; Trades text, fill strings like &quot;SPY 08/15/2026 450P STO 2 @ 1.25&quot;, or OCC symbols. One or many legs at once."></textarea>
+                                    <div class="leg-paste__actions">
+                                        <button type="button" class="btn btn--sm btn--primary" id="leg-paste-parse">Parse fills</button>
+                                        <span class="form-help-text">Split fills are consolidated automatically. Bot/Sold map to BTO/STO — flip closing legs to BTC/STC after parsing.</span>
+                                    </div>
+                                </div>
+                            </div>
                             <div id="trade-legs-container" class="trade-legs-container" aria-live="polite"></div>
                             <div class="form-row trade-legs-actions">
                                 <button type="button" class="btn btn--secondary" id="add-leg-button">Add Leg</button>

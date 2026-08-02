@@ -1,6 +1,7 @@
 // src/ui/tables/trade-breakdown-column.ts
 
 import type { PersistedLeg } from '../../types/leg.js'
+import { renderRollChains } from './roll-chain.js'
 
 export interface BreakdownRow {
   num: number
@@ -149,6 +150,8 @@ export function renderTradeBreakdownColumn(
   if (ticker || strategy) parts.push(`${ticker}${ticker && strategy ? ' ' : ''}${strategy}`.trim())
   meta.appendChild(txt(parts.join(' · ')))
   container.appendChild(meta)
+
+  renderRollChains(container, trade.legs, formatters)
 
   if (rows.length === 0) {
     const empty = el('div', 'pdp-tb-empty')

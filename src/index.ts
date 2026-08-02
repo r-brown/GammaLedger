@@ -102,6 +102,7 @@ import * as aiChatModule from './ai/chat.js';
 import * as dashboardModule from './ui/dashboard.js';
 import * as persistModule from './database/persist.js';
 import * as legFormModule from './trades/leg-form.js';
+import * as legPasteModule from './trades/leg-paste.js';
 import * as activePositionsModule from './ui/tables/active-positions.js';
 import * as recentTradesModule from './ui/tables/recent-trades.js';
 import * as assignedPositionsModule from './ui/tables/assigned-positions.js';
@@ -780,6 +781,8 @@ class GammaLedger {
 
     collectLegsFromForm() { return legFormModule.collectLegsFromForm.call(this); }
 
+    initializeLegPasteControls() { return legPasteModule.initializeLegPasteControls.call(this); }
+
     // Trade normalization -------------------------------------------------
 
     getPrimaryLeg(trade = {}) { return legsModule.getPrimaryLeg.call(this, trade); }
@@ -985,6 +988,8 @@ class GammaLedger {
         if (addLegButton) {
             addLegButton.addEventListener('click', () => this.addLegFormRow());
         }
+
+        this.initializeLegPasteControls();
 
         const cancelTradeButton = document.getElementById('cancel-trade');
         if (cancelTradeButton) {

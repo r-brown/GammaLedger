@@ -2960,6 +2960,75 @@ select.form-control {
   margin-bottom: var(--space-6);
 }
 
+/* Roll-chain timeline (trade breakdown column) */
+.pdp-rc-block {
+  margin-bottom: var(--space-8);
+  padding: var(--space-6) var(--space-8);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base, 8px);
+  background: var(--color-background);
+}
+.pdp-rc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  margin-bottom: var(--space-6);
+}
+.pdp-rc-title {
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: capitalize;
+}
+.pdp-rc-net { font-size: 11px; font-weight: var(--font-weight-bold); }
+.pdp-rc-rail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.pdp-rc-node {
+  flex: 0 0 auto;
+  min-width: 76px;
+  padding: var(--space-4) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base, 8px);
+  background: var(--color-surface);
+  text-align: center;
+}
+.pdp-rc-node--open { border-color: var(--color-primary, #21808d); }
+.pdp-rc-strike { font-size: 12px; font-weight: var(--font-weight-bold); }
+.pdp-rc-exp { font-size: 10px; color: var(--color-text-secondary); margin: 1px 0 3px; }
+.pdp-rc-cashline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.pdp-rc-cash { font-size: 10px; font-weight: var(--font-weight-semibold); }
+.pdp-rc-cash--pos { color: var(--color-success, #16a34a); }
+.pdp-rc-cash--neg { color: var(--color-error, #dc2626); }
+.pdp-rc-net.pdp-rc-cash--pos { color: var(--color-success, #16a34a); }
+.pdp-rc-net.pdp-rc-cash--neg { color: var(--color-error, #dc2626); }
+.pdp-rc-badge {
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 999px;
+  color: var(--color-primary, #21808d);
+  border: 1px solid var(--color-primary, #21808d);
+}
+.pdp-rc-arrow {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.pdp-rc-arrow--roll { color: var(--color-primary, #21808d); font-weight: var(--font-weight-bold); }
+
 .pdp-tb-table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -4111,6 +4180,30 @@ select.form-control {
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
+}
+
+/* Paste-to-parse fills block (Add Trade → Trade Legs) */
+.leg-paste {
+  margin-bottom: var(--space-12);
+}
+.leg-paste__panel {
+  margin-top: var(--space-8);
+  padding: var(--space-12);
+  border: 1px dashed rgba(var(--color-teal-500-rgb), 0.45);
+  border-radius: var(--radius-base);
+  background-color: var(--color-background);
+}
+.leg-paste__input {
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-sm);
+  resize: vertical;
+}
+.leg-paste__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  margin-top: var(--space-8);
+  flex-wrap: wrap;
 }
 
 .trade-legs-actions {
