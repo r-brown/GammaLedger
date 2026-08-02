@@ -12,7 +12,7 @@ type TradeRecord = Record<string, unknown>
 export interface NeedsAttentionContext extends GreeksStripContext {
   inferOptionFlavor(trade: TradeRecord): 'call' | 'put' | null
   parseDecimal(value: unknown, fallback: unknown, opts?: Record<string, unknown>): number | null
-  openTradesFilteredByTicker(ticker: unknown): void
+  showTickerPage(ticker: unknown): void
   createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
   getStrategyDisplayName(strategy: string): string
 }
@@ -89,8 +89,8 @@ export function renderNeedsAttention(this: NeedsAttentionContext, stats: Stats):
 
         row.appendChild(this.createTickerElement(item.ticker, 'ticker-pill', {
             behavior: 'filter',
-            onClick: (value: unknown) => this.openTradesFilteredByTicker(value),
-            title: `View ${item.ticker} trades`
+            onClick: (value: unknown) => this.showTickerPage(value),
+            title: `Open ${item.ticker} ticker page`
         }))
 
         const strategy = document.createElement('span')
@@ -109,7 +109,7 @@ export function renderNeedsAttention(this: NeedsAttentionContext, stats: Stats):
         review.textContent = 'Review'
         review.addEventListener('click', () => {
             const trade = tradeById.get(item.tradeId)
-            this.openTradesFilteredByTicker(trade?.ticker ?? item.ticker)
+            this.showTickerPage(trade?.ticker ?? item.ticker)
         })
         row.appendChild(review)
 

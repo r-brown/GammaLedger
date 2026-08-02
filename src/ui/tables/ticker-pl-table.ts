@@ -15,6 +15,7 @@ interface TickerPLTableContext {
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
   openTradesFilteredByTicker(ticker: unknown): void
+  showTickerPage(ticker: unknown): void
 }
 
 function signedClass(value: number): string {
@@ -118,8 +119,8 @@ export function renderTickerPLTable(this: TickerPLTableContext, stats: Stats): v
                 }
                 return this.createTickerElement(params.value, 'ticker-pill', {
                     behavior: 'filter',
-                    onClick: (value: unknown) => this.openTradesFilteredByTicker(value),
-                    title: `View all trades for ${String(params.value)}`,
+                    onClick: (value: unknown) => this.showTickerPage(value),
+                    title: `Open ${String(params.value)} ticker page`,
                 })
             },
         },

@@ -39,6 +39,8 @@ interface ViewsContext {
   normalizeTradeStatusInput(value: unknown): string | null
   normalizeUnderlyingType(value: unknown, opts: { fallback: string }): string
   showView(viewName: string): void
+  renderTickerPage(): void
+  tickerPage?: { ticker: string | null }
 }
 
 export function showView(this: ViewsContext, viewName: string): void {
@@ -71,7 +73,8 @@ export function showView(this: ViewsContext, viewName: string): void {
         'trades-list': 'All Trades',
         import: 'Import Trades',
         settings: 'Settings',
-        'credit-playbook': 'Credit Playbook (beta)'
+        'credit-playbook': 'Credit Playbook (beta)',
+        'ticker-page': this.tickerPage?.ticker ? `${this.tickerPage.ticker} — Ticker` : 'Ticker'
     };
     const titleText = titles[viewName] || 'GammaLedger';
     const titleEl = document.getElementById('page-title');
@@ -99,6 +102,9 @@ export function showView(this: ViewsContext, viewName: string): void {
         case 'credit-playbook':
             this.initializeCreditPlaybookControls();
             this.updateCreditPlaybookView();
+            break;
+        case 'ticker-page':
+            this.renderTickerPage();
             break;
         case 'settings': {
             const lastStatus = (this.finnhub?.lastStatus as Record<string, unknown> | undefined);

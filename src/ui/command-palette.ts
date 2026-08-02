@@ -14,6 +14,7 @@ interface PaletteContext {
   exportToCSV(): void
   toggleAIChat(force?: boolean | null): void
   openTradesFilteredByTicker(ticker: unknown): void
+  showTickerPage(ticker: unknown): void
   updateTickerPreview(ticker: string): void
   setThemePreference(pref: ThemePreference): void
 }
@@ -78,6 +79,10 @@ function buildCommands(this: PaletteContext, query: string): PaletteCommand[] {
     // known ticker that matches.
     const tickers = q ? all.filter(t => t.includes(q)) : open
     tickers.slice(0, 8).forEach((ticker) => {
+        commands.push({
+            label: `${ticker}: ticker page`, hint: 'ticker', keywords: `ticker page ${ticker}`,
+            run: () => this.showTickerPage(ticker)
+        })
         commands.push({
             label: `${ticker}: view trades`, hint: 'ticker', keywords: `ticker ${ticker}`,
             run: () => this.openTradesFilteredByTicker(ticker)
