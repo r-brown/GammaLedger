@@ -6672,3 +6672,71 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
   background: transparent;
   padding-left: 0;
 }
+
+/* Needs-attention panel --------------------------------------------------- */
+
+.needs-attention {
+  padding: var(--space-12) var(--space-16);
+  margin-bottom: var(--space-12);
+}
+
+.needs-attention__title {
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-md);
+}
+
+.needs-attention__clear {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.needs-attention__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.needs-attention__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-md);
+  background: var(--color-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.needs-attention__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.needs-attention__item--critical .needs-attention__dot { background: var(--color-risk-critical); }
+.needs-attention__item--warning .needs-attention__dot { background: var(--color-risk-high); }
+.needs-attention__item--notice .needs-attention__dot { background: var(--color-risk-caution); }
+
+.needs-attention__strategy {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.needs-attention__reasons {
+  flex: 1;
+  min-width: 0;
+}
+
+.needs-attention__action {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .needs-attention__item { flex-wrap: wrap; }
+  .needs-attention__reasons { flex-basis: 100%; }
+}

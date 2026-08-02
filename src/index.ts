@@ -89,6 +89,7 @@ import * as bridgeModule from './ui/dashboard/bridge.js';
 import * as groupedMetricsModule from './ui/dashboard/grouped-metrics.js';
 import * as concentrationModule from './ui/dashboard/concentration.js';
 import * as greeksStripModule from './ui/dashboard/greeks-strip.js';
+import * as needsAttentionModule from './ui/dashboard/needs-attention.js';
 import * as performanceTrendModule from './ui/charts/performance-trend.js';
 import { renderTickerPLChart } from './ui/charts/ticker-pl.js';
 import { renderTickerPLTable } from './ui/tables/ticker-pl-table.js';
@@ -1617,6 +1618,8 @@ class GammaLedger {
     renderConcentration(stats) { return concentrationModule.renderConcentration.call(this, stats); }
 
     renderGreeksStrip(stats) { return greeksStripModule.renderGreeksStrip.call(this, stats); }
+
+    renderNeedsAttention(stats) { return needsAttentionModule.renderNeedsAttention.call(this, stats); }
 
     updatePerformanceTrendChart() { return performanceTrendModule.updatePerformanceTrendChart.call(this); }
 
