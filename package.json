@@ -49,5 +49,8 @@
     "echarts": "^6.1.0",
     "marked": "^18.0.3",
     "zod": "^4.4.3"
+  },
+  "allowScripts": {
+    "fsevents@2.3.3": true
   }
 }
