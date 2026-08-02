@@ -114,6 +114,7 @@ import * as filterChipsModule from './ui/filter-chips.js';
 import * as shortcutsModule from './ui/shortcuts.js';
 import * as themeModule from './ui/theme.js';
 import type { ThemePreference } from './ui/theme.js';
+import * as commandPaletteModule from './ui/command-palette.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
 
 
@@ -193,6 +194,7 @@ class GammaLedger {
     declare assignedPositionsStatusFilter: string
     declare defaultFeePerContract: number | null
     declare sidebarState: Record<string, unknown>
+    declare commandPaletteIndex: number
     declare shareCard: { root: HTMLElement | null; card: HTMLElement | null; button: HTMLElement | null; chartCanvas: HTMLCanvasElement | null; chartTitle: HTMLElement | null; rangeLabel: HTMLElement | null; chart: { destroy(): void } | null; metrics: Record<string, unknown>; timestamp: unknown; exportSize: number }
 
     constructor() {
@@ -399,6 +401,8 @@ class GammaLedger {
             collapsed: false,
             preferredCollapsed: false
         };
+
+        this.commandPaletteIndex = 0;
 
         this.shareCard = {
             root: null,
@@ -1032,6 +1036,9 @@ class GammaLedger {
         // Global keyboard shortcuts + `?` help dialog
         this.setupKeyboardShortcuts();
 
+        // ⌘K command palette
+        this.setupCommandPalette();
+
         // Dashboard tab groups (analytics charts, positions tables)
         initDashboardTabs();
         this.initTickerPLToggle();
@@ -1643,6 +1650,10 @@ class GammaLedger {
     renderFilterChips() { return filterChipsModule.renderFilterChips.call(this); }
 
     setupKeyboardShortcuts() { return shortcutsModule.setupKeyboardShortcuts.call(this); }
+
+    setupCommandPalette() { return commandPaletteModule.setupCommandPalette.call(this); }
+
+    toggleCommandPalette(force?: boolean) { return commandPaletteModule.toggleCommandPalette.call(this, force); }
 
     filterTrades() { return filtersModule.filterTrades.call(this); }
 

@@ -972,6 +972,18 @@
         </div>
     </div>
 
+    <dialog id="command-palette" class="command-palette" aria-label="Command palette">
+        <div class="command-palette__panel">
+            <input type="text" id="command-palette-input" class="command-palette__input"
+                placeholder="Type a command or ticker…" autocomplete="off" spellcheck="false"
+                role="combobox" aria-expanded="true" aria-controls="command-palette-list">
+            <ul id="command-palette-list" class="command-palette__list" role="listbox"></ul>
+            <div class="command-palette__foot">
+                <span><kbd>↑↓</kbd> navigate</span><span><kbd>↵</kbd> run</span><span><kbd>esc</kbd> close</span>
+            </div>
+        </div>
+    </dialog>
+
     <dialog id="shortcut-help" class="shortcut-help" aria-labelledby="shortcut-help-title">
         <div class="shortcut-help__panel">
             <h2 id="shortcut-help-title" class="shortcut-help__title">Keyboard shortcuts</h2>
@@ -983,6 +995,7 @@
                     <tr><td><kbd>g</kbd> then <kbd>t</kbd></td><td>Go to All Trades</td></tr>
                     <tr><td><kbd>g</kbd> then <kbd>i</kbd></td><td>Go to Import</td></tr>
                     <tr><td><kbd>g</kbd> then <kbd>s</kbd></td><td>Go to Settings</td></tr>
+                    <tr><td><kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd></td><td>Command palette</td></tr>
                     <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
                     <tr><td><kbd>Esc</kbd></td><td>Close dialogs, popovers, and the AI chat panel</td></tr>
                 </tbody>

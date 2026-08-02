@@ -6557,3 +6557,82 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 [data-color-scheme="dark"] .gl-tt__amt--neg { color: #F87171; }
 [data-color-scheme="light"] .gl-tt__amt--pos { color: #0F6E56; }
 [data-color-scheme="light"] .gl-tt__amt--neg { color: #A32D2D; }
+
+/* Command palette (⌘K) --------------------------------------------------- */
+
+.command-palette {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 0;
+  width: min(560px, 92vw);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg);
+  top: 12vh;
+  margin: 0 auto;
+}
+
+.command-palette::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.command-palette__panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.command-palette__input {
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-lg);
+  padding: var(--space-12) var(--space-16);
+  outline: none;
+}
+
+.command-palette__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-6);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.command-palette__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-md);
+}
+
+.command-palette__item.is-active {
+  background: var(--color-secondary);
+}
+
+.command-palette__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-secondary);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+}
+
+.command-palette__empty {
+  padding: var(--space-12);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.command-palette__foot {
+  display: flex;
+  gap: var(--space-16);
+  padding: var(--space-8) var(--space-16);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
