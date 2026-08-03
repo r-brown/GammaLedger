@@ -13,7 +13,9 @@ import {
   createPositionDetailPanelRenderer,
   type PositionDetailPanelContext
 } from './position-detail-panel.js'
+import { computeAttentionByTrade, type AttentionItem } from '../attention.js'
 import type { EarningsCalendarEntry } from '../../types/integrations.js'
+import type { NormalizedLeg } from '@types-gl/leg'
 
 type TradeRecord = Record<string, unknown>
 
@@ -32,7 +34,11 @@ interface ActivePositionsContext extends PositionDetailPanelContext {
   parseDecimal(value: unknown, fallback: unknown, opts?: { allowNegative?: boolean }): number | null
   createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
   openTradesFilteredByTicker(ticker: unknown): void
-  summarizeLegs(legs: unknown[]): Record<string, unknown>
+  summarizeLegs(legs: unknown[]): { legs: NormalizedLeg[] }
+  getLegOrderDescriptor(leg: Record<string, unknown>): { action: string; side: string }
+  getCachedQuote(ticker: string): { value?: { c?: number } } | null
+  inferOptionFlavor(trade: TradeRecord): 'call' | 'put' | null
+  currentDate: Date
   getActiveStrikeForDisplay(summary: Record<string, unknown>): number | null
   formatNumber(value: unknown, opts?: Record<string, unknown>): string | null
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
@@ -45,6 +51,29 @@ interface ActivePositionsContext extends PositionDetailPanelContext {
   earningsMap: Map<string, EarningsCalendarEntry>
   getEarningsDateForTrade(trade: TradeRecord): EarningsCalendarEntry | null
   formatDate(d: string): string
+}
+
+const SEVERITY_DOT_CLASS: Record<number, string> = {
+    3: 'position-status-dot--critical',
+    2: 'position-status-dot--warning',
+    1: 'position-status-dot--notice'
+}
+
+function createAttentionCell(
+    attentionMap: Map<string, AttentionItem>,
+    params: ICellRendererParams<TradeRecord>
+): HTMLElement {
+    const cell = document.createElement('div');
+    cell.className = 'position-status-cell';
+    const tradeId = params.data ? String(params.data.id ?? '') : '';
+    const item = tradeId ? attentionMap.get(tradeId) : undefined;
+    if (item) {
+        const dot = document.createElement('span');
+        dot.className = `position-status-dot ${SEVERITY_DOT_CLASS[item.severity]}`;
+        dot.title = item.reasons.join(' · ');
+        cell.appendChild(dot);
+    }
+    return cell;
 }
 
 function activeRowKey(trade: TradeRecord): string {
@@ -266,9 +295,21 @@ function createQuoteRenderer(
 
 function buildActivePositionsColumnDefs(
     this: ActivePositionsContext,
-    quoteEntries: Map<string, Record<string, unknown>>
+    quoteEntries: Map<string, Record<string, unknown>>,
+    attentionMap: Map<string, AttentionItem>
 ): ColDef<TradeRecord>[] {
     return [
+        {
+            colId: 'attention',
+            headerName: '',
+            headerTooltip: 'Needs attention today — hover a dot for details',
+            width: 34,
+            pinned: 'left',
+            sortable: false,
+            filter: false,
+            resizable: false,
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => createAttentionCell(attentionMap, params)
+        },
         {
             colId: 'ticker',
             field: 'ticker',
@@ -379,12 +420,13 @@ function buildActivePositionsColumnDefs(
 function createActivePositionsGridOptions(
     this: ActivePositionsContext,
     rows: TradeRecord[],
-    quoteEntries: Map<string, Record<string, unknown>>
+    quoteEntries: Map<string, Record<string, unknown>>,
+    attentionMap: Map<string, AttentionItem>
 ): GridOptions<TradeRecord> {
     const context = this;
     return {
         rowData: buildRowsWithDetail(rows, this.expandedTradeId),
-        columnDefs: buildActivePositionsColumnDefs.call(this, quoteEntries),
+        columnDefs: buildActivePositionsColumnDefs.call(this, quoteEntries, attentionMap),
         defaultColDef: {
             sortable: true,
             resizable: true,
@@ -458,15 +500,16 @@ export function updateActivePositionsTable(
     this.expandedTradeId = null;
     this.activePositionsTrades = sortedTrades;
 
+    const attentionMap = computeAttentionByTrade.call(this, sortedTrades);
     const quoteEntries = new Map<string, Record<string, unknown>>();
     if (!this.activePositionsGridApi || this.activePositionsGridApi.isDestroyed()) {
         this.activePositionsGridApi = createGrid(
             gridRoot,
-            createActivePositionsGridOptions.call(this, sortedTrades, quoteEntries)
+            createActivePositionsGridOptions.call(this, sortedTrades, quoteEntries, attentionMap)
         );
     } else {
         this.activePositionsGridApi.updateGridOptions({
-            columnDefs: buildActivePositionsColumnDefs.call(this, quoteEntries),
+            columnDefs: buildActivePositionsColumnDefs.call(this, quoteEntries, attentionMap),
             rowData: buildRowsWithDetail(sortedTrades, this.expandedTradeId)
         });
     }
