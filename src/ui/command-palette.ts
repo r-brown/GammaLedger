@@ -145,7 +145,8 @@ function renderResults(this: PaletteContext): void {
         item.className = 'command-palette__item'
         item.setAttribute('role', 'option')
         item.setAttribute('aria-selected', String(index === this.commandPaletteIndex))
-        if (index === this.commandPaletteIndex) item.classList.add('is-active')
+        const isActive = index === this.commandPaletteIndex
+        if (isActive) item.classList.add('is-active')
 
         const label = document.createElement('span')
         label.textContent = command.label
@@ -168,6 +169,7 @@ function renderResults(this: PaletteContext): void {
             }
         })
         list.appendChild(item)
+        if (isActive) item.scrollIntoView({ block: 'nearest' })
     })
 
     if (!matches.length) {
@@ -228,6 +230,15 @@ export function setupCommandPalette(this: PaletteContext): void {
         } else if (event.key === 'Enter') {
             event.preventDefault()
             runSelected.call(this)
+        } else if (event.key === 'Escape') {
+            // Close explicitly rather than relying on the native <dialog>
+            // cancel-on-Escape default, which is inconsistent once other
+            // global keydown listeners (shortcuts.ts) are in the mix.
+            // stopPropagation keeps this from also falling through to
+            // shortcuts.ts's own Escape handling once the dialog is gone.
+            event.preventDefault()
+            event.stopPropagation()
+            dialog.close()
         }
     })
 
