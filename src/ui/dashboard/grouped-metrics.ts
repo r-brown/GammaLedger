@@ -212,13 +212,13 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
       <div class="metric-col">
         <h3>Risk &amp; Exposure</h3>
         <div class="row"><span class="rl">Collateral at risk</span><span class="rv-warn">${fmt$(stats.collateralAtRisk)}</span></div>
+        ${buildGreeksRows.call(this, stats)}
         <div class="row"><span class="rl">Open premium pending&nbsp;${infoPopoverIcon('Net cash already booked on open option contracts (credits minus debits, net of fees), grouped by expiration.\nCollected but NOT yet earned: it becomes Realized only when each contract expires worthless or is closed — buybacks and rolls will reduce it. This is the premium a CSP/wheel seller is still working for.')}</span><span class="${valClass(stats.pendingPremium, 'rv-pur')}">${fmt$(stats.pendingPremium)}</span></div>
         ${anomalies > 0 ? `<div class="row"><span class="rl">&#x26A0; Leg data anomalies&nbsp;${infoPopoverIcon(`The leg-realization engine found ${String(stats.realizationAnomalies.orphanCloseGroups)} option group(s) with more closing than opening contracts and ${String(stats.realizationAnomalies.closeAfterExpiryLegs)} closing leg(s) executed after their recorded expiration date.\nThis usually means a buyback leg carries the wrong expiration — its debit is realized immediately while the matching credit stays pending, understating realized P&L.\nFix: edit the trade and correct the closing leg's expiration date.`)}</span><span class="rv-neg">${escapeHtml(stats.realizationAnomalies.tickers.join(', '))}</span></div>` : ''}
         <div class="row"><span class="rl">Top-ticker concentration</span><span class="${topOver ? 'rv-warn' : 'rv'}">${topLabel}${topOver ? ` <span class="chip chip-warn">&#x26A0; limit ${APP_CONFIG.RISK_RULES.TARGET_SHARE_PCT}%</span>` : ''}</span></div>
         <div class="row"><span class="rl">Active positions</span><span class="rv">${escapeHtml(String(stats.activePositions))} / ${APP_CONFIG.RISK_RULES.TARGET_POSITION_COUNT}</span></div>
         <div class="row"><span class="rl">Assigned (Wheel/PMCC)</span><span class="rv">${escapeHtml(String(stats.assignedPositions))} positions</span></div>
         <div class="row"><span class="rl">Max drawdown&nbsp;${infoPopoverIcon('Largest peak-to-trough dip of the cumulative realized P&L curve, in trade-close order.\nThe percentage is relative to the P&L peak — not to account equity, since GammaLedger does not track account size.')}</span><span class="${stats.maxDrawdown > 20 ? 'rv-neg' : 'rv-warn'}">${fmt$(stats.maxDrawdownDollars)} (${stats.maxDrawdown.toFixed(1)}% of peak)</span></div>
-        ${buildGreeksRows.call(this, stats)}
       </div>
       <div class="metric-col">
         <h3>Trade Quality</h3>
