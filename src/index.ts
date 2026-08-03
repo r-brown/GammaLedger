@@ -88,7 +88,6 @@ import type { Granularity } from '@calculations/time-buckets.js';
 import * as bridgeModule from './ui/dashboard/bridge.js';
 import * as groupedMetricsModule from './ui/dashboard/grouped-metrics.js';
 import * as concentrationModule from './ui/dashboard/concentration.js';
-import * as greeksStripModule from './ui/dashboard/greeks-strip.js';
 import * as needsAttentionModule from './ui/dashboard/needs-attention.js';
 import * as performanceTrendModule from './ui/charts/performance-trend.js';
 import { renderTickerPLChart } from './ui/charts/ticker-pl.js';
@@ -1626,8 +1625,6 @@ class GammaLedger {
     renderGroupedMetrics(stats) { return groupedMetricsModule.renderGroupedMetrics.call(this, stats); }
 
     renderConcentration(stats) { return concentrationModule.renderConcentration.call(this, stats); }
-
-    renderGreeksStrip(stats) { return greeksStripModule.renderGreeksStrip.call(this, stats); }
 
     renderNeedsAttention(stats) { return needsAttentionModule.renderNeedsAttention.call(this, stats); }
 

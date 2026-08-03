@@ -6,7 +6,7 @@ import { computeNetOpenLegs, filterUnexpired, type NetOpenLeg } from '@calculati
 import { computePayoff } from '@calculations/payoff.js'
 import { renderEChart } from './charts/echarts.js'
 import { renderPayoffChart } from './charts/payoff.js'
-import { tradeToNetLegInputs, resolveSpotForTrade, todayISO, type GreeksStripContext } from './dashboard/greeks-strip.js'
+import { tradeToNetLegInputs, resolveSpotForTrade, todayISO, type PortfolioGreeksContext } from './dashboard/portfolio-greeks.js'
 import { createGrid, type ColDef, type GridApi } from './tables/ag-grid.js'
 import type { Stats, TickerPLRow } from '@types-gl/stats'
 
@@ -17,7 +17,7 @@ export interface TickerPageState {
   selectedTradeId: string
 }
 
-export interface TickerPageContext extends GreeksStripContext {
+export interface TickerPageContext extends PortfolioGreeksContext {
   trades: TradeRecord[]
   charts: Record<string, unknown>
   latestStats: Stats | null

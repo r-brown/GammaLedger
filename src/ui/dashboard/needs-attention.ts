@@ -4,12 +4,12 @@
 
 import { evaluateAttention, type AttentionInput } from '@calculations/attention.js'
 import { computeNetOpenLegs, filterUnexpired } from '@calculations/net-open-legs.js'
-import { resolveSpotForTrade, tradeToNetLegInputs, todayISO, type GreeksStripContext } from './greeks-strip.js'
+import { resolveSpotForTrade, tradeToNetLegInputs, todayISO, type PortfolioGreeksContext } from './portfolio-greeks.js'
 import type { Stats } from '@types-gl/stats'
 
 type TradeRecord = Record<string, unknown>
 
-export interface NeedsAttentionContext extends GreeksStripContext {
+export interface NeedsAttentionContext extends PortfolioGreeksContext {
   inferOptionFlavor(trade: TradeRecord): 'call' | 'put' | null
   parseDecimal(value: unknown, fallback: unknown, opts?: Record<string, unknown>): number | null
   showTickerPage(ticker: unknown): void

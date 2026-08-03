@@ -3,10 +3,17 @@
 
 import { APP_CONFIG } from '@core/config.js'
 import { infoPopoverIcon, infoPopoverTrigger, setupInfoPopovers } from './popover.js'
+import { computePortfolioGreeks, type PortfolioGreeksSummary } from './portfolio-greeks.js'
+import { DEFAULT_SIGMA, DEFAULT_RISK_FREE_RATE } from '@calculations/black-scholes.js'
 import type { EnrichedTrade } from '@types-gl/trade'
+import type { NormalizedLeg } from '@types-gl/leg'
 import type { Stats } from '@types-gl/stats'
 
 interface GroupedMetricsContext {
+  currentDate: Date
+  summarizeLegs(legs: unknown[]): { legs: NormalizedLeg[] }
+  getLegOrderDescriptor(leg: Record<string, unknown>): { action: string; side: string }
+  getCachedQuote(ticker: string): { value?: { c?: number } } | null
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
 }
@@ -153,6 +160,31 @@ function plClass(v: number): string {
     return 'rv'
 }
 
+function greeksAssumptions(summary: PortfolioGreeksSummary): string {
+    const total = summary.pricedTrades + summary.unpricedTrades
+    const coverage = summary.unpricedTrades > 0
+        ? `${summary.pricedTrades}/${total} priced`
+        : `${summary.pricedTrades} priced`
+    const excluded = summary.unpricedTrades > 0
+        ? `\nExcluded (no price available): ${summary.unpricedTickers.join(', ')}`
+        : ''
+    return `Rough Black-Scholes estimate — no live option quotes.\nAssumes a flat implied volatility of ${(DEFAULT_SIGMA * 100).toFixed(0)}% and a ${(DEFAULT_RISK_FREE_RATE * 100).toFixed(0)}% risk-free rate for every contract; spot comes from the Finnhub quote cache or the trade's last underlying-price snapshot.\nΘ/day is the estimated dollar time-decay earned (positive) or paid (negative) per calendar day. Net Δ is in share-equivalents. Vega is $ per 1-point IV move.\nCoverage: ${coverage}.${excluded}`
+}
+
+function buildGreeksRows(this: GroupedMetricsContext, stats: Stats): string {
+    const summary = computePortfolioGreeks.call(this, stats)
+    if (!summary) return ''
+
+    const fmt$ = (v: number) => escapeHtml(this.formatCurrency(v))
+    const deltaText = escapeHtml(this.formatNumber(summary.netDelta, { decimals: 1 }) ?? '0')
+
+    return `
+      <div class="row"><span class="rl">Net &Delta;&nbsp;${infoPopoverIcon(greeksAssumptions(summary))}</span><span class="rv">${deltaText}</span></div>
+      <div class="row"><span class="rl">&Theta; / day</span><span class="${plClass(summary.thetaPerDay)}">${fmt$(summary.thetaPerDay)}</span></div>
+      <div class="row"><span class="rl">Vega (per 1pt IV)</span><span class="rv">${fmt$(summary.vega)}</span></div>
+    `
+}
+
 export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats): void {
     const root = document.getElementById('grouped-metrics')
     if (!root) return
@@ -186,6 +218,7 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
         <div class="row"><span class="rl">Active positions</span><span class="rv">${escapeHtml(String(stats.activePositions))} / ${APP_CONFIG.RISK_RULES.TARGET_POSITION_COUNT}</span></div>
         <div class="row"><span class="rl">Assigned (Wheel/PMCC)</span><span class="rv">${escapeHtml(String(stats.assignedPositions))} positions</span></div>
         <div class="row"><span class="rl">Max drawdown&nbsp;${infoPopoverIcon('Largest peak-to-trough dip of the cumulative realized P&L curve, in trade-close order.\nThe percentage is relative to the P&L peak — not to account equity, since GammaLedger does not track account size.')}</span><span class="${stats.maxDrawdown > 20 ? 'rv-neg' : 'rv-warn'}">${fmt$(stats.maxDrawdownDollars)} (${stats.maxDrawdown.toFixed(1)}% of peak)</span></div>
+        ${buildGreeksRows.call(this, stats)}
       </div>
       <div class="metric-col">
         <h3>Trade Quality</h3>

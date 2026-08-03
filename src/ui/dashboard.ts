@@ -23,7 +23,6 @@ interface DashboardContext {
   calculateAdvancedStats(): Stats
   renderGroupedMetrics(stats: Stats): void
   renderConcentration(stats: Stats): void
-  renderGreeksStrip(stats: Stats): void
   renderNeedsAttention(stats: Stats): void
 }
 
@@ -40,7 +39,6 @@ export function updateDashboard(this: DashboardContext): void {
     this.renderGroupedMetrics(stats)
     this.renderConcentration(stats)
     this.renderNeedsAttention(stats)
-    this.renderGreeksStrip(stats)
 
     this.updateActivePositionsTable(openTradesList)
     this.updateRecentTradesTable(closedTradesList, stats.activePositions)
