@@ -83,7 +83,7 @@ interface RawFill extends ParsedPastedLeg {
 
 const IBKR_CONTRACT_RE = /^([A-Z]{1,6})\s+([A-Za-z]{3}\d{1,2}'\d{2})\s+(\d+(?:\.\d+)?)\s+(Put|Call)$/
 const IBKR_ACTION_RE = /^(Bot|Sold)\s+(\d+)\s+@\s+(\d+(?:\.\d+)?)(?:\s+on\s+\S+)?$/
-const IBKR_DATETIME_RE = /^(\d{1,2}\/\d{1,2}\/\d{4}),?\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?$/
+const IBKR_DATETIME_RE = /^(?:(\d{1,2}\/\d{1,2}\/\d{4}),?\s+)?\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?$/i
 const IBKR_FEES_RE = /^Fees:\s*(-?\d+(?:\.\d+)?)$/i
 
 function parseIbkrBlocks(lines: string[]): RawFill[] {
@@ -120,7 +120,12 @@ function parseIbkrBlocks(lines: string[]): RawFill[] {
 
     const datetime = line.match(IBKR_DATETIME_RE)
     if (datetime && !current.executionDate) {
-      current.executionDate = parseLooseDate(datetime[1])
+      if (datetime[1]) {
+        current.executionDate = parseLooseDate(datetime[1])
+      } else {
+        const today = new Date()
+        current.executionDate = toIsoDate(today.getFullYear(), today.getMonth() + 1, today.getDate())
+      }
       continue
     }
 
