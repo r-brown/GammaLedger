@@ -45,7 +45,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/app/gammaledger-logo-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/app/gammaledger-logo-32x32.png">
     <link rel="icon" type="image/png" sizes="64x64" href="/app/gammaledger-logo-64x64.png">
-  <script type="module" crossorigin src="/app/assets/index-CHa98Gcq.js"></script>
+  <script type="module" crossorigin src="/app/assets/index-D2SurB6P.js"></script>
   <link rel="stylesheet" crossorigin href="/app/assets/index-CJ9mhMoi.css">
 </head>
 
@@ -302,36 +302,20 @@
                 <!-- Analytics (tabbed — one chart visible at a time) -->
                 <section class="card dashboard-analytics gl-tabs" data-tab-group>
                     <div class="gl-tabs__list" role="tablist" aria-label="Analytics charts">
-                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="analytics-strategy">Strategy</button>
+                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="analytics-montecarlo">Monte Carlo</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-tickerpl">Ticker P&amp;L</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-strategy">Strategy</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-winrate">Win rate</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-fees">Fees</button>
-                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-tickerpl">Ticker P&amp;L</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-time">Time in trade</button>
-                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-montecarlo">Monte Carlo</button>
                     </div>
-                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="analytics-strategy">
+                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="analytics-montecarlo">
                         <div class="chart-container">
-                            <h3>Strategy Performance</h3>
+                            <h3>Monte Carlo Projection (60 Days)</h3>
                             <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                                <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
+                                <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-winrate" hidden>
-                        <div class="chart-container">
-                            <h3>Win Rate by Strategy</h3>
-                            <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
-                                <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-fees" hidden>
-                        <div class="chart-container">
-                            <h3>Commission Impact</h3>
-                            <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
-                                <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
-                            </div>
-                            <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
+                            <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
                         </div>
                     </div>
                     <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-tickerpl" hidden>
@@ -356,21 +340,37 @@
                             </div>
                         </div>
                     </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-strategy" hidden>
+                        <div class="chart-container">
+                            <h3>Strategy Performance</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                                <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-winrate" hidden>
+                        <div class="chart-container">
+                            <h3>Win Rate by Strategy</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
+                                <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-fees" hidden>
+                        <div class="chart-container">
+                            <h3>Commission Impact</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
+                                <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
+                            </div>
+                            <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
+                        </div>
+                    </div>
                     <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-time" hidden>
                         <div class="chart-container">
                             <h3>Time in Trade (Average Days)</h3>
                             <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
                                 <div id="timeInTradeChart" class="echarts-chart" role="img" aria-label="Average time in trade chart"></div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-montecarlo" hidden>
-                        <div class="chart-container">
-                            <h3>Monte Carlo Projection (60 Days)</h3>
-                            <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                                <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
-                            </div>
-                            <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
                         </div>
                     </div>
                 </section>
