@@ -303,7 +303,12 @@ function buildActivePositionsColumnDefs(
             colId: 'attention',
             headerName: '',
             headerTooltip: 'Needs attention today — hover a dot for details',
-            width: 34,
+            width: 8,
+            // The grid's defaultColDef sets minWidth: 90 for every column;
+            // without this override that floor wins and `width` above is
+            // silently ignored, so the column renders far wider than set.
+            minWidth: 8,
+            maxWidth: 8,
             pinned: 'left',
             sortable: false,
             filter: false,
@@ -330,8 +335,8 @@ function buildActivePositionsColumnDefs(
             colId: 'strategy',
             field: 'strategy',
             headerName: 'Strategy',
-            minWidth: 180,
-            flex: 1,
+            minWidth: 105,
+            flex: 0.7,
             valueFormatter: params => (params.value as string) || '—',
             filter: 'agTextColumnFilter'
         },

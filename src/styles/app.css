@@ -32,6 +32,10 @@
   --color-brand-purple-hover: #6d1ae0;
   --color-brand-purple-active: #4a00a5;
   --color-brand-purple-rgb: 89, 0, 198;
+  /* Always light — the violet brand background never changes with theme,
+     unlike --color-btn-primary-text (which tracks --color-primary and does
+     need to flip, e.g. for .filter-chip.is-active on light-mode teal). */
+  --color-brand-purple-text: var(--color-cream-50);
 
   /* RGB versions for opacity control */
   --color-brown-600-rgb: 94, 82, 64;
@@ -568,7 +572,7 @@ pre code {
 
 .btn--primary {
   background: var(--color-brand-purple);
-  color: var(--color-btn-primary-text);
+  color: var(--color-brand-purple-text);
   box-shadow: 0 8px 18px rgba(var(--color-brand-purple-rgb), 0.18);
 }
 
@@ -1134,7 +1138,7 @@ select.form-control {
 
 .nav-item.active {
   background-color: var(--color-brand-purple);
-  color: var(--color-btn-primary-text);
+  color: var(--color-brand-purple-text);
   box-shadow: 0 6px 14px rgba(var(--color-brand-purple-rgb), 0.22);
 }
 
@@ -2649,7 +2653,7 @@ select.form-control {
 .ai-consent-modal__close:hover,
 .ai-consent-modal__close:focus-visible {
   background: rgba(var(--color-brand-purple-rgb), 0.18);
-  color: var(--color-btn-primary-text);
+  color: var(--color-brand-purple-text);
   box-shadow: 0 8px 20px rgba(var(--color-brand-purple-rgb), 0.22);
   outline: none;
 }
@@ -3383,7 +3387,7 @@ select.form-control {
 
 .ai-chat__toggle {
   background-color: var(--color-brand-purple);
-  color: var(--color-btn-primary-text);
+  color: var(--color-brand-purple-text);
   border: none;
   border-radius: var(--radius-full);
   padding: var(--space-12) var(--space-16);
@@ -3642,7 +3646,7 @@ select.form-control {
 
 .ai-chat__message--user .ai-chat__bubble {
   background-color: var(--color-brand-purple);
-  color: var(--color-btn-primary-text);
+  color: var(--color-brand-purple-text);
   border-top-right-radius: var(--space-4);
 }
 
