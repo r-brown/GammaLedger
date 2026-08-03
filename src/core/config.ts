@@ -32,6 +32,7 @@ interface AppConfigShape {
         readonly DISCLAIMER: string
         readonly AI_COACH_CONSENT: string
         readonly SIDEBAR_COLLAPSED: string
+        readonly THEME: string
         readonly LOCAL_DATABASE: string
         readonly DEFAULT_FEE_PER_CONTRACT: string
         readonly FINNHUB_RATE_LIMIT: string
@@ -71,6 +72,7 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         DISCLAIMER: 'GammaLedgerDisclaimerAcceptedAt',
         AI_COACH_CONSENT: 'GammaLedgerAICoachConsentAt',
         SIDEBAR_COLLAPSED: 'GammaLedgerSidebarCollapsed',
+        THEME: 'GammaLedgerTheme',
         LOCAL_DATABASE: 'GammaLedgerLocalDatabase',
         DEFAULT_FEE_PER_CONTRACT: 'GammaLedgerDefaultFeePerContract',
         FINNHUB_RATE_LIMIT: 'GammaLedgerFinnhubRateLimit',

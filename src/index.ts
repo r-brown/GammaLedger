@@ -102,6 +102,7 @@ import * as aiChatModule from './ai/chat.js';
 import * as dashboardModule from './ui/dashboard.js';
 import * as persistModule from './database/persist.js';
 import * as legFormModule from './trades/leg-form.js';
+import * as legPasteModule from './trades/leg-paste.js';
 import * as activePositionsModule from './ui/tables/active-positions.js';
 import * as recentTradesModule from './ui/tables/recent-trades.js';
 import * as assignedPositionsModule from './ui/tables/assigned-positions.js';
@@ -111,6 +112,11 @@ import * as announcementModule from './ui/announcement.js';
 import * as strategyTemplatesModule from './trades/strategy-templates.js';
 import * as filterChipsModule from './ui/filter-chips.js';
 import * as shortcutsModule from './ui/shortcuts.js';
+import * as themeModule from './ui/theme.js';
+import type { ThemePreference } from './ui/theme.js';
+import * as commandPaletteModule from './ui/command-palette.js';
+import * as tickerPageModule from './ui/ticker-page.js';
+import type { TickerPageState } from './ui/ticker-page.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
 
 
@@ -190,6 +196,9 @@ class GammaLedger {
     declare assignedPositionsStatusFilter: string
     declare defaultFeePerContract: number | null
     declare sidebarState: Record<string, unknown>
+    declare commandPaletteIndex: number
+    declare tickerPage: TickerPageState
+    declare tickerPageGridApi: unknown
     declare shareCard: { root: HTMLElement | null; card: HTMLElement | null; button: HTMLElement | null; chartCanvas: HTMLCanvasElement | null; chartTitle: HTMLElement | null; rangeLabel: HTMLElement | null; chart: { destroy(): void } | null; metrics: Record<string, unknown>; timestamp: unknown; exportSize: number }
 
     constructor() {
@@ -397,6 +406,10 @@ class GammaLedger {
             preferredCollapsed: false
         };
 
+        this.commandPaletteIndex = 0;
+        this.tickerPage = { ticker: null, selectedTradeId: 'all' };
+        this.tickerPageGridApi = null;
+
         this.shareCard = {
             root: null,
             card: null,
@@ -488,6 +501,7 @@ class GammaLedger {
 
     async init() {
         try {
+            this.initializeThemeControls();
             this.loadStartupBehaviorFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.currentFileHandle = null;
@@ -780,6 +794,8 @@ class GammaLedger {
 
     collectLegsFromForm() { return legFormModule.collectLegsFromForm.call(this); }
 
+    initializeLegPasteControls() { return legPasteModule.initializeLegPasteControls.call(this); }
+
     // Trade normalization -------------------------------------------------
 
     getPrimaryLeg(trade = {}) { return legsModule.getPrimaryLeg.call(this, trade); }
@@ -986,6 +1002,8 @@ class GammaLedger {
             addLegButton.addEventListener('click', () => this.addLegFormRow());
         }
 
+        this.initializeLegPasteControls();
+
         const cancelTradeButton = document.getElementById('cancel-trade');
         if (cancelTradeButton) {
             cancelTradeButton.addEventListener('click', (event) => {
@@ -1023,6 +1041,9 @@ class GammaLedger {
 
         // Global keyboard shortcuts + `?` help dialog
         this.setupKeyboardShortcuts();
+
+        // ⌘K command palette
+        this.setupCommandPalette();
 
         // Dashboard tab groups (analytics charts, positions tables)
         initDashboardTabs();
@@ -1189,6 +1210,10 @@ class GammaLedger {
     setTodayDate() { return viewsModule.setTodayDate.call(this); }
 
     showView(viewName) { return viewsModule.showView.call(this, viewName); }
+
+    showTickerPage(ticker) { return tickerPageModule.showTickerPage.call(this, ticker); }
+
+    renderTickerPage() { return tickerPageModule.renderTickerPage.call(this); }
 
     resetAddTradeForm() { return viewsModule.resetAddTradeForm.call(this); }
 
@@ -1465,6 +1490,10 @@ class GammaLedger {
 
     setAICoachConsent(value) { return aiCoachConsentModule.setAICoachConsent.call(this, value); }
 
+    initializeThemeControls() { return themeModule.initializeThemeControls.call(this); }
+
+    setThemePreference(pref: ThemePreference) { return themeModule.setThemePreference.call(this, pref); }
+
     initializeSidebarToggle() { return sidebarModule.initializeSidebarToggle.call(this); }
 
     getSidebarCollapsedPreference() { return sidebarModule.getSidebarCollapsedPreference.call(this); }
@@ -1631,6 +1660,10 @@ class GammaLedger {
     renderFilterChips() { return filterChipsModule.renderFilterChips.call(this); }
 
     setupKeyboardShortcuts() { return shortcutsModule.setupKeyboardShortcuts.call(this); }
+
+    setupCommandPalette() { return commandPaletteModule.setupCommandPalette.call(this); }
+
+    toggleCommandPalette(force?: boolean) { return commandPaletteModule.toggleCommandPalette.call(this, force); }
 
     filterTrades() { return filtersModule.filterTrades.call(this); }
 
