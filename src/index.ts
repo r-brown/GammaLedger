@@ -389,6 +389,8 @@ class GammaLedger {
             'Short Put Condor',
             'Short Straddle',
             'Short Strangle',
+            'Straddle',
+            'Strangle',
             'Strap',
             'Strip',
             'Synthetic Long Stock',
