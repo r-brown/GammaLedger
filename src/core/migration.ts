@@ -140,7 +140,9 @@ export function normalizeWatchlist(raw: unknown): WatchlistEntry[] {
             ticker,
             rating: Number.isInteger(ratingNumber) && ratingNumber >= 1 && ratingNumber <= 5 ? ratingNumber : null,
             notes: typeof record.notes === 'string' ? record.notes : '',
-            addedDate: typeof record.addedDate === 'string' ? record.addedDate : ''
+            addedDate: typeof record.addedDate === 'string' ? record.addedDate : '',
+            targetPrice: typeof record.targetPrice === 'number' ? record.targetPrice : null,
+            targetDirection: record.targetDirection === 'up' || record.targetDirection === 'down' ? record.targetDirection : undefined
         });
     }
     return entries;

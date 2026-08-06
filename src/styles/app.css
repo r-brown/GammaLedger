@@ -202,6 +202,15 @@
        label on every bar. Do not remove either. */
   --color-ticker-pl-profit: #0F8A63;
   --color-ticker-pl-loss: #C0392B;
+  --brand-name-color: var(--color-brand-purple);
+  --brand-name-shadow: 0 2px 6px rgba(var(--color-brand-purple-rgb), 0.35);
+  /* Brand-purple text/links on a surface that flips dark — #5900c6 on the
+     dark surface is ~1.7:1 contrast, well under WCAG AA. This variant swaps
+     to a lighter violet in dark mode so it stays legible; use it instead of
+     --color-brand-purple for any text/icon sitting directly on
+     --color-surface or --color-background. */
+  --color-brand-purple-fg: var(--color-brand-purple);
+  --color-brand-purple-fg-hover: var(--color-brand-purple-hover);
 }
 
 /* Dark mode colors */
@@ -291,6 +300,15 @@
        #199E70 is the dataviz reference palette's own dark aqua step. */
     --color-ticker-pl-profit: #199E70;
     --color-ticker-pl-loss: #E2695C;
+    --brand-name-color: var(--color-white);
+    --brand-name-shadow: none;
+    --color-brand-purple-fg: #A78BFA;
+    --color-brand-purple-fg-hover: #C4B5FD;
+  }
+
+  :root:not([data-color-scheme="light"]) .sidebar-brand__logo,
+  :root:not([data-color-scheme="light"]) .nav-icon--logo img {
+    content: url("/gammaledger-logo-white-32x32.png");
   }
 }
 
@@ -379,6 +397,15 @@
   --color-bridge-unrealized-fg: #BFDBFE;
   --color-bridge-total-bg: #3B82F6;
   --color-bridge-total-fg: #DBEAFE;
+  --brand-name-color: var(--color-white);
+  --brand-name-shadow: none;
+  --color-brand-purple-fg: #A78BFA;
+  --color-brand-purple-fg-hover: #C4B5FD;
+}
+
+[data-color-scheme="dark"] .sidebar-brand__logo,
+[data-color-scheme="dark"] .nav-icon--logo img {
+  content: url("/gammaledger-logo-white-32x32.png");
 }
 
 /* Manual theme toggle (data-color-scheme attribute) - covers app's own theme toggle */
@@ -448,6 +475,10 @@
   --color-bridge-total-fg: #E6F1FB;
   --color-ticker-pl-profit: #0F8A63;
   --color-ticker-pl-loss: #C0392B;
+  --brand-name-color: var(--color-brand-purple);
+  --brand-name-shadow: 0 2px 6px rgba(var(--color-brand-purple-rgb), 0.35);
+  --color-brand-purple-fg: var(--color-brand-purple);
+  --color-brand-purple-fg-hover: var(--color-brand-purple-hover);
 }
 
 /* Base styles */
@@ -741,29 +772,9 @@ select.form-control {
   border: 1px solid rgba(var(--color-success-rgb, 33, 128, 141), var(--status-border-opacity));
 }
 
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-12);
-}
-
-.sidebar-brand__logo {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  display: block;
-}
-
-.sidebar-brand__name {
-  margin: 0;
-  font-size: var(--font-size-xl);
-  font-weight: 700;
-  color: #5900c6;
-}
-
 .sidebar-brand__version {
   font-size: var(--font-size-sm);
-  color: var(--color-brand-purple);
+  color: var(--color-brand-purple-fg);
   font-weight: 400;
   padding-left: 38px;
   letter-spacing: 0.02em;
@@ -1043,8 +1054,8 @@ select.form-control {
 
 .sidebar-toggle:hover,
 .sidebar-toggle:focus-visible {
-  border-color: var(--color-brand-purple);
-  color: var(--color-brand-purple);
+  border-color: var(--color-brand-purple-fg);
+  color: var(--color-brand-purple-fg);
   background-color: rgba(var(--color-brand-purple-rgb), 0.12);
   outline: none;
 }
@@ -1089,8 +1100,8 @@ select.form-control {
   margin: 0;
   font-size: var(--font-size-2xl);
   font-weight: 700;
-  color: #5900c6;
-  text-shadow: 0 2px 6px rgba(89, 0, 198, 0.35);
+  color: var(--brand-name-color, var(--color-brand-purple));
+  text-shadow: var(--brand-name-shadow, none);
   white-space: nowrap;
   line-height: 1.1;
 }
@@ -1099,7 +1110,7 @@ select.form-control {
   display: flex;
   align-items: center;
   gap: var(--space-12);
-  color: var(--color-brand-purple);
+  color: var(--color-brand-purple-fg);
   text-decoration: none;
   font-size: var(--font-size-base);
   transition: color var(--duration-fast) var(--ease-standard);
@@ -1107,7 +1118,7 @@ select.form-control {
 
 .sidebar-link:hover,
 .sidebar-link:focus-visible {
-  color: var(--color-brand-purple);
+  color: var(--color-brand-purple-fg);
   text-decoration: underline;
   outline: none;
 }
@@ -1181,7 +1192,7 @@ select.form-control {
   content: 'GL';
   font-size: var(--font-size-lg);
   letter-spacing: 0.08em;
-  color: #5900c6;
+  color: var(--brand-name-color, var(--color-brand-purple));
 }
 
 .app-container.is-sidebar-collapsed .sidebar-toggle::before {
@@ -1314,7 +1325,7 @@ select.form-control {
 .market-status--open    .market-status__dot { background: var(--color-success); }
 .market-status--open    .market-status__label { color: var(--color-success); }
 .market-status--premarket .market-status__dot { background: var(--color-brand-purple); }
-.market-status--premarket .market-status__label { color: var(--color-brand-purple); }
+.market-status--premarket .market-status__label { color: var(--color-brand-purple-fg); }
 .market-status--unavailable .market-status__label { cursor: pointer; text-decoration: underline; }
 
 .file-management__sep {
@@ -1373,8 +1384,8 @@ select.form-control {
 
 .icon-button:hover,
 .icon-button:focus-visible {
-  border-color: var(--color-brand-purple);
-  color: var(--color-brand-purple);
+  border-color: var(--color-brand-purple-fg);
+  color: var(--color-brand-purple-fg);
   background-color: rgba(var(--color-brand-purple-rgb), 0.12);
   outline: none;
 }
@@ -2639,7 +2650,7 @@ select.form-control {
   border-radius: var(--radius-full);
   border: none;
   background: rgba(var(--color-brand-purple-rgb), 0.08);
-  color: var(--color-brand-purple);
+  color: var(--color-brand-purple-fg);
   font-size: var(--font-size-xl);
   cursor: pointer;
   display: inline-flex;
@@ -2653,7 +2664,7 @@ select.form-control {
 .ai-consent-modal__close:hover,
 .ai-consent-modal__close:focus-visible {
   background: rgba(var(--color-brand-purple-rgb), 0.18);
-  color: var(--color-brand-purple-text);
+  color: var(--color-brand-purple-fg-hover);
   box-shadow: 0 8px 20px rgba(var(--color-brand-purple-rgb), 0.22);
   outline: none;
 }
@@ -2666,7 +2677,7 @@ select.form-control {
   margin: 0 0 var(--space-8);
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
-  color: var(--color-brand-purple);
+  color: var(--color-brand-purple-fg);
   letter-spacing: var(--letter-spacing-tight);
 }
 
@@ -3493,7 +3504,7 @@ select.form-control {
 
 .ai-chat__header h3 {
   margin: 0;
-  color: var(--color-brand-purple);
+  color: var(--color-brand-purple-fg);
   font-size: var(--font-size-base);
 }
 
@@ -3504,14 +3515,14 @@ select.form-control {
 }
 
 .ai-chat__settings-link {
-  color: var(--color-brand-purple);
+  color: var(--color-brand-purple-fg);
   font-weight: var(--font-weight-medium);
   text-decoration: underline;
 }
 
 .ai-chat__settings-link:hover,
 .ai-chat__settings-link:focus {
-  color: var(--color-brand-purple-hover);
+  color: var(--color-brand-purple-fg-hover);
 }
 
 .ai-chat__close {
@@ -3599,7 +3610,7 @@ select.form-control {
 }
 
 .ai-chat__bubble a {
-  color: var(--color-brand-purple);
+  color: var(--color-brand-purple-fg);
   text-decoration: underline;
 }
 
@@ -3738,7 +3749,7 @@ select.form-control {
 
 .ai-chat__quick-btn:hover {
   background-color: rgba(var(--color-brand-purple-rgb), 0.16);
-  color: var(--color-brand-purple);
+  color: var(--color-brand-purple-fg);
   transform: translateY(-1px);
 }
 

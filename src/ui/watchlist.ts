@@ -100,7 +100,7 @@ export function removeFromWatchlist(this: WatchlistContext, ticker: unknown): vo
 export function updateWatchlistEntry(
     this: WatchlistContext,
     ticker: unknown,
-    patch: Partial<Pick<WatchlistEntry, 'rating' | 'notes' | 'tags' | 'targetPrice'>>
+    patch: Partial<Pick<WatchlistEntry, 'rating' | 'notes' | 'tags' | 'targetPrice' | 'targetDirection'>>
 ): void {
     const normalized = String(ticker ?? '').trim().toUpperCase()
     const entry = this.watchlist.find(candidate => candidate.ticker === normalized)
@@ -109,6 +109,7 @@ export function updateWatchlistEntry(
     if (patch.notes !== undefined) entry.notes = patch.notes
     if (patch.tags !== undefined) entry.tags = patch.tags
     if (patch.targetPrice !== undefined) entry.targetPrice = patch.targetPrice
+    if (patch.targetDirection !== undefined) entry.targetDirection = patch.targetDirection
     persistWatchlist.call(this)
 }
 
@@ -162,7 +163,7 @@ export function renderWatchlistView(this: WatchlistContext): void {
         const empty = document.createElement('div')
         empty.className = 'watchlist-empty-state'
         empty.innerHTML = `
-            <div class="empty-icon">👁️</div>
+            <div class="empty-icon">👀</div>
             <h3>Your Watchlist is empty</h3>
             <p class="chart-subtext">Add a ticker above to start tracking it.</p>
         `
@@ -355,10 +356,11 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             const targetWrap = document.createElement('div')
             targetWrap.style.marginBottom = '8px'
             const targetLabel = document.createElement('label')
-            targetLabel.textContent = 'Target Price: '
+            targetLabel.textContent = 'Target: '
             targetLabel.style.fontSize = '13px'
             targetLabel.style.marginRight = '8px'
             targetLabel.style.color = 'var(--color-text-secondary)'
+            
             const targetInput = document.createElement('input')
             targetInput.type = 'number'
             targetInput.step = '0.01'
@@ -378,8 +380,33 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
                     context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
                 }
             })
+            
+            const targetDirectionBtn = document.createElement('button')
+            targetDirectionBtn.type = 'button'
+            targetDirectionBtn.className = 'btn btn--secondary btn--sm'
+            targetDirectionBtn.style.marginLeft = '8px'
+            targetDirectionBtn.style.padding = '2px 8px'
+            targetDirectionBtn.style.fontSize = '1.2em'
+            targetDirectionBtn.title = 'Toggle target direction (above or below)'
+            
+            let currentDir = entry.targetDirection || 'up'
+            targetDirectionBtn.textContent = currentDir === 'up' ? '🔼' : '🔽'
+            
+            targetDirectionBtn.addEventListener('click', () => {
+                currentDir = currentDir === 'up' ? 'down' : 'up'
+                targetDirectionBtn.textContent = currentDir === 'up' ? '🔼' : '🔽'
+                const current = context.watchlist.find(candidate => candidate.ticker === ticker)
+                if (current && currentDir !== current.targetDirection) {
+                    updateWatchlistEntry.call(context, ticker, { targetDirection: currentDir as 'up' | 'down' })
+                    savedIndicator.style.opacity = '1'
+                    setTimeout(() => { savedIndicator.style.opacity = '0' }, 2000)
+                    context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+                }
+            })
+            
             targetWrap.appendChild(targetLabel)
             targetWrap.appendChild(targetInput)
+            targetWrap.appendChild(targetDirectionBtn)
             card.appendChild(targetWrap)
 
             const textarea = document.createElement('textarea')
@@ -457,19 +484,23 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 }
                 return false
             },
-            valueFormatter: params => params.value != null ? context.formatCurrency(params.value) : '—',
+            valueFormatter: params => {
+                if (params.value == null) return '—'
+                const dir = (params.data as WatchlistRow)?.targetDirection === 'down' ? '🔽' : '🔼'
+                return `${dir} ${context.formatCurrency(params.value)}`
+            },
             cellClassRules: {
                 'target-alert-pulse': (params) => {
                     const ticker = String(params.data?.ticker ?? '')
                     const quote = context.finnhub?.cache?.get(ticker) as import('../types/integrations.js').FinnhubQuote | undefined
                     const currentPrice = quote?.c
-                    const prevClose = quote?.pc
                     const targetPrice = params.data?.targetPrice as number | undefined | null
-                    if (!currentPrice || !prevClose || !targetPrice) return false
+                    const targetDirection = (params.data?.targetDirection as 'up' | 'down' | undefined) || 'up'
+                    if (!currentPrice || !targetPrice) return false
                     
-                    // Trigger if the price crossed the target today
-                    return (prevClose < targetPrice && currentPrice >= targetPrice) ||
-                           (prevClose > targetPrice && currentPrice <= targetPrice)
+                    return targetDirection === 'up' 
+                        ? currentPrice >= targetPrice 
+                        : currentPrice <= targetPrice
                 }
             }
         },

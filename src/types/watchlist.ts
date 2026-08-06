@@ -10,6 +10,8 @@ export interface WatchlistEntry {
   notes: string
   /** Target or alert price. */
   targetPrice?: number | null
+  /** Direction for the target alert: up means trigger if price >= target, down means trigger if price <= target. */
+  targetDirection?: 'up' | 'down'
   /** User-defined tags or folders. */
   tags?: string[]
   /** ISO date the ticker was added, e.g. "2026-08-06". */

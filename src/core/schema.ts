@@ -180,7 +180,9 @@ export const WatchlistEntrySchema = z.object({
     ticker: z.string().min(1),
     rating: z.number().int().min(1).max(5).nullable().catch(null).default(null),
     notes: z.string().catch('').default(''),
-    addedDate: z.string().catch('').default('')
+    addedDate: z.string().catch('').default(''),
+    targetPrice: z.number().nullable().optional(),
+    targetDirection: z.enum(['up', 'down']).optional()
 }).passthrough();
 
 export const StorageSchema = z.object({
