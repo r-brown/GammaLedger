@@ -126,7 +126,7 @@ type HealthGrade = 'healthy' | 'ok' | 'weak'
 type ValuationGrade = 'cheap' | 'fair' | 'expensive'
 
 /** Pre-trade Risk Score: combines beta + realized vol + short-term momentum into 🔴/🟡/🟢. */
-function computePreTradeRiskScore(m: StockMetrics): { grade: RiskTrafficLight; detail: string } {
+export function computePreTradeRiskScore(m: StockMetrics): { grade: RiskTrafficLight; detail: string } {
   const beta = m.beta ?? 0
   const hv30 = m.vol3MonthStd ?? 0
   const r5d = m.return5Day ?? 0

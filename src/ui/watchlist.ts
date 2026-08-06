@@ -4,10 +4,10 @@
 
 import { showNotification } from './notifications.js'
 import { createGrid, type ColDef, type GridApi, type GridOptions, type ICellRendererParams } from './tables/ag-grid.js'
-import { type PositionDetailPanelContext } from './tables/position-detail-panel.js'
+import { computePreTradeRiskScore, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
 import { createTickerElement } from '@utils/dom'
 import type { WatchlistEntry } from '../types/watchlist.js'
-import type { EarningsCalendarEntry } from '../types/integrations.js'
+import type { EarningsCalendarEntry, StockMetrics } from '../types/integrations.js'
 
 type WatchlistRow = Record<string, unknown>
 
@@ -125,6 +125,17 @@ export function renderWatchlistView(this: WatchlistContext): void {
         }
     })
     bar.appendChild(form)
+
+    const refreshBtn = document.createElement('button')
+    refreshBtn.type = 'button'
+    refreshBtn.className = 'btn btn--secondary btn--sm'
+    refreshBtn.textContent = '⟳ Refresh'
+    refreshBtn.addEventListener('click', () => {
+        this.watchlist.forEach(entry => this.finnhub?.cache?.delete?.(entry.ticker))
+        renderWatchlistView.call(this)
+    })
+    bar.appendChild(refreshBtn)
+
     root.appendChild(bar)
 
     if (!this.watchlist.length) {
@@ -151,6 +162,15 @@ export function renderWatchlistView(this: WatchlistContext): void {
     requestAnimationFrame(() => {
         this.watchlistGridApi = createGrid<WatchlistRow>(gridRoot, buildGridOptions.call(this))
     })
+
+    if (this.finnhub?.apiKey && this.watchlist.length) {
+        const tickers = this.watchlist.map(entry => entry.ticker)
+        const toDate = new Date(this.currentDate.getTime() + 90 * 86_400_000).toISOString().slice(0, 10)
+        void this.fetchEarningsCalendar(tickers, toDate).then(() => {
+            if (this.currentView !== 'watchlist') return
+            this.watchlistGridApi?.refreshCells({ columns: ['earnings'], force: true })
+        }).catch(() => { /* earnings column stays '—' */ })
+    }
 }
 
 export function renderStars(this: WatchlistContext, ticker: string, rating: number | null): HTMLElement {
@@ -188,6 +208,61 @@ function buildWatchlistRows(entries: WatchlistEntry[], expandedTicker: string | 
     return rows
 }
 
+const RISK_EMOJI: Record<'green' | 'yellow' | 'red', string> = { green: '🟢', yellow: '🟡', red: '🔴' }
+
+function quoteCell(this: WatchlistContext, ticker: string, mode: 'price' | 'changePct'): HTMLElement {
+    const span = document.createElement('span')
+    span.textContent = '…'
+    if (!this.finnhub?.apiKey) {
+        span.textContent = '—'
+        span.title = 'Add a Finnhub API key in Settings to see live data'
+        return span
+    }
+    this.getCurrentPrice(ticker).then((quote) => {
+        if (!span.isConnected) return
+        if (mode === 'price') {
+            const price = Number(quote?.price)
+            span.textContent = Number.isFinite(price) ? this.formatCurrency(price) : '—'
+        } else {
+            const pct = this.getQuoteChangePercent(quote)
+            if (pct === null) { span.textContent = '—'; return }
+            span.textContent = `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`
+            span.className = pct > 0 ? 'rv-pos' : pct < 0 ? 'rv-neg' : ''
+        }
+    }).catch(() => { if (span.isConnected) span.textContent = '—' })
+    return span
+}
+
+function riskCell(this: WatchlistContext, ticker: string): HTMLElement {
+    const span = document.createElement('span')
+    span.className = 'watchlist-risk'
+    span.textContent = '…'
+    if (!this.finnhub?.apiKey) { span.textContent = '—'; return span }
+    const apply = (metrics: StockMetrics): void => {
+        if (!span.isConnected) return
+        const { grade, detail } = computePreTradeRiskScore(metrics)
+        span.textContent = RISK_EMOJI[grade]
+        span.title = detail
+    }
+    const cached = this.metricsCache.get(ticker)
+    if (cached && cached !== 'loading' && cached !== 'error') {
+        apply(cached)
+    } else if (cached === 'loading') {
+        this.metricsPromiseMap.get(ticker)?.then(data => { if (data) apply(data) })
+    } else {
+        this.metricsCache.set(ticker, 'loading')
+        const promise = this.fetchStockMetrics(ticker)
+        this.metricsPromiseMap.set(ticker, promise)
+        promise.then((data) => {
+            this.metricsPromiseMap.delete(ticker)
+            this.metricsCache.set(ticker, data ?? 'error')
+            if (data) apply(data)
+            else if (span.isConnected) span.textContent = '—'
+        })
+    }
+    return span
+}
+
 function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
     const context = this
     const columnDefs: ColDef<WatchlistRow>[] = [
@@ -219,10 +294,21 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                     title: `Open ${String(params.value ?? '')} ticker page`
                 })
         },
-        // Quote / Day % / Risk / Next earnings render live data in Task 5.
-        { colId: 'quote', headerName: 'Quote', width: 110, sortable: false, valueGetter: () => '—' },
-        { colId: 'dayPct', headerName: 'Day %', width: 100, sortable: false, valueGetter: () => '—' },
-        { colId: 'risk', headerName: 'Risk', width: 90, sortable: false, valueGetter: () => '—' },
+        {
+            colId: 'quote', headerName: 'Quote', width: 110, sortable: false,
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
+                quoteCell.call(context, String(params.data?.ticker ?? ''), 'price')
+        },
+        {
+            colId: 'dayPct', headerName: 'Day %', width: 100, sortable: false,
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
+                quoteCell.call(context, String(params.data?.ticker ?? ''), 'changePct')
+        },
+        {
+            colId: 'risk', headerName: 'Risk', width: 90, sortable: false,
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
+                riskCell.call(context, String(params.data?.ticker ?? ''))
+        },
         {
             colId: 'rating', field: 'rating', headerName: 'Rating', width: 150, sortable: true,
             comparator: (a: unknown, b: unknown) => (Number(a) || 0) - (Number(b) || 0),
@@ -238,7 +324,11 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
             },
             tooltipValueGetter: params => String(params.value ?? '') || null
         },
-        { colId: 'earnings', headerName: 'Earnings', width: 110, sortable: false, valueGetter: () => '—' },
+        {
+            colId: 'earnings', headerName: 'Earnings', width: 110, sortable: false,
+            valueGetter: (params) => context.earningsMap.get(String((params.data as WatchlistRow)?.ticker ?? ''))?.date ?? null,
+            valueFormatter: params => params.value ? context.formatDate(params.value) : '—'
+        },
         {
             colId: 'position', headerName: 'Position', width: 110, sortable: false,
             cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
