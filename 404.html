@@ -45,8 +45,8 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/app/gammaledger-logo-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/app/gammaledger-logo-32x32.png">
     <link rel="icon" type="image/png" sizes="64x64" href="/app/gammaledger-logo-64x64.png">
-  <script type="module" crossorigin src="/app/assets/index-D2SurB6P.js"></script>
-  <link rel="stylesheet" crossorigin href="/app/assets/index-CJ9mhMoi.css">
+  <script type="module" crossorigin src="/app/assets/index-dtLKVYM1.js"></script>
+  <link rel="stylesheet" crossorigin href="/app/assets/index-BVd8IFeu.css">
 </head>
 
 <body>
@@ -121,6 +121,10 @@
                     <span class="nav-icon">📊</span>
                     <span class="nav-label">Dashboard</span>
                 </button>
+                <button class="nav-item" data-view="watchlist">
+                    <span class="nav-icon">👁️</span>
+                    <span class="nav-label">Watchlist (beta)</span>
+                </button>
                 <button class="nav-item" data-view="trades-list">
                     <span class="nav-icon">📋</span>
                     <span class="nav-label">All Trades</span>
@@ -131,6 +135,10 @@
                     <span class="nav-label">Credit Playbook</span>
                 </button>
                 -->
+                <button class="nav-item" data-view="watchlist">
+                    <span class="nav-icon">👁️</span>
+                    <span class="nav-label">Watchlist</span>
+                </button>
                 <button class="nav-item" data-view="add-trade">
                     <span class="nav-icon">➕</span>
                     <span class="nav-label">Add Trade</span>
@@ -620,6 +628,11 @@
             <!-- Per-Ticker View (opened from Ticker P&L, Active Positions status dot, or ⌘K) -->
             <div class="view ticker-page-view">
                 <div id="ticker-page-root"></div>
+            </div>
+
+            <!-- Watchlist View -->
+            <div class="view watchlist-view">
+                <div id="watchlist-root"></div>
             </div>
 
             <!-- Credit Playbook View -->
