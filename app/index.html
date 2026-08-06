@@ -45,7 +45,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/app/gammaledger-logo-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/app/gammaledger-logo-32x32.png">
     <link rel="icon" type="image/png" sizes="64x64" href="/app/gammaledger-logo-64x64.png">
-  <script type="module" crossorigin src="/app/assets/index-D5exru41.js"></script>
+  <script type="module" crossorigin src="/app/assets/index-VhyNMluN.js"></script>
   <link rel="stylesheet" crossorigin href="/app/assets/index-CaZ0x-nI.css">
 </head>
 
@@ -882,6 +882,29 @@
                             </div>
                             <p class="settings-help-text">Enter the fee charged per contract (e.g., $0,65). This will be multiplied by the quantity when adding new legs.</p>
                             <div class="default-fee-status" id="default-fee-status" role="status">Not set</div>
+                        </div>
+                    </div>
+                </section>
+            <br>
+            <section class="settings-section">
+                    <header class="settings-section__header">
+                        <h2>External Analytics</h2>
+                        <p>Configure the external link opened when clicking on a ticker.</p>
+                    </header>
+                    <div class="settings-card" id="external-analytics-controls">
+                        <div class="settings-card__header">
+                            <h3>Analytics Base URL</h3>
+                            <p class="settings-card__subtitle">Set the URL to open. Use {ticker} as a placeholder.</p>
+                        </div>
+                        <div class="settings-card__body">
+                            <label for="external-analytics-url" class="form-label">Base URL</label>
+                            <div class="settings-input-row">
+                                <input type="text" id="external-analytics-url" class="form-control" placeholder="https://finance.yahoo.com/quote/{ticker}" autocomplete="off">
+                                <button class="btn btn--sm btn--primary" id="external-analytics-save">Save</button>
+                                <button class="btn btn--sm btn--secondary" id="external-analytics-clear">Reset Default</button>
+                            </div>
+                            <p class="settings-help-text">Default: https://www.investing.com/search/?q={ticker}. The {ticker} placeholder will be replaced with the actual ticker symbol.</p>
+                            <div class="default-fee-status" id="external-analytics-status" role="status"></div>
                         </div>
                     </div>
                 </section>
