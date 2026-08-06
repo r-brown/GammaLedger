@@ -200,6 +200,7 @@ class GammaLedger {
     declare tickerPage: TickerPageState
     declare tickerPageGridApi: unknown
     declare shareCard: { root: HTMLElement | null; card: HTMLElement | null; button: HTMLElement | null; chartCanvas: HTMLCanvasElement | null; chartTitle: HTMLElement | null; rangeLabel: HTMLElement | null; chart: { destroy(): void } | null; metrics: Record<string, unknown>; timestamp: unknown; exportSize: number }
+    declare watchlist: import('./types/watchlist.js').WatchlistEntry[]
 
     constructor() {
         this.trades = [];
@@ -233,6 +234,7 @@ class GammaLedger {
             direction: 'asc'
         };
         this.earningsMap = new Map();
+        this.watchlist = [];
         this.metricsCache = new Map();
         this.expandedTradeId = null;
         this.activePositionsTrades = [];
