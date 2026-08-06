@@ -6382,6 +6382,20 @@ tr.position-itm.position-expiring-critical td,
     outline: none;
 }
 
+.toast__action {
+    background: none;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm, 6px);
+    color: inherit;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    margin-left: 8px;
+    padding: 2px 10px;
+    white-space: nowrap;
+}
+.toast__action:hover { opacity: 0.8; }
+
 @media (prefers-reduced-motion: reduce) {
     .toast {
         transition: none;
