@@ -15,7 +15,8 @@ const CHORD_VIEWS: Record<string, string> = {
     d: 'dashboard',
     t: 'trades-list',
     i: 'import',
-    s: 'settings'
+    s: 'settings',
+    w: 'watchlist'
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {

@@ -47,6 +47,7 @@ function buildCommands(this: PaletteContext, query: string): PaletteCommand[] {
     const commands: PaletteCommand[] = [
         { label: 'Go to Dashboard', hint: 'g d', keywords: 'nav home', run: () => this.showView('dashboard') },
         { label: 'Go to All Trades', hint: 'g t', keywords: 'nav list', run: () => this.showView('trades-list') },
+        { label: 'Go to Watchlist', hint: 'g w', keywords: 'nav watchlist watch list', run: () => this.showView('watchlist') },
         { label: 'Add New Trade', hint: 'n', keywords: 'nav create new', run: () => this.showView('add-trade') },
         { label: 'Go to Import', hint: 'g i', keywords: 'nav csv ofx broker', run: () => this.showView('import') },
         { label: 'Go to Settings', hint: 'g s', keywords: 'nav preferences api keys', run: () => this.showView('settings') },
@@ -96,6 +97,19 @@ function buildCommands(this: PaletteContext, query: string): PaletteCommand[] {
                     input.value = ticker
                     this.updateTickerPreview(ticker)
                 }
+            }
+        })
+        commands.push({
+            label: `${ticker}: add to watchlist`, hint: 'watchlist', keywords: `watch list ${ticker}`,
+            run: () => {
+                this.showView('watchlist')
+                setTimeout(() => {
+                    const input = document.querySelector<HTMLInputElement>('.watchlist-add-input')
+                    if (input) {
+                        input.value = ticker
+                        input.focus()
+                    }
+                }, 50)
             }
         })
     })

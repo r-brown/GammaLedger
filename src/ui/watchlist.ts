@@ -20,13 +20,21 @@ export interface WatchlistContext extends PositionDetailPanelContext {
   currentDate: Date
   currentFileName: string | null
   earningsMap: Map<string, EarningsCalendarEntry>
+  dividendMap: Map<string, import('../types/integrations.js').DividendCalendarEntry>
   saveToStorage(metadata?: Record<string, unknown>): void
   markUnsavedChanges(): void
+  showView(viewName: string): void
   showTickerPage(ticker: unknown): void
   openTradesFilteredByTicker(ticker: unknown): void
   getCurrentPrice(ticker: string, opts?: { forceRefresh?: boolean }): Promise<Record<string, unknown>>
   getQuoteChangePercent(quote: Record<string, unknown>): number | null
   fetchEarningsCalendar(tickers: string[], toDate: string): Promise<void>
+  fetchDividendCalendar(from: string, to: string): Promise<import('../types/integrations.js').DividendCalendarEntry[]>
+  fetchCandles(ticker: string, resolution: string, fromUnix: number, toUnix: number): Promise<import('../types/integrations.js').FinnhubCandles | null>
+  isActiveStatus(status: unknown): boolean
+  isWheelOrPmccTrade(trade: unknown): boolean
+  isAssignmentTrade(trade: unknown): boolean
+  hasNonExpiredOpenShortOptions(trade: unknown): boolean
 }
 
 const TICKER_PATTERN = /^[A-Z][A-Z0-9.\-]{0,9}$/
@@ -36,24 +44,35 @@ function persistWatchlist(this: WatchlistContext): void {
     this.saveToStorage()
 }
 
-export function addToWatchlist(this: WatchlistContext, ticker: unknown): void {
-    const normalized = String(ticker ?? '').trim().toUpperCase()
-    if (!TICKER_PATTERN.test(normalized)) {
-        showNotification('Enter a valid ticker symbol (letters, digits, ".", "-").', 'error')
-        return
+export function addToWatchlist(this: WatchlistContext, tickerInput: unknown): void {
+    const rawInput = String(tickerInput ?? '')
+    const rawTickers = rawInput.split(/[\s,]+/).filter(Boolean)
+    if (rawTickers.length === 0) return
+
+    let addedCount = 0
+    for (const rawTicker of rawTickers) {
+        const normalized = rawTicker.trim().toUpperCase()
+        if (!TICKER_PATTERN.test(normalized)) {
+            showNotification(`Invalid ticker format: ${normalized}`, 'error')
+            continue
+        }
+        if (this.watchlist.some(entry => entry.ticker === normalized)) {
+            showNotification(`${normalized} is already on the watchlist.`, 'info')
+            continue
+        }
+        this.watchlist.push({
+            ticker: normalized,
+            rating: null,
+            notes: '',
+            addedDate: this.currentDate.toISOString().slice(0, 10)
+        })
+        addedCount++
     }
-    if (this.watchlist.some(entry => entry.ticker === normalized)) {
-        showNotification(`${normalized} is already on the watchlist.`, 'info')
-        return
+
+    if (addedCount > 0) {
+        persistWatchlist.call(this)
+        renderWatchlistView.call(this)
     }
-    this.watchlist.push({
-        ticker: normalized,
-        rating: null,
-        notes: '',
-        addedDate: this.currentDate.toISOString().slice(0, 10)
-    })
-    persistWatchlist.call(this)
-    renderWatchlistView.call(this)
 }
 
 export function removeFromWatchlist(this: WatchlistContext, ticker: unknown): void {
@@ -81,13 +100,15 @@ export function removeFromWatchlist(this: WatchlistContext, ticker: unknown): vo
 export function updateWatchlistEntry(
     this: WatchlistContext,
     ticker: unknown,
-    patch: Partial<Pick<WatchlistEntry, 'rating' | 'notes'>>
+    patch: Partial<Pick<WatchlistEntry, 'rating' | 'notes' | 'tags' | 'targetPrice'>>
 ): void {
     const normalized = String(ticker ?? '').trim().toUpperCase()
     const entry = this.watchlist.find(candidate => candidate.ticker === normalized)
     if (!entry) return
     if (patch.rating !== undefined) entry.rating = patch.rating
     if (patch.notes !== undefined) entry.notes = patch.notes
+    if (patch.tags !== undefined) entry.tags = patch.tags
+    if (patch.targetPrice !== undefined) entry.targetPrice = patch.targetPrice
     persistWatchlist.call(this)
 }
 
@@ -104,13 +125,12 @@ export function renderWatchlistView(this: WatchlistContext): void {
     const input = document.createElement('input')
     input.type = 'text'
     input.className = 'form-control watchlist-add-input'
-    input.placeholder = 'Enter ticker (e.g., NVDA)'
-    input.setAttribute('aria-label', 'Ticker to add to watchlist')
-    input.maxLength = 10
+    input.placeholder = 'Enter ticker(s) (e.g. AAPL, MSFT)'
+    input.setAttribute('aria-label', 'Tickers to add to watchlist')
     const addBtn = document.createElement('button')
     addBtn.type = 'submit'
     addBtn.className = 'btn btn--primary btn--sm'
-    addBtn.innerHTML = '➕ Add'
+    addBtn.innerHTML = '+ Add'
     form.append(input, addBtn)
     form.addEventListener('submit', (event) => {
         event.preventDefault()
@@ -175,13 +195,42 @@ export function renderWatchlistView(this: WatchlistContext): void {
     // this check on every render — acceptable residual refetch, not worth extra tracking state.
     if (this.finnhub?.apiKey && this.watchlist.length) {
         const tickers = this.watchlist.map(entry => entry.ticker)
-        const hasMissingTicker = tickers.some(ticker => !this.earningsMap.has(ticker))
-        if (hasMissingTicker) {
+        
+        // Earnings
+        const hasMissingEarnings = tickers.some(ticker => !this.earningsMap.has(ticker))
+        if (hasMissingEarnings) {
             const toDate = new Date(this.currentDate.getTime() + 90 * 86_400_000).toISOString().slice(0, 10)
             void this.fetchEarningsCalendar(tickers, toDate).then(() => {
                 if (this.currentView !== 'watchlist') return
                 this.watchlistGridApi?.refreshCells({ columns: ['earnings'], force: true })
-            }).catch(() => { /* earnings column stays '—' */ })
+            }).catch(() => { /* stay '—' */ })
+        }
+
+        // Dividends
+        const hasMissingDividends = tickers.some(ticker => !this.dividendMap.has(ticker))
+        if (hasMissingDividends) {
+            const todayStr = this.currentDate.toISOString().slice(0, 10)
+            const toDateStr = new Date(this.currentDate.getTime() + 90 * 86_400_000).toISOString().slice(0, 10)
+            void this.fetchDividendCalendar(todayStr, toDateStr).then((events) => {
+                let updated = false
+                for (const event of events) {
+                    if (!tickers.includes(event.symbol)) continue
+                    const existing = this.dividendMap.get(event.symbol)
+                    if (!existing || event.date < existing.date) {
+                        this.dividendMap.set(event.symbol, event)
+                        updated = true
+                    }
+                }
+                // Pre-fill missing ones with a dummy to prevent endless fetching
+                for (const ticker of tickers) {
+                    if (!this.dividendMap.has(ticker)) {
+                        this.dividendMap.set(ticker, { symbol: ticker, date: '9999-12-31' } as any)
+                    }
+                }
+                if (updated && this.currentView === 'watchlist') {
+                    this.watchlistGridApi?.refreshCells({ columns: ['dividends'], force: true })
+                }
+            }).catch(() => {})
         }
     }
 }
@@ -223,57 +272,45 @@ function buildWatchlistRows(entries: WatchlistEntry[], expandedTicker: string | 
 
 const RISK_EMOJI: Record<'green' | 'yellow' | 'red', string> = { green: '🟢', yellow: '🟡', red: '🔴' }
 
-function quoteCell(this: WatchlistContext, ticker: string, mode: 'price' | 'changePct'): HTMLElement {
-    const span = document.createElement('span')
-    span.textContent = '…'
+function quoteCell(this: WatchlistContext, ticker: string): HTMLElement {
+    const cell = document.createElement('div')
+    cell.className = 'quote-cell'
+    cell.dataset.priceState = 'loading'
+    cell.textContent = 'Loading…'
     if (!this.finnhub?.apiKey) {
-        span.textContent = '—'
-        span.title = 'Add a Finnhub API key in Settings to see live data'
-        return span
+        cell.dataset.priceState = 'idle'
+        cell.textContent = '—'
+        cell.title = 'Add a Finnhub API key in Settings to see live data'
+        return cell
     }
     this.getCurrentPrice(ticker).then((quote) => {
-        if (!span.isConnected) return
-        if (mode === 'price') {
-            const price = Number(quote?.price)
-            span.textContent = Number.isFinite(price) ? this.formatCurrency(price) : '—'
-        } else {
-            const pct = this.getQuoteChangePercent(quote)
-            if (pct === null) { span.textContent = '—'; return }
-            span.textContent = `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`
-            span.className = pct > 0 ? 'rv-pos' : pct < 0 ? 'rv-neg' : ''
+        if (!cell.isConnected) return
+        const numeric = Number(quote?.price)
+        if (!Number.isFinite(numeric)) {
+            cell.dataset.priceState = 'ready'
+            cell.textContent = '—'
+            return
         }
-    }).catch(() => { if (span.isConnected) span.textContent = '—' })
-    return span
-}
-
-function riskCell(this: WatchlistContext, ticker: string): HTMLElement {
-    const span = document.createElement('span')
-    span.className = 'watchlist-risk'
-    span.textContent = '…'
-    if (!this.finnhub?.apiKey) { span.textContent = '—'; return span }
-    const apply = (metrics: StockMetrics): void => {
-        if (!span.isConnected) return
-        const { grade, detail } = computePreTradeRiskScore(metrics)
-        span.textContent = RISK_EMOJI[grade]
-        span.title = detail
-    }
-    const cached = this.metricsCache.get(ticker)
-    if (cached && cached !== 'loading' && cached !== 'error') {
-        apply(cached)
-    } else if (cached === 'loading') {
-        this.metricsPromiseMap.get(ticker)?.then(data => { if (data) apply(data) })
-    } else {
-        this.metricsCache.set(ticker, 'loading')
-        const promise = this.fetchStockMetrics(ticker)
-        this.metricsPromiseMap.set(ticker, promise)
-        promise.then((data) => {
-            this.metricsPromiseMap.delete(ticker)
-            this.metricsCache.set(ticker, data ?? 'error')
-            if (data) apply(data)
-            else if (span.isConnected) span.textContent = '—'
-        })
-    }
-    return span
+        cell.dataset.priceState = 'ready'
+        cell.innerHTML = ''
+        const priceEl = document.createElement('span')
+        priceEl.className = 'quote-price'
+        priceEl.textContent = this.formatCurrency(numeric)
+        
+        cell.appendChild(priceEl)
+        const pct = this.getQuoteChangePercent(quote)
+        if (Number.isFinite(pct) && pct !== null) {
+            const changeEl = document.createElement('span')
+            changeEl.className = 'quote-change'
+            const formattedPercent = `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`
+            changeEl.textContent = formattedPercent
+            if (pct > 0) changeEl.classList.add('is-up')
+            else if (pct < 0) changeEl.classList.add('is-down')
+            else changeEl.classList.add('is-flat')
+            cell.appendChild(changeEl)
+        }
+    }).catch(() => { if (cell.isConnected) { cell.dataset.priceState = 'error'; cell.textContent = '—' } })
+    return cell
 }
 
 function createWatchlistDetailRenderer(context: WatchlistContext) {
@@ -314,6 +351,37 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             header.appendChild(titleWrap)
             header.appendChild(renderStars.call(context, ticker, entry.rating))
             card.appendChild(header)
+
+            const targetWrap = document.createElement('div')
+            targetWrap.style.marginBottom = '8px'
+            const targetLabel = document.createElement('label')
+            targetLabel.textContent = 'Target Price: '
+            targetLabel.style.fontSize = '13px'
+            targetLabel.style.marginRight = '8px'
+            targetLabel.style.color = 'var(--color-text-secondary)'
+            const targetInput = document.createElement('input')
+            targetInput.type = 'number'
+            targetInput.step = '0.01'
+            targetInput.className = 'form-control'
+            targetInput.style.width = '120px'
+            targetInput.style.display = 'inline-block'
+            targetInput.value = entry.targetPrice != null ? String(entry.targetPrice) : ''
+            targetInput.placeholder = 'e.g. 150.00'
+            targetInput.addEventListener('blur', () => {
+                const current = context.watchlist.find(candidate => candidate.ticker === ticker)
+                const parsed = parseFloat(targetInput.value)
+                const newVal = isNaN(parsed) ? null : parsed
+                if (current && newVal !== current.targetPrice) {
+                    updateWatchlistEntry.call(context, ticker, { targetPrice: newVal })
+                    savedIndicator.style.opacity = '1'
+                    setTimeout(() => { savedIndicator.style.opacity = '0' }, 2000)
+                    context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+                }
+            })
+            targetWrap.appendChild(targetLabel)
+            targetWrap.appendChild(targetInput)
+            card.appendChild(targetWrap)
+
             const textarea = document.createElement('textarea')
             textarea.className = 'form-control watchlist-notes-input'
             textarea.rows = 3
@@ -365,25 +433,6 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
     const context = this
     const columnDefs: ColDef<WatchlistRow>[] = [
         {
-            colId: 'expand', headerName: '', width: 44, maxWidth: 44, sortable: false, resizable: false,
-            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
-                const ticker = String(params.data?.ticker ?? '')
-                const button = document.createElement('button')
-                button.type = 'button'
-                button.className = 'watchlist-expand-btn'
-                const expanded = context.expandedWatchlistTicker === ticker
-                button.textContent = expanded ? '▾' : '▸'
-                button.setAttribute('aria-label', expanded ? `Collapse ${ticker} details` : `Expand ${ticker} details`)
-                button.setAttribute('aria-expanded', String(expanded))
-                button.addEventListener('click', (event) => {
-                    event.stopPropagation()
-                    context.expandedWatchlistTicker = expanded ? null : ticker
-                    params.api.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
-                })
-                return button
-            }
-        },
-        {
             colId: 'ticker', field: 'ticker', headerName: 'Ticker', width: 110, pinned: 'left', sortable: true,
             cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
                 createTickerElement(params.value, 'ticker-pill', {
@@ -393,19 +442,36 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 })
         },
         {
-            colId: 'quote', headerName: 'Quote', width: 110, sortable: false,
+            colId: 'quote', headerName: 'Current Price', width: 140, sortable: false,
             cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
-                quoteCell.call(context, String(params.data?.ticker ?? ''), 'price')
+                quoteCell.call(context, String(params.data?.ticker ?? ''))
         },
         {
-            colId: 'dayPct', headerName: 'Day %', width: 100, sortable: false,
-            cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
-                quoteCell.call(context, String(params.data?.ticker ?? ''), 'changePct')
-        },
-        {
-            colId: 'risk', headerName: 'Risk', width: 90, sortable: false,
-            cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
-                riskCell.call(context, String(params.data?.ticker ?? ''))
+            colId: 'targetPrice', field: 'targetPrice', headerName: 'Target', width: 100, sortable: true,
+            editable: true,
+            valueSetter: (params) => {
+                if (params.data && params.newValue !== params.oldValue) {
+                    const parsed = parseFloat(params.newValue)
+                    updateWatchlistEntry.call(context, String(params.data.ticker), { targetPrice: isNaN(parsed) ? null : parsed })
+                    return true
+                }
+                return false
+            },
+            valueFormatter: params => params.value != null ? context.formatCurrency(params.value) : '—',
+            cellClassRules: {
+                'target-alert-pulse': (params) => {
+                    const ticker = String(params.data?.ticker ?? '')
+                    const quote = context.finnhub?.cache?.get(ticker) as import('../types/integrations.js').FinnhubQuote | undefined
+                    const currentPrice = quote?.c
+                    const prevClose = quote?.pc
+                    const targetPrice = params.data?.targetPrice as number | undefined | null
+                    if (!currentPrice || !prevClose || !targetPrice) return false
+                    
+                    // Trigger if the price crossed the target today
+                    return (prevClose < targetPrice && currentPrice >= targetPrice) ||
+                           (prevClose > targetPrice && currentPrice <= targetPrice)
+                }
+            }
         },
         {
             colId: 'rating', field: 'rating', headerName: 'Rating', width: 150, sortable: true,
@@ -415,34 +481,91 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
         },
         {
             colId: 'notes', field: 'notes', headerName: 'Notes', flex: 1, minWidth: 160, sortable: false,
-            valueFormatter: params => {
-                const notes = String(params.value ?? '').trim()
-                if (!notes) return ''
-                return notes.length > 80 ? `${notes.slice(0, 80)}…` : notes
+            editable: true,
+            valueSetter: (params) => {
+                if (params.data && params.newValue !== params.oldValue) {
+                    updateWatchlistEntry.call(context, String(params.data.ticker), { notes: String(params.newValue ?? '') })
+                    return true
+                }
+                return false
             },
+            valueFormatter: params => String(params.value ?? '').trim(),
             tooltipValueGetter: params => String(params.value ?? '') || null
         },
         {
-            colId: 'earnings', headerName: 'Earnings', width: 110, sortable: false,
+            colId: 'earnings', headerName: 'Earnings', width: 110, sortable: true,
             valueGetter: (params) => context.earningsMap.get(String((params.data as WatchlistRow)?.ticker ?? ''))?.date ?? null,
             valueFormatter: params => params.value ? context.formatDate(params.value) : '—'
         },
         {
-            colId: 'position', headerName: 'Position', width: 110, sortable: false,
+            colId: 'dividends', headerName: 'Dividend', width: 110, sortable: true,
+            valueGetter: (params) => {
+                const d = context.dividendMap.get(String((params.data as WatchlistRow)?.ticker ?? ''))?.date
+                return d === '9999-12-31' ? null : d ?? null
+            },
+            valueFormatter: params => params.value ? context.formatDate(params.value) : '—'
+        },
+
+        {
+            colId: 'position', headerName: 'Position', width: 140, sortable: false,
             cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
                 const ticker = String(params.data?.ticker ?? '')
-                const hasTrades = context.trades.some(trade => String(trade.ticker ?? '').toUpperCase() === ticker)
-                if (!hasTrades) return document.createTextNode('')
-                const badge = document.createElement('button')
-                badge.type = 'button'
-                badge.className = 'watchlist-position-badge'
-                badge.textContent = 'Held'
-                badge.title = `View trades for ${ticker}`
-                badge.addEventListener('click', (event) => {
-                    event.stopPropagation()
-                    context.openTradesFilteredByTicker(ticker)
-                })
-                return badge
+                const matchingTrades = context.trades.filter(trade => String(trade.ticker ?? '').toUpperCase() === ticker)
+                if (matchingTrades.length === 0) return document.createTextNode('')
+
+                let hasActive = false
+                let hasWheel = false
+
+                for (const trade of matchingTrades) {
+                    if (context.isWheelOrPmccTrade(trade) || context.isAssignmentTrade(trade)) {
+                        hasWheel = true
+                    }
+                    if (context.isActiveStatus(trade.status)) {
+                        if (context.isWheelOrPmccTrade(trade) || context.isAssignmentTrade(trade)) {
+                            if (context.hasNonExpiredOpenShortOptions(trade)) hasActive = true
+                        } else {
+                            hasActive = true
+                        }
+                    }
+                }
+
+                if (!hasActive && !hasWheel) {
+                    return document.createTextNode('')
+                }
+
+                const container = document.createElement('div')
+                container.style.display = 'flex'
+                container.style.gap = '6px'
+                container.style.alignItems = 'center'
+                container.style.height = '100%'
+
+                if (hasActive) {
+                    const badge = document.createElement('button')
+                    badge.type = 'button'
+                    badge.className = 'watchlist-position-badge is-active'
+                    badge.textContent = 'Active'
+                    badge.title = `View active trades for ${ticker}`
+                    badge.addEventListener('click', (event) => {
+                        event.stopPropagation()
+                        context.openTradesFilteredByTicker(ticker)
+                    })
+                    container.appendChild(badge)
+                }
+
+                if (hasWheel) {
+                    const badge = document.createElement('button')
+                    badge.type = 'button'
+                    badge.className = 'watchlist-position-badge is-wheel'
+                    badge.textContent = 'Wheel'
+                    badge.title = `View wheel trades for ${ticker}`
+                    badge.addEventListener('click', (event) => {
+                        event.stopPropagation()
+                        context.openTradesFilteredByTicker(ticker)
+                    })
+                    container.appendChild(badge)
+                }
+
+                return container
             }
         },
         {
@@ -471,6 +594,15 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
             const row = params.data as WatchlistRow & { _isDetailRow?: boolean; _entry?: WatchlistEntry }
             return row._isDetailRow ? `detail-${row._entry?.ticker ?? ''}` : String(row.ticker ?? '')
         },
+        onRowClicked: params => {
+            const row = params.data as WatchlistRow & { _isDetailRow?: boolean }
+            if (row?._isDetailRow) return
+            const ticker = String(row.ticker ?? '')
+            if (!ticker) return
+            context.expandedWatchlistTicker = context.expandedWatchlistTicker === ticker ? null : ticker
+            params.api.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+        },
+
         domLayout: 'autoHeight',
         headerHeight: 44,
         animateRows: false,

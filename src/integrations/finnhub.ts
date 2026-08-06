@@ -1147,7 +1147,7 @@ export function updateMarketStatusBadge(this: FinnhubContext, payload: FinnhubMa
     const countdown = document.getElementById('market-status-countdown');
     if (!badge || !label || !countdown) return;
 
-    const modifiers = ['--loading', '--open', '--premarket', '--closed', '--unavailable'];
+    const modifiers = ['--loading', '--open', '--premarket', '--afterhours', '--closed', '--unavailable'];
     modifiers.forEach(m => badge.classList.remove(`market-status${m}`));
 
     if (!payload) {
@@ -1171,6 +1171,9 @@ export function updateMarketStatusBadge(this: FinnhubContext, payload: FinnhubMa
     } else if (payload.session === 'pre_market') {
         badge.classList.add('market-status--premarket');
         label.textContent = 'Pre-market';
+    } else if (payload.session === 'after_hours') {
+        badge.classList.add('market-status--afterhours');
+        label.textContent = 'After-hours';
     } else {
         badge.classList.add('market-status--closed');
         label.textContent = 'NYSE Closed';
@@ -1437,6 +1440,76 @@ export function getEarningsDateForTrade(
     const entry = (this.earningsMap as Map<string, import('../types/integrations.js').EarningsCalendarEntry>).get(ticker);
     if (!entry) return null;
     return entry.date <= expiration ? entry : null;
+}
+
+// ---------------------------------------------------------------------------
+// Candles (Historical Prices) — used for Watchlist sparklines
+// ---------------------------------------------------------------------------
+
+export async function fetchCandles(
+    this: any,
+    ticker: string,
+    resolution: string,
+    fromUnix: number,
+    toUnix: number
+): Promise<import('../types/integrations.js').FinnhubCandles | null> {
+    const apiKey = this.finnhub?.apiKey;
+    if (!apiKey) return null;
+
+    const url = new URL('https://finnhub.io/api/v1/stock/candle');
+    url.searchParams.set('symbol', ticker.toUpperCase());
+    url.searchParams.set('resolution', resolution);
+    url.searchParams.set('from', String(fromUnix));
+    url.searchParams.set('to', String(toUnix));
+    url.searchParams.set('token', String(apiKey));
+
+    try {
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            console.warn(`[Finnhub] stock/candle failed for ${ticker}: ${response.status}`);
+            return null;
+        }
+        const data = await response.json();
+        if (!data || typeof data !== 'object') return null;
+        if (data.s === 'no_data') return null;
+        return data as import('../types/integrations.js').FinnhubCandles;
+    } catch (error) {
+        console.warn(`[Finnhub] failed to fetch candles for ${ticker}:`, error);
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Dividend Calendar — fetched to populate Watchlist dividends
+// ---------------------------------------------------------------------------
+
+export async function fetchDividendCalendar(
+    this: any,
+    fromYYYYMMDD: string,
+    toYYYYMMDD: string
+): Promise<import('../types/integrations.js').DividendCalendarEntry[]> {
+    const apiKey = this.finnhub?.apiKey;
+    if (!apiKey) return [];
+
+    const url = new URL('https://finnhub.io/api/v1/calendar/dividend');
+    url.searchParams.set('from', fromYYYYMMDD);
+    url.searchParams.set('to', toYYYYMMDD);
+    url.searchParams.set('token', String(apiKey));
+
+    try {
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            console.warn(`[Finnhub] calendar/dividend failed: ${response.status}`);
+            return [];
+        }
+        const data: any = await response.json();
+        if (!data || !Array.isArray(data.calendar)) return [];
+        
+        return data.calendar as import('../types/integrations.js').DividendCalendarEntry[];
+    } catch (error) {
+        console.warn(`[Finnhub] failed to fetch dividend calendar:`, error);
+        return [];
+    }
 }
 
 // ---------------------------------------------------------------------------

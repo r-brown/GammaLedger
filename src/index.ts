@@ -170,6 +170,7 @@ class GammaLedger {
     declare quoteRefreshKeys: string[]
     declare quoteRefreshCursor: number
     declare earningsMap: Map<string, import('./types/integrations.js').EarningsCalendarEntry>
+    declare dividendMap: Map<string, import('./types/integrations.js').DividendCalendarEntry>
     declare metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
     declare expandedTradeId: string | null
     declare activePositionsTrades: Record<string, unknown>[]
@@ -237,6 +238,7 @@ class GammaLedger {
             direction: 'asc'
         };
         this.earningsMap = new Map();
+        this.dividendMap = new Map();
         this.watchlist = [];
         this.metricsCache = new Map();
         this.expandedTradeId = null;
@@ -1620,6 +1622,8 @@ class GammaLedger {
     async fetchEarningsCalendar(tickers: string[], toDate: string) { return finnhubModule.fetchEarningsCalendar.call(this, tickers, toDate); }
     async fetchStockMetrics(ticker: string) { return finnhubModule.fetchStockMetrics.call(this, ticker); }
     async fetchSignalsData(ticker: string) { return finnhubModule.fetchSignalsData.call(this, ticker); }
+    async fetchCandles(ticker: string, resolution: string, fromUnix: number, toUnix: number) { return finnhubModule.fetchCandles.call(this, ticker, resolution, fromUnix, toUnix); }
+    async fetchDividendCalendar(from: string, to: string) { return finnhubModule.fetchDividendCalendar.call(this, from, to); }
     async fetchCompanyProfile(ticker: string) { return finnhubModule.fetchCompanyProfile.call(this, ticker); }
     async fetchEarningsSurprise(ticker: string) { return finnhubModule.fetchEarningsSurprise.call(this, ticker); }
     getEarningsDateForTrade(trade: Record<string, unknown>) { return finnhubModule.getEarningsDateForTrade.call(this, trade); }
