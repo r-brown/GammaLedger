@@ -292,7 +292,7 @@ export function updateTickerPreview(this: ViewsContext, ticker: string): void {
         });
         preview.appendChild(link);
 
-        const text2 = document.createTextNode(' on Investing.com');
+        const text2 = document.createTextNode(' on External Analytics');
         preview.appendChild(text2);
     } else {
         preview.innerHTML = '';

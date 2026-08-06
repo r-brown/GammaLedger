@@ -67,6 +67,7 @@ import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
 import * as startupBehaviorModule from './settings/startup-behavior.js';
 import type { StartupBehavior } from './settings/startup-behavior.js';
+import * as externalAnalyticsModule from './settings/external-analytics.js';
 import * as importControlsModule from './imports/controls.js';
 import * as importLogModule from './imports/log.js';
 import * as importMergeModule from './imports/merge.js';
@@ -204,6 +205,7 @@ class GammaLedger {
     declare watchlistGridApi: unknown
     declare expandedWatchlistTicker: string | null
     declare shareCard: { root: HTMLElement | null; card: HTMLElement | null; button: HTMLElement | null; chartCanvas: HTMLCanvasElement | null; chartTitle: HTMLElement | null; rangeLabel: HTMLElement | null; chart: { destroy(): void } | null; metrics: Record<string, unknown>; timestamp: unknown; exportSize: number }
+    declare externalAnalyticsUrl: string
     declare watchlist: import('./types/watchlist.js').WatchlistEntry[]
 
     constructor() {
@@ -434,6 +436,9 @@ class GammaLedger {
             exportSize: SHARE_CARD_EXPORT_SIZE
         };
 
+        // External Analytics
+        this.externalAnalyticsUrl = '';
+
         // currentDate is now a live getter — see get currentDate() below
 
         this.init();
@@ -563,7 +568,9 @@ class GammaLedger {
                     }).catch(() => { /* ignore fetch errors — table already rendered without badges */ });
                 }
             }
+            this.initializeFinnhubRateLimitControls();
             this.initializeDefaultFeeControls();
+            this.initializeExternalAnalyticsControls();
             this.initializeStartupBehaviorControls();
             this.initializeAnnouncementBanner();
             this.setupSampleDataBannerActions();
@@ -1446,6 +1453,15 @@ class GammaLedger {
     loadStartupBehaviorFromStorage() { return startupBehaviorModule.loadStartupBehaviorFromStorage.call(this); }
 
     saveStartupBehaviorToStorage() { return startupBehaviorModule.saveStartupBehaviorToStorage.call(this); }
+
+    // src/settings/external-analytics.ts
+    initializeExternalAnalyticsControls() { return externalAnalyticsModule.initializeExternalAnalyticsControls.call(this); }
+    loadExternalAnalyticsFromStorage() { return externalAnalyticsModule.loadExternalAnalyticsFromStorage.call(this); }
+    saveExternalAnalyticsToStorage() { return externalAnalyticsModule.saveExternalAnalyticsToStorage.call(this); }
+    removeExternalAnalyticsFromStorage() { return externalAnalyticsModule.removeExternalAnalyticsFromStorage.call(this); }
+    updateExternalAnalyticsStatus(element: HTMLElement | null, message?: string | null, variant?: string, duration?: number) { return externalAnalyticsModule.updateExternalAnalyticsStatus.call(this, element, message, variant, duration); }
+
+    // src/ui/dashboard/bridge.ts
 
     // Finnhub rate limit storage methods
     loadFinnhubRateLimitFromStorage() { return finnhubModule.loadFinnhubRateLimitFromStorage.call(this); }

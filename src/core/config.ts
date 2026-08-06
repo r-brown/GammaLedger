@@ -42,6 +42,7 @@ interface AppConfigShape {
         readonly ANNOUNCEMENT_DISMISSED: string
         readonly LAST_STRATEGY: string
         readonly STARTUP_BEHAVIOR: string
+        readonly EXTERNAL_ANALYTICS: string
         readonly LEGACY_KEYS: readonly string[]
     }
     SHARE_CARD: {
@@ -82,6 +83,7 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         ANNOUNCEMENT_DISMISSED: 'GammaLedgerAnnouncementDismissedId',
         LAST_STRATEGY: 'GammaLedgerLastStrategy',
         STARTUP_BEHAVIOR: 'GammaLedgerStartupBehavior',
+        EXTERNAL_ANALYTICS: 'GammaLedgerExternalAnalytics',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',
@@ -131,6 +133,8 @@ export const FINNHUB_RATE_LIMIT_STORAGE_KEY: string = APP_CONFIG.STORAGE.FINNHUB
 export const FINNHUB_STORAGE_KEY: string = APP_CONFIG.STORAGE.FINNHUB_CONFIG;
 export const FINNHUB_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.FINNHUB_SECRET;
 export const GEMINI_MAX_TOKENS_STORAGE_KEY: string = APP_CONFIG.STORAGE.GEMINI_MAX_TOKENS;
+export const EXTERNAL_ANALYTICS_STORAGE_KEY: string = APP_CONFIG.STORAGE.EXTERNAL_ANALYTICS;
+export const DEFAULT_EXTERNAL_ANALYTICS_URL = 'https://www.investing.com/search/?q={ticker}' as const;
 export const DEFAULT_FINNHUB_RATE_LIMIT = 60 as const;
 export const DEFAULT_GEMINI_MAX_TOKENS = 65536 as const;
 export const CURRENT_STORAGE_VERSION = '2.5' as const;

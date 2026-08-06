@@ -886,6 +886,29 @@
             <br>
             <section class="settings-section">
                     <header class="settings-section__header">
+                        <h2>External Analytics</h2>
+                        <p>Configure the external link opened when clicking on a ticker.</p>
+                    </header>
+                    <div class="settings-card" id="external-analytics-controls">
+                        <div class="settings-card__header">
+                            <h3>Analytics Base URL</h3>
+                            <p class="settings-card__subtitle">Set the URL to open. Use {ticker} as a placeholder.</p>
+                        </div>
+                        <div class="settings-card__body">
+                            <label for="external-analytics-url" class="form-label">Base URL</label>
+                            <div class="settings-input-row">
+                                <input type="text" id="external-analytics-url" class="form-control" placeholder="https://finance.yahoo.com/quote/{ticker}" autocomplete="off">
+                                <button class="btn btn--sm btn--primary" id="external-analytics-save">Save</button>
+                                <button class="btn btn--sm btn--secondary" id="external-analytics-clear">Reset Default</button>
+                            </div>
+                            <p class="settings-help-text">Default: https://www.investing.com/search/?q={ticker}. The {ticker} placeholder will be replaced with the actual ticker symbol.</p>
+                            <div class="default-fee-status" id="external-analytics-status" role="status"></div>
+                        </div>
+                    </div>
+                </section>
+            <br>
+            <section class="settings-section">
+                    <header class="settings-section__header">
                         <h2>Database Startup Behavior</h2>
                         <p>Control what GammaLedger loads when you open the app.</p>
                     </header>
