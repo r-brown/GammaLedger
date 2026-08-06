@@ -6474,6 +6474,10 @@ tr.position-itm.position-expiring-critical td,
 .metric-col .rv-warn { font-weight: 500; color: #854F0B; }
 .metric-col .rv-pur  { font-weight: 500; color: #534AB7; }
 
+/* Watchlist Day % cell reuses the same rv-pos/rv-neg gain/loss colors as .metric-col */
+.dashboard-ag-grid .rv-pos { font-weight: 500; color: #0F6E56; }
+.dashboard-ag-grid .rv-neg { font-weight: 500; color: #A32D2D; }
+
 .win-bar-wrap { height: 6px; background: var(--color-card-border-inner); border-radius: 3px; margin: 4px 0 2px; overflow: hidden; }
 .win-bar      { height: 100%; border-radius: 3px; background: var(--color-risk-ok); }
 .win-bar-foot { display: flex; justify-content: space-between; font-size: 10px; color: var(--color-text-secondary); }
@@ -6490,12 +6494,16 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
   :root:not([data-color-scheme="light"]) .metric-col .rv-neg  { color: #F87171; }
   :root:not([data-color-scheme="light"]) .metric-col .rv-warn { color: #FCD34D; }
   :root:not([data-color-scheme="light"]) .metric-col .rv-pur  { color: #A5B4FC; }
+  :root:not([data-color-scheme="light"]) .dashboard-ag-grid .rv-pos { color: #34D399; }
+  :root:not([data-color-scheme="light"]) .dashboard-ag-grid .rv-neg { color: #F87171; }
   :root:not([data-color-scheme="light"]) .chip-warn { background: rgba(251,191,36,0.15); color: #FCD34D; }
 }
 [data-color-scheme="dark"] .metric-col .rv-pos  { color: #34D399; }
 [data-color-scheme="dark"] .metric-col .rv-neg  { color: #F87171; }
 [data-color-scheme="dark"] .metric-col .rv-warn { color: #FCD34D; }
 [data-color-scheme="dark"] .metric-col .rv-pur  { color: #A5B4FC; }
+[data-color-scheme="dark"] .dashboard-ag-grid .rv-pos { color: #34D399; }
+[data-color-scheme="dark"] .dashboard-ag-grid .rv-neg { color: #F87171; }
 [data-color-scheme="dark"] .chip-warn { background: rgba(251,191,36,0.15); color: #FCD34D; }
 [data-color-scheme="light"] .chip-warn { background: #FAEEDA; color: #633806; }
 
