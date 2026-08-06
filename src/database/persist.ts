@@ -8,8 +8,9 @@ import {
     RUNTIME_LEG_FIELDS,
     CURRENT_STORAGE_VERSION
 } from '@core/config'
-import { parseStorageSchema } from '@core/migration'
+import { parseStorageSchema, normalizeWatchlist } from '@core/migration'
 import { safeLocalStorage } from '@core/storage'
+import type { WatchlistEntry } from '@types-gl'
 
 type TradeRecord = Record<string, unknown>
 type StorageSnapshot = Record<string, unknown>
@@ -41,6 +42,7 @@ interface CachedQuote {
 
 interface PersistContext {
     trades: TradeRecord[]
+    watchlist: WatchlistEntry[]
     currentFileHandle: PickerFileHandle | null
     currentFileName: string | null
     currentFileLastModified: number | null
@@ -263,7 +265,8 @@ export function buildDatabasePayload(this: PersistContext): StorageSnapshot {
         version: CURRENT_STORAGE_VERSION,
         exportDate: new Date().toISOString(),
         trades: this.getStorageTrades(),
-        mcpContext: this.buildMCPContext()
+        mcpContext: this.buildMCPContext(),
+        watchlist: this.watchlist
     };
 }
 
@@ -558,6 +561,8 @@ export function processLoadedData(
         return this.enrichTradeData(updatedTrade);
     });
 
+    this.watchlist = normalizeWatchlist((parsed as unknown as Record<string, unknown>).watchlist);
+
     const metadataFileName = typeof metadata.fileName === 'string' ? metadata.fileName : '';
     if (metadataFileName) {
         this.currentFileName = metadataFileName;
@@ -589,6 +594,7 @@ export function newDatabase(this: PersistContext): void {
     }
 
     this.trades = [];
+    this.watchlist = [];
     this.currentFileHandle = null;
     this.currentFileLastModified = null;
     this.currentFileName = 'Unsaved Database';
@@ -610,7 +616,8 @@ export function saveToStorage(this: PersistContext, metadata: Record<string, unk
             timestamp,
             fileName: (metadata.fileName as string) || this.currentFileName || 'Unsaved Database',
             trades: this.getStorageTrades(),
-            mcpContext: this.buildMCPContext()
+            mcpContext: this.buildMCPContext(),
+            watchlist: this.watchlist
         });
         const saved = safeLocalStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
         if (!saved) {
@@ -643,6 +650,9 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
                     delete normalized.tradeReasoning;
                     return this.enrichTradeData(normalized);
                 });
+
+                this.watchlist = normalizeWatchlist((parsed as unknown as Record<string, unknown>).watchlist);
+
                 const metadata = parsed as unknown as Record<string, unknown>;
                 if (metadata.fileName) {
                     this.currentFileName = String(metadata.fileName);
@@ -678,6 +688,7 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
                     delete normalized.tradeReasoning;
                     return this.enrichTradeData(normalized);
                 });
+                this.watchlist = [];
                 this.currentFileName = 'Unsaved Database';
                 this.hasUnsavedChanges = false;
                 this.updateUnsavedIndicator();

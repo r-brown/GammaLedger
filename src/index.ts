@@ -118,6 +118,7 @@ import * as commandPaletteModule from './ui/command-palette.js';
 import * as tickerPageModule from './ui/ticker-page.js';
 import type { TickerPageState } from './ui/ticker-page.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
+import * as watchlistModule from './ui/watchlist.js';
 
 
 class GammaLedger {
@@ -199,7 +200,10 @@ class GammaLedger {
     declare commandPaletteIndex: number
     declare tickerPage: TickerPageState
     declare tickerPageGridApi: unknown
+    declare watchlistGridApi: unknown
+    declare expandedWatchlistTicker: string | null
     declare shareCard: { root: HTMLElement | null; card: HTMLElement | null; button: HTMLElement | null; chartCanvas: HTMLCanvasElement | null; chartTitle: HTMLElement | null; rangeLabel: HTMLElement | null; chart: { destroy(): void } | null; metrics: Record<string, unknown>; timestamp: unknown; exportSize: number }
+    declare watchlist: import('./types/watchlist.js').WatchlistEntry[]
 
     constructor() {
         this.trades = [];
@@ -233,6 +237,7 @@ class GammaLedger {
             direction: 'asc'
         };
         this.earningsMap = new Map();
+        this.watchlist = [];
         this.metricsCache = new Map();
         this.expandedTradeId = null;
         this.activePositionsTrades = [];
@@ -409,6 +414,8 @@ class GammaLedger {
         this.commandPaletteIndex = 0;
         this.tickerPage = { ticker: null, selectedTradeId: 'all' };
         this.tickerPageGridApi = null;
+        this.watchlistGridApi = null;
+        this.expandedWatchlistTicker = null;
 
         this.shareCard = {
             root: null,
@@ -1214,6 +1221,14 @@ class GammaLedger {
     showTickerPage(ticker) { return tickerPageModule.showTickerPage.call(this, ticker); }
 
     renderTickerPage() { return tickerPageModule.renderTickerPage.call(this); }
+
+    renderWatchlistView() { return watchlistModule.renderWatchlistView.call(this); }
+
+    addToWatchlist(ticker) { return watchlistModule.addToWatchlist.call(this, ticker); }
+
+    removeFromWatchlist(ticker) { return watchlistModule.removeFromWatchlist.call(this, ticker); }
+
+    updateWatchlistEntry(ticker, patch) { return watchlistModule.updateWatchlistEntry.call(this, ticker, patch); }
 
     resetAddTradeForm() { return viewsModule.resetAddTradeForm.call(this); }
 

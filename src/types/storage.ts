@@ -2,6 +2,7 @@ import type { ISOTimestamp, ISODate, DollarAmount, CumulativePLRange } from './c
 import type { Trade } from './trade'
 import type { EnrichedTrade } from './trade'
 import type { Stats } from './stats'
+import type { WatchlistEntry } from './watchlist'
 
 export type StorageSchemaVersion = '2.5'
 
@@ -92,4 +93,10 @@ export interface StorageSchema {
    * May be absent on data imported from older versions.
    */
   mcpContext?: MCPContext
+
+  /**
+   * Tickers the user follows (Watchlist view). Optional — absent in
+   * databases written before 2026-08.
+   */
+  watchlist?: WatchlistEntry[]
 }

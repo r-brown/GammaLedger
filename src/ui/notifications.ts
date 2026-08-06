@@ -15,6 +15,7 @@ interface NotificationsContext {
 interface ToastOptions {
   duration?: number
   closable?: boolean
+  action?: { label: string; onClick(): void }
 }
 
 interface VisibleToast {
@@ -110,6 +111,18 @@ function mount(message: string, type: ToastVariant, options: ToastOptions): void
     messageEl.className = 'toast__message'
     messageEl.textContent = message
     el.appendChild(messageEl)
+
+    if (options.action) {
+        const actionBtn = document.createElement('button')
+        actionBtn.type = 'button'
+        actionBtn.className = 'toast__action'
+        actionBtn.textContent = options.action.label
+        actionBtn.addEventListener('click', () => {
+            options.action?.onClick()
+            dismiss(el)
+        })
+        el.appendChild(actionBtn)
+    }
 
     const closable = options.closable !== false
     if (closable) {

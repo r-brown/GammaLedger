@@ -6382,6 +6382,20 @@ tr.position-itm.position-expiring-critical td,
     outline: none;
 }
 
+.toast__action {
+    background: none;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm, 6px);
+    color: inherit;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    margin-left: 8px;
+    padding: 2px 10px;
+    white-space: nowrap;
+}
+.toast__action:hover { opacity: 0.8; }
+
 @media (prefers-reduced-motion: reduce) {
     .toast {
         transition: none;
@@ -6460,6 +6474,10 @@ tr.position-itm.position-expiring-critical td,
 .metric-col .rv-warn { font-weight: 500; color: #854F0B; }
 .metric-col .rv-pur  { font-weight: 500; color: #534AB7; }
 
+/* Watchlist Day % cell reuses the same rv-pos/rv-neg gain/loss colors as .metric-col */
+.dashboard-ag-grid .rv-pos { font-weight: 500; color: #0F6E56; }
+.dashboard-ag-grid .rv-neg { font-weight: 500; color: #A32D2D; }
+
 .win-bar-wrap { height: 6px; background: var(--color-card-border-inner); border-radius: 3px; margin: 4px 0 2px; overflow: hidden; }
 .win-bar      { height: 100%; border-radius: 3px; background: var(--color-risk-ok); }
 .win-bar-foot { display: flex; justify-content: space-between; font-size: 10px; color: var(--color-text-secondary); }
@@ -6476,12 +6494,16 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
   :root:not([data-color-scheme="light"]) .metric-col .rv-neg  { color: #F87171; }
   :root:not([data-color-scheme="light"]) .metric-col .rv-warn { color: #FCD34D; }
   :root:not([data-color-scheme="light"]) .metric-col .rv-pur  { color: #A5B4FC; }
+  :root:not([data-color-scheme="light"]) .dashboard-ag-grid .rv-pos { color: #34D399; }
+  :root:not([data-color-scheme="light"]) .dashboard-ag-grid .rv-neg { color: #F87171; }
   :root:not([data-color-scheme="light"]) .chip-warn { background: rgba(251,191,36,0.15); color: #FCD34D; }
 }
 [data-color-scheme="dark"] .metric-col .rv-pos  { color: #34D399; }
 [data-color-scheme="dark"] .metric-col .rv-neg  { color: #F87171; }
 [data-color-scheme="dark"] .metric-col .rv-warn { color: #FCD34D; }
 [data-color-scheme="dark"] .metric-col .rv-pur  { color: #A5B4FC; }
+[data-color-scheme="dark"] .dashboard-ag-grid .rv-pos { color: #34D399; }
+[data-color-scheme="dark"] .dashboard-ag-grid .rv-neg { color: #F87171; }
 [data-color-scheme="dark"] .chip-warn { background: rgba(251,191,36,0.15); color: #FCD34D; }
 [data-color-scheme="light"] .chip-warn { background: #FAEEDA; color: #633806; }
 
@@ -6717,3 +6739,25 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
   margin-bottom: var(--space-12);
   padding: var(--space-12) var(--space-16);
 }
+
+/* ── Watchlist view ───────────────────────────────────────────── */
+.watchlist-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.watchlist-empty-state { text-align: center; padding: 40px 20px; background: var(--color-surface); border-radius: var(--radius-md); border: 1px dashed var(--color-border); }
+.watchlist-empty-state .empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.8; }
+.watchlist-empty-state h3 { margin-bottom: 4px; font-weight: var(--font-weight-semibold); color: var(--color-text); }
+.watchlist-add-form { display: flex; gap: 8px; align-items: center; }
+.watchlist-add-input { width: 180px; text-transform: uppercase; }
+.watchlist-stars { display: inline-flex; gap: 2px; }
+.watchlist-star { background: none; border: none; cursor: pointer; font-size: 16px; line-height: 1; padding: 2px; color: var(--color-text-secondary); }
+.watchlist-star.is-active { color: #f5b301; }
+.watchlist-star:hover { transform: scale(1.15); }
+.watchlist-expand-btn { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--color-text-secondary); padding: 4px; }
+.watchlist-delete-btn { background: none; border: none; cursor: pointer; color: var(--color-text-secondary); font-size: 13px; padding: 4px; }
+.watchlist-delete-btn:hover { color: #b91c1c; }
+.watchlist-position-badge { background: var(--color-border); border: none; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: var(--font-weight-semibold); padding: 3px 10px; }
+.watchlist-risk { cursor: help; }
+.watchlist-detail { padding: 8px 12px; }
+.watchlist-notes-card { margin-bottom: 12px; }
+.watchlist-notes-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-weight: var(--font-weight-semibold); }
+.watchlist-notes-input { width: 100%; resize: vertical; }
+.watchlist-notes-added { color: var(--color-text-secondary); font-size: 11px; margin-top: 6px; }

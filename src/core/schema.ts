@@ -176,11 +176,21 @@ export const PersistedTradeSchema = z.object({
     marketPriceSnapshotAt: OptionalTextSchema
 }).passthrough();
 
+export const WatchlistEntrySchema = z.object({
+    ticker: z.string().min(1),
+    rating: z.number().int().min(1).max(5).nullable().catch(null).default(null),
+    notes: z.string().catch('').default(''),
+    addedDate: z.string().catch('').default('')
+}).passthrough();
+
 export const StorageSchema = z.object({
     version: z.literal(CURRENT_STORAGE_VERSION),
     exportDate: RequiredTextSchema,
     trades: z.array(PersistedTradeSchema),
-    mcpContext: z.unknown().optional()
+    mcpContext: z.unknown().optional(),
+    // Corrupted watchlist data must never block trade data from loading —
+    // fall back to an empty list rather than failing the whole import.
+    watchlist: z.array(WatchlistEntrySchema).catch([]).optional()
 }).passthrough();
 
 export const NormalizedLegInputSchema = z.object({
