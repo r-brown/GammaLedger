@@ -6731,3 +6731,8 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
   margin-bottom: var(--space-12);
   padding: var(--space-12) var(--space-16);
 }
+
+/* ── Watchlist view ───────────────────────────────────────────── */
+.watchlist-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.watchlist-add-form { display: flex; gap: 8px; align-items: center; }
+.watchlist-add-input { width: 180px; text-transform: uppercase; }
