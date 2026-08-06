@@ -456,12 +456,12 @@ function attachScorePillTooltip(
 // Panel skeleton — three-column DOM structure with loading placeholders
 // ---------------------------------------------------------------------------
 
-interface PanelSkeletonOptions {
+export interface PanelSkeletonOptions {
   threeCol?: boolean
   tradeBreakdown?: boolean
 }
 
-function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = {}): HTMLElement {
+export function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = {}): HTMLElement {
   const { threeCol = false, tradeBreakdown = false } = opts
   const panel = el('div', 'position-detail-panel')
 
@@ -1274,7 +1274,7 @@ function renderScorePills(scoresEl: HTMLElement, metrics: StockMetrics): void {
 // Data fetch orchestration
 // ---------------------------------------------------------------------------
 
-function triggerDataFetch(
+export function triggerDataFetch(
   context: PositionDetailPanelContext,
   ticker: string,
   panelEl: HTMLElement,

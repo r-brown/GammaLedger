@@ -4,7 +4,7 @@
 
 import { showNotification } from './notifications.js'
 import { createGrid, type ColDef, type GridApi, type GridOptions, type ICellRendererParams } from './tables/ag-grid.js'
-import { computePreTradeRiskScore, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
+import { buildPanelSkeleton, computePreTradeRiskScore, triggerDataFetch, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
 import { createTickerElement } from '@utils/dom'
 import type { WatchlistEntry } from '../types/watchlist.js'
 import type { EarningsCalendarEntry, StockMetrics } from '../types/integrations.js'
@@ -263,6 +263,71 @@ function riskCell(this: WatchlistContext, ticker: string): HTMLElement {
     return span
 }
 
+function createWatchlistDetailRenderer(context: WatchlistContext) {
+    return class {
+        private container!: HTMLElement
+        private ro: ResizeObserver | null = null
+
+        init(params: { node: { data: WatchlistRow; setRowHeight(h: number): void }; api: { onRowHeightChanged(): void } }) {
+            const entry = params.node.data._entry as WatchlistEntry
+            const ticker = entry.ticker
+
+            this.container = document.createElement('div')
+            this.container.className = 'watchlist-detail'
+
+            // ── My notes & rating ────────────────────────────────
+            const card = document.createElement('div')
+            card.className = 'pdp-card watchlist-notes-card'
+            const header = document.createElement('div')
+            header.className = 'watchlist-notes-header'
+            const title = document.createElement('span')
+            title.textContent = 'My notes & rating'
+            header.appendChild(title)
+            header.appendChild(renderStars.call(context, ticker, entry.rating))
+            card.appendChild(header)
+            const textarea = document.createElement('textarea')
+            textarea.className = 'form-control watchlist-notes-input'
+            textarea.rows = 3
+            textarea.placeholder = 'Why are you watching this ticker?'
+            textarea.value = entry.notes
+            textarea.addEventListener('blur', () => {
+                const current = context.watchlist.find(candidate => candidate.ticker === ticker)
+                if (current && textarea.value !== current.notes) {
+                    updateWatchlistEntry.call(context, ticker, { notes: textarea.value })
+                    // Row objects are copies, so refreshCells would re-read stale data —
+                    // rebuild rowData instead. Safe here: blur means focus already left.
+                    context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+                }
+            })
+            card.appendChild(textarea)
+            if (entry.addedDate) {
+                const added = document.createElement('div')
+                added.className = 'watchlist-notes-added'
+                added.textContent = `Watching since ${context.formatDate(entry.addedDate)}`
+                card.appendChild(added)
+            }
+            this.container.appendChild(card)
+
+            // ── Fundamentals / signals / news (existing panel) ───
+            const panel = buildPanelSkeleton(ticker, { threeCol: true })
+            this.container.appendChild(panel)
+            triggerDataFetch(context, ticker, panel, null, true)
+
+            this.ro = new ResizeObserver((entries) => {
+                const height = entries[0]?.contentRect.height ?? this.container.offsetHeight
+                if (height > 0) {
+                    params.node.setRowHeight(Math.ceil(height))
+                    params.api.onRowHeightChanged()
+                }
+            })
+            this.ro.observe(this.container)
+        }
+
+        getGui(): HTMLElement { return this.container }
+        destroy(): void { this.ro?.disconnect() }
+    }
+}
+
 function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
     const context = this
     const columnDefs: ColDef<WatchlistRow>[] = [
@@ -376,6 +441,12 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
         domLayout: 'autoHeight',
         headerHeight: 44,
         animateRows: false,
+        isFullWidthRow: params => !!(params.rowNode.data as WatchlistRow & { _isDetailRow?: boolean })?._isDetailRow,
+        fullWidthCellRenderer: createWatchlistDetailRenderer(context),
+        getRowHeight: params => {
+            const row = params.node.data as WatchlistRow & { _isDetailRow?: boolean }
+            return row?._isDetailRow ? 800 : 46
+        },
         overlayNoRowsTemplate: '<span class="ag-overlay-no-rows-center">No tickers on the watchlist.</span>'
     }
 }

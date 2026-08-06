@@ -6753,3 +6753,8 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 .watchlist-delete-btn:hover { color: #b91c1c; }
 .watchlist-position-badge { background: var(--color-border); border: none; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: var(--font-weight-semibold); padding: 3px 10px; }
 .watchlist-risk { cursor: help; }
+.watchlist-detail { padding: 8px 12px; }
+.watchlist-notes-card { margin-bottom: 12px; }
+.watchlist-notes-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-weight: var(--font-weight-semibold); }
+.watchlist-notes-input { width: 100%; resize: vertical; }
+.watchlist-notes-added { color: var(--color-text-secondary); font-size: 11px; margin-top: 6px; }
