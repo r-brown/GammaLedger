@@ -76,7 +76,7 @@ export function showView(this: ViewsContext, viewName: string): void {
         settings: 'Settings',
         'credit-playbook': 'Credit Playbook (beta)',
         'ticker-page': this.tickerPage?.ticker ? `${this.tickerPage.ticker} — Ticker (beta)` : 'Ticker (beta)',
-        watchlist: 'Watchlist'
+        watchlist: 'Watchlist (beta)'
     };
     const titleText = titles[viewName] || 'GammaLedger';
     const titleEl = document.getElementById('page-title');

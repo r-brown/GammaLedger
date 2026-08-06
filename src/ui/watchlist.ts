@@ -104,13 +104,13 @@ export function renderWatchlistView(this: WatchlistContext): void {
     const input = document.createElement('input')
     input.type = 'text'
     input.className = 'form-control watchlist-add-input'
-    input.placeholder = 'Add ticker (e.g. NVDA)'
+    input.placeholder = 'Enter ticker (e.g., NVDA)'
     input.setAttribute('aria-label', 'Ticker to add to watchlist')
     input.maxLength = 10
     const addBtn = document.createElement('button')
     addBtn.type = 'submit'
     addBtn.className = 'btn btn--primary btn--sm'
-    addBtn.textContent = 'Add'
+    addBtn.innerHTML = '➕ Add'
     form.append(input, addBtn)
     form.addEventListener('submit', (event) => {
         event.preventDefault()
@@ -139,9 +139,13 @@ export function renderWatchlistView(this: WatchlistContext): void {
     root.appendChild(bar)
 
     if (!this.watchlist.length) {
-        const empty = document.createElement('p')
-        empty.className = 'chart-subtext'
-        empty.textContent = 'No tickers yet — add one above to start tracking it.'
+        const empty = document.createElement('div')
+        empty.className = 'watchlist-empty-state'
+        empty.innerHTML = `
+            <div class="empty-icon">👁️</div>
+            <h3>Your Watchlist is empty</h3>
+            <p class="chart-subtext">Add a ticker above to start tracking it.</p>
+        `
         root.appendChild(empty)
         return
     }
@@ -291,7 +295,23 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             header.className = 'watchlist-notes-header'
             const title = document.createElement('span')
             title.textContent = 'My notes & rating'
-            header.appendChild(title)
+            
+            const savedIndicator = document.createElement('span')
+            savedIndicator.className = 'watchlist-notes-saved'
+            savedIndicator.textContent = 'Saved'
+            savedIndicator.style.opacity = '0'
+            savedIndicator.style.transition = 'opacity 0.3s'
+            savedIndicator.style.marginLeft = '8px'
+            savedIndicator.style.fontSize = '12px'
+            savedIndicator.style.color = 'var(--color-success, #059669)'
+            
+            const titleWrap = document.createElement('div')
+            titleWrap.style.display = 'flex'
+            titleWrap.style.alignItems = 'center'
+            titleWrap.appendChild(title)
+            titleWrap.appendChild(savedIndicator)
+            
+            header.appendChild(titleWrap)
             header.appendChild(renderStars.call(context, ticker, entry.rating))
             card.appendChild(header)
             const textarea = document.createElement('textarea')
@@ -303,6 +323,10 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
                 const current = context.watchlist.find(candidate => candidate.ticker === ticker)
                 if (current && textarea.value !== current.notes) {
                     updateWatchlistEntry.call(context, ticker, { notes: textarea.value })
+                    
+                    savedIndicator.style.opacity = '1'
+                    setTimeout(() => { savedIndicator.style.opacity = '0' }, 2000)
+                    
                     // Row objects are copies, so refreshCells would re-read stale data —
                     // rebuild rowData instead. Safe here: blur means focus already left.
                     context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
