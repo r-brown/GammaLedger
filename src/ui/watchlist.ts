@@ -115,8 +115,14 @@ export function renderWatchlistView(this: WatchlistContext): void {
     form.addEventListener('submit', (event) => {
         event.preventDefault()
         addToWatchlist.call(this, input.value)
-        input.value = ''
-        input.focus()
+        // A successful add re-renders `root` synchronously, replacing this
+        // form/input with a fresh one — re-query the live input so both the
+        // success and validation-failure paths clear/focus the right node.
+        const liveInput = root.querySelector<HTMLInputElement>('.watchlist-add-input')
+        if (liveInput) {
+            liveInput.value = ''
+            liveInput.focus()
+        }
     })
     bar.appendChild(form)
     root.appendChild(bar)
