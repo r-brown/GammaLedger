@@ -163,13 +163,22 @@ export function renderWatchlistView(this: WatchlistContext): void {
         this.watchlistGridApi = createGrid<WatchlistRow>(gridRoot, buildGridOptions.call(this))
     })
 
+    // fetchEarningsCalendar is a bare fetch with no rate-limit queue or cache (unlike
+    // getCurrentPrice), and renderWatchlistView re-runs on every rating/add/delete/undo.
+    // Only fetch when at least one watched ticker isn't already recorded in earningsMap,
+    // so rapid re-renders don't fire an uncached Finnhub call per click. Note: a ticker
+    // with no upcoming earnings never lands in earningsMap, so it will keep re-triggering
+    // this check on every render — acceptable residual refetch, not worth extra tracking state.
     if (this.finnhub?.apiKey && this.watchlist.length) {
         const tickers = this.watchlist.map(entry => entry.ticker)
-        const toDate = new Date(this.currentDate.getTime() + 90 * 86_400_000).toISOString().slice(0, 10)
-        void this.fetchEarningsCalendar(tickers, toDate).then(() => {
-            if (this.currentView !== 'watchlist') return
-            this.watchlistGridApi?.refreshCells({ columns: ['earnings'], force: true })
-        }).catch(() => { /* earnings column stays '—' */ })
+        const hasMissingTicker = tickers.some(ticker => !this.earningsMap.has(ticker))
+        if (hasMissingTicker) {
+            const toDate = new Date(this.currentDate.getTime() + 90 * 86_400_000).toISOString().slice(0, 10)
+            void this.fetchEarningsCalendar(tickers, toDate).then(() => {
+                if (this.currentView !== 'watchlist') return
+                this.watchlistGridApi?.refreshCells({ columns: ['earnings'], force: true })
+            }).catch(() => { /* earnings column stays '—' */ })
+        }
     }
 }
 
