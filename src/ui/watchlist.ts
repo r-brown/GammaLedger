@@ -30,7 +30,6 @@ export interface WatchlistContext extends PositionDetailPanelContext {
   getQuoteChangePercent(quote: Record<string, unknown>): number | null
   fetchEarningsCalendar(tickers: string[], toDate: string): Promise<void>
   fetchDividendCalendar(from: string, to: string): Promise<import('../types/integrations.js').DividendCalendarEntry[]>
-  fetchCandles(ticker: string, resolution: string, fromUnix: number, toUnix: number): Promise<import('../types/integrations.js').FinnhubCandles | null>
   isActiveStatus(status: unknown): boolean
   isWheelOrPmccTrade(trade: unknown): boolean
   isAssignmentTrade(trade: unknown): boolean
@@ -271,6 +270,20 @@ function buildWatchlistRows(entries: WatchlistEntry[], expandedTicker: string | 
     return rows
 }
 
+// Grid rows and the expanded detail row's `_entry` are independent shallow
+// copies (see buildWatchlistRows). Editing a field via the detail panel
+// already rebuilds rowData wholesale, but an inline edit in the grid cell
+// itself (e.g. double-clicking the Target column) only updates that row's
+// own copy — the detail row below it would keep showing the pre-edit value
+// until something rebuilds rowData. Deferred via setTimeout so this runs
+// after AG Grid's own edit-commit cycle finishes, not from inside it.
+function refreshExpandedDetailRow(context: WatchlistContext, ticker: string): void {
+    if (context.expandedWatchlistTicker !== ticker) return
+    setTimeout(() => {
+        context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+    }, 0)
+}
+
 const RISK_EMOJI: Record<'green' | 'yellow' | 'red', string> = { green: '🟢', yellow: '🟡', red: '🔴' }
 
 function quoteCell(this: WatchlistContext, ticker: string): HTMLElement {
@@ -401,6 +414,9 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
                     savedIndicator.style.opacity = '1'
                     setTimeout(() => { savedIndicator.style.opacity = '0' }, 2000)
                     context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+                    // targetDirection isn't the Target column's bound field, so AG Grid's
+                    // own value-diffing won't know to redraw the icon — force it.
+                    context.watchlistGridApi?.refreshCells({ columns: ['targetPrice'], force: true })
                 }
             })
             
@@ -479,28 +495,51 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
             valueSetter: (params) => {
                 if (params.data && params.newValue !== params.oldValue) {
                     const parsed = parseFloat(params.newValue)
-                    updateWatchlistEntry.call(context, String(params.data.ticker), { targetPrice: isNaN(parsed) ? null : parsed })
+                    const ticker = String(params.data.ticker)
+                    updateWatchlistEntry.call(context, ticker, { targetPrice: isNaN(parsed) ? null : parsed })
+                    refreshExpandedDetailRow(context, ticker)
                     return true
                 }
                 return false
             },
-            valueFormatter: params => {
-                if (params.value == null) return '—'
-                const dir = (params.data as WatchlistRow)?.targetDirection === 'down' ? '🔽' : '🔼'
-                return `${dir} ${context.formatCurrency(params.value)}`
+            // Used for CSV/clipboard export and the edit-cell tooltip — the
+            // on-screen look (price + small direction icon) is handled by
+            // cellRenderer below.
+            valueFormatter: params => params.value != null ? context.formatCurrency(params.value) : '—',
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
+                const wrap = document.createElement('span')
+                wrap.className = 'watchlist-target-cell'
+                if (params.value == null) {
+                    wrap.textContent = '—'
+                    return wrap
+                }
+                const priceEl = document.createElement('span')
+                priceEl.textContent = context.formatCurrency(params.value)
+                const isDown = (params.data as WatchlistRow)?.targetDirection === 'down'
+                const dirEl = document.createElement('span')
+                dirEl.className = `watchlist-target-dir ${isDown ? 'is-down' : 'is-up'}`
+                dirEl.textContent = isDown ? '▼' : '▲'
+                dirEl.setAttribute('aria-label', isDown ? 'Alert when price drops to or below target' : 'Alert when price rises to or above target')
+                wrap.append(priceEl, dirEl)
+                return wrap
             },
             cellClassRules: {
+                // Pulses only on the day the price crosses the target in the
+                // configured direction — mirrors a stock alert, not a
+                // permanent "still beyond target" indicator (which would
+                // pulse forever once triggered and never settle down).
                 'target-alert-pulse': (params) => {
                     const ticker = String(params.data?.ticker ?? '')
                     const quote = context.finnhub?.cache?.get(ticker) as import('../types/integrations.js').FinnhubQuote | undefined
                     const currentPrice = quote?.c
+                    const prevClose = quote?.pc
                     const targetPrice = params.data?.targetPrice as number | undefined | null
                     const targetDirection = (params.data?.targetDirection as 'up' | 'down' | undefined) || 'up'
-                    if (!currentPrice || !targetPrice) return false
-                    
-                    return targetDirection === 'up' 
-                        ? currentPrice >= targetPrice 
-                        : currentPrice <= targetPrice
+                    if (!currentPrice || !prevClose || !targetPrice) return false
+
+                    return targetDirection === 'up'
+                        ? (prevClose < targetPrice && currentPrice >= targetPrice)
+                        : (prevClose > targetPrice && currentPrice <= targetPrice)
                 }
             }
         },
@@ -515,7 +554,9 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
             editable: true,
             valueSetter: (params) => {
                 if (params.data && params.newValue !== params.oldValue) {
-                    updateWatchlistEntry.call(context, String(params.data.ticker), { notes: String(params.newValue ?? '') })
+                    const ticker = String(params.data.ticker)
+                    updateWatchlistEntry.call(context, ticker, { notes: String(params.newValue ?? '') })
+                    refreshExpandedDetailRow(context, ticker)
                     return true
                 }
                 return false

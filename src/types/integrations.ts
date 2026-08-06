@@ -256,16 +256,6 @@ export interface EarningsSurprise {
   surprisePercent: number | null
 }
 
-export interface FinnhubCandles {
-  c: number[]
-  h: number[]
-  l: number[]
-  o: number[]
-  s: string
-  t: number[]
-  v: number[]
-}
-
 export interface DividendCalendarEntry {
   symbol: string
   date: string

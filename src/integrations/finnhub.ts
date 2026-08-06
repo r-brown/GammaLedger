@@ -1117,6 +1117,11 @@ function getNextRefreshMs(session: string): number {
         const minsUntilOpen = 570 - totalMinutes + 1;
         return Math.max(minsUntilOpen, 1) * 60_000;
     }
+    if (session === 'after_hours') {
+        // Extended-hours trading runs until 8:00pm ET (minute 1200).
+        const minsUntilClose = 1200 - totalMinutes + 1;
+        return Math.max(minsUntilClose, 1) * 60_000;
+    }
     return 30 * 60_000;
 }
 
@@ -1137,6 +1142,12 @@ function getCountdownText(session: string): string {
         const h = Math.floor(remaining / 60);
         const m = remaining % 60;
         return h > 0 ? `opens in ${h}h ${m}m` : `opens in ${m}m`;
+    }
+    if (session === 'after_hours') {
+        const remaining = Math.max(1200 - totalMinutes, 0);
+        const h = Math.floor(remaining / 60);
+        const m = remaining % 60;
+        return h > 0 ? `closes in ${h}h ${m}m` : `closes in ${m}m`;
     }
     return '';
 }
@@ -1247,6 +1258,7 @@ export async function fetchMarketStatus(this: FinnhubContext): Promise<void> {
             if (!badge) return;
             const currentSession = badge.classList.contains('market-status--open') ? 'market_hours'
                 : badge.classList.contains('market-status--premarket') ? 'pre_market'
+                : badge.classList.contains('market-status--afterhours') ? 'after_hours'
                 : '';
             const countdown = document.getElementById('market-status-countdown');
             if (countdown) countdown.textContent = getCountdownText(currentSession);
@@ -1440,43 +1452,6 @@ export function getEarningsDateForTrade(
     const entry = (this.earningsMap as Map<string, import('../types/integrations.js').EarningsCalendarEntry>).get(ticker);
     if (!entry) return null;
     return entry.date <= expiration ? entry : null;
-}
-
-// ---------------------------------------------------------------------------
-// Candles (Historical Prices) — used for Watchlist sparklines
-// ---------------------------------------------------------------------------
-
-export async function fetchCandles(
-    this: any,
-    ticker: string,
-    resolution: string,
-    fromUnix: number,
-    toUnix: number
-): Promise<import('../types/integrations.js').FinnhubCandles | null> {
-    const apiKey = this.finnhub?.apiKey;
-    if (!apiKey) return null;
-
-    const url = new URL('https://finnhub.io/api/v1/stock/candle');
-    url.searchParams.set('symbol', ticker.toUpperCase());
-    url.searchParams.set('resolution', resolution);
-    url.searchParams.set('from', String(fromUnix));
-    url.searchParams.set('to', String(toUnix));
-    url.searchParams.set('token', String(apiKey));
-
-    try {
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            console.warn(`[Finnhub] stock/candle failed for ${ticker}: ${response.status}`);
-            return null;
-        }
-        const data = await response.json();
-        if (!data || typeof data !== 'object') return null;
-        if (data.s === 'no_data') return null;
-        return data as import('../types/integrations.js').FinnhubCandles;
-    } catch (error) {
-        console.warn(`[Finnhub] failed to fetch candles for ${ticker}:`, error);
-        return null;
-    }
 }
 
 // ---------------------------------------------------------------------------

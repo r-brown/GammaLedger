@@ -1461,8 +1461,6 @@ class GammaLedger {
     removeExternalAnalyticsFromStorage() { return externalAnalyticsModule.removeExternalAnalyticsFromStorage.call(this); }
     updateExternalAnalyticsStatus(element: HTMLElement | null, message?: string | null, variant?: string, duration?: number) { return externalAnalyticsModule.updateExternalAnalyticsStatus.call(this, element, message, variant, duration); }
 
-    // src/ui/dashboard/bridge.ts
-
     // Finnhub rate limit storage methods
     loadFinnhubRateLimitFromStorage() { return finnhubModule.loadFinnhubRateLimitFromStorage.call(this); }
 
@@ -1638,7 +1636,6 @@ class GammaLedger {
     async fetchEarningsCalendar(tickers: string[], toDate: string) { return finnhubModule.fetchEarningsCalendar.call(this, tickers, toDate); }
     async fetchStockMetrics(ticker: string) { return finnhubModule.fetchStockMetrics.call(this, ticker); }
     async fetchSignalsData(ticker: string) { return finnhubModule.fetchSignalsData.call(this, ticker); }
-    async fetchCandles(ticker: string, resolution: string, fromUnix: number, toUnix: number) { return finnhubModule.fetchCandles.call(this, ticker, resolution, fromUnix, toUnix); }
     async fetchDividendCalendar(from: string, to: string) { return finnhubModule.fetchDividendCalendar.call(this, from, to); }
     async fetchCompanyProfile(ticker: string) { return finnhubModule.fetchCompanyProfile.call(this, ticker); }
     async fetchEarningsSurprise(ticker: string) { return finnhubModule.fetchEarningsSurprise.call(this, ticker); }

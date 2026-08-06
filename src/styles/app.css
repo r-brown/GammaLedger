@@ -1326,6 +1326,8 @@ select.form-control {
 .market-status--open    .market-status__label { color: var(--color-success); }
 .market-status--premarket .market-status__dot { background: var(--color-brand-purple); }
 .market-status--premarket .market-status__label { color: var(--color-brand-purple-fg); }
+.market-status--afterhours .market-status__dot { background: var(--color-warning); }
+.market-status--afterhours .market-status__label { color: var(--color-warning); }
 .market-status--unavailable .market-status__label { cursor: pointer; text-decoration: underline; }
 
 .file-management__sep {
@@ -6777,28 +6779,17 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 .watchlist-notes-added { color: var(--color-text-secondary); font-size: 11px; margin-top: 6px; }
 
 /* ── Watchlist Enhancements ───────────────────────────────────── */
-.quote-ext-indicator {
-  font-size: 10px;
-  margin-left: 4px;
-  vertical-align: super;
-  cursor: help;
-}
-
-.watchlist-sparkline {
-  display: flex;
+.watchlist-target-cell {
+  display: inline-flex;
   align-items: center;
-  height: 100%;
+  gap: 4px;
 }
-.watchlist-sparkline svg {
-  overflow: visible;
+.watchlist-target-dir {
+  font-size: 10px;
+  line-height: 1;
 }
-.watchlist-sparkline path {
-  fill: none;
-  stroke: var(--color-primary, #6366f1);
-  stroke-width: 1.5;
-  stroke-linejoin: round;
-  stroke-linecap: round;
-}
+.watchlist-target-dir.is-up { color: var(--color-trend-up); }
+.watchlist-target-dir.is-down { color: var(--color-trend-down); }
 
 .target-alert-pulse {
   animation: target-pulse 2s infinite;
@@ -6809,30 +6800,4 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
   0% { opacity: 1; }
   50% { opacity: 0.5; }
   100% { opacity: 1; }
-}
-
-/* Modal for Cmd+N */
-.quick-create-modal {
-  max-width: 400px;
-  padding: 24px;
-}
-.quick-create-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 16px;
-}
-.quick-create-btn {
-  padding: 12px 16px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  text-align: left;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.quick-create-btn:hover {
-  background: var(--color-bg-hover);
-  border-color: var(--color-primary);
 }

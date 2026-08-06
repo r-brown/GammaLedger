@@ -89,7 +89,7 @@ export function updateExternalAnalyticsStatus(
     element: HTMLElement | null,
     message: string | null = null,
     variant = 'neutral',
-    _duration = 4000
+    duration = 4000
 ): void {
     if (!element) {
         return;
@@ -103,10 +103,10 @@ export function updateExternalAnalyticsStatus(
         } else if (variant === 'error') {
             element.classList.add('is-error');
         }
-        
+
         setTimeout(() => {
             element.textContent = '';
             element.className = 'default-fee-status';
-        }, _duration);
+        }, duration);
     }
 }
