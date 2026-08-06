@@ -6736,3 +6736,11 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 .watchlist-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .watchlist-add-form { display: flex; gap: 8px; align-items: center; }
 .watchlist-add-input { width: 180px; text-transform: uppercase; }
+.watchlist-stars { display: inline-flex; gap: 2px; }
+.watchlist-star { background: none; border: none; cursor: pointer; font-size: 16px; line-height: 1; padding: 2px; color: var(--color-text-secondary); }
+.watchlist-star.is-active { color: #f5b301; }
+.watchlist-star:hover { transform: scale(1.15); }
+.watchlist-expand-btn { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--color-text-secondary); padding: 4px; }
+.watchlist-delete-btn { background: none; border: none; cursor: pointer; color: var(--color-text-secondary); font-size: 13px; padding: 4px; }
+.watchlist-delete-btn:hover { color: #b91c1c; }
+.watchlist-position-badge { background: var(--color-border); border: none; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: var(--font-weight-semibold); padding: 3px 10px; }

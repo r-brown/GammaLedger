@@ -148,20 +148,144 @@ export function renderWatchlistView(this: WatchlistContext): void {
         this.watchlistGridApi.destroy()
         this.watchlistGridApi = null
     }
-    // Grid content arrives in Task 4; for now render an empty grid so the
-    // scaffold is testable end to end.
     requestAnimationFrame(() => {
         this.watchlistGridApi = createGrid<WatchlistRow>(gridRoot, buildGridOptions.call(this))
     })
 }
 
+export function renderStars(this: WatchlistContext, ticker: string, rating: number | null): HTMLElement {
+    const wrap = document.createElement('div')
+    wrap.className = 'watchlist-stars'
+    wrap.setAttribute('role', 'radiogroup')
+    wrap.setAttribute('aria-label', `Rating for ${ticker}`)
+    for (let value = 1; value <= 5; value++) {
+        const star = document.createElement('button')
+        star.type = 'button'
+        star.className = 'watchlist-star'
+        star.classList.toggle('is-active', rating !== null && value <= rating)
+        star.textContent = rating !== null && value <= rating ? '★' : '☆'
+        star.setAttribute('aria-label', `${value} star${value > 1 ? 's' : ''}`)
+        star.addEventListener('click', (event) => {
+            event.stopPropagation()
+            // Clicking the current rating clears it.
+            const next = rating === value ? null : value
+            updateWatchlistEntry.call(this, ticker, { rating: next })
+            renderWatchlistView.call(this)
+        })
+        wrap.appendChild(star)
+    }
+    return wrap
+}
+
+function buildWatchlistRows(entries: WatchlistEntry[], expandedTicker: string | null): WatchlistRow[] {
+    const rows: WatchlistRow[] = []
+    for (const entry of entries) {
+        rows.push({ ...entry })
+        if (expandedTicker === entry.ticker) {
+            rows.push({ _isDetailRow: true, _entry: { ...entry } })
+        }
+    }
+    return rows
+}
+
 function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
+    const context = this
+    const columnDefs: ColDef<WatchlistRow>[] = [
+        {
+            colId: 'expand', headerName: '', width: 44, maxWidth: 44, sortable: false, resizable: false,
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
+                const ticker = String(params.data?.ticker ?? '')
+                const button = document.createElement('button')
+                button.type = 'button'
+                button.className = 'watchlist-expand-btn'
+                const expanded = context.expandedWatchlistTicker === ticker
+                button.textContent = expanded ? '▾' : '▸'
+                button.setAttribute('aria-label', expanded ? `Collapse ${ticker} details` : `Expand ${ticker} details`)
+                button.setAttribute('aria-expanded', String(expanded))
+                button.addEventListener('click', (event) => {
+                    event.stopPropagation()
+                    context.expandedWatchlistTicker = expanded ? null : ticker
+                    params.api.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+                })
+                return button
+            }
+        },
+        {
+            colId: 'ticker', field: 'ticker', headerName: 'Ticker', width: 110, pinned: 'left', sortable: true,
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
+                createTickerElement(params.value, 'ticker-pill', {
+                    behavior: 'filter',
+                    onClick: (value: unknown) => context.showTickerPage(value),
+                    title: `Open ${String(params.value ?? '')} ticker page`
+                })
+        },
+        // Quote / Day % / Risk / Next earnings render live data in Task 5.
+        { colId: 'quote', headerName: 'Quote', width: 110, sortable: false, valueGetter: () => '—' },
+        { colId: 'dayPct', headerName: 'Day %', width: 100, sortable: false, valueGetter: () => '—' },
+        { colId: 'risk', headerName: 'Risk', width: 90, sortable: false, valueGetter: () => '—' },
+        {
+            colId: 'rating', field: 'rating', headerName: 'Rating', width: 150, sortable: true,
+            comparator: (a: unknown, b: unknown) => (Number(a) || 0) - (Number(b) || 0),
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
+                renderStars.call(context, String(params.data?.ticker ?? ''), (params.data?.rating as number | null) ?? null)
+        },
+        {
+            colId: 'notes', field: 'notes', headerName: 'Notes', flex: 1, minWidth: 160, sortable: false,
+            valueFormatter: params => {
+                const notes = String(params.value ?? '').trim()
+                if (!notes) return ''
+                return notes.length > 80 ? `${notes.slice(0, 80)}…` : notes
+            },
+            tooltipValueGetter: params => String(params.value ?? '') || null
+        },
+        { colId: 'earnings', headerName: 'Earnings', width: 110, sortable: false, valueGetter: () => '—' },
+        {
+            colId: 'position', headerName: 'Position', width: 110, sortable: false,
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
+                const ticker = String(params.data?.ticker ?? '')
+                const hasTrades = context.trades.some(trade => String(trade.ticker ?? '').toUpperCase() === ticker)
+                if (!hasTrades) return document.createTextNode('')
+                const badge = document.createElement('button')
+                badge.type = 'button'
+                badge.className = 'watchlist-position-badge'
+                badge.textContent = 'Held'
+                badge.title = `View trades for ${ticker}`
+                badge.addEventListener('click', (event) => {
+                    event.stopPropagation()
+                    context.openTradesFilteredByTicker(ticker)
+                })
+                return badge
+            }
+        },
+        {
+            colId: 'delete', headerName: '', width: 60, maxWidth: 60, sortable: false, resizable: false,
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
+                const ticker = String(params.data?.ticker ?? '')
+                const button = document.createElement('button')
+                button.type = 'button'
+                button.className = 'watchlist-delete-btn'
+                button.textContent = '✕'
+                button.setAttribute('aria-label', `Remove ${ticker} from watchlist`)
+                button.addEventListener('click', (event) => {
+                    event.stopPropagation()
+                    removeFromWatchlist.call(context, ticker)
+                })
+                return button
+            }
+        }
+    ]
+
     return {
-        rowData: this.watchlist.map(entry => ({ ...entry })),
-        columnDefs: [{ field: 'ticker', headerName: 'Ticker' }],
-        defaultColDef: { resizable: true, minWidth: 90 },
+        rowData: buildWatchlistRows(this.watchlist, this.expandedWatchlistTicker),
+        columnDefs,
+        defaultColDef: { resizable: true, minWidth: 60 },
+        getRowId: params => {
+            const row = params.data as WatchlistRow & { _isDetailRow?: boolean; _entry?: WatchlistEntry }
+            return row._isDetailRow ? `detail-${row._entry?.ticker ?? ''}` : String(row.ticker ?? '')
+        },
         domLayout: 'autoHeight',
         headerHeight: 44,
-        animateRows: false
+        animateRows: false,
+        overlayNoRowsTemplate: '<span class="ag-overlay-no-rows-center">No tickers on the watchlist.</span>'
     }
 }
