@@ -10,12 +10,24 @@ interface FilterChipsContext {
   renderFilterChips(): void
 }
 
+export interface SelectChipGroupOptions {
+  selectId: string
+  chipsId: string
+  allLabel: string
+  onSelectionChange?: (select: HTMLSelectElement) => void
+}
+
 const CHIP_GROUPS: ReadonlyArray<{ selectId: string; chipsId: string; allLabel: string }> = [
     { selectId: 'filter-strategy', chipsId: 'filter-strategy-chips', allLabel: 'All strategies' },
     { selectId: 'filter-status', chipsId: 'filter-status-chips', allLabel: 'All statuses' }
 ]
 
-function renderGroup(this: FilterChipsContext, selectId: string, chipsId: string, allLabel: string): void {
+export function renderSelectChips({
+    selectId,
+    chipsId,
+    allLabel,
+    onSelectionChange
+}: SelectChipGroupOptions): void {
     const select = document.getElementById(selectId) as HTMLSelectElement | null
     const container = document.getElementById(chipsId)
     if (!select || !container) return
@@ -40,10 +52,21 @@ function renderGroup(this: FilterChipsContext, selectId: string, chipsId: string
                 const allOption = Array.from(select.options).find(o => o.value === '')
                 if (allOption) allOption.selected = false
             }
-            this.normalizeFilterSelect(select)
-            this.filterTrades() // re-renders the chips via filterTrades → renderFilterChips
+            onSelectionChange?.(select)
         })
         container.appendChild(chip)
+    })
+}
+
+function renderGroup(this: FilterChipsContext, selectId: string, chipsId: string, allLabel: string): void {
+    renderSelectChips({
+        selectId,
+        chipsId,
+        allLabel,
+        onSelectionChange: (select) => {
+            this.normalizeFilterSelect(select)
+            this.filterTrades() // re-renders the chips via filterTrades → renderFilterChips
+        }
     })
 }
 

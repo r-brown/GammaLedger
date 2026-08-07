@@ -45,10 +45,19 @@ function getPairSortTimestamp(pair: LegPair): number {
     return Number.NEGATIVE_INFINITY;
 }
 
-function reconcileClosedTradePL(trade: TradeRecord, pairs: LegPair[]): void {
+function reconcileClosedTradePL(trade: TradeRecord, pairs: LegPair[], hasHeldStock: boolean): void {
     if (!pairs.length) {
         return;
     }
+
+    pairs.forEach((pair) => {
+        const optionPL = getFiniteNumber(pair.premium) ?? 0;
+        pair.optionPL = optionPL;
+        pair.stockPL = 0;
+        pair.realizedStockPL = 0;
+        pair.unrealizedStockPL = 0;
+        pair.allInPL = getFiniteNumber(pair.pl) ?? optionPL;
+    });
 
     const tradePL = getFiniteNumber(trade.pl);
     if (tradePL === null) {
@@ -85,6 +94,13 @@ function reconcileClosedTradePL(trade: TradeRecord, pairs: LegPair[]): void {
 
     const targetPair = pairs[targetIndex];
     const nextPL = (getFiniteNumber(targetPair.pl) ?? getFiniteNumber(targetPair.premium) ?? 0) + stockAdjustment;
+    targetPair.stockPL = stockAdjustment;
+    if (hasHeldStock) {
+        targetPair.unrealizedStockPL = stockAdjustment;
+    } else {
+        targetPair.realizedStockPL = stockAdjustment;
+    }
+    targetPair.allInPL = Number(nextPL.toFixed(2));
     targetPair.pl = Number(nextPL.toFixed(2));
 
     const capital = getFiniteNumber(targetPair.capital);
@@ -133,9 +149,8 @@ export function extractCreditPlaybookLegPairs(
             this.extractIndividualLegPairs(trade, legs, now, pairs);
         }
 
-        if (this.isClosedStatus(trade.status) || this.hasAssignedInventory(trade)) {
-            reconcileClosedTradePL(trade, pairs.slice(tradePairsStart));
-        }
+        const tradePairs = pairs.slice(tradePairsStart);
+        reconcileClosedTradePL(trade, tradePairs, this.hasAssignedInventory(trade));
     });
 
     return pairs;

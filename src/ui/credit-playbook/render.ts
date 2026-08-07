@@ -37,6 +37,11 @@ interface LegPair {
   pricePerContract?: number
   fees?: number
   premium?: number
+  optionPL?: number
+  stockPL?: number
+  realizedStockPL?: number
+  unrealizedStockPL?: number
+  allInPL?: number
   pl?: number
   roi?: number
   dte?: number
@@ -65,13 +70,14 @@ interface CreditPlaybookEntry {
 interface CreditPlaybookRenderContext {
   currentDate: Date | unknown
   creditPlaybookStatus: string
-  creditPlaybookStrategy: string
+  creditPlaybookStrategies: string[]
   creditPlaybookHorizon: string
   creditPlaybookSymbol: string
   creditPlaybookSort: { key: string; direction: string }
   creditPlaybookGridApi?: GridApi<LegPair> | null
   positionHighlightConfig: { expirationCriticalDays: number }
   creditPlaybookQuoteEntries?: Map<string, Record<string, unknown>>
+  creditPlaybookQuoteRefreshSuppressed: boolean
   getLegAction(leg: LegRecord): string
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
@@ -98,7 +104,7 @@ interface CreditPlaybookRenderContext {
   updateExpirationHighlight(cell: HTMLElement, trade: TradeRecord): void
   applyResponsiveLabels(row: HTMLTableRowElement, labels: string[]): void
   startQuoteAutoRefreshIfNeeded(): void
-  refreshCreditPlaybookQuotes(opts: { force: boolean; immediate: boolean }): void
+  refreshCreditPlaybookQuotes(opts: { force: boolean; immediate: boolean; manual?: boolean }): void
   extractSpreadPair(trade: TradeRecord, legs: unknown[], now: Date, pairs: LegPair[]): void
   extractIndividualLegPairs(trade: TradeRecord, legs: unknown[], now: Date, pairs: LegPair[]): void
   filterCreditPlaybookEntries(entries: CreditPlaybookEntry[]): CreditPlaybookEntry[]
@@ -359,7 +365,7 @@ export function deriveCreditPlaybookPrice(this: CreditPlaybookRenderContext, tra
 
 export function filterCreditPlaybookEntries(this: CreditPlaybookRenderContext, entries: CreditPlaybookEntry[] = []): CreditPlaybookEntry[] {
     const statusFilter = this.creditPlaybookStatus;
-    const strategyFilter = this.creditPlaybookStrategy;
+    const strategyFilters = this.creditPlaybookStrategies;
     const horizonFilter = this.creditPlaybookHorizon;
     const symbolFilter = this.creditPlaybookSymbol;
     const now = this.currentDate instanceof Date ? this.currentDate as Date : new Date();
@@ -373,9 +379,9 @@ export function filterCreditPlaybookEntries(this: CreditPlaybookRenderContext, e
             return false;
         }
 
-        if (strategyFilter !== 'all') {
+        if (strategyFilters.length > 0) {
             const normalizedEntryStrategy = this.normalizeCreditPlaybookStrategyValue(entry.strategy);
-            if (normalizedEntryStrategy !== strategyFilter) {
+            if (!normalizedEntryStrategy || !strategyFilters.includes(normalizedEntryStrategy)) {
                 return false;
             }
         }
@@ -417,7 +423,7 @@ export function filterCreditPlaybookEntries(this: CreditPlaybookRenderContext, e
 
 export function filterCreditPlaybookLegPairs(this: CreditPlaybookRenderContext, legPairs: LegPair[] = []): LegPair[] {
     const statusFilter = this.creditPlaybookStatus;
-    const strategyFilter = this.creditPlaybookStrategy;
+    const strategyFilters = this.creditPlaybookStrategies;
     const horizonFilter = this.creditPlaybookHorizon;
     const symbolFilter = this.creditPlaybookSymbol;
     const now = this.currentDate instanceof Date ? this.currentDate as Date : new Date();
@@ -430,9 +436,9 @@ export function filterCreditPlaybookLegPairs(this: CreditPlaybookRenderContext, 
         if (statusFilter === 'closed' && pair.isOpen) {
             return false;
         }
-        if (strategyFilter !== 'all') {
+        if (strategyFilters.length > 0) {
             const normalizedPairStrategy = this.normalizeCreditPlaybookStrategyValue((pair.strategy || null) as string | null);
-            if (normalizedPairStrategy !== strategyFilter) {
+            if (!normalizedPairStrategy || !strategyFilters.includes(normalizedPairStrategy)) {
                 return false;
             }
         }
@@ -535,9 +541,17 @@ export function applyCreditPlaybookSortToLegPairs(this: CreditPlaybookRenderCont
                 aVal = numericSortValue(a.premium, 0);
                 bVal = numericSortValue(b.premium, 0);
                 break;
+            case 'optionPL':
+                aVal = numericSortValue(a.optionPL, 0);
+                bVal = numericSortValue(b.optionPL, 0);
+                break;
+            case 'stockPL':
+                aVal = numericSortValue(a.stockPL, 0);
+                bVal = numericSortValue(b.stockPL, 0);
+                break;
             case 'pl':
-                aVal = numericSortValue(a.pl, 0);
-                bVal = numericSortValue(b.pl, 0);
+                aVal = numericSortValue(a.allInPL ?? a.pl, 0);
+                bVal = numericSortValue(b.allInPL ?? b.pl, 0);
                 break;
             case 'roi':
                 aVal = numericSortValue(a.roi, SORT_LOW_VALUE);
@@ -577,9 +591,17 @@ export function applyCreditPlaybookSortToLegPairs(this: CreditPlaybookRenderCont
     });
 }
 
-function legPairRowKey(pair: LegPair, index = 0): string {
-    return String(pair.tradeId ?? `${pair.ticker || 'credit'}-${pair.entryDate || ''}-${pair.expirationDate || ''}-${index}`)
-        .replace(/[^a-zA-Z0-9_-]/g, '-');
+function legPairRowKey(pair: LegPair): string {
+    const parts = [
+        pair.tradeId ?? pair.ticker ?? 'credit',
+        pair.type ?? '',
+        pair.strike ?? '',
+        pair.entryDate instanceof Date ? pair.entryDate.toISOString() : pair.entryDate ?? '',
+        pair.expirationDate ?? '',
+        pair.exitDate instanceof Date ? pair.exitDate.toISOString() : pair.exitDate ?? ''
+    ];
+
+    return parts.map(value => String(value).replace(/[^a-zA-Z0-9_-]/g, '-')).join('-');
 }
 
 function formatSignedPercent(this: CreditPlaybookRenderContext, value: unknown): string {
@@ -604,7 +626,7 @@ function signedClass(value: unknown): string {
 function getPairStatus(pair: LegPair): { className: string; label: string } {
     if (pair.isAssigned) return { className: 'assigned', label: 'Assigned' };
     if (pair.isRolling) return { className: 'rolling', label: 'Rolling' };
-    if (pair.isExpired && pair.isOpen) return { className: 'expired', label: 'Expired' };
+    if (pair.isExpired) return { className: 'expired', label: 'Expired' };
     if (pair.isOpen) return { className: 'open', label: 'Open' };
     return { className: 'closed', label: 'Closed' };
 }
@@ -644,7 +666,8 @@ function createCreditQuoteRenderer(
     cell.className = 'quote-cell';
     const pair = params.data;
     const status = pair ? getPairStatus(pair) : null;
-    if (!pair || !pair.isOpen || status?.className === 'closed' || status?.className === 'expired' || status?.className === 'assigned') {
+    const hasHeldAssignedInventory = Boolean(pair?.isAssigned);
+    if (!pair || (!pair.isOpen && !hasHeldAssignedInventory) || status?.className === 'closed' || status?.className === 'expired') {
         cell.textContent = '—';
         return cell;
     }
@@ -663,6 +686,7 @@ function createCreditQuoteRenderer(
 
     const mockTrade: TradeRecord = {
         ticker: pair.ticker,
+        tradeId: pair.tradeId,
         optionType: (pair.type as string | undefined)?.toLowerCase(),
         strategy: pair.strategy,
         dte: pair.dte
@@ -715,8 +739,10 @@ function buildCreditPlaybookColumnDefs(
         { colId: 'quantity', field: 'quantity', headerName: 'Contracts', width: 115, valueFormatter: params => Number.isFinite(params.value as number) ? String(params.value) : '—', filter: 'agNumberColumnFilter' },
         { colId: 'pricePerContract', field: 'pricePerContract', headerName: 'Price/Contract', width: 145, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', filter: 'agNumberColumnFilter' },
         { colId: 'fees', field: 'fees', headerName: 'Fees', width: 105, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(Math.abs(params.value as number)) : '—', cellClass: 'pl-negative', filter: 'agNumberColumnFilter' },
-        { colId: 'premium', field: 'premium', headerName: 'Premium', width: 120, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
-        { colId: 'pl', field: 'pl', headerName: 'P&L', width: 120, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
+        { colId: 'premium', field: 'premium', headerName: 'Net Premium', width: 130, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
+        { colId: 'optionPL', field: 'optionPL', headerName: 'Option P&L', width: 130, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
+        { colId: 'stockPL', field: 'stockPL', headerName: 'Stock P&L', width: 125, valueFormatter: params => Number.isFinite(params.value as number) && params.value !== 0 ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
+        { colId: 'pl', field: 'allInPL', headerName: 'All-in P&L', width: 130, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
         { colId: 'roi', field: 'roi', headerName: 'ROI', width: 100, valueFormatter: params => formatSignedPercent.call(this, params.value), cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
         { colId: 'currentPrice', headerName: 'Current Price', width: 135, sortable: false, filter: false, cellRenderer: (params: ICellRendererParams<LegPair>) => createCreditQuoteRenderer.call(this, quoteEntries, params) },
         { colId: 'entryDate', field: 'entryDate', headerName: 'Entry Date', width: 125, valueFormatter: params => this.formatDate(params.value), filter: 'agDateColumnFilter' },
@@ -811,12 +837,21 @@ export function renderCreditPlaybookMetrics(this: CreditPlaybookRenderContext, l
     const totalPremium = legPairs.reduce((sum, pair) => sum + (Number(pair.premium) || 0), 0);
     const totalCapital = openPairs.reduce((sum, pair) => sum + (Number(pair.capital) || 0), 0);
 
-    const realizedPL = closedPairs.reduce((sum, pair) => {
-        const pl = Number(pair.pl);
-        return Number.isFinite(pl) ? sum + pl : sum;
+    const realizedOptionPL = closedPairs.reduce((sum, pair) => {
+        const optionPL = Number(pair.optionPL ?? pair.premium);
+        return Number.isFinite(optionPL) ? sum + optionPL : sum;
     }, 0);
+    const realizedStockPL = legPairs.reduce((sum, pair) => {
+        const stockPL = Number(pair.realizedStockPL);
+        return Number.isFinite(stockPL) ? sum + stockPL : sum;
+    }, 0);
+    const unrealizedStockPL = legPairs.reduce((sum, pair) => {
+        const stockPL = Number(pair.unrealizedStockPL);
+        return Number.isFinite(stockPL) ? sum + stockPL : sum;
+    }, 0);
+    const allInMarkedPL = realizedOptionPL + realizedStockPL + unrealizedStockPL;
 
-    const winners = closedPairs.filter((p) => (Number(p.pl) || 0) > 0).length;
+    const winners = closedPairs.filter((p) => (Number(p.allInPL ?? p.pl) || 0) > 0).length;
     const winRate = closedCount > 0 ? (winners / closedCount) * 100 : null;
 
     const openDTEs = openPairs.map((p) => Number(p.dte)).filter(Number.isFinite);
@@ -826,24 +861,51 @@ export function renderCreditPlaybookMetrics(this: CreditPlaybookRenderContext, l
 
     const metrics = [
         {
+            group: 'overview',
             label: 'Positions',
             value: this.formatNumber(totalCount, { decimals: 0, useGrouping: true }) ?? String(totalCount),
             sublabel: `${openCount} active · ${closedCount} closed`,
             valueClass: undefined
         },
         {
+            group: 'accounting',
             label: 'Net Premium',
             value: this.formatCurrency(totalPremium),
             sublabel: 'Total credit/debit across all legs',
             valueClass: totalPremium >= 0 ? 'pl-positive' : 'pl-negative'
         },
         {
-            label: 'Realized P&L',
-            value: closedCount > 0 ? this.formatCurrency(realizedPL) : '—',
-            sublabel: closedCount > 0 ? `From ${closedCount} closed position${closedCount === 1 ? '' : 's'}` : 'No closed positions yet',
-            valueClass: realizedPL > 0 ? 'pl-positive' : (realizedPL < 0 ? 'pl-negative' : undefined)
+            group: 'accounting',
+            label: 'All-in marked P&L',
+            value: this.formatCurrency(allInMarkedPL),
+            sublabel: 'Realized options + stock P&L',
+            valueClass: allInMarkedPL > 0 ? 'pl-positive' : (allInMarkedPL < 0 ? 'pl-negative' : undefined)
         },
         {
+            group: 'accounting',
+            label: 'Realized option P&L',
+            value: closedCount > 0 ? this.formatCurrency(realizedOptionPL) : '—',
+            sublabel: closedCount > 0
+                ? 'From ' + closedCount + ' terminated option group' + (closedCount === 1 ? '' : 's')
+                : 'No terminated option groups',
+            valueClass: realizedOptionPL > 0 ? 'pl-positive' : (realizedOptionPL < 0 ? 'pl-negative' : undefined)
+        },
+        {
+            group: 'accounting',
+            label: 'Realized stock P&L',
+            value: this.formatCurrency(realizedStockPL),
+            sublabel: realizedStockPL !== 0 ? 'Sold or closed assigned shares' : 'No sold stock',
+            valueClass: realizedStockPL > 0 ? 'pl-positive' : (realizedStockPL < 0 ? 'pl-negative' : undefined)
+        },
+        {
+            group: 'accounting',
+            label: 'Unrealized stock P&L',
+            value: this.formatCurrency(unrealizedStockPL),
+            sublabel: unrealizedStockPL !== 0 ? 'Held assigned shares; not sold' : 'No held stock mark',
+            valueClass: unrealizedStockPL > 0 ? 'pl-positive' : (unrealizedStockPL < 0 ? 'pl-negative' : undefined)
+        },
+        {
+            group: 'overview',
             label: 'Win Rate',
             value: Number.isFinite(winRate)
                 ? `${(this.formatNumber(winRate as number, { decimals: 1, useGrouping: false }) ?? (winRate as number).toFixed(1))}%`
@@ -852,12 +914,14 @@ export function renderCreditPlaybookMetrics(this: CreditPlaybookRenderContext, l
             valueClass: undefined
         },
         {
+            group: 'overview',
             label: 'Active Risk',
             value: this.formatCurrency(totalCapital),
             sublabel: openCount > 0 ? `Across ${openCount} open position${openCount === 1 ? '' : 's'}` : 'No open positions',
             valueClass: undefined
         },
         {
+            group: 'overview',
             label: 'Avg DTE',
             value: Number.isFinite(avgDTE) ? String(avgDTE) : '—',
             sublabel: openDTEs.length > 0 ? `${openDTEs.length} open with expiration` : 'No active expirations',
@@ -865,36 +929,62 @@ export function renderCreditPlaybookMetrics(this: CreditPlaybookRenderContext, l
         }
     ];
 
-    metrics.forEach((metric) => {
-        const card = document.createElement('div');
-        card.className = 'card';
+    const metricGroups = [
+        { key: 'accounting', label: 'P&L accounting' },
+        { key: 'overview', label: 'Position overview' }
+    ];
 
-        const body = document.createElement('div');
-        body.className = 'card__body';
+    metricGroups.forEach((group, groupIndex) => {
+        const section = document.createElement('section');
+        section.className = 'credit-playbook-metric-group';
+        const headingId = 'credit-playbook-metric-group-' + groupIndex;
+        section.setAttribute('aria-labelledby', headingId);
 
-        const valueEl = document.createElement('div');
-        valueEl.className = 'card-value';
-        if (metric.valueClass) {
-            valueEl.classList.add(metric.valueClass);
-        }
-        valueEl.textContent = metric.value;
+        const heading = document.createElement('h2');
+        heading.className = 'credit-playbook-metric-group__title';
+        heading.id = headingId;
+        heading.textContent = group.label;
+        section.appendChild(heading);
 
-        const labelEl = document.createElement('small');
-        labelEl.className = 'card-subtitle';
-        labelEl.textContent = metric.label;
+        const grid = document.createElement('div');
+        grid.className = 'credit-playbook-metric-grid';
 
-        body.appendChild(valueEl);
-        body.appendChild(labelEl);
+        metrics.filter((metric) => metric.group === group.key).forEach((metric) => {
+            const card = document.createElement('div');
+            card.className = metric.label === 'All-in marked P&L'
+                ? 'card credit-playbook-metric--featured'
+                : 'card';
 
-        if (metric.sublabel) {
-            const sublabelEl = document.createElement('span');
-            sublabelEl.className = 'credit-playbook-detail-meta';
-            sublabelEl.textContent = metric.sublabel;
-            body.appendChild(sublabelEl);
-        }
+            const body = document.createElement('div');
+            body.className = 'card__body';
 
-        card.appendChild(body);
-        container.appendChild(card);
+            const valueEl = document.createElement('div');
+            valueEl.className = 'card-value';
+            if (metric.valueClass) {
+                valueEl.classList.add(metric.valueClass);
+            }
+            valueEl.textContent = metric.value;
+
+            const labelEl = document.createElement('small');
+            labelEl.className = 'card-subtitle';
+            labelEl.textContent = metric.label;
+
+            body.appendChild(valueEl);
+            body.appendChild(labelEl);
+
+            if (metric.sublabel) {
+                const sublabelEl = document.createElement('span');
+                sublabelEl.className = 'credit-playbook-detail-meta';
+                sublabelEl.textContent = metric.sublabel;
+                body.appendChild(sublabelEl);
+            }
+
+            card.appendChild(body);
+            grid.appendChild(card);
+        });
+
+        section.appendChild(grid);
+        container.appendChild(section);
     });
 }
 
@@ -923,6 +1013,8 @@ export function renderCreditPlaybookTableFromLegPairs(this: CreditPlaybookRender
 
     if (quoteEntries.size > 0) {
         this.startQuoteAutoRefreshIfNeeded();
-        this.refreshCreditPlaybookQuotes({ force: true, immediate: true });
+        if (!this.creditPlaybookQuoteRefreshSuppressed) {
+            this.refreshCreditPlaybookQuotes({ force: true, immediate: true });
+        }
     }
 }

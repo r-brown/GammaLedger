@@ -9,6 +9,7 @@ import {
 } from '@core/config'
 
 type AnyRecord = Record<string, any>
+const CREDIT_PLAYBOOK_QUOTE_CYCLE_PAUSE_MS = 5 * 60 * 1000;
 
 interface FinnhubQuotePayload {
     c: number
@@ -699,6 +700,7 @@ export function refreshAssignedPositionsQuotes(this: any, { force = false, immed
 
         this.getCurrentPrice(ticker, { forceRefresh: force })
             .then((quote: AnyRecord) => {
+                updateLiveTradeSnapshotFromQuote.call(this, entryToRefresh.trade, quote);
                 this.updateAssignedPositionMetrics(entryToRefresh, quote);
             })
             .catch((_error: unknown) => {
@@ -717,55 +719,189 @@ export function refreshAssignedPositionsQuotes(this: any, { force = false, immed
     }
 }
 
-export function refreshCreditPlaybookQuotes(this: any, { force = false, immediate = false }: { force?: boolean; immediate?: boolean } = {}) {
+function updateLiveTradeSnapshotFromQuote(this: any, quoteTrade: AnyRecord, quote: AnyRecord): void {
+    if (!Array.isArray(this.trades) || !quoteTrade || !quote) {
+        return;
+    }
+
+    const price = Number(quote.price);
+    if (!Number.isFinite(price) || price <= 0) {
+        return;
+    }
+
+    const quoteTradeId = quoteTrade.tradeId ?? quoteTrade.id ?? null;
+    const ticker = String(quoteTrade.ticker || '').trim().toUpperCase();
+    if (!quoteTradeId && !ticker) {
+        return;
+    }
+
+    const matches = this.trades.filter((candidate: AnyRecord) => {
+        if (!candidate || typeof candidate !== 'object' || this.isClosedStatus(candidate.status)) {
+            return false;
+        }
+
+        const heldShares = Number(this.getTradeOpenStockShares?.(candidate)) || 0;
+        const heldLongCalls = this.isPmccTrade?.(candidate)
+            ? Number(this.getNetOpenLongCallContracts?.(candidate)) || 0
+            : 0;
+        if (heldShares <= 0 && heldLongCalls <= 0) {
+            return false;
+        }
+
+        if (quoteTradeId) {
+            return String(candidate.id ?? '') === String(quoteTradeId);
+        }
+
+        return String(candidate.ticker || '').trim().toUpperCase() === ticker;
+    });
+
+    if (matches.length === 0) {
+        return;
+    }
+
+    const fetchedAt = typeof quote.fetchedAt === 'string' && quote.fetchedAt
+        ? quote.fetchedAt
+        : new Date().toISOString();
+    const changedIds = new Set<string>();
+
+    this.trades = this.trades.map((candidate: AnyRecord) => {
+        if (!matches.includes(candidate)) {
+            return candidate;
+        }
+
+        const existingPrice = Number(candidate.marketPriceSnapshot);
+        if (existingPrice === price && Number.isFinite(candidate.unrealizedPL)) {
+            return candidate;
+        }
+
+        const refreshed = this.enrichTradeData({
+            ...candidate,
+            marketPriceSnapshot: price,
+            marketPriceSnapshotAt: fetchedAt
+        });
+        changedIds.add(String(candidate.id ?? `${candidate.ticker}|${candidate.openedDate || ''}`));
+        return refreshed;
+    });
+
+    if (changedIds.size === 0 || this.quotePnlRefreshTimerId) {
+        return;
+    }
+
+    this.quotePnlRefreshTimerId = setTimeout(() => {
+        this.quotePnlRefreshTimerId = null;
+
+        if (this.currentView === 'credit-playbook' && typeof this.updateCreditPlaybookView === 'function') {
+            const wasSuppressed = this.creditPlaybookQuoteRefreshSuppressed;
+            this.creditPlaybookQuoteRefreshSuppressed = true;
+            try {
+                this.updateCreditPlaybookView();
+            } finally {
+                this.creditPlaybookQuoteRefreshSuppressed = wasSuppressed;
+            }
+        } else if (this.currentView === 'dashboard' && typeof this.updateDashboard === 'function') {
+            this.updateDashboard();
+        } else {
+            this.creditPlaybookNeedsRefresh = true;
+        }
+    }, 0);
+}
+
+export function refreshCreditPlaybookQuotes(this: any, { force = false, immediate = false, manual = false }: { force?: boolean; immediate?: boolean; manual?: boolean } = {}) {
     // Process ONE Credit Playbook quote per call to respect rate limits
     // Called by unified auto-refresh timer that alternates between tables
     if (!(this.creditPlaybookQuoteEntries instanceof Map) || this.creditPlaybookQuoteEntries.size === 0) {
         return;
     }
 
-    // Find one entry to refresh, prioritizing by state
-    let entryToRefresh: AnyRecord | null = null;
-    let keyToRefresh: string | null = null;
+    const now = Date.now();
+    if (manual) {
+        this.creditPlaybookQuotePauseUntil = 0;
+        this.creditPlaybookQuoteCursor = 0;
+        this.creditPlaybookQuoteCycleKeys.clear();
+    } else if (this.creditPlaybookQuotePauseUntil > now) {
+        if (typeof this.syncCreditPlaybookQuoteRefreshStatus === 'function') {
+            this.syncCreditPlaybookQuoteRefreshStatus();
+        }
+        return;
+    }
 
-    // First pass: look for high-priority entries (no price yet, errors, rate-limited, unavailable)
+    if (typeof this.syncCreditPlaybookQuoteRefreshStatus === 'function') {
+        this.syncCreditPlaybookQuoteRefreshStatus();
+    }
+
+    // Find one entry to refresh, prioritizing by state
+    const entries: Array<[string, AnyRecord]> = [];
     for (const [key, entry] of this.creditPlaybookQuoteEntries.entries()) {
         if (!entry || !entry.cell?.isConnected) {
             this.creditPlaybookQuoteEntries.delete(key);
+            this.creditPlaybookQuoteCycleKeys.delete(key);
             continue;
         }
+        entries.push([key, entry]);
+    }
 
-        const state = entry.cell?.dataset?.priceState;
-        // High priority: idle, error, loading, refreshing, or no state
-        if (!state || state === 'idle' || state === 'error' || state === 'loading' || state === 'refreshing') {
-            entryToRefresh = entry;
-            keyToRefresh = key;
-            break;
+    if (entries.length === 0) {
+        this.stopQuoteAutoRefresh();
+        return;
+    }
+
+    const currentKeys = new Set(entries.map(([key]) => key));
+    for (const key of this.creditPlaybookQuoteCycleKeys) {
+        if (!currentKeys.has(key)) {
+            this.creditPlaybookQuoteCycleKeys.delete(key);
         }
     }
 
-    // Second pass: if no high-priority entry found, take any ready entry
-    if (!entryToRefresh) {
-        for (const [key, entry] of this.creditPlaybookQuoteEntries.entries()) {
-            if (!entry || !entry.cell?.isConnected) {
-                this.creditPlaybookQuoteEntries.delete(key);
-                continue;
+    const startIndex = this.creditPlaybookQuoteCursor % entries.length;
+    const findEntry = (predicate: (entry: AnyRecord) => boolean): [string, AnyRecord, number] | null => {
+        for (let offset = 0; offset < entries.length; offset += 1) {
+            const index = (startIndex + offset) % entries.length;
+            const [key, entry] = entries[index];
+            if (!this.creditPlaybookQuoteCycleKeys.has(key) && predicate(entry)) {
+                return [key, entry, index];
             }
+        }
+        return null;
+    };
 
-            entryToRefresh = entry;
-            keyToRefresh = key;
-            break;
+    let selected = findEntry((entry) => {
+        const state = entry.cell?.dataset?.priceState;
+        return !state || state === 'idle' || state === 'error' || state === 'loading' || state === 'refreshing';
+    });
+
+    // First pass: look for high-priority entries (no price yet, errors, rate-limited, unavailable)
+    // If every unprocessed entry is already ready, continue the same cursor-based pass.
+    if (!selected) {
+        selected = findEntry(() => true);
+    }
+
+    if (!selected) {
+        this.creditPlaybookQuotePauseUntil = now + CREDIT_PLAYBOOK_QUOTE_CYCLE_PAUSE_MS;
+        this.creditPlaybookQuoteCycleKeys.clear();
+        if (typeof this.syncCreditPlaybookQuoteRefreshStatus === 'function') {
+            this.syncCreditPlaybookQuoteRefreshStatus();
+        }
+        return;
+    }
+
+    const [keyToRefresh, entryToRefresh, selectedIndex] = selected;
+    this.creditPlaybookQuoteCycleKeys.add(keyToRefresh);
+    this.creditPlaybookQuoteCursor = (selectedIndex + 1) % entries.length;
+
+    if (this.creditPlaybookQuoteCycleKeys.size >= entries.length) {
+        this.creditPlaybookQuotePauseUntil = now + CREDIT_PLAYBOOK_QUOTE_CYCLE_PAUSE_MS;
+        this.creditPlaybookQuoteCycleKeys.clear();
+        if (typeof this.syncCreditPlaybookQuoteRefreshStatus === 'function') {
+            this.syncCreditPlaybookQuoteRefreshStatus();
         }
     }
 
     // Process one entry per refresh cycle
-    if (entryToRefresh) {
-        this.populateQuoteCell(entryToRefresh.cell, entryToRefresh.trade, entryToRefresh.row, {
-            forceRefresh: force,
-            silentIfCached: !force,
-            suppressLoadingText: !immediate
-        });
-    }
+    this.populateQuoteCell(entryToRefresh.cell, entryToRefresh.trade, entryToRefresh.row, {
+        forceRefresh: force,
+        silentIfCached: !force,
+        suppressLoadingText: !immediate
+    });
 
     // Stop auto-refresh if no more entries
     if (this.creditPlaybookQuoteEntries.size === 0) {
@@ -850,6 +986,8 @@ export function renderQuoteValue(this: any, cell: HTMLElement | null, row: HTMLE
 
     const changePercent = this.getQuoteChangePercent(quote);
     const changeValue = this.getQuoteChangeValue(quote);
+
+    updateLiveTradeSnapshotFromQuote.call(this, trade, quote);
 
     cell.innerHTML = '';
 

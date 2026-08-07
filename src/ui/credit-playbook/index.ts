@@ -1,6 +1,9 @@
 // src/ui/credit-playbook/index.ts — Wave 9: Credit playbook controls and orchestration.
 // Uses the .call(this, …) delegation pattern.
 
+import { renderSelectChips } from '../filter-chips.js'
+import { getAvailableStrategies, getSelectedFilterValues, normalizeFilterSelect } from '../filters.js'
+
 type TradeRecord = Record<string, unknown>
 
 interface LegPair {
@@ -14,8 +17,10 @@ interface CreditPlaybookEntry {
 interface CreditPlaybookContext {
   currentView: string
   creditPlaybookNeedsRefresh: boolean
+  creditPlaybookQuotePauseUntil: number
+  creditPlaybookQuoteCountdownTimerId: ReturnType<typeof setInterval> | null
   creditPlaybookStatus: string
-  creditPlaybookStrategy: string
+  creditPlaybookStrategies: string[]
   creditPlaybookHorizon: string
   creditPlaybookSymbol: string
   creditPlaybookInitialized: boolean
@@ -23,10 +28,14 @@ interface CreditPlaybookContext {
   creditPlaybookEntries: CreditPlaybookEntry[]
   trades: TradeRecord[]
   syncCreditPlaybookStatusControls(): void
+  syncCreditPlaybookStrategyControls(): void
+  syncCreditPlaybookQuoteRefreshStatus(): void
   setCreditPlaybookStatus(status: string): void
+  setCreditPlaybookStrategies(strategies: string[] | null): void
   setCreditPlaybookStrategy(strategy: string | null): void
   setCreditPlaybookHorizon(horizon: string): void
   setCreditPlaybookSymbol(symbol: string): void
+  refreshCreditPlaybookQuotes(opts: { force: boolean; immediate: boolean; manual?: boolean }): void
   normalizeCreditPlaybookStrategyValue(strategy: string): string | null
   updateCreditPlaybookView(): void
   getCreditPlaybookEntries(): CreditPlaybookEntry[]
@@ -60,13 +69,13 @@ export function initializeCreditPlaybookControls(this: CreditPlaybookContext): v
     const strategySelect = document.getElementById('credit-playbook-strategy-filter') as HTMLSelectElement | null;
     if (strategySelect && strategySelect.dataset.initialized !== 'true') {
         strategySelect.addEventListener('change', () => {
-            this.setCreditPlaybookStrategy(strategySelect.value);
+            normalizeFilterSelect(strategySelect);
+            this.setCreditPlaybookStrategies(getSelectedFilterValues(strategySelect));
         });
         strategySelect.dataset.initialized = 'true';
     }
-    if (strategySelect && strategySelect.value !== this.creditPlaybookStrategy) {
-        strategySelect.value = this.creditPlaybookStrategy;
-    }
+    populateCreditPlaybookStrategyOptions.call(this);
+    this.syncCreditPlaybookStrategyControls();
 
     const horizonSelect = document.getElementById('credit-playbook-horizon-filter') as HTMLSelectElement | null;
     if (horizonSelect && horizonSelect.dataset.initialized !== 'true') {
@@ -90,11 +99,96 @@ export function initializeCreditPlaybookControls(this: CreditPlaybookContext): v
         symbolInput.value = this.creditPlaybookSymbol;
     }
 
+    const refreshButton = document.getElementById('credit-playbook-refresh-quotes') as HTMLButtonElement | null;
+    if (refreshButton && refreshButton.dataset.initialized !== 'true') {
+        refreshButton.addEventListener('click', () => {
+            refreshButton.classList.add('is-refreshing');
+            refreshButton.setAttribute('aria-busy', 'true');
+            this.refreshCreditPlaybookQuotes({ force: true, immediate: true, manual: true });
+            this.syncCreditPlaybookQuoteRefreshStatus();
+            setTimeout(() => {
+                refreshButton.classList.remove('is-refreshing');
+                refreshButton.removeAttribute('aria-busy');
+            }, 800);
+        });
+        refreshButton.dataset.initialized = 'true';
+    }
+
+    startCreditPlaybookQuoteRefreshStatus.call(this);
+
     document
         .querySelectorAll('#credit-playbook-table .sortable')
         .forEach((header) => header.setAttribute('data-sort-context', 'credit-playbook'));
 
     this.creditPlaybookInitialized = true;
+}
+
+function formatCreditPlaybookCountdown(remainingMs: number): string {
+    const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function startCreditPlaybookQuoteRefreshStatus(this: CreditPlaybookContext): void {
+    if (this.creditPlaybookQuoteCountdownTimerId === null) {
+        this.creditPlaybookQuoteCountdownTimerId = setInterval(() => {
+            this.syncCreditPlaybookQuoteRefreshStatus();
+        }, 1000);
+    }
+
+    this.syncCreditPlaybookQuoteRefreshStatus();
+}
+
+export function syncCreditPlaybookQuoteRefreshStatus(this: CreditPlaybookContext): void {
+    const status = document.getElementById('credit-playbook-refresh-status');
+    const detail = document.getElementById('credit-playbook-refresh-detail');
+    if (!status || !detail) {
+        return;
+    }
+
+    const pauseUntil = Number(this.creditPlaybookQuotePauseUntil);
+    const remainingMs = pauseUntil - Date.now();
+    const isPaused = Number.isFinite(pauseUntil) && remainingMs > 0;
+
+    status.textContent = isPaused ? 'Automatic refresh paused' : 'Automatic quote refresh';
+    detail.textContent = isPaused
+        ? `Resumes in ${formatCreditPlaybookCountdown(remainingMs)} · Manual refresh available`
+        : 'One position at a time · 5-minute pause after a full pass';
+    status.classList.toggle('is-paused', isPaused);
+    detail.classList.toggle('is-paused', isPaused);
+}
+
+function populateCreditPlaybookStrategyOptions(this: CreditPlaybookContext): void {
+    const select = document.getElementById('credit-playbook-strategy-filter') as HTMLSelectElement | null;
+    if (!select) {
+        return;
+    }
+
+    const previousSelection = Array.isArray(this.creditPlaybookStrategies)
+        ? this.creditPlaybookStrategies.slice()
+        : [];
+    const strategies = [...new Set(getAvailableStrategies(this.trades)
+        .map((strategy) => this.normalizeCreditPlaybookStrategyValue(strategy) || strategy))]
+        .sort((a, b) => a.localeCompare(b));
+
+    select.textContent = '';
+
+    const allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = 'All Strategies';
+    select.appendChild(allOption);
+
+    strategies.forEach((strategy) => {
+        const option = document.createElement('option');
+        option.value = strategy;
+        option.textContent = strategy;
+        select.appendChild(option);
+    });
+
+    const availableStrategies = new Set(strategies);
+    this.creditPlaybookStrategies = previousSelection.filter((strategy) => availableStrategies.has(strategy));
+    normalizeFilterSelect(select);
 }
 
 export function syncCreditPlaybookStatusControls(this: CreditPlaybookContext): void {
@@ -109,6 +203,31 @@ export function syncCreditPlaybookStatusControls(this: CreditPlaybookContext): v
         const isActive = buttonStatus === current;
         button.classList.toggle('is-active', isActive);
         button.setAttribute('aria-pressed', String(isActive));
+    });
+}
+
+export function syncCreditPlaybookStrategyControls(this: CreditPlaybookContext): void {
+    const select = document.getElementById('credit-playbook-strategy-filter') as HTMLSelectElement | null;
+    if (!select) {
+        return;
+    }
+
+    const selectedStrategies = new Set(this.creditPlaybookStrategies);
+    Array.from(select.options).forEach((option) => {
+        option.selected = option.value === ''
+            ? selectedStrategies.size === 0
+            : selectedStrategies.has(option.value);
+    });
+    normalizeFilterSelect(select);
+
+    renderSelectChips({
+        selectId: 'credit-playbook-strategy-filter',
+        chipsId: 'credit-playbook-strategy-chips',
+        allLabel: 'All strategies',
+        onSelectionChange: (changedSelect) => {
+            normalizeFilterSelect(changedSelect);
+            this.setCreditPlaybookStrategies(getSelectedFilterValues(changedSelect));
+        }
     });
 }
 
@@ -136,26 +255,34 @@ export function normalizeCreditPlaybookStrategyValue(this: CreditPlaybookContext
     if (!target) {
         return null;
     }
-    const match = this.creditPlaybookStrategyOptions.find((option) => sanitize(option) === target);
+    const select = document.getElementById('credit-playbook-strategy-filter') as HTMLSelectElement | null;
+    const dynamicOptions = select
+        ? Array.from(select.options).map((option) => option.value).filter(Boolean)
+        : [];
+    const options = dynamicOptions.length > 0 ? dynamicOptions : this.creditPlaybookStrategyOptions;
+    const match = options.find((option) => sanitize(option) === target);
     return match || null;
+}
+
+export function setCreditPlaybookStrategies(this: CreditPlaybookContext, strategies: string[] | null): void {
+    const normalized = [...new Set((Array.isArray(strategies) ? strategies : [])
+        .map((strategy) => this.normalizeCreditPlaybookStrategyValue(strategy))
+        .filter((strategy): strategy is string => Boolean(strategy)))];
+    const hasChanged = normalized.length !== this.creditPlaybookStrategies.length
+        || normalized.some((strategy, index) => strategy !== this.creditPlaybookStrategies[index]);
+
+    this.creditPlaybookStrategies = normalized;
+    this.syncCreditPlaybookStrategyControls();
+    if (hasChanged) {
+        this.updateCreditPlaybookView();
+    }
 }
 
 export function setCreditPlaybookStrategy(this: CreditPlaybookContext, strategy: string | null): void {
     const normalized = typeof strategy === 'string' && strategy.toLowerCase() === 'all'
-        ? 'all'
-        : this.normalizeCreditPlaybookStrategyValue(strategy ?? '') || 'all';
-
-    if (normalized === this.creditPlaybookStrategy) {
-        return;
-    }
-
-    this.creditPlaybookStrategy = normalized;
-    const select = document.getElementById('credit-playbook-strategy-filter') as HTMLSelectElement | null;
-    if (select && select.value !== normalized) {
-        select.value = normalized;
-    }
-
-    this.updateCreditPlaybookView();
+        ? null
+        : this.normalizeCreditPlaybookStrategyValue(strategy ?? '');
+    this.setCreditPlaybookStrategies(normalized ? [normalized] : []);
 }
 
 export function setCreditPlaybookHorizon(this: CreditPlaybookContext, horizon: string): void {
@@ -208,6 +335,9 @@ export function updateCreditPlaybookView(this: CreditPlaybookContext): void {
         this.creditPlaybookNeedsRefresh = true;
         return;
     }
+
+    populateCreditPlaybookStrategyOptions.call(this);
+    this.syncCreditPlaybookStrategyControls();
 
     const entries = this.getCreditPlaybookEntries();
     this.creditPlaybookEntries = entries;

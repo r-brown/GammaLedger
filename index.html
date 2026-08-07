@@ -632,7 +632,7 @@
                 <header class="credit-playbook-header">
                     <div class="credit-playbook-metrics" id="credit-playbook-metrics" aria-live="polite"></div>
                     <div class="credit-playbook-detail-meta credit-playbook-help">
-                        Wheel trades: Credit Playbook tracks option premium legs. Total wheel P&amp;L (including stock assignment/sale) is shown in All Trades and Dashboard → Wheel/PMCC tracker.
+                        Accounting view: realized option and realized stock P&amp;L are booked; assigned shares still held contribute to Unrealized stock P&amp;L. All-in marked P&amp;L combines all three.
                     </div>
                 </header>
 
@@ -660,79 +660,31 @@
                         </select>
                     </div>
                     <div class="credit-playbook-filter">
-                        <span class="filter-label">Strategy</span>
-                        <select id="credit-playbook-strategy-filter" class="form-control">
-                            <option value="all" selected>All strategies</option>
-                            <option value="Bear Call Ladder">Bear Call Ladder</option>
-                            <option value="Bear Call Spread">Bear Call Spread</option>
-                            <option value="Bear Put Ladder">Bear Put Ladder</option>
-                            <option value="Bear Put Spread">Bear Put Spread</option>
-                            <option value="Box Spread">Box Spread</option>
-                            <option value="Bull Call Ladder">Bull Call Ladder</option>
-                            <option value="Bull Call Spread">Bull Call Spread</option>
-                            <option value="Bull Put Ladder">Bull Put Ladder</option>
-                            <option value="Bull Put Spread">Bull Put Spread</option>
-                            <option value="Calendar Call Spread">Calendar Call Spread</option>
-                            <option value="Calendar Put Spread">Calendar Put Spread</option>
-                            <option value="Calendar Straddle">Calendar Straddle</option>
-                            <option value="Calendar Strangle">Calendar Strangle</option>
-                            <option value="Call Broken Wing">Call Broken Wing</option>
-                            <option value="Call Ratio Backspread">Call Ratio Backspread</option>
-                            <option value="Call Ratio Spread">Call Ratio Spread</option>
-                            <option value="Cash-Secured Put">Cash-Secured Put</option>
-                            <option value="Collar">Collar</option>
-                            <option value="Covered Call">Covered Call</option>
-                            <option value="Covered Put">Covered Put</option>
-                            <option value="Covered Short Straddle">Covered Short Straddle</option>
-                            <option value="Covered Short Strangle">Covered Short Strangle</option>
-                            <option value="Diagonal Call Spread">Diagonal Call Spread</option>
-                            <option value="Diagonal Put Spread">Diagonal Put Spread</option>
-                            <option value="Double Diagonal">Double Diagonal</option>
-                            <option value="Guts">Guts</option>
-                            <option value="Inverse Call Broken Wing">Inverse Call Broken Wing</option>
-                            <option value="Inverse Iron Butterfly">Inverse Iron Butterfly</option>
-                            <option value="Inverse Iron Condor">Inverse Iron Condor</option>
-                            <option value="Inverse Put Broken Wing">Inverse Put Broken Wing</option>
-                            <option value="Iron Albatross">Iron Albatross</option>
-                            <option value="Iron Butterfly">Iron Butterfly</option>
-                            <option value="Iron Condor">Iron Condor</option>
-                            <option value="Jade Lizard">Jade Lizard</option>
-                            <option value="Long Call">Long Call</option>
-                            <option value="Long Call Butterfly">Long Call Butterfly</option>
-                            <option value="Long Call Condor">Long Call Condor</option>
-                            <option value="Long Put">Long Put</option>
-                            <option value="Long Put Butterfly">Long Put Butterfly</option>
-                            <option value="Long Put Condor">Long Put Condor</option>
-                            <option value="Long Straddle">Long Straddle</option>
-                            <option value="Long Strangle">Long Strangle</option>
-                            <option value="Poor Man's Covered Call">Poor Man's Covered Call</option>
-                            <option value="Protective Put">Protective Put</option>
-                            <option value="Put Broken Wing">Put Broken Wing</option>
-                            <option value="Put Ratio Backspread">Put Ratio Backspread</option>
-                            <option value="Put Ratio Spread">Put Ratio Spread</option>
-                            <option value="Reverse Jade Lizard">Reverse Jade Lizard</option>
-                            <option value="Short Call">Short Call</option>
-                            <option value="Short Call Butterfly">Short Call Butterfly</option>
-                            <option value="Short Call Condor">Short Call Condor</option>
-                            <option value="Short Guts">Short Guts</option>
-                            <option value="Short Put">Short Put</option>
-                            <option value="Short Put Butterfly">Short Put Butterfly</option>
-                            <option value="Short Put Condor">Short Put Condor</option>
-                            <option value="Short Straddle">Short Straddle</option>
-                            <option value="Short Strangle">Short Strangle</option>
-                            <option value="Strap">Strap</option>
-                            <option value="Strip">Strip</option>
-                            <option value="Synthetic Long Stock">Synthetic Long Stock</option>
-                            <option value="Synthetic Short Stock">Synthetic Short Stock</option>
-                            <option value="Synthetic Put">Synthetic Put</option>
-                            <option value="Wheel">Wheel</option>
-                        </select>
-                    </div>
-                    <div class="credit-playbook-filter">
                         <label class="filter-label" for="credit-playbook-symbol-filter">Symbol</label>
                         <input type="search" id="credit-playbook-symbol-filter" class="form-control" placeholder="Filter ticker...">
                     </div>
+                    <div class="credit-playbook-filter credit-playbook-filter--strategy">
+                        <select id="credit-playbook-strategy-filter" class="sr-only" multiple size="6" aria-hidden="true" tabindex="-1">
+                            <option value="">All Strategies</option>
+                        </select>
+                        <div class="filter-chip-group" role="group" aria-label="Filter by strategy">
+                            <span class="filter-chip-group__label">Strategy</span>
+                            <div class="filter-chips" id="credit-playbook-strategy-chips"></div>
+                        </div>
+                    </div>
                 </section>
+
+                <div class="credit-playbook-table-toolbar" aria-label="Credit Playbook quote actions">
+                    <div class="credit-playbook-table-summary">
+                        <span class="credit-playbook-table-summary__label" id="credit-playbook-refresh-status">Automatic quote refresh</span>
+                        <span class="credit-playbook-table-summary__detail" id="credit-playbook-refresh-detail">One position at a time · 5-minute pause after a full pass</span>
+                    </div>
+                    <div class="credit-playbook-refresh-control">
+                        <button type="button" class="btn btn--sm btn--secondary" id="credit-playbook-refresh-quotes" aria-label="Refresh Credit Playbook quotes" title="Force the next quote refresh and bypass the five-minute cooldown">
+                            ↻ Refresh quotes
+                        </button>
+                    </div>
+                </div>
 
                 <div class="credit-playbook-table-container">
                     <div id="credit-playbook-table" class="credit-playbook-grid ag-theme-quartz" aria-label="Credit playbook positions"></div>

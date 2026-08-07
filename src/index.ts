@@ -167,6 +167,12 @@ class GammaLedger {
     declare aiDraftImport: Record<string, unknown> | null
     declare activeQuoteEntries: Map<string, unknown>
     declare quoteRefreshIntervalId: ReturnType<typeof setInterval> | null
+    declare quotePnlRefreshTimerId: ReturnType<typeof setTimeout> | null
+    declare creditPlaybookQuoteCountdownTimerId: ReturnType<typeof setInterval> | null
+    declare creditPlaybookQuoteCursor: number
+    declare creditPlaybookQuoteCycleKeys: Set<string>
+    declare creditPlaybookQuotePauseUntil: number
+    declare creditPlaybookQuoteRefreshSuppressed: boolean
     declare autoRefreshIntervalMs: number
     declare quoteRefreshKeys: string[]
     declare quoteRefreshCursor: number
@@ -188,7 +194,7 @@ class GammaLedger {
     declare earningsPromiseMap: Map<string, Promise<import('./types/integrations.js').EarningsSurprise[] | null>>
     declare positionHighlightConfig: { expirationWarningDays: number; expirationCriticalDays: number }
     declare creditPlaybookStatus: string
-    declare creditPlaybookStrategy: string
+    declare creditPlaybookStrategies: string[]
     declare creditPlaybookHorizon: string
     declare creditPlaybookSymbol: string
     declare creditPlaybookSort: { key: string; direction: string }
@@ -315,6 +321,12 @@ class GammaLedger {
 
         this.activeQuoteEntries = new Map();
         this.quoteRefreshIntervalId = null;
+        this.quotePnlRefreshTimerId = null;
+        this.creditPlaybookQuoteCountdownTimerId = null;
+        this.creditPlaybookQuoteCursor = 0;
+        this.creditPlaybookQuoteCycleKeys = new Set();
+        this.creditPlaybookQuotePauseUntil = 0;
+        this.creditPlaybookQuoteRefreshSuppressed = false;
         this.autoRefreshIntervalMs = this.computeAutoRefreshInterval();
         this.quoteRefreshKeys = [];
         this.quoteRefreshCursor = 0;
@@ -325,7 +337,7 @@ class GammaLedger {
         };
 
         this.creditPlaybookStatus = 'active';
-        this.creditPlaybookStrategy = 'all';
+        this.creditPlaybookStrategies = [];
         this.creditPlaybookHorizon = 'all';
         this.creditPlaybookSymbol = '';
         this.creditPlaybookSort = {
@@ -501,6 +513,18 @@ class GammaLedger {
             clearInterval(this.quoteRefreshIntervalId);
             this.quoteRefreshIntervalId = null;
         }
+        if (this.quotePnlRefreshTimerId) {
+            clearTimeout(this.quotePnlRefreshTimerId);
+            this.quotePnlRefreshTimerId = null;
+        }
+        if (this.creditPlaybookQuoteCountdownTimerId) {
+            clearInterval(this.creditPlaybookQuoteCountdownTimerId);
+            this.creditPlaybookQuoteCountdownTimerId = null;
+        }
+        this.creditPlaybookQuoteCursor = 0;
+        this.creditPlaybookQuoteCycleKeys.clear();
+        this.creditPlaybookQuotePauseUntil = 0;
+        this.creditPlaybookQuoteRefreshSuppressed = false;
         
         // Destroy all charts
         Object.keys(this.charts).forEach(key => {
@@ -1279,9 +1303,15 @@ class GammaLedger {
 
     syncCreditPlaybookStatusControls() { return creditPlaybookModule.syncCreditPlaybookStatusControls.call(this); }
 
+    syncCreditPlaybookStrategyControls() { return creditPlaybookModule.syncCreditPlaybookStrategyControls.call(this); }
+
+    syncCreditPlaybookQuoteRefreshStatus() { return creditPlaybookModule.syncCreditPlaybookQuoteRefreshStatus.call(this); }
+
     setCreditPlaybookStatus(status) { return creditPlaybookModule.setCreditPlaybookStatus.call(this, status); }
 
     normalizeCreditPlaybookStrategyValue(strategy) { return creditPlaybookModule.normalizeCreditPlaybookStrategyValue.call(this, strategy); }
+
+    setCreditPlaybookStrategies(strategies) { return creditPlaybookModule.setCreditPlaybookStrategies.call(this, strategies); }
 
     setCreditPlaybookStrategy(strategy) { return creditPlaybookModule.setCreditPlaybookStrategy.call(this, strategy); }
 
