@@ -4374,23 +4374,9 @@ select.form-control {
   color: var(--color-primary-hover);
 }
 
-.ticker-link::after {
-  content: '↗';
-  font-size: var(--font-size-sm);
-  opacity: 0.7;
-}
-
-.ticker-link:hover::after {
-  opacity: 1;
-}
-
 .ticker-link--placeholder {
   color: var(--color-text-secondary);
   cursor: default;
-}
-
-.ticker-link--placeholder::after {
-  content: none;
 }
 
 /* Table Styles */

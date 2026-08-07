@@ -35,6 +35,7 @@ interface ViewsContext {
   buildStrategyTemplateLegs(strategy: string): unknown[] | null
   setTodayDate(): void
   updateTickerPreview(ticker: string): void
+  createTickerElement(ticker: unknown, className?: string, opts?: Record<string, unknown>): HTMLElement
   generateTickerLink(ticker: string): string
   normalizeTradeStatusInput(value: unknown): string | null
   normalizeUnderlyingType(value: unknown, opts: { fallback: string }): string
@@ -274,26 +275,13 @@ export function updateTickerPreview(this: ViewsContext, ticker: string): void {
 
     if (ticker && ticker.trim()) {
         const tickerUpper = ticker.toUpperCase().trim();
-        const url = this.generateTickerLink(tickerUpper);
 
         preview.innerHTML = '';
         const text = document.createTextNode('Search ');
         preview.appendChild(text);
 
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.className = 'ticker-link';
-        link.textContent = tickerUpper;
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            window.open(url, '_blank', 'noopener,noreferrer');
-        });
+        const link = this.createTickerElement(tickerUpper, 'ticker-link');
         preview.appendChild(link);
-
-        const text2 = document.createTextNode(' on External Analytics');
-        preview.appendChild(text2);
     } else {
         preview.innerHTML = '';
     }

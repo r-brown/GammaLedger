@@ -31,6 +31,8 @@ export function escapeHtml(text: unknown): string {
 import { safeLocalStorage } from '../core/storage.js';
 import { EXTERNAL_ANALYTICS_STORAGE_KEY, DEFAULT_EXTERNAL_ANALYTICS_URL } from '../core/config.js';
 
+export const EXTERNAL_ANALYTICS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+
 export function generateTickerLink(ticker: unknown): string {
     const safeTicker = String(ticker ?? '').trim().toUpperCase();
     let baseUrl = safeLocalStorage.getItem(EXTERNAL_ANALYTICS_STORAGE_KEY) || DEFAULT_EXTERNAL_ANALYTICS_URL;
@@ -90,7 +92,7 @@ export function createTickerElement(
         externalLink.className = 'external-analytics-icon';
         externalLink.title = `Open ${safeTicker} analytics`;
         // Simple external link SVG icon
-        externalLink.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+        externalLink.innerHTML = EXTERNAL_ANALYTICS_SVG;
         externalLink.style.display = 'inline-flex';
         externalLink.style.alignItems = 'center';
         externalLink.style.color = 'inherit';
@@ -117,6 +119,18 @@ export function createTickerElement(
         link.href = generateTickerLink(safeTicker);
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
+
+        const iconSpan = document.createElement('span');
+        iconSpan.innerHTML = EXTERNAL_ANALYTICS_SVG;
+        iconSpan.className = 'external-analytics-icon';
+        iconSpan.style.display = 'inline-flex';
+        iconSpan.style.alignItems = 'center';
+        iconSpan.style.marginLeft = '4px';
+        iconSpan.style.opacity = '0.6';
+        
+        link.style.display = 'inline-flex';
+        link.style.alignItems = 'center';
+        link.appendChild(iconSpan);
 
         link.addEventListener('click', (event) => {
             event.preventDefault();
