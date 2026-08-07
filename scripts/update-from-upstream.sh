@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Fetch and optionally fast-forward GammaLedger from the author's repository.
+# Fetch and merge GammaLedger updates from the author's repository.
 # Usage: ./scripts/update-from-upstream.sh [remote] [branch]
 
 set -eu
@@ -32,33 +32,35 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
     exit 1
 fi
 
-echo "Fetching $REMOTE_BRANCH..."
-git fetch --prune "$REMOTE" "$BRANCH"
+echo "Fetching $REMOTE_BRANCH and release tags..."
+git fetch --prune --tags "$REMOTE" "$BRANCH"
 
 local_head=$(git rev-parse HEAD)
 remote_head=$(git rev-parse "$REMOTE_BRANCH")
 
 if [ "$local_head" = "$remote_head" ]; then
     echo "Already up to date with $REMOTE_BRANCH."
+    echo "Release tags are up to date. Restart npm run dev if the displayed version is stale."
     exit 0
 fi
 
 if git merge-base --is-ancestor "$remote_head" "$local_head"; then
     echo "Local $BRANCH already contains $REMOTE_BRANCH."
     echo "Local-only commits are ahead; no update is needed."
+    echo "Release tags are up to date. Restart npm run dev if the displayed version is stale."
     exit 0
 fi
 
-if ! git merge-base --is-ancestor "$local_head" "$remote_head"; then
-    echo "Error: local $BRANCH and $REMOTE_BRANCH have diverged." >&2
-    echo "If you want to preserve the local commits, run: git rebase $REMOTE_BRANCH" >&2
-    echo "Resolve the branch history manually; no changes were made." >&2
-    exit 1
+merge_base=$(git merge-base "$local_head" "$remote_head")
+if git merge-base --is-ancestor "$local_head" "$remote_head"; then
+    update_kind="fast-forward"
+else
+    update_kind="merge"
 fi
 
 echo "Incoming commits:"
-git --no-pager log --oneline --decorate "$local_head..$remote_head"
-printf "Apply this fast-forward and rebuild? [y/N] "
+git --no-pager log --oneline --decorate "$merge_base..$remote_head"
+printf "Apply this %s and rebuild? [y/N] " "$update_kind"
 read answer
 
 case "$answer" in
@@ -66,9 +68,29 @@ case "$answer" in
     *) echo "Update cancelled."; exit 0 ;;
 esac
 
-git merge --ff-only "$REMOTE_BRANCH"
+dependencies_changed=false
+if ! git diff --quiet "$merge_base" "$remote_head" -- package.json package-lock.json; then
+    dependencies_changed=true
+fi
+
+if [ "$update_kind" = "fast-forward" ]; then
+    git merge --ff-only "$REMOTE_BRANCH"
+else
+    echo "Merging upstream while preserving local commits..."
+    if ! git merge --no-edit "$REMOTE_BRANCH"; then
+        echo "Error: the merge has conflicts that need manual resolution." >&2
+        echo "Run git status to see them, or git merge --abort to return to the pre-update state." >&2
+        exit 1
+    fi
+fi
+
+if [ "$dependencies_changed" = true ]; then
+    echo "Dependency files changed; installing updated dependencies..."
+    npm install
+fi
 
 echo "Running typecheck and production build..."
 npm run build
 
 echo "Update complete."
+echo "If npm run dev is already running, stop and restart it to load the new build version."
