@@ -1117,6 +1117,11 @@ function getNextRefreshMs(session: string): number {
         const minsUntilOpen = 570 - totalMinutes + 1;
         return Math.max(minsUntilOpen, 1) * 60_000;
     }
+    if (session === 'after_hours') {
+        // Extended-hours trading runs until 8:00pm ET (minute 1200).
+        const minsUntilClose = 1200 - totalMinutes + 1;
+        return Math.max(minsUntilClose, 1) * 60_000;
+    }
     return 30 * 60_000;
 }
 
@@ -1138,6 +1143,12 @@ function getCountdownText(session: string): string {
         const m = remaining % 60;
         return h > 0 ? `opens in ${h}h ${m}m` : `opens in ${m}m`;
     }
+    if (session === 'after_hours') {
+        const remaining = Math.max(1200 - totalMinutes, 0);
+        const h = Math.floor(remaining / 60);
+        const m = remaining % 60;
+        return h > 0 ? `closes in ${h}h ${m}m` : `closes in ${m}m`;
+    }
     return '';
 }
 
@@ -1147,7 +1158,7 @@ export function updateMarketStatusBadge(this: FinnhubContext, payload: FinnhubMa
     const countdown = document.getElementById('market-status-countdown');
     if (!badge || !label || !countdown) return;
 
-    const modifiers = ['--loading', '--open', '--premarket', '--closed', '--unavailable'];
+    const modifiers = ['--loading', '--open', '--premarket', '--afterhours', '--closed', '--unavailable'];
     modifiers.forEach(m => badge.classList.remove(`market-status${m}`));
 
     if (!payload) {
@@ -1171,6 +1182,9 @@ export function updateMarketStatusBadge(this: FinnhubContext, payload: FinnhubMa
     } else if (payload.session === 'pre_market') {
         badge.classList.add('market-status--premarket');
         label.textContent = 'Pre-market';
+    } else if (payload.session === 'after_hours') {
+        badge.classList.add('market-status--afterhours');
+        label.textContent = 'After-hours';
     } else {
         badge.classList.add('market-status--closed');
         label.textContent = 'NYSE Closed';
@@ -1244,6 +1258,7 @@ export async function fetchMarketStatus(this: FinnhubContext): Promise<void> {
             if (!badge) return;
             const currentSession = badge.classList.contains('market-status--open') ? 'market_hours'
                 : badge.classList.contains('market-status--premarket') ? 'pre_market'
+                : badge.classList.contains('market-status--afterhours') ? 'after_hours'
                 : '';
             const countdown = document.getElementById('market-status-countdown');
             if (countdown) countdown.textContent = getCountdownText(currentSession);
@@ -1437,6 +1452,39 @@ export function getEarningsDateForTrade(
     const entry = (this.earningsMap as Map<string, import('../types/integrations.js').EarningsCalendarEntry>).get(ticker);
     if (!entry) return null;
     return entry.date <= expiration ? entry : null;
+}
+
+// ---------------------------------------------------------------------------
+// Dividend Calendar — fetched to populate Watchlist dividends
+// ---------------------------------------------------------------------------
+
+export async function fetchDividendCalendar(
+    this: any,
+    fromYYYYMMDD: string,
+    toYYYYMMDD: string
+): Promise<import('../types/integrations.js').DividendCalendarEntry[]> {
+    const apiKey = this.finnhub?.apiKey;
+    if (!apiKey) return [];
+
+    const url = new URL('https://finnhub.io/api/v1/calendar/dividend');
+    url.searchParams.set('from', fromYYYYMMDD);
+    url.searchParams.set('to', toYYYYMMDD);
+    url.searchParams.set('token', String(apiKey));
+
+    try {
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            console.warn(`[Finnhub] calendar/dividend failed: ${response.status}`);
+            return [];
+        }
+        const data: any = await response.json();
+        if (!data || !Array.isArray(data.calendar)) return [];
+        
+        return data.calendar as import('../types/integrations.js').DividendCalendarEntry[];
+    } catch (error) {
+        console.warn(`[Finnhub] failed to fetch dividend calendar:`, error);
+        return [];
+    }
 }
 
 // ---------------------------------------------------------------------------

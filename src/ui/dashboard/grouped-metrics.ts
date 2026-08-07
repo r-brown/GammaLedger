@@ -3,10 +3,17 @@
 
 import { APP_CONFIG } from '@core/config.js'
 import { infoPopoverIcon, infoPopoverTrigger, setupInfoPopovers } from './popover.js'
+import { computePortfolioGreeks, type PortfolioGreeksSummary } from './portfolio-greeks.js'
+import { DEFAULT_SIGMA, DEFAULT_RISK_FREE_RATE } from '@calculations/black-scholes.js'
 import type { EnrichedTrade } from '@types-gl/trade'
+import type { NormalizedLeg } from '@types-gl/leg'
 import type { Stats } from '@types-gl/stats'
 
 interface GroupedMetricsContext {
+  currentDate: Date
+  summarizeLegs(legs: unknown[]): { legs: NormalizedLeg[] }
+  getLegOrderDescriptor(leg: Record<string, unknown>): { action: string; side: string }
+  getCachedQuote(ticker: string): { value?: { c?: number } } | null
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
 }
@@ -153,6 +160,31 @@ function plClass(v: number): string {
     return 'rv'
 }
 
+function greeksAssumptions(summary: PortfolioGreeksSummary): string {
+    const total = summary.pricedTrades + summary.unpricedTrades
+    const coverage = summary.unpricedTrades > 0
+        ? `${summary.pricedTrades}/${total} priced`
+        : `${summary.pricedTrades} priced`
+    const excluded = summary.unpricedTrades > 0
+        ? `\nExcluded (no price available): ${summary.unpricedTickers.join(', ')}`
+        : ''
+    return `Rough Black-Scholes estimate — no live option quotes.\nAssumes a flat implied volatility of ${(DEFAULT_SIGMA * 100).toFixed(0)}% and a ${(DEFAULT_RISK_FREE_RATE * 100).toFixed(0)}% risk-free rate for every contract; spot comes from the Finnhub quote cache or the trade's last underlying-price snapshot.\nΘ/day is the estimated dollar time-decay earned (positive) or paid (negative) per calendar day. Net Δ is in share-equivalents. Vega is $ per 1-point IV move.\nCoverage: ${coverage}.${excluded}`
+}
+
+function buildGreeksRows(this: GroupedMetricsContext, stats: Stats): string {
+    const summary = computePortfolioGreeks.call(this, stats)
+    if (!summary) return ''
+
+    const fmt$ = (v: number) => escapeHtml(this.formatCurrency(v))
+    const deltaText = escapeHtml(this.formatNumber(summary.netDelta, { decimals: 1 }) ?? '0')
+
+    return `
+      <div class="row"><span class="rl">Net &Delta;&nbsp;${infoPopoverIcon(greeksAssumptions(summary))}</span><span class="rv">${deltaText}</span></div>
+      <div class="row"><span class="rl">&Theta; / day</span><span class="${plClass(summary.thetaPerDay)}">${fmt$(summary.thetaPerDay)}</span></div>
+      <div class="row"><span class="rl">Vega (per 1pt IV)</span><span class="rv">${fmt$(summary.vega)}</span></div>
+    `
+}
+
 export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats): void {
     const root = document.getElementById('grouped-metrics')
     if (!root) return
@@ -180,6 +212,7 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
       <div class="metric-col">
         <h3>Risk &amp; Exposure</h3>
         <div class="row"><span class="rl">Collateral at risk</span><span class="rv-warn">${fmt$(stats.collateralAtRisk)}</span></div>
+        ${buildGreeksRows.call(this, stats)}
         <div class="row"><span class="rl">Open premium pending&nbsp;${infoPopoverIcon('Net cash already booked on open option contracts (credits minus debits, net of fees), grouped by expiration.\nCollected but NOT yet earned: it becomes Realized only when each contract expires worthless or is closed — buybacks and rolls will reduce it. This is the premium a CSP/wheel seller is still working for.')}</span><span class="${valClass(stats.pendingPremium, 'rv-pur')}">${fmt$(stats.pendingPremium)}</span></div>
         ${anomalies > 0 ? `<div class="row"><span class="rl">&#x26A0; Leg data anomalies&nbsp;${infoPopoverIcon(`The leg-realization engine found ${String(stats.realizationAnomalies.orphanCloseGroups)} option group(s) with more closing than opening contracts and ${String(stats.realizationAnomalies.closeAfterExpiryLegs)} closing leg(s) executed after their recorded expiration date.\nThis usually means a buyback leg carries the wrong expiration — its debit is realized immediately while the matching credit stays pending, understating realized P&L.\nFix: edit the trade and correct the closing leg's expiration date.`)}</span><span class="rv-neg">${escapeHtml(stats.realizationAnomalies.tickers.join(', '))}</span></div>` : ''}
         <div class="row"><span class="rl">Top-ticker concentration</span><span class="${topOver ? 'rv-warn' : 'rv'}">${topLabel}${topOver ? ` <span class="chip chip-warn">&#x26A0; limit ${APP_CONFIG.RISK_RULES.TARGET_SHARE_PCT}%</span>` : ''}</span></div>

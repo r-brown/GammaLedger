@@ -126,7 +126,7 @@ type HealthGrade = 'healthy' | 'ok' | 'weak'
 type ValuationGrade = 'cheap' | 'fair' | 'expensive'
 
 /** Pre-trade Risk Score: combines beta + realized vol + short-term momentum into 🔴/🟡/🟢. */
-function computePreTradeRiskScore(m: StockMetrics): { grade: RiskTrafficLight; detail: string } {
+export function computePreTradeRiskScore(m: StockMetrics): { grade: RiskTrafficLight; detail: string } {
   const beta = m.beta ?? 0
   const hv30 = m.vol3MonthStd ?? 0
   const r5d = m.return5Day ?? 0
@@ -456,12 +456,12 @@ function attachScorePillTooltip(
 // Panel skeleton — three-column DOM structure with loading placeholders
 // ---------------------------------------------------------------------------
 
-interface PanelSkeletonOptions {
+export interface PanelSkeletonOptions {
   threeCol?: boolean
   tradeBreakdown?: boolean
 }
 
-function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = {}): HTMLElement {
+export function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = {}): HTMLElement {
   const { threeCol = false, tradeBreakdown = false } = opts
   const panel = el('div', 'position-detail-panel')
 
@@ -1274,7 +1274,7 @@ function renderScorePills(scoresEl: HTMLElement, metrics: StockMetrics): void {
 // Data fetch orchestration
 // ---------------------------------------------------------------------------
 
-function triggerDataFetch(
+export function triggerDataFetch(
   context: PositionDetailPanelContext,
   ticker: string,
   panelEl: HTMLElement,

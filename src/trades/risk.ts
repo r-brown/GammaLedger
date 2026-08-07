@@ -526,6 +526,8 @@ export function getStrategyRiskHandlers(
         register('Short Put Condor', condorWidthRisk);
         register('Short Straddle', () => Number.POSITIVE_INFINITY);
         register('Short Strangle', () => Number.POSITIVE_INFINITY);
+        register('Straddle', (ctx) => ctx.netCredit > 0 ? Number.POSITIVE_INFINITY : debitRisk(ctx));
+        register('Strangle', (ctx) => ctx.netCredit > 0 ? Number.POSITIVE_INFINITY : debitRisk(ctx));
         register('Strap', debitRisk);
         register('Strip', debitRisk);
         register('Synthetic Long Stock', () => Number.POSITIVE_INFINITY);
@@ -680,6 +682,8 @@ export function getFormulaData(this: RiskContext): Record<string, unknown> {
                 "Short Put Condor": { "maxRiskFormula": "(D_spread - netCredit) * M", "maxGainFormula": "netCredit * M", "explanation": "Limited loss and profit." },
                 "Short Straddle": { "maxRiskFormula": "∞", "maxGainFormula": "netCredit * M", "explanation": "Unlimited risk on both sides." },
                 "Short Strangle": { "maxRiskFormula": "∞", "maxGainFormula": "netCredit * M", "explanation": "Unlimited loss; limited gain from credit." },
+                "Straddle": { "maxRiskFormula": "netDebit * M (or ∞)", "maxGainFormula": "∞ (or netCredit * M)", "explanation": "Profit from big move in either direction (if bought) or time decay (if sold)." },
+                "Strangle": { "maxRiskFormula": "netDebit * M (or ∞)", "maxGainFormula": "∞ (or netCredit * M)", "explanation": "Profit from big move (if bought) or time decay (if sold) with split strikes." },
                 "Strap": { "maxRiskFormula": "netDebit * M", "maxGainFormula": "∞", "explanation": "Bullish volatility play (Buy 2 Calls, Buy 1 Put)." },
                 "Strip": { "maxRiskFormula": "netDebit * M", "maxGainFormula": "∞", "explanation": "Bearish volatility play (Buy 1 Call, Buy 2 Puts)." },
                 "Synthetic Long Stock": { "maxRiskFormula": "∞", "maxGainFormula": "∞", "explanation": "Replicates long stock; unlimited gain and loss." },

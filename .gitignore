@@ -8,6 +8,6 @@ playwright-report
 tests
 test-results
 .idea
+.agents
 .claude
-.mimocode
 graphify-out/

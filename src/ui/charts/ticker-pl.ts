@@ -13,6 +13,7 @@
 // label. Do not remove it.
 
 import { renderEChart } from './echarts.js'
+import { DRILL_HINT } from './dashboard-charts.js'
 import type { Stats, TickerPLRow } from '@types-gl/stats'
 
 interface TickerPLChartContext {
@@ -142,7 +143,7 @@ export function renderTickerPLChart(this: TickerPLChartContext, stats: Stats): v
                     `Total: ${this.formatCurrency(row.totalPL)}`,
                     `Capital deployed: ${this.formatCurrency(row.capitalDeployed, { decimals: 0 })}`,
                     `RoC: ${roc}`,
-                ].join('<br>') + warn
+                ].join('<br>') + warn + DRILL_HINT
             },
         },
         xAxis: {

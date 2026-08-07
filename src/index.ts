@@ -67,6 +67,7 @@ import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
 import * as startupBehaviorModule from './settings/startup-behavior.js';
 import type { StartupBehavior } from './settings/startup-behavior.js';
+import * as externalAnalyticsModule from './settings/external-analytics.js';
 import * as importControlsModule from './imports/controls.js';
 import * as importLogModule from './imports/log.js';
 import * as importMergeModule from './imports/merge.js';
@@ -102,6 +103,7 @@ import * as aiChatModule from './ai/chat.js';
 import * as dashboardModule from './ui/dashboard.js';
 import * as persistModule from './database/persist.js';
 import * as legFormModule from './trades/leg-form.js';
+import * as legPasteModule from './trades/leg-paste.js';
 import * as activePositionsModule from './ui/tables/active-positions.js';
 import * as recentTradesModule from './ui/tables/recent-trades.js';
 import * as assignedPositionsModule from './ui/tables/assigned-positions.js';
@@ -111,7 +113,13 @@ import * as announcementModule from './ui/announcement.js';
 import * as strategyTemplatesModule from './trades/strategy-templates.js';
 import * as filterChipsModule from './ui/filter-chips.js';
 import * as shortcutsModule from './ui/shortcuts.js';
+import * as themeModule from './ui/theme.js';
+import type { ThemePreference } from './ui/theme.js';
+import * as commandPaletteModule from './ui/command-palette.js';
+import * as tickerPageModule from './ui/ticker-page.js';
+import type { TickerPageState } from './ui/ticker-page.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
+import * as watchlistModule from './ui/watchlist.js';
 
 
 class GammaLedger {
@@ -163,6 +171,7 @@ class GammaLedger {
     declare quoteRefreshKeys: string[]
     declare quoteRefreshCursor: number
     declare earningsMap: Map<string, import('./types/integrations.js').EarningsCalendarEntry>
+    declare dividendMap: Map<string, import('./types/integrations.js').DividendCalendarEntry>
     declare metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
     declare expandedTradeId: string | null
     declare activePositionsTrades: Record<string, unknown>[]
@@ -190,7 +199,14 @@ class GammaLedger {
     declare assignedPositionsStatusFilter: string
     declare defaultFeePerContract: number | null
     declare sidebarState: Record<string, unknown>
+    declare commandPaletteIndex: number
+    declare tickerPage: TickerPageState
+    declare tickerPageGridApi: unknown
+    declare watchlistGridApi: unknown
+    declare expandedWatchlistTicker: string | null
     declare shareCard: { root: HTMLElement | null; card: HTMLElement | null; button: HTMLElement | null; chartCanvas: HTMLCanvasElement | null; chartTitle: HTMLElement | null; rangeLabel: HTMLElement | null; chart: { destroy(): void } | null; metrics: Record<string, unknown>; timestamp: unknown; exportSize: number }
+    declare externalAnalyticsUrl: string
+    declare watchlist: import('./types/watchlist.js').WatchlistEntry[]
 
     constructor() {
         this.trades = [];
@@ -224,6 +240,8 @@ class GammaLedger {
             direction: 'asc'
         };
         this.earningsMap = new Map();
+        this.dividendMap = new Map();
+        this.watchlist = [];
         this.metricsCache = new Map();
         this.expandedTradeId = null;
         this.activePositionsTrades = [];
@@ -375,6 +393,8 @@ class GammaLedger {
             'Short Put Condor',
             'Short Straddle',
             'Short Strangle',
+            'Straddle',
+            'Strangle',
             'Strap',
             'Strip',
             'Synthetic Long Stock',
@@ -397,6 +417,12 @@ class GammaLedger {
             preferredCollapsed: false
         };
 
+        this.commandPaletteIndex = 0;
+        this.tickerPage = { ticker: null, selectedTradeId: 'all' };
+        this.tickerPageGridApi = null;
+        this.watchlistGridApi = null;
+        this.expandedWatchlistTicker = null;
+
         this.shareCard = {
             root: null,
             card: null,
@@ -409,6 +435,9 @@ class GammaLedger {
             timestamp: null,
             exportSize: SHARE_CARD_EXPORT_SIZE
         };
+
+        // External Analytics
+        this.externalAnalyticsUrl = '';
 
         // currentDate is now a live getter — see get currentDate() below
 
@@ -488,6 +517,7 @@ class GammaLedger {
 
     async init() {
         try {
+            this.initializeThemeControls();
             this.loadStartupBehaviorFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.currentFileHandle = null;
@@ -538,7 +568,9 @@ class GammaLedger {
                     }).catch(() => { /* ignore fetch errors — table already rendered without badges */ });
                 }
             }
+            this.initializeFinnhubRateLimitControls();
             this.initializeDefaultFeeControls();
+            this.initializeExternalAnalyticsControls();
             this.initializeStartupBehaviorControls();
             this.initializeAnnouncementBanner();
             this.setupSampleDataBannerActions();
@@ -780,6 +812,8 @@ class GammaLedger {
 
     collectLegsFromForm() { return legFormModule.collectLegsFromForm.call(this); }
 
+    initializeLegPasteControls() { return legPasteModule.initializeLegPasteControls.call(this); }
+
     // Trade normalization -------------------------------------------------
 
     getPrimaryLeg(trade = {}) { return legsModule.getPrimaryLeg.call(this, trade); }
@@ -986,6 +1020,8 @@ class GammaLedger {
             addLegButton.addEventListener('click', () => this.addLegFormRow());
         }
 
+        this.initializeLegPasteControls();
+
         const cancelTradeButton = document.getElementById('cancel-trade');
         if (cancelTradeButton) {
             cancelTradeButton.addEventListener('click', (event) => {
@@ -1023,6 +1059,9 @@ class GammaLedger {
 
         // Global keyboard shortcuts + `?` help dialog
         this.setupKeyboardShortcuts();
+
+        // ⌘K command palette
+        this.setupCommandPalette();
 
         // Dashboard tab groups (analytics charts, positions tables)
         initDashboardTabs();
@@ -1189,6 +1228,18 @@ class GammaLedger {
     setTodayDate() { return viewsModule.setTodayDate.call(this); }
 
     showView(viewName) { return viewsModule.showView.call(this, viewName); }
+
+    showTickerPage(ticker) { return tickerPageModule.showTickerPage.call(this, ticker); }
+
+    renderTickerPage() { return tickerPageModule.renderTickerPage.call(this); }
+
+    renderWatchlistView() { return watchlistModule.renderWatchlistView.call(this); }
+
+    addToWatchlist(ticker) { return watchlistModule.addToWatchlist.call(this, ticker); }
+
+    removeFromWatchlist(ticker) { return watchlistModule.removeFromWatchlist.call(this, ticker); }
+
+    updateWatchlistEntry(ticker, patch) { return watchlistModule.updateWatchlistEntry.call(this, ticker, patch); }
 
     resetAddTradeForm() { return viewsModule.resetAddTradeForm.call(this); }
 
@@ -1403,6 +1454,13 @@ class GammaLedger {
 
     saveStartupBehaviorToStorage() { return startupBehaviorModule.saveStartupBehaviorToStorage.call(this); }
 
+    // src/settings/external-analytics.ts
+    initializeExternalAnalyticsControls() { return externalAnalyticsModule.initializeExternalAnalyticsControls.call(this); }
+    loadExternalAnalyticsFromStorage() { return externalAnalyticsModule.loadExternalAnalyticsFromStorage.call(this); }
+    saveExternalAnalyticsToStorage() { return externalAnalyticsModule.saveExternalAnalyticsToStorage.call(this); }
+    removeExternalAnalyticsFromStorage() { return externalAnalyticsModule.removeExternalAnalyticsFromStorage.call(this); }
+    updateExternalAnalyticsStatus(element: HTMLElement | null, message?: string | null, variant?: string, duration?: number) { return externalAnalyticsModule.updateExternalAnalyticsStatus.call(this, element, message, variant, duration); }
+
     // Finnhub rate limit storage methods
     loadFinnhubRateLimitFromStorage() { return finnhubModule.loadFinnhubRateLimitFromStorage.call(this); }
 
@@ -1464,6 +1522,10 @@ class GammaLedger {
     getAICoachConsent() { return aiCoachConsentModule.getAICoachConsent.call(this); }
 
     setAICoachConsent(value) { return aiCoachConsentModule.setAICoachConsent.call(this, value); }
+
+    initializeThemeControls() { return themeModule.initializeThemeControls.call(this); }
+
+    setThemePreference(pref: ThemePreference) { return themeModule.setThemePreference.call(this, pref); }
 
     initializeSidebarToggle() { return sidebarModule.initializeSidebarToggle.call(this); }
 
@@ -1574,6 +1636,7 @@ class GammaLedger {
     async fetchEarningsCalendar(tickers: string[], toDate: string) { return finnhubModule.fetchEarningsCalendar.call(this, tickers, toDate); }
     async fetchStockMetrics(ticker: string) { return finnhubModule.fetchStockMetrics.call(this, ticker); }
     async fetchSignalsData(ticker: string) { return finnhubModule.fetchSignalsData.call(this, ticker); }
+    async fetchDividendCalendar(from: string, to: string) { return finnhubModule.fetchDividendCalendar.call(this, from, to); }
     async fetchCompanyProfile(ticker: string) { return finnhubModule.fetchCompanyProfile.call(this, ticker); }
     async fetchEarningsSurprise(ticker: string) { return finnhubModule.fetchEarningsSurprise.call(this, ticker); }
     getEarningsDateForTrade(trade: Record<string, unknown>) { return finnhubModule.getEarningsDateForTrade.call(this, trade); }
@@ -1631,6 +1694,10 @@ class GammaLedger {
     renderFilterChips() { return filterChipsModule.renderFilterChips.call(this); }
 
     setupKeyboardShortcuts() { return shortcutsModule.setupKeyboardShortcuts.call(this); }
+
+    setupCommandPalette() { return commandPaletteModule.setupCommandPalette.call(this); }
+
+    toggleCommandPalette(force?: boolean) { return commandPaletteModule.toggleCommandPalette.call(this, force); }
 
     filterTrades() { return filtersModule.filterTrades.call(this); }
 

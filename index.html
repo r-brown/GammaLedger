@@ -119,6 +119,10 @@
                     <span class="nav-icon">📊</span>
                     <span class="nav-label">Dashboard</span>
                 </button>
+                <button class="nav-item" data-view="watchlist">
+                    <span class="nav-icon">👀</span>
+                    <span class="nav-label">Watchlist (beta)</span>
+                </button>
                 <button class="nav-item" data-view="trades-list">
                     <span class="nav-icon">📋</span>
                     <span class="nav-label">All Trades</span>
@@ -168,6 +172,7 @@
 
                 <div class="header-right">
                     <div class="file-management">
+                        <button class="icon-button" id="theme-toggle" aria-label="Toggle color theme" title="Toggle color theme"></button>
                         <div class="share-action">
                             <button class="icon-button" id="share-portfolio-card"
                                 aria-label="Share portfolio snapshot"
@@ -297,36 +302,20 @@
                 <!-- Analytics (tabbed — one chart visible at a time) -->
                 <section class="card dashboard-analytics gl-tabs" data-tab-group>
                     <div class="gl-tabs__list" role="tablist" aria-label="Analytics charts">
-                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="analytics-strategy">Strategy</button>
+                        <button type="button" class="gl-tabs__tab is-active" role="tab" aria-selected="true" data-tab-target="analytics-montecarlo">Monte Carlo</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-tickerpl">Ticker P&amp;L</button>
+                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-strategy">Strategy</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-winrate">Win rate</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-fees">Fees</button>
-                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-tickerpl">Ticker P&amp;L</button>
                         <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-time">Time in trade</button>
-                        <button type="button" class="gl-tabs__tab" role="tab" aria-selected="false" data-tab-target="analytics-montecarlo">Monte Carlo</button>
                     </div>
-                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="analytics-strategy">
+                    <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="analytics-montecarlo">
                         <div class="chart-container">
-                            <h3>Strategy Performance</h3>
+                            <h3>Monte Carlo Projection (60 Days)</h3>
                             <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                                <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
+                                <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-winrate" hidden>
-                        <div class="chart-container">
-                            <h3>Win Rate by Strategy</h3>
-                            <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
-                                <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-fees" hidden>
-                        <div class="chart-container">
-                            <h3>Commission Impact</h3>
-                            <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
-                                <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
-                            </div>
-                            <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
+                            <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
                         </div>
                     </div>
                     <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-tickerpl" hidden>
@@ -351,21 +340,37 @@
                             </div>
                         </div>
                     </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-strategy" hidden>
+                        <div class="chart-container">
+                            <h3>Strategy Performance</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
+                                <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-winrate" hidden>
+                        <div class="chart-container">
+                            <h3>Win Rate by Strategy</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
+                                <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-fees" hidden>
+                        <div class="chart-container">
+                            <h3>Commission Impact</h3>
+                            <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
+                                <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
+                            </div>
+                            <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
+                        </div>
+                    </div>
                     <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-time" hidden>
                         <div class="chart-container">
                             <h3>Time in Trade (Average Days)</h3>
                             <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
                                 <div id="timeInTradeChart" class="echarts-chart" role="img" aria-label="Average time in trade chart"></div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-montecarlo" hidden>
-                        <div class="chart-container">
-                            <h3>Monte Carlo Projection (60 Days)</h3>
-                            <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
-                                <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
-                            </div>
-                            <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
                         </div>
                     </div>
                 </section>
@@ -527,6 +532,17 @@
                                 <h3>Trade Legs</h3>
                                 <p class="form-help-text">Add one or more legs to fully describe this trade. Each leg represents a single execution (including rolls).</p>
                             </div>
+                            <div class="leg-paste" id="leg-paste">
+                                <button type="button" class="btn btn--sm btn--secondary" id="leg-paste-toggle" aria-expanded="false" aria-controls="leg-paste-panel">📋 Paste fills…</button>
+                                <div class="leg-paste__panel is-hidden" id="leg-paste-panel">
+                                    <textarea id="leg-paste-input" class="form-control leg-paste__input" rows="6"
+                                        placeholder="Paste broker fills — IBKR Orders &amp; Trades text, fill strings like &quot;SPY 08/15/2026 450P STO 2 @ 1.25&quot;, or OCC symbols. One or many legs at once."></textarea>
+                                    <div class="leg-paste__actions">
+                                        <button type="button" class="btn btn--sm btn--primary" id="leg-paste-parse">Parse fills</button>
+                                        <span class="form-help-text">Split fills are consolidated automatically. Bot/Sold map to BTO/STO — flip closing legs to BTC/STC after parsing.</span>
+                                    </div>
+                                </div>
+                            </div>
                             <div id="trade-legs-container" class="trade-legs-container" aria-live="polite"></div>
                             <div class="form-row trade-legs-actions">
                                 <button type="button" class="btn btn--secondary" id="add-leg-button">Add Leg</button>
@@ -599,6 +615,16 @@
                     </div>
                     <div id="trades-table" class="trades-grid ag-theme-quartz" aria-label="All trades"></div>
                 </div>
+            </div>
+
+            <!-- Per-Ticker View (opened from Ticker P&L, Active Positions status dot, or ⌘K) -->
+            <div class="view ticker-page-view">
+                <div id="ticker-page-root"></div>
+            </div>
+
+            <!-- Watchlist View -->
+            <div class="view watchlist-view">
+                <div id="watchlist-root"></div>
             </div>
 
             <!-- Credit Playbook View -->
@@ -858,6 +884,29 @@
             <br>
             <section class="settings-section">
                     <header class="settings-section__header">
+                        <h2>External Analytics</h2>
+                        <p>Configure the external link opened when clicking on a ticker.</p>
+                    </header>
+                    <div class="settings-card" id="external-analytics-controls">
+                        <div class="settings-card__header">
+                            <h3>Analytics Base URL</h3>
+                            <p class="settings-card__subtitle">Set the URL to open. Use {ticker} as a placeholder.</p>
+                        </div>
+                        <div class="settings-card__body">
+                            <label for="external-analytics-url" class="form-label">Base URL</label>
+                            <div class="settings-input-row">
+                                <input type="text" id="external-analytics-url" class="form-control" placeholder="https://finance.yahoo.com/quote/{ticker}" autocomplete="off">
+                                <button class="btn btn--sm btn--primary" id="external-analytics-save">Save</button>
+                                <button class="btn btn--sm btn--secondary" id="external-analytics-clear">Reset Default</button>
+                            </div>
+                            <p class="settings-help-text">Default: https://www.investing.com/search/?q={ticker}. The {ticker} placeholder will be replaced with the actual ticker symbol.</p>
+                            <div class="default-fee-status" id="external-analytics-status" role="status"></div>
+                        </div>
+                    </div>
+                </section>
+            <br>
+            <section class="settings-section">
+                    <header class="settings-section__header">
                         <h2>Database Startup Behavior</h2>
                         <p>Control what GammaLedger loads when you open the app.</p>
                     </header>
@@ -958,6 +1007,18 @@
         </div>
     </div>
 
+    <dialog id="command-palette" class="command-palette" aria-label="Command palette">
+        <div class="command-palette__panel">
+            <input type="text" id="command-palette-input" class="command-palette__input"
+                placeholder="Type a command or ticker…" autocomplete="off" spellcheck="false"
+                role="combobox" aria-expanded="true" aria-controls="command-palette-list">
+            <ul id="command-palette-list" class="command-palette__list" role="listbox"></ul>
+            <div class="command-palette__foot">
+                <span><kbd>↑↓</kbd> navigate</span><span><kbd>↵</kbd> run</span><span><kbd>esc</kbd> close</span>
+            </div>
+        </div>
+    </dialog>
+
     <dialog id="shortcut-help" class="shortcut-help" aria-labelledby="shortcut-help-title">
         <div class="shortcut-help__panel">
             <h2 id="shortcut-help-title" class="shortcut-help__title">Keyboard shortcuts</h2>
@@ -967,8 +1028,10 @@
                     <tr><td><kbd>/</kbd></td><td>Search trades</td></tr>
                     <tr><td><kbd>g</kbd> then <kbd>d</kbd></td><td>Go to Dashboard</td></tr>
                     <tr><td><kbd>g</kbd> then <kbd>t</kbd></td><td>Go to All Trades</td></tr>
+                    <tr><td><kbd>g</kbd> then <kbd>w</kbd></td><td>Go to Watchlist</td></tr>
                     <tr><td><kbd>g</kbd> then <kbd>i</kbd></td><td>Go to Import</td></tr>
                     <tr><td><kbd>g</kbd> then <kbd>s</kbd></td><td>Go to Settings</td></tr>
+                    <tr><td><kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd></td><td>Command palette</td></tr>
                     <tr><td><kbd>?</kbd></td><td>Toggle this help</td></tr>
                     <tr><td><kbd>Esc</kbd></td><td>Close dialogs, popovers, and the AI chat panel</td></tr>
                 </tbody>

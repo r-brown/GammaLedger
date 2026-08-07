@@ -5,6 +5,7 @@
 interface ShortcutsContext {
   showView(viewName: string): void
   toggleAIChat(force?: boolean): void
+  toggleCommandPalette(force?: boolean): void
   _shortcutChordUntil?: number
 }
 
@@ -14,7 +15,8 @@ const CHORD_VIEWS: Record<string, string> = {
     d: 'dashboard',
     t: 'trades-list',
     i: 'import',
-    s: 'settings'
+    s: 'settings',
+    w: 'watchlist'
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -28,6 +30,14 @@ export function setupKeyboardShortcuts(this: ShortcutsContext): void {
         ?.addEventListener('click', () => helpDialog.close())
 
     document.addEventListener('keydown', (event) => {
+        // ⌘K / Ctrl+K opens the command palette — even while typing in a field.
+        if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey
+            && event.key.toLowerCase() === 'k') {
+            event.preventDefault()
+            this.toggleCommandPalette()
+            return
+        }
+
         if (event.key === 'Escape') {
             // Open <dialog>s and info popovers close themselves; otherwise
             // Esc collapses the AI chat panel.

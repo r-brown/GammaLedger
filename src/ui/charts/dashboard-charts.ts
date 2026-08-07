@@ -58,6 +58,8 @@ const PROFIT_COLOR = '#1FB8CD';
 const WARNING_COLOR = '#FFC185';
 const LOSS_COLOR = '#B4413C';
 const MUTED_BAR_COLOR = 'rgba(148, 163, 184, 0.25)';
+// Tooltip suffix advertising the click → All Trades drill-down.
+export const DRILL_HINT = '<br/><span style="font-size:11px;opacity:0.65">Click to view these trades</span>';
 
 function getChartRoot(id: string): HTMLElement | null {
     return document.getElementById(id);
@@ -538,7 +540,7 @@ export function updateStrategyPerformanceChart(this: DashboardChartsContext): vo
             axisPointer: { type: 'shadow' },
             formatter: (params: unknown) => {
                 const item = Array.isArray(params) ? params[0] as { value?: unknown } : null;
-                return item ? `P&L: ${formatCurrencyValue(item.value)}` : '';
+                return item ? `P&L: ${formatCurrencyValue(item.value)}${DRILL_HINT}` : '';
             }
         },
         xAxis: {
@@ -628,7 +630,7 @@ export function updateWinRateByStrategyChart(this: DashboardChartsContext): void
                 }
                 const item = params as { name?: string; value?: unknown };
                 const percent = this.formatPercent(item.value, '0%', { decimals: 2 });
-                return `${item.name}: ${percent}`;
+                return `${item.name}: ${percent}${DRILL_HINT}`;
             }
         },
         series: [{

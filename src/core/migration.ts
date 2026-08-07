@@ -1,4 +1,4 @@
-import type { StorageSchema, Trade } from '@types-gl'
+import type { StorageSchema, Trade, WatchlistEntry } from '@types-gl'
 import { CURRENT_STORAGE_VERSION } from '@core/config'
 import {
     ImportableStorageShapeSchema,
@@ -123,4 +123,27 @@ export function validateStorageSchema(schema: StorageSchema): StorageSchema {
 export function parseStorageSchema(raw: unknown): StorageSchema {
     assertImportableStorageShape(raw);
     return validateStorageSchema(migrateSchema(raw));
+}
+
+export function normalizeWatchlist(raw: unknown): WatchlistEntry[] {
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set<string>();
+    const entries: WatchlistEntry[] = [];
+    for (const item of raw) {
+        if (!item || typeof item !== 'object') continue;
+        const record = item as Record<string, unknown>;
+        const ticker = String(record.ticker ?? '').trim().toUpperCase();
+        if (!ticker || seen.has(ticker)) continue;
+        seen.add(ticker);
+        const ratingNumber = Number(record.rating);
+        entries.push({
+            ticker,
+            rating: Number.isInteger(ratingNumber) && ratingNumber >= 1 && ratingNumber <= 5 ? ratingNumber : null,
+            notes: typeof record.notes === 'string' ? record.notes : '',
+            addedDate: typeof record.addedDate === 'string' ? record.addedDate : '',
+            targetPrice: typeof record.targetPrice === 'number' ? record.targetPrice : null,
+            targetDirection: record.targetDirection === 'up' || record.targetDirection === 'down' ? record.targetDirection : undefined
+        });
+    }
+    return entries;
 }

@@ -256,6 +256,16 @@ export interface EarningsSurprise {
   surprisePercent: number | null
 }
 
+export interface DividendCalendarEntry {
+  symbol: string
+  date: string
+  amount: number
+  exDate: string
+  payDate: string
+  recordDate: string
+  declarationDate: string
+}
+
 // ---------------------------------------------------------------------------
 // M2 — Gemini API response types and runtime type guards
 // The API response shape follows the generateContent REST contract.
