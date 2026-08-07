@@ -8,6 +8,7 @@ import {
   type GridApi,
   type GridOptions,
   type ICellRendererParams,
+  type IRowNode,
   type RowClickedEvent,
   type SortChangedEvent
 } from 'ag-grid-community'
@@ -27,6 +28,7 @@ export {
   type GridApi,
   type GridOptions,
   type ICellRendererParams,
+  type IRowNode,
   type RowClickedEvent,
   type SortChangedEvent
 }

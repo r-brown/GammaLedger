@@ -36,7 +36,6 @@ interface ActivePositionsContext extends PositionDetailPanelContext {
   openTradesFilteredByTicker(ticker: unknown): void
   summarizeLegs(legs: unknown[]): { legs: NormalizedLeg[] }
   getLegOrderDescriptor(leg: Record<string, unknown>): { action: string; side: string }
-  getCachedQuote(ticker: string): { value?: { c?: number } } | null
   inferOptionFlavor(trade: TradeRecord): 'call' | 'put' | null
   currentDate: Date
   getActiveStrikeForDisplay(summary: Record<string, unknown>): number | null

@@ -1,4 +1,4 @@
-import type { StockMetrics, SignalsData, CompanyProfile, EarningsSurprise } from '../../types/integrations.js'
+import type { StockMetrics, SignalsData, CompanyProfile, EarningsSurprise, CachedQuoteEntry } from '../../types/integrations.js'
 import { renderTradeBreakdownColumn, type BreakdownTrade } from './trade-breakdown-column.js'
 
 // ---------------------------------------------------------------------------
@@ -18,7 +18,8 @@ export interface PositionDetailPanelContext {
   fetchStockMetrics(ticker: string): Promise<StockMetrics | null>
   fetchCompanyProfile(ticker: string): Promise<CompanyProfile | null>
   fetchEarningsSurprise(ticker: string): Promise<EarningsSurprise[] | null>
-  finnhub: { apiKey: string | null; cache: Map<string, { c?: number }> }
+  finnhub: { apiKey: string | null; cache: Map<string, CachedQuoteEntry> }
+  getCachedQuote(ticker: string): CachedQuoteEntry | null
   formatCurrency(v: unknown): string
   formatDate(v: unknown): string
   formatNumber(v: unknown, opts?: { decimals?: number }): string | null
@@ -1287,7 +1288,11 @@ export function triggerDataFetch(
   const identityEl = panelEl.querySelector('[data-role="identity"]') as HTMLElement | null
   const scoresEl = panelEl.querySelector('[data-role="scores"]') as HTMLElement | null
 
-  const livePrice = context.finnhub.cache.get(ticker)?.c ?? null
+  // The cache holds `{ value, timestamp }` wrappers of NormalizedQuote, so the
+  // live price is `.value.price` — going through getCachedQuote also drops
+  // quotes past the TTL instead of rendering a stale one.
+  const cachedPrice = Number(context.getCachedQuote?.(ticker)?.value?.price)
+  const livePrice = Number.isFinite(cachedPrice) ? cachedPrice : null
 
   function reRenderSignals(signals: SignalsData): void {
     if (!sigCard?.isConnected) return
