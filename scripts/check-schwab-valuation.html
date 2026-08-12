@@ -1,0 +1,73 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Schwab valuation check</title>
+<pre id="result">Running…</pre>
+<script type="module">
+import { calculateTradeQuote, getSchwabTradeQuoteKey, isSchwabQuoteStale } from '../src/integrations/schwab.ts'
+import { SchwabQuoteCacheSchema } from '../src/core/schema.ts'
+import { migrateSchema } from '../src/core/migration.ts'
+
+const quote = (symbol, bid, ask, mark) => ({
+  symbol, bid, ask, last: mark, mark, midpoint: (bid + ask) / 2,
+  multiplier: 100, providerTimestamp: null, capturedAt: new Date().toISOString()
+})
+const leg = (id, orderType, quantity, strike) => ({
+  id, orderType, type: 'PUT', quantity, multiplier: 100, executionDate: '',
+  expirationDate: '2026-09-18', strike, premium: 1, fees: 0,
+  underlyingPrice: null, externalId: null, importGroupId: null,
+  importSource: null, schwabSymbol: null
+})
+const closeTo = (actual, expected) => Math.abs(actual - expected) < 1e-9
+
+const shortTen = calculateTradeQuote('short', 'TEST', [
+  { leg: leg('s', 'STO', 10, 100), quote: quote('S', 0.34, 0.36, 0.35), action: 'SELL' }
+], 500)
+const creditSpread = calculateTradeQuote('credit', 'TEST', [
+  { leg: leg('s', 'STO', 2, 100), quote: quote('S', 1.15, 1.25, 1.20), action: 'SELL' },
+  { leg: leg('l', 'BTO', 2, 95), quote: quote('L', 0.35, 0.45, 0.40), action: 'BUY' }
+])
+const debitSpread = calculateTradeQuote('debit', 'TEST', [
+  { leg: leg('l', 'BTO', 1, 100), quote: quote('L', 1.15, 1.25, 1.20), action: 'BUY' },
+  { leg: leg('s', 'STO', 1, 95), quote: quote('S', 0.35, 0.45, 0.40), action: 'SELL' }
+], -100)
+const metaSpread = calculateTradeQuote('meta', 'META', [
+  { leg: leg('s', 'STO', 2, 620), quote: quote('META-S', 69.90, 70.10, 70), action: 'SELL' },
+  { leg: leg('l', 'BTO', 2, 870), quote: quote('META-L', 4.28, 4.48, 4.38), action: 'BUY' }
+], 14400)
+const independentShortCalls = calculateTradeQuote('covered', 'TEST', [
+  { leg: leg('c1', 'STO', 5, 40), quote: quote('C1', 0.95, 1.05, 1), action: 'SELL' },
+  { leg: leg('c2', 'STO', 10, 45), quote: quote('C2', 1.95, 2.05, 2), action: 'SELL' }
+])
+
+if (!closeTo(shortTen.netMark, 0.35) || !closeTo(shortTen.marketValue, -350)) throw new Error('Single short option valuation failed')
+if (!closeTo(shortTen.unrealizedPL, 150)) throw new Error('Single short option P&L failed')
+if (!closeTo(creditSpread.netMark, 0.80) || !closeTo(creditSpread.liquidationMark, 0.90) || !closeTo(creditSpread.marketValue, -160)) throw new Error('Credit spread valuation failed')
+if (!closeTo(debitSpread.netMark, 0.80) || !closeTo(debitSpread.liquidationMark, -0.70) || !closeTo(debitSpread.marketValue, 80)) throw new Error('Debit spread valuation failed')
+if (!closeTo(debitSpread.unrealizedPL, -20)) throw new Error('Debit spread P&L failed')
+if (!closeTo(metaSpread.netMark, 65.62) || !closeTo(metaSpread.marketValue, -13124) || !closeTo(metaSpread.unrealizedPL, 1276)) throw new Error('META credit spread P&L failed')
+if (!closeTo(independentShortCalls.netMark, 5 / 3) || !closeTo(independentShortCalls.marketValue, -2500)) throw new Error('Independent short option averaging failed')
+
+const migrated = migrateSchema({
+  version: '2.5',
+  exportDate: '2026-08-10T00:00:00.000Z',
+  trades: [
+    { id: 'legacy-1', ticker: 'TE', strategy: 'Wheel', legs: [{ id: 'te-stock' }] },
+    { ticker: 'MSFT', strategy: 'Bull Call Spread', legs: [{ id: 'msft-long' }, { id: 'msft-short' }] }
+  ]
+})
+if (migrated.trades[0].id !== 'legacy-1' || migrated.trades[1].id !== 'legacy-1-dup-2') throw new Error('Duplicate trade ID repair failed')
+const migratedAgain = migrateSchema(migrated)
+if (migratedAgain.trades.map(trade => trade.id).join('|') !== 'legacy-1|legacy-1-dup-2') throw new Error('Duplicate repair is not idempotent')
+if (getSchwabTradeQuoteKey(migrated.trades[0]) === getSchwabTradeQuoteKey(migrated.trades[1])) throw new Error('Schwab trade keys collided')
+
+const now = Date.parse('2026-08-10T12:00:00.000Z')
+if (isSchwabQuoteStale('2026-08-10T11:55:00.000Z', now)) throw new Error('Fresh quote marked stale')
+if (!isSchwabQuoteStale('2026-08-10T11:45:00.000Z', now)) throw new Error('Old quote not marked stale')
+SchwabQuoteCacheSchema.parse({
+  version: 1,
+  underlying: { META: { price: 650, capturedAt: '2026-08-10T12:00:00.000Z', providerTimestamp: null } },
+  trades: { [getSchwabTradeQuoteKey(migrated.trades[0])]: shortTen }
+})
+
+document.querySelector('#result').textContent = 'PASS: valuations, quote retention schema, stale detection, duplicate-ID migration, and collision-proof Schwab keys'
+</script>

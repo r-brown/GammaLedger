@@ -313,6 +313,18 @@ export function addLegFormRow(
     const existingRows = container.querySelectorAll('.trade-leg').length;
     const legId = (leg?.id as string) || this.generateLegId(existingRows);
     row.dataset.legId = legId;
+    if (typeof leg?.executionTimestamp === 'string' && leg.executionTimestamp) {
+        row.dataset.executionTimestamp = leg.executionTimestamp;
+    }
+    if (typeof leg?.brokerTimeZone === 'string' && leg.brokerTimeZone) {
+        row.dataset.brokerTimeZone = leg.brokerTimeZone;
+    }
+    if (leg?.isAssignment === true) {
+        row.dataset.isAssignment = 'true';
+    }
+    if (typeof leg?.importSource === 'string' && leg.importSource) {
+        row.dataset.importSource = leg.importSource;
+    }
     const eid = escapeHtml(legId);
 
     row.innerHTML = `
@@ -738,6 +750,11 @@ export function collectLegsFromForm(this: LegFormContext): Record<string, unknow
             ...parsedLeg,
             multiplier
         };
+
+        if (row.dataset.executionTimestamp) legData.executionTimestamp = row.dataset.executionTimestamp;
+        if (row.dataset.brokerTimeZone) legData.brokerTimeZone = row.dataset.brokerTimeZone;
+        if (row.dataset.isAssignment === 'true') legData.isAssignment = true;
+        if (row.dataset.importSource) legData.importSource = row.dataset.importSource;
 
         // Shares have no strike. When a per-share premium is present the hidden
         // strike box is pure leftover, so drop it rather than let cost-basis math

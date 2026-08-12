@@ -48,6 +48,7 @@ interface ActivePositionsContext extends PositionDetailPanelContext {
   rebuildQuoteRefreshSchedule(): void
   startQuoteAutoRefreshIfNeeded(): void
   refreshActivePositionsQuotes(opts: { force: boolean; immediate: boolean }): void
+  renderSchwabTradeQuoteCell(cell: HTMLElement, trade: TradeRecord): HTMLElement
   earningsMap: Map<string, EarningsCalendarEntry>
   getEarningsDateForTrade(trade: TradeRecord): EarningsCalendarEntry | null
   formatDate(d: string): string
@@ -360,6 +361,19 @@ function buildActivePositionsColumnDefs(
             sortable: false,
             filter: false,
             cellRenderer: (params: ICellRendererParams<TradeRecord>) => createQuoteRenderer.call(this, quoteEntries, params)
+        },
+        {
+            colId: 'optionSpreadMark',
+            headerName: 'Option / Spread Mark',
+            headerTooltip: 'Current Schwab mark per option or strategy unit. Multi-leg values are calculated from the open leg marks.',
+            width: 175,
+            sortable: false,
+            filter: false,
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => {
+                const cell = document.createElement('div');
+                cell.className = 'quote-cell';
+                return params.data ? this.renderSchwabTradeQuoteCell(cell, params.data) : cell;
+            }
         },
         {
             colId: 'dte',

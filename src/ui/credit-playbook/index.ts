@@ -15,6 +15,7 @@ interface CreditPlaybookEntry {
 }
 
 interface CreditPlaybookContext {
+  schwab?: { vault: { accessToken?: string; refreshToken?: string } | null }
   currentView: string
   creditPlaybookNeedsRefresh: boolean
   creditPlaybookQuotePauseUntil: number
@@ -36,6 +37,9 @@ interface CreditPlaybookContext {
   setCreditPlaybookHorizon(horizon: string): void
   setCreditPlaybookSymbol(symbol: string): void
   refreshCreditPlaybookQuotes(opts: { force: boolean; immediate: boolean; manual?: boolean }): void
+  refreshSchwabMarketData(opts?: { allowContractPrompt?: boolean }): Promise<void>
+  getSchwabLastQuoteAt(): string | null
+  isSchwabQuoteStale(capturedAt: string): boolean
   normalizeCreditPlaybookStrategyValue(strategy: string): string | null
   updateCreditPlaybookView(): void
   getCreditPlaybookEntries(): CreditPlaybookEntry[]
@@ -101,15 +105,22 @@ export function initializeCreditPlaybookControls(this: CreditPlaybookContext): v
 
     const refreshButton = document.getElementById('credit-playbook-refresh-quotes') as HTMLButtonElement | null;
     if (refreshButton && refreshButton.dataset.initialized !== 'true') {
-        refreshButton.addEventListener('click', () => {
+        refreshButton.addEventListener('click', async () => {
             refreshButton.classList.add('is-refreshing');
             refreshButton.setAttribute('aria-busy', 'true');
-            this.refreshCreditPlaybookQuotes({ force: true, immediate: true, manual: true });
-            this.syncCreditPlaybookQuoteRefreshStatus();
-            setTimeout(() => {
+            refreshButton.disabled = true;
+            try {
+                if (this.schwab?.vault && (this.schwab.vault.accessToken || this.schwab.vault.refreshToken)) {
+                    await this.refreshSchwabMarketData({ allowContractPrompt: true });
+                } else {
+                    this.refreshCreditPlaybookQuotes({ force: true, immediate: true, manual: true });
+                }
+                this.syncCreditPlaybookQuoteRefreshStatus();
+            } finally {
                 refreshButton.classList.remove('is-refreshing');
                 refreshButton.removeAttribute('aria-busy');
-            }, 800);
+                refreshButton.disabled = false;
+            }
         });
         refreshButton.dataset.initialized = 'true';
     }
@@ -150,11 +161,17 @@ export function syncCreditPlaybookQuoteRefreshStatus(this: CreditPlaybookContext
     const pauseUntil = Number(this.creditPlaybookQuotePauseUntil);
     const remainingMs = pauseUntil - Date.now();
     const isPaused = Number.isFinite(pauseUntil) && remainingMs > 0;
+    const lastSchwabQuoteAt = this.getSchwabLastQuoteAt();
+    const schwabIsStale = lastSchwabQuoteAt ? this.isSchwabQuoteStale(lastSchwabQuoteAt) : false;
 
-    status.textContent = isPaused ? 'Automatic refresh paused' : 'Automatic quote refresh';
-    detail.textContent = isPaused
-        ? `Resumes in ${formatCreditPlaybookCountdown(remainingMs)} · Manual refresh available`
-        : 'One position at a time · 5-minute pause after a full pass';
+    status.textContent = lastSchwabQuoteAt
+        ? `Schwab quotes${schwabIsStale ? ' · Stale' : ''}`
+        : isPaused ? 'Automatic refresh paused' : 'Automatic quote refresh';
+    detail.textContent = lastSchwabQuoteAt
+        ? `Last updated ${new Date(lastSchwabQuoteAt).toLocaleString()} · Refreshes stocks and current options`
+        : isPaused
+            ? `Resumes in ${formatCreditPlaybookCountdown(remainingMs)} · Manual refresh available`
+            : 'One position at a time · 5-minute pause after a full pass';
     status.classList.toggle('is-paused', isPaused);
     detail.classList.toggle('is-paused', isPaused);
 }

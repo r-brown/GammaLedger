@@ -21,6 +21,8 @@ interface ViewsContext {
   renderImportLog(): void
   initializeCreditPlaybookControls(): void
   updateCreditPlaybookView(): void
+  releaseCreditPlaybookGrid(): void
+  stopQuoteAutoRefresh(): void
   updateFinnhubStatus(message: string, variant: unknown, delay: number): void
   collectLegsFromForm(): TradeRecord[] | null
   showNotification(message: string, type: string): void
@@ -46,6 +48,11 @@ interface ViewsContext {
 }
 
 export function showView(this: ViewsContext, viewName: string): void {
+    if (this.currentView === 'credit-playbook' && viewName !== 'credit-playbook') {
+        this.releaseCreditPlaybookGrid();
+        this.stopQuoteAutoRefresh();
+    }
+
     // Update navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');

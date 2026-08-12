@@ -62,6 +62,7 @@ import * as monteCarloModule from './calculations/monte-carlo.js';
 import * as riskModule from './trades/risk.js';
 import * as spreadsModule from './trades/spreads.js';
 import * as finnhubModule from './integrations/finnhub.js';
+import * as schwabModule from './integrations/schwab.js';
 import * as geminiIntegrationModule from './integrations/gemini.js';
 import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
@@ -81,7 +82,7 @@ import * as sidebarModule from './ui/sidebar.js';
 import * as disclaimerModule from './ui/modals/disclaimer.js';
 import * as aiCoachConsentModule from './ui/modals/ai-coach-consent.js';
 import type { AICoachConsentState } from './ui/modals/ai-coach-consent.js';
-import type { StockMetrics } from '@types-gl/integrations';
+import type { SchwabState, StockMetrics } from '@types-gl/integrations';
 import * as filtersModule from './ui/filters.js';
 import * as dashboardChartsModule from './ui/charts/dashboard-charts.js';
 import * as cumulativePLModule from './ui/charts/cumulative-pl.js';
@@ -96,6 +97,7 @@ import { scopeRealizedToRange } from './ui/tables/ticker-pl-range.js';
 import * as chartDestroyModule from './ui/charts/destroy.js';
 import * as highlightsModule from './ui/tables/highlights.js';
 import * as tradesTableModule from './ui/tables/trades-table.js';
+import type { ColumnState } from './ui/tables/ag-grid.js';
 import * as creditPlaybookDataModule from './ui/credit-playbook/data.js';
 import * as creditPlaybookRenderModule from './ui/credit-playbook/render.js';
 import * as shareCardModule from './ui/share-card.js';
@@ -147,6 +149,7 @@ class GammaLedger {
     declare recentTradesGridApi: unknown
     declare assignedPositionsGridApi: unknown
     declare creditPlaybookGridApi: unknown
+    declare creditPlaybookGridState: { filterModel: Record<string, unknown>; columnState: ColumnState[] } | null
     declare tickerPLGridApi: unknown
     declare tradesMergeInitialized: boolean
     declare tradesMergePanelOpen: boolean
@@ -158,6 +161,7 @@ class GammaLedger {
     declare disclaimerFadeMs: number
     declare aiCoachConsent: AICoachConsentState
     declare finnhub: { apiKey: string; encryptionKey: CryptoKey | null; cache: Map<string, unknown>; cacheTTL: number; outstandingRequests: Map<string, unknown>; rateLimitQueue: Promise<unknown>; maxRequestsPerMinute: number; timestamps: number[]; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; elements: Record<string, unknown>; marketStatusTimer: ReturnType<typeof setTimeout> | null; marketStatusCountdownTimer: ReturnType<typeof setInterval> | null }
+    declare schwab: SchwabState
     declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; maxOutputTokens: number; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
     declare aiAgent: GeminiInsightsAgent | null
     declare aiChatMessages: Record<string, unknown>[]
@@ -173,6 +177,8 @@ class GammaLedger {
     declare creditPlaybookQuoteCycleKeys: Set<string>
     declare creditPlaybookQuotePauseUntil: number
     declare creditPlaybookQuoteRefreshSuppressed: boolean
+    declare creditPlaybookExpandedTradeId: string | null
+    declare creditPlaybookRows: Record<string, unknown>[]
     declare autoRefreshIntervalMs: number
     declare quoteRefreshKeys: string[]
     declare quoteRefreshCursor: number
@@ -238,6 +244,7 @@ class GammaLedger {
         this.recentTradesGridApi = null;
         this.assignedPositionsGridApi = null;
         this.creditPlaybookGridApi = null;
+        this.creditPlaybookGridState = null;
         this.tradesMergeInitialized = false;
         this.tradesMergePanelOpen = false;
         this.currentFilteredTrades = [];
@@ -301,6 +308,18 @@ class GammaLedger {
             marketStatusCountdownTimer: null
         };
 
+        this.schwab = {
+            vault: null,
+            encryptionKey: null,
+            automaticRefresh: false,
+            quoteCache: new Map(),
+            optionQuoteCache: new Map(),
+            tradeQuoteCache: new Map(),
+            timerId: null,
+            refreshPromise: null,
+            elements: {}
+        };
+
         this.gemini = {
             apiKey: '',
             encryptionKey: null,
@@ -327,6 +346,8 @@ class GammaLedger {
         this.creditPlaybookQuoteCycleKeys = new Set();
         this.creditPlaybookQuotePauseUntil = 0;
         this.creditPlaybookQuoteRefreshSuppressed = false;
+        this.creditPlaybookExpandedTradeId = null;
+        this.creditPlaybookRows = [];
         this.autoRefreshIntervalMs = this.computeAutoRefreshInterval();
         this.quoteRefreshKeys = [];
         this.quoteRefreshCursor = 0;
@@ -500,6 +521,8 @@ class GammaLedger {
 
     // Cleanup all resources
     cleanup() {
+        this.cleanupSchwab();
+        this.releaseCreditPlaybookGrid();
         // Clear all timeouts
         if (this.gemini?.statusTimeoutId) {
             clearTimeout(this.gemini.statusTimeoutId);
@@ -553,6 +576,7 @@ class GammaLedger {
                 await this.loadFromStorage();
             }
             await this.loadFinnhubConfigFromStorage();
+            await this.loadSchwabConfigFromStorage();
             await this.loadGeminiConfigFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.updateFileNameDisplay();
@@ -566,6 +590,7 @@ class GammaLedger {
             this.initializeGeminiControls();
             this.initializeAIChat();
             this.initializeFinnhubControls();
+            this.initializeSchwabControls();
             this.initMarketStatus();
             // Fetch earnings calendar once — covers all open position expiration windows
             if (this.finnhub?.apiKey && Array.isArray(this.trades) && this.trades.length > 0) {
@@ -1345,6 +1370,8 @@ class GammaLedger {
 
     renderCreditPlaybookTableFromLegPairs(legPairs = []) { return creditPlaybookRenderModule.renderCreditPlaybookTableFromLegPairs.call(this, legPairs); }
 
+    releaseCreditPlaybookGrid() { return creditPlaybookRenderModule.releaseCreditPlaybookGrid.call(this); }
+
     extractCreditPlaybookLegPairs(entries = []) { return creditPlaybookDataModule.extractCreditPlaybookLegPairs.call(this, entries); }
 
     extractSpreadPair(trade, legs, now, pairs) { return spreadsModule.extractSpreadPair.call(this, trade, legs, now, pairs); }
@@ -1465,6 +1492,26 @@ class GammaLedger {
     async encryptAndStoreGeminiApiKey(cryptoApi = this.getCrypto()) { return geminiIntegrationModule.encryptAndStoreGeminiApiKey.call(this, cryptoApi); }
 
     initializeFinnhubControls() { return finnhubModule.initializeFinnhubControls.call(this); }
+
+    async loadSchwabConfigFromStorage() { return schwabModule.loadSchwabConfigFromStorage.call(this); }
+
+    initializeSchwabControls() { return schwabModule.initializeSchwabControls.call(this); }
+
+    async getSchwabUnderlyingQuote(ticker: string, forceRefresh = false) { return schwabModule.getSchwabUnderlyingQuote.call(this, ticker, forceRefresh); }
+
+    async refreshSchwabMarketData(options = {}) { return schwabModule.refreshSchwabMarketData.call(this, options); }
+
+    getSchwabLastQuoteAt() { return schwabModule.getSchwabLastQuoteAt.call(this); }
+
+    isSchwabQuoteStale(capturedAt: string) { return schwabModule.isSchwabQuoteStale(capturedAt); }
+
+    scheduleSchwabAutoRefresh() { return schwabModule.scheduleSchwabAutoRefresh.call(this); }
+
+    renderSchwabTradeQuoteCell(cell: HTMLElement, trade: Record<string, unknown>) { return schwabModule.renderSchwabTradeQuoteCell.call(this, cell, trade); }
+
+    getSchwabTradeQuoteKey(trade: Record<string, unknown>) { return schwabModule.getSchwabTradeQuoteKey(trade); }
+
+    cleanupSchwab() { return schwabModule.cleanupSchwab.call(this); }
 
     initializeFinnhubRateLimitControls() { return finnhubModule.initializeFinnhubRateLimitControls.call(this); }
 

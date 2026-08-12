@@ -20,6 +20,10 @@ import { buildTickerPLRows, type TickerPLInput } from './ticker-pl.js'
  */
 interface StatsContext {
     trades: EnrichedTrade[]
+    schwab?: {
+        tradeQuoteCache: Map<string, { marketValue: number | null }>
+    }
+    getSchwabTradeQuoteKey(trade: EnrichedTrade): string
 
     // Status helpers
     isClosedStatus(status: string | null | undefined): boolean
@@ -400,6 +404,11 @@ export function calculateAdvancedStats(this: StatsContext) {
     // terminated contract groups inside non-closed trades.
     const realizedPL = totalPL + openTradeRealizedPLTotal;
 
+    const schwabMarketValueOf = (trade: EnrichedTrade): number => {
+        const marketValue = this.schwab?.tradeQuoteCache.get(this.getSchwabTradeQuoteKey(trade))?.marketValue;
+        return typeof marketValue === 'number' && Number.isFinite(marketValue) ? marketValue : 0;
+    };
+
     // Unrealized P&L: estimated current P&L on open positions plus mark-to-market
     // on awaiting-coverage wheel/PMCC stock holdings, minus the realized portion
     // moved to realizedPL above.
@@ -407,12 +416,15 @@ export function calculateAdvancedStats(this: StatsContext) {
         const pl = Number(trade.pl);
         if (!Number.isFinite(pl)) return sum;
         const adjustment = openTradeRealizedPL.get(trade) ?? 0;
-        return sum + pl - adjustment;
+        // trade.pl already contains the active option group's opening cash
+        // flow. Add its signed current market value to turn that amount into
+        // true mark-to-market P&L (short negative, long positive).
+        return sum + pl - adjustment + schwabMarketValueOf(trade);
     }, 0) + awaitingCoverageTrades.reduce((sum, trade) => {
         const pl = Number(trade.unrealizedPL);
         if (!Number.isFinite(pl)) return sum;
         const adjustment = openTradeRealizedPL.get(trade) ?? 0;
-        return sum + pl - adjustment;
+        return sum + pl - adjustment + schwabMarketValueOf(trade);
     }, 0);
 
     // Quote coverage over the positions feeding unrealizedPL. A position is
@@ -420,10 +432,15 @@ export function calculateAdvancedStats(this: StatsContext) {
     // everything else is valued at raw cashflow — open short options count at
     // full credit — which the UI must disclose next to the headline number.
     const unrealizedTrades = [...openTrades, ...awaitingCoverageTrades];
-    const markedTrades = unrealizedTrades.filter(trade => {
+    const isMarkedTrade = (trade: EnrichedTrade): boolean => {
         const source = (trade as unknown as Record<string, unknown>).marketPriceSource;
-        return source === 'live' || source === 'snapshot';
-    });
+        const stockMarked = !this.hasAssignedInventory(trade) || source === 'live' || source === 'snapshot';
+        const optionMarketValue = this.schwab?.tradeQuoteCache.get(this.getSchwabTradeQuoteKey(trade))?.marketValue;
+        const optionMarked = !this.hasNetOpenOptionLegs(trade)
+            || (typeof optionMarketValue === 'number' && Number.isFinite(optionMarketValue));
+        return stockMarked && optionMarked;
+    };
+    const markedTrades = unrealizedTrades.filter(isMarkedTrade);
     const unmarkedTickers = Array.from(new Set(
         unrealizedTrades
             .filter(trade => !markedTrades.includes(trade))
@@ -440,10 +457,6 @@ export function calculateAdvancedStats(this: StatsContext) {
     // re-derived. That is what makes the ticker table's TOTAL row tie exactly
     // to realizedPL / unrealizedPL / collateralAtRisk (see ticker-pl.ts).
     const tickerPLInputs: TickerPLInput[] = []
-    const isMarkedTrade = (trade: EnrichedTrade): boolean => {
-        const source = (trade as unknown as Record<string, unknown>).marketPriceSource
-        return source === 'live' || source === 'snapshot'
-    }
     const finiteCapital = (trade: EnrichedTrade): number => {
         const capital = this.getCapitalAtRisk(trade)
         return Number.isFinite(capital) && capital > 0 ? capital : 0
@@ -474,7 +487,7 @@ export function calculateAdvancedStats(this: StatsContext) {
             ticker: normalizeTickerKey(trade.ticker),
             closedPL: 0,
             openRealizedPL: adjustment,
-            unrealizedPL: (Number.isFinite(pl) ? pl : 0) - adjustment,
+            unrealizedPL: (Number.isFinite(pl) ? pl : 0) - adjustment + schwabMarketValueOf(trade),
             capitalAtRisk: capital,
             capitalDeployed: capital,
             isWin: false,
@@ -494,7 +507,7 @@ export function calculateAdvancedStats(this: StatsContext) {
             // Fully-realized awaiting-coverage trades already contributed their
             // realized leg P&L via closedTrades above — do not double count.
             openRealizedPL: this.isFullyRealizedTrade(trade) ? 0 : adjustment,
-            unrealizedPL: (Number.isFinite(pl) ? pl : 0) - adjustment,
+            unrealizedPL: (Number.isFinite(pl) ? pl : 0) - adjustment + schwabMarketValueOf(trade),
             capitalAtRisk: 0,                 // not in stats.collateralAtRisk
             capitalDeployed: 0,
             isWin: false,

@@ -261,7 +261,8 @@ export function normalizeLeg(
         underlyingPrice: parsedLeg.underlyingPrice ?? null,
         externalId: externalIdValue ?? null,
         importGroupId: importGroupIdValue ?? null,
-        importSource: importSourceValue ?? null
+        importSource: importSourceValue ?? null,
+        schwabSymbol: parsedLeg.schwabSymbol ?? null
     };
 }
 

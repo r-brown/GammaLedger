@@ -3,12 +3,14 @@
 
 import {
   createGrid,
+  type ColumnState,
   type ColDef,
   type GridApi,
   type GridOptions,
   type ICellRendererParams,
   type SortChangedEvent
 } from '../tables/ag-grid.js'
+import { renderTradeBreakdownColumn, type BreakdownTrade } from '../tables/trade-breakdown-column.js'
 
 type TradeRecord = Record<string, unknown>
 type LegRecord = Record<string, unknown>
@@ -31,8 +33,20 @@ interface LegPair {
   strike?: number | string
   isOpen?: boolean
   isAssigned?: boolean
+  wasAssigned?: boolean
   isRolling?: boolean
   isExpired?: boolean
+  isCreditAggregate?: boolean
+  aggregateKind?: 'wheel' | 'covered-call' | 'cash-secured-put'
+  heldShares?: number
+  openCallContracts?: number
+  realizedOptionPL?: number
+  unrealizedOptionPL?: number
+  hasRealizedOptionActivity?: boolean
+  childPairs?: LegPair[]
+  trade?: TradeRecord
+  _isDetailRow?: boolean
+  _parentPair?: LegPair
   quantity?: number
   pricePerContract?: number
   fees?: number
@@ -68,6 +82,7 @@ interface CreditPlaybookEntry {
 }
 
 interface CreditPlaybookRenderContext {
+  trades: TradeRecord[]
   currentDate: Date | unknown
   creditPlaybookStatus: string
   creditPlaybookStrategies: string[]
@@ -75,6 +90,9 @@ interface CreditPlaybookRenderContext {
   creditPlaybookSymbol: string
   creditPlaybookSort: { key: string; direction: string }
   creditPlaybookGridApi?: GridApi<LegPair> | null
+  creditPlaybookGridState?: { filterModel: Record<string, unknown>; columnState: ColumnState[] } | null
+  creditPlaybookExpandedTradeId: string | null
+  creditPlaybookRows: LegPair[]
   positionHighlightConfig: { expirationCriticalDays: number }
   creditPlaybookQuoteEntries?: Map<string, Record<string, unknown>>
   creditPlaybookQuoteRefreshSuppressed: boolean
@@ -105,6 +123,7 @@ interface CreditPlaybookRenderContext {
   applyResponsiveLabels(row: HTMLTableRowElement, labels: string[]): void
   startQuoteAutoRefreshIfNeeded(): void
   refreshCreditPlaybookQuotes(opts: { force: boolean; immediate: boolean; manual?: boolean }): void
+  renderSchwabTradeQuoteCell(cell: HTMLElement, trade: TradeRecord): HTMLElement
   extractSpreadPair(trade: TradeRecord, legs: unknown[], now: Date, pairs: LegPair[]): void
   extractIndividualLegPairs(trade: TradeRecord, legs: unknown[], now: Date, pairs: LegPair[]): void
   filterCreditPlaybookEntries(entries: CreditPlaybookEntry[]): CreditPlaybookEntry[]
@@ -430,10 +449,12 @@ export function filterCreditPlaybookLegPairs(this: CreditPlaybookRenderContext, 
     const dayMs = 24 * 60 * 60 * 1000;
 
     return legPairs.filter((pair) => {
-        if (statusFilter === 'active' && !pair.isOpen) {
+        const isActive = Boolean(pair.isOpen || pair.isAssigned);
+
+        if (statusFilter === 'active' && !isActive) {
             return false;
         }
-        if (statusFilter === 'closed' && pair.isOpen) {
+        if (statusFilter === 'closed' && isActive) {
             return false;
         }
         if (strategyFilters.length > 0) {
@@ -623,8 +644,147 @@ function signedClass(value: unknown): string {
     return numeric > 0 ? 'pl-positive' : numeric < 0 ? 'pl-negative' : 'pl-neutral';
 }
 
+function buildCreditPlaybookRowsWithDetail(rows: LegPair[], expandedTradeId: string | null): LegPair[] {
+    const result: LegPair[] = [];
+    rows.forEach((row) => {
+        result.push(row);
+        if (row.isCreditAggregate && expandedTradeId && String(row.tradeId) === expandedTradeId) {
+            result.push({
+                ...row,
+                tradeId: `detail-${expandedTradeId}`,
+                _isDetailRow: true,
+                _parentPair: row
+            });
+        }
+    });
+    return result;
+}
+
+function appendTextCell(row: HTMLTableRowElement, text: string, className = 'pdp-tb-cell'): void {
+    const cell = document.createElement('td');
+    cell.className = className;
+    cell.textContent = text;
+    row.appendChild(cell);
+}
+
+function renderCreditStrategyBreakdown(context: CreditPlaybookRenderContext, pair: LegPair): HTMLElement {
+    const section = document.createElement('section');
+    section.className = 'credit-playbook-trade-detail__section';
+
+    const heading = document.createElement('div');
+    heading.className = 'pdp-section-header';
+    heading.textContent = 'Reconciled option groups';
+    section.appendChild(heading);
+
+    const children = pair.childPairs ?? [];
+    const meta = document.createElement('div');
+    meta.className = 'pdp-tb-meta';
+    meta.textContent = `${children.length} option group${children.length === 1 ? '' : 's'} · parent totals count once`;
+    section.appendChild(meta);
+
+    if (children.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'pdp-tb-empty';
+        empty.textContent = `No option groups recorded for this ${pair.strategy || 'trade'}.`;
+        section.appendChild(empty);
+        return section;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'pdp-tb-table-wrap';
+    const table = document.createElement('table');
+    table.className = 'pdp-tb-table';
+    const head = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    ['Type', 'Strike', 'Status', 'Net Premium', 'Option P&L', 'Stock P&L', 'All-in P&L', 'Entry', 'Expiration', 'Exit']
+        .forEach((label) => {
+            const cell = document.createElement('th');
+            cell.textContent = label;
+            headerRow.appendChild(cell);
+        });
+    head.appendChild(headerRow);
+    table.appendChild(head);
+
+    const body = document.createElement('tbody');
+    children.forEach((child) => {
+        const row = document.createElement('tr');
+        row.className = 'pdp-tb-row';
+        const status = getPairStatus(child).label;
+        const recognizedOptionPL = child.isOpen ? null : Number(child.optionPL ?? child.premium);
+        const stockPL = Number(child.stockPL) || 0;
+        const recognizedAllInPL = (Number.isFinite(recognizedOptionPL) ? (recognizedOptionPL as number) : 0) + stockPL;
+        const strike = typeof child.strike === 'string'
+            ? child.strike
+            : (Number.isFinite(child.strike) ? (context.formatNumber(child.strike, { decimals: 2, useGrouping: false }) ?? '—') : '—');
+        appendTextCell(row, String(child.type || '—'));
+        appendTextCell(row, strike);
+        appendTextCell(row, status);
+        appendTextCell(row, context.formatCurrency(child.premium), `pdp-tb-cell pdp-tb-cell--cash ${signedClass(child.premium)}`);
+        appendTextCell(row, recognizedOptionPL === null ? '—' : context.formatCurrency(recognizedOptionPL), `pdp-tb-cell pdp-tb-cell--cash ${signedClass(recognizedOptionPL)}`);
+        appendTextCell(row, stockPL ? context.formatCurrency(stockPL) : '—', `pdp-tb-cell pdp-tb-cell--cash ${signedClass(stockPL)}`);
+        appendTextCell(row, recognizedOptionPL === null && !stockPL ? '—' : context.formatCurrency(recognizedAllInPL), `pdp-tb-cell pdp-tb-cell--cash ${signedClass(recognizedAllInPL)}`);
+        appendTextCell(row, context.formatDate(child.entryDate));
+        appendTextCell(row, context.formatDate(child.expirationDate));
+        appendTextCell(row, child.exitDate ? context.formatDate(child.exitDate) : '—');
+        body.appendChild(row);
+    });
+    table.appendChild(body);
+    wrap.appendChild(table);
+    section.appendChild(wrap);
+    return section;
+}
+
+function createCreditStrategyDetailRenderer(context: CreditPlaybookRenderContext) {
+    return class {
+        private container!: HTMLElement
+        private resizeObserver: ResizeObserver | null = null
+        private rowHeight = 0
+        private resizeFrame: number | null = null
+
+        init(params: { node: { data: LegPair; setRowHeight(height: number): void }; api: { onRowHeightChanged(): void } }): void {
+            const pair = params.node.data._parentPair;
+            this.container = document.createElement('div');
+            this.container.className = 'credit-playbook-trade-detail';
+            if (!pair) return;
+
+            this.container.appendChild(renderCreditStrategyBreakdown(context, pair));
+            const activity = document.createElement('section');
+            activity.className = 'credit-playbook-trade-detail__section';
+            renderTradeBreakdownColumn(activity, (pair.trade ?? {}) as BreakdownTrade, {
+                formatCurrency: (value: unknown) => context.formatCurrency(value),
+                formatDate: (value: unknown) => context.formatDate(value)
+            });
+            this.container.appendChild(activity);
+
+            this.resizeObserver = new ResizeObserver((entries) => {
+                const height = Math.ceil(entries[0]?.contentRect.height ?? this.container.offsetHeight);
+                if (height > 0 && height !== this.rowHeight) {
+                    this.rowHeight = height;
+                    if (this.resizeFrame !== null) cancelAnimationFrame(this.resizeFrame);
+                    this.resizeFrame = requestAnimationFrame(() => {
+                        params.node.setRowHeight(height);
+                        params.api.onRowHeightChanged();
+                        this.resizeFrame = null;
+                    });
+                }
+            });
+            this.resizeObserver.observe(this.container);
+        }
+
+        getGui(): HTMLElement {
+            return this.container;
+        }
+
+        destroy(): void {
+            this.resizeObserver?.disconnect();
+            if (this.resizeFrame !== null) cancelAnimationFrame(this.resizeFrame);
+        }
+    };
+}
+
 function getPairStatus(pair: LegPair): { className: string; label: string } {
-    if (pair.isAssigned) return { className: 'assigned', label: 'Assigned' };
+    if (pair.isCreditAggregate && Number(pair.openCallContracts) > 0) return { className: 'open', label: 'Open' };
+    if (pair.isAssigned || pair.wasAssigned) return { className: 'assigned', label: 'Assigned' };
     if (pair.isRolling) return { className: 'rolling', label: 'Rolling' };
     if (pair.isExpired) return { className: 'expired', label: 'Expired' };
     if (pair.isOpen) return { className: 'open', label: 'Open' };
@@ -703,6 +863,65 @@ function createCreditQuoteRenderer(
     return cell;
 }
 
+function createCreditTickerRenderer(
+    context: CreditPlaybookRenderContext,
+    params: ICellRendererParams<LegPair>
+): HTMLElement {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'credit-playbook-ticker-cell';
+    const pair = params.data;
+
+    if (pair?.isCreditAggregate) {
+        const tradeId = String(pair.tradeId ?? '');
+        const expanded = context.creditPlaybookExpandedTradeId === tradeId;
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'credit-playbook-row-toggle';
+        toggle.textContent = expanded ? '▾' : '▸';
+        toggle.setAttribute('aria-expanded', String(expanded));
+        toggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${pair.ticker || 'trade'} activity`);
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            context.creditPlaybookExpandedTradeId = expanded ? null : tradeId;
+            const nowExpanded = context.creditPlaybookExpandedTradeId === tradeId;
+            toggle.textContent = nowExpanded ? '▾' : '▸';
+            toggle.setAttribute('aria-expanded', String(nowExpanded));
+            toggle.setAttribute('aria-label', `${nowExpanded ? 'Collapse' : 'Expand'} ${pair.ticker || 'trade'} activity`);
+            params.api.setGridOption(
+                'rowData',
+                buildCreditPlaybookRowsWithDetail(context.creditPlaybookRows, context.creditPlaybookExpandedTradeId)
+            );
+            params.api.refreshCells({ force: true });
+        });
+        wrapper.appendChild(toggle);
+    }
+
+    wrapper.appendChild(context.createTickerElement(params.value, 'ticker-pill', {
+        behavior: 'filter',
+        onClick: (value: unknown) => context.openTradesFilteredByTicker(value),
+        title: params.value ? `View trades for ${params.value}` : ''
+    }));
+    return wrapper;
+}
+
+function formatCreditExposure(pair: LegPair | undefined): string {
+    if (!pair) return '—';
+    if (!pair.isCreditAggregate) {
+        return Number.isFinite(pair.quantity) ? `${pair.quantity} contract${pair.quantity === 1 ? '' : 's'}` : '—';
+    }
+
+    const parts: string[] = [];
+    const shares = Number(pair.heldShares);
+    const calls = Number(pair.openCallContracts);
+    if (Number.isFinite(shares) && shares > 0) parts.push(`${shares} shares`);
+    if (Number.isFinite(calls) && calls > 0) parts.push(`${calls} call${calls === 1 ? '' : 's'}`);
+    if (parts.length === 0 && Number.isFinite(pair.quantity) && (pair.quantity as number) > 0) {
+        const type = String(pair.type || 'option').toLowerCase();
+        parts.push(`${pair.quantity} ${type}${pair.quantity === 1 ? '' : 's'}`);
+    }
+    return parts.join(' · ') || '—';
+}
+
 function buildCreditPlaybookColumnDefs(
     this: CreditPlaybookRenderContext,
     quoteEntries: Map<string, Record<string, unknown>>
@@ -714,11 +933,8 @@ function buildCreditPlaybookColumnDefs(
             headerName: 'Ticker',
             width: 120,
             pinned: 'left',
-            cellRenderer: (params: ICellRendererParams<LegPair>) => this.createTickerElement(params.value, 'ticker-pill', {
-                behavior: 'filter',
-                onClick: (value: unknown) => this.openTradesFilteredByTicker(value),
-                title: params.value ? `View trades for ${params.value}` : ''
-            }),
+            headerClass: 'ag-right-aligned-header',
+            cellRenderer: (params: ICellRendererParams<LegPair>) => createCreditTickerRenderer(this, params),
             filter: 'agTextColumnFilter'
         },
         { colId: 'strategy', field: 'strategy', headerName: 'Strategy', minWidth: 180, flex: 1, valueFormatter: params => (params.value as string) || '—', filter: 'agTextColumnFilter' },
@@ -736,15 +952,31 @@ function buildCreditPlaybookColumnDefs(
             filter: 'agNumberColumnFilter'
         },
         { colId: 'status', headerName: 'Status', width: 115, valueGetter: params => params.data ? getPairStatus(params.data).label : '', cellRenderer: (params: ICellRendererParams<LegPair>) => params.data ? createStatusBadge(params.data) : '—', filter: 'agTextColumnFilter' },
-        { colId: 'quantity', field: 'quantity', headerName: 'Contracts', width: 115, valueFormatter: params => Number.isFinite(params.value as number) ? String(params.value) : '—', filter: 'agNumberColumnFilter' },
+        { colId: 'quantity', field: 'quantity', headerName: 'Exposure', width: 170, valueFormatter: params => formatCreditExposure(params.data), filter: 'agNumberColumnFilter' },
         { colId: 'pricePerContract', field: 'pricePerContract', headerName: 'Price/Contract', width: 145, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', filter: 'agNumberColumnFilter' },
         { colId: 'fees', field: 'fees', headerName: 'Fees', width: 105, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(Math.abs(params.value as number)) : '—', cellClass: 'pl-negative', filter: 'agNumberColumnFilter' },
         { colId: 'premium', field: 'premium', headerName: 'Net Premium', width: 130, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
-        { colId: 'optionPL', field: 'optionPL', headerName: 'Option P&L', width: 130, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
+        { colId: 'optionPL', field: 'optionPL', headerName: 'Realized Option P&L', width: 165, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
+        { colId: 'unrealizedOptionPL', field: 'unrealizedOptionPL', headerName: 'Unrealized Option P&L', width: 175, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
         { colId: 'stockPL', field: 'stockPL', headerName: 'Stock P&L', width: 125, valueFormatter: params => Number.isFinite(params.value as number) && params.value !== 0 ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
         { colId: 'pl', field: 'allInPL', headerName: 'All-in P&L', width: 130, valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—', cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
         { colId: 'roi', field: 'roi', headerName: 'ROI', width: 100, valueFormatter: params => formatSignedPercent.call(this, params.value), cellClass: params => signedClass(params.value), filter: 'agNumberColumnFilter' },
         { colId: 'currentPrice', headerName: 'Current Price', width: 135, sortable: false, filter: false, cellRenderer: (params: ICellRendererParams<LegPair>) => createCreditQuoteRenderer.call(this, quoteEntries, params) },
+        {
+            colId: 'optionSpreadMark',
+            headerName: 'Option / Spread Mark',
+            headerTooltip: 'Current Schwab mark per option or strategy unit. Multi-leg values are calculated from the open leg marks.',
+            width: 175,
+            sortable: false,
+            filter: false,
+            cellRenderer: (params: ICellRendererParams<LegPair>) => {
+                const cell = document.createElement('div');
+                cell.className = 'quote-cell';
+                const trade = params.data?.trade
+                    ?? this.trades.find(item => String(item.id || '') === String(params.data?.tradeId || ''));
+                return trade ? this.renderSchwabTradeQuoteCell(cell, trade) : cell;
+            }
+        },
         { colId: 'entryDate', field: 'entryDate', headerName: 'Entry Date', width: 125, valueFormatter: params => this.formatDate(params.value), filter: 'agDateColumnFilter' },
         { colId: 'expirationDate', field: 'expirationDate', headerName: 'Expiration Date', width: 145, valueFormatter: params => this.formatDate(params.value), filter: 'agDateColumnFilter' },
         {
@@ -779,7 +1011,7 @@ function createCreditPlaybookGridOptions(
     quoteEntries: Map<string, Record<string, unknown>>
 ): GridOptions<LegPair> {
     return {
-        rowData: rows,
+        rowData: buildCreditPlaybookRowsWithDetail(rows, this.creditPlaybookExpandedTradeId),
         columnDefs: buildCreditPlaybookColumnDefs.call(this, quoteEntries),
         defaultColDef: {
             sortable: true,
@@ -787,8 +1019,12 @@ function createCreditPlaybookGridOptions(
             filter: true,
             minWidth: 90
         },
-        getRowId: params => legPairRowKey(params.data),
-        domLayout: 'autoHeight',
+        getRowId: params => params.data._isDetailRow
+            ? String(params.data.tradeId)
+            : legPairRowKey(params.data),
+        isFullWidthRow: params => Boolean((params.rowNode.data as LegPair)?._isDetailRow),
+        fullWidthCellRenderer: createCreditStrategyDetailRenderer(this),
+        getRowHeight: params => (params.node.data as LegPair)?._isDetailRow ? 420 : 46,
         rowHeight: 46,
         headerHeight: 44,
         rowBuffer: 16,
@@ -829,18 +1065,21 @@ export function renderCreditPlaybookMetrics(this: CreditPlaybookRenderContext, l
     container.innerHTML = '';
 
     const totalCount = legPairs.length;
-    const openPairs = legPairs.filter((pair) => pair.isOpen);
-    const closedPairs = legPairs.filter((pair) => !pair.isOpen);
-    const openCount = openPairs.length;
+    const activePairs = legPairs.filter((pair) => pair.isOpen || pair.isAssigned);
+    const closedPairs = legPairs.filter((pair) => !pair.isOpen && !pair.isAssigned);
+    const openCount = activePairs.length;
     const closedCount = closedPairs.length;
 
     const totalPremium = legPairs.reduce((sum, pair) => sum + (Number(pair.premium) || 0), 0);
-    const totalCapital = openPairs.reduce((sum, pair) => sum + (Number(pair.capital) || 0), 0);
+    const totalCapital = activePairs.reduce((sum, pair) => sum + (Number(pair.capital) || 0), 0);
 
-    const realizedOptionPL = closedPairs.reduce((sum, pair) => {
-        const optionPL = Number(pair.optionPL ?? pair.premium);
+    const realizedOptionPL = legPairs.reduce((sum, pair) => {
+        const optionPL = Number(pair.realizedOptionPL);
         return Number.isFinite(optionPL) ? sum + optionPL : sum;
     }, 0);
+    const realizedOptionGroupCount = legPairs.filter((pair) => !pair.isCreditAggregate && pair.hasRealizedOptionActivity).length;
+    const aggregateRealizedTradeCount = legPairs.filter((pair) => pair.isCreditAggregate && pair.hasRealizedOptionActivity).length;
+    const hasRealizedOptions = realizedOptionGroupCount > 0 || aggregateRealizedTradeCount > 0;
     const realizedStockPL = legPairs.reduce((sum, pair) => {
         const stockPL = Number(pair.realizedStockPL);
         return Number.isFinite(stockPL) ? sum + stockPL : sum;
@@ -849,12 +1088,17 @@ export function renderCreditPlaybookMetrics(this: CreditPlaybookRenderContext, l
         const stockPL = Number(pair.unrealizedStockPL);
         return Number.isFinite(stockPL) ? sum + stockPL : sum;
     }, 0);
-    const allInMarkedPL = realizedOptionPL + realizedStockPL + unrealizedStockPL;
+    const unrealizedOptionPL = legPairs.reduce((sum, pair) => {
+        const optionPL = Number(pair.unrealizedOptionPL);
+        return Number.isFinite(optionPL) ? sum + optionPL : sum;
+    }, 0);
+    const markedOptionCount = legPairs.filter(pair => Number.isFinite(Number(pair.unrealizedOptionPL))).length;
+    const allInMarkedPL = realizedOptionPL + unrealizedOptionPL + realizedStockPL + unrealizedStockPL;
 
     const winners = closedPairs.filter((p) => (Number(p.allInPL ?? p.pl) || 0) > 0).length;
     const winRate = closedCount > 0 ? (winners / closedCount) * 100 : null;
 
-    const openDTEs = openPairs.map((p) => Number(p.dte)).filter(Number.isFinite);
+    const openDTEs = activePairs.map((p) => Number(p.dte)).filter(Number.isFinite);
     const avgDTE = openDTEs.length > 0
         ? Math.round(openDTEs.reduce((s, d) => s + d, 0) / openDTEs.length)
         : null;
@@ -878,16 +1122,27 @@ export function renderCreditPlaybookMetrics(this: CreditPlaybookRenderContext, l
             group: 'accounting',
             label: 'All-in marked P&L',
             value: this.formatCurrency(allInMarkedPL),
-            sublabel: 'Realized options + stock P&L',
+            sublabel: 'Realized + unrealized options + stock P&L',
             valueClass: allInMarkedPL > 0 ? 'pl-positive' : (allInMarkedPL < 0 ? 'pl-negative' : undefined)
         },
         {
             group: 'accounting',
+            label: 'Unrealized option P&L',
+            value: markedOptionCount > 0 ? this.formatCurrency(unrealizedOptionPL) : '—',
+            sublabel: markedOptionCount > 0
+                ? `Current Schwab marks across ${markedOptionCount} position${markedOptionCount === 1 ? '' : 's'}`
+                : 'Refresh Schwab prices to mark open options',
+            valueClass: unrealizedOptionPL > 0 ? 'pl-positive' : (unrealizedOptionPL < 0 ? 'pl-negative' : undefined)
+        },
+        {
+            group: 'accounting',
             label: 'Realized option P&L',
-            value: closedCount > 0 ? this.formatCurrency(realizedOptionPL) : '—',
-            sublabel: closedCount > 0
-                ? 'From ' + closedCount + ' terminated option group' + (closedCount === 1 ? '' : 's')
-                : 'No terminated option groups',
+            value: hasRealizedOptions ? this.formatCurrency(realizedOptionPL) : '—',
+            sublabel: aggregateRealizedTradeCount > 0
+                ? 'Across ' + aggregateRealizedTradeCount + ' parent trade' + (aggregateRealizedTradeCount === 1 ? '' : 's') + ' with terminated options'
+                : realizedOptionGroupCount > 0
+                    ? 'From ' + realizedOptionGroupCount + ' terminated option group' + (realizedOptionGroupCount === 1 ? '' : 's')
+                    : 'No terminated option groups',
             valueClass: realizedOptionPL > 0 ? 'pl-positive' : (realizedOptionPL < 0 ? 'pl-negative' : undefined)
         },
         {
@@ -995,20 +1250,37 @@ export function renderCreditPlaybookTableFromLegPairs(this: CreditPlaybookRender
     }
 
     const rows = Array.isArray(legPairs) ? legPairs.slice() : [];
-    const quoteEntries = new Map<string, Record<string, unknown>>();
+    this.creditPlaybookRows = rows;
+    if (this.creditPlaybookExpandedTradeId
+        && !rows.some((row) => row.isCreditAggregate && String(row.tradeId) === this.creditPlaybookExpandedTradeId)) {
+        this.creditPlaybookExpandedTradeId = null;
+    }
+    const quoteEntries = this.creditPlaybookQuoteEntries instanceof Map
+        ? this.creditPlaybookQuoteEntries
+        : new Map<string, Record<string, unknown>>();
 
     if (!this.creditPlaybookGridApi || this.creditPlaybookGridApi.isDestroyed()) {
         this.creditPlaybookGridApi = createGrid(
             gridRoot,
             createCreditPlaybookGridOptions.call(this, rows, quoteEntries)
         );
+        if (this.creditPlaybookGridState) {
+            this.creditPlaybookGridApi.applyColumnState({
+                state: this.creditPlaybookGridState.columnState,
+                applyOrder: true
+            });
+            this.creditPlaybookGridApi.setFilterModel(this.creditPlaybookGridState.filterModel);
+        }
     } else {
-        this.creditPlaybookGridApi.updateGridOptions({
-            columnDefs: buildCreditPlaybookColumnDefs.call(this, quoteEntries),
-            rowData: rows
-        });
+        this.creditPlaybookGridApi.setGridOption(
+            'rowData',
+            buildCreditPlaybookRowsWithDetail(rows, this.creditPlaybookExpandedTradeId)
+        );
     }
 
+    for (const [key, entry] of quoteEntries) {
+        if (!(entry.cell as HTMLElement | undefined)?.isConnected) quoteEntries.delete(key);
+    }
     this.creditPlaybookQuoteEntries = quoteEntries;
 
     if (quoteEntries.size > 0) {
@@ -1017,4 +1289,17 @@ export function renderCreditPlaybookTableFromLegPairs(this: CreditPlaybookRender
             this.refreshCreditPlaybookQuotes({ force: true, immediate: true });
         }
     }
+}
+
+export function releaseCreditPlaybookGrid(this: CreditPlaybookRenderContext): void {
+    const api = this.creditPlaybookGridApi;
+    if (api && !api.isDestroyed()) {
+        this.creditPlaybookGridState = {
+            filterModel: api.getFilterModel(),
+            columnState: api.getColumnState()
+        };
+        api.destroy();
+    }
+    this.creditPlaybookGridApi = null;
+    this.creditPlaybookQuoteEntries?.clear();
 }

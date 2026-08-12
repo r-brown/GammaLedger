@@ -143,6 +143,8 @@ export const PersistedLegSchema = z.object({
         'multiplier must be greater than zero'
     ),
     executionDate: OptionalTextSchema,
+    executionTimestamp: OptionalTextSchema,
+    brokerTimeZone: OptionalTextSchema,
     expirationDate: OptionalTextSchema,
     strike: OptionalFiniteNumberSchema,
     premium: OptionalFiniteNumberSchema,
@@ -151,6 +153,7 @@ export const PersistedLegSchema = z.object({
     externalId: OptionalNullableTextSchema,
     importGroupId: OptionalNullableTextSchema,
     importSource: OptionalNullableTextSchema,
+    schwabSymbol: OptionalNullableTextSchema,
     action: LegActionSchema.nullish(),
     side: LegSideSchema.nullish(),
     isAssignment: OptionalBooleanSchema,
@@ -185,6 +188,69 @@ export const WatchlistEntrySchema = z.object({
     targetDirection: z.enum(['up', 'down']).optional()
 }).passthrough();
 
+export const SchwabVaultEnvelopeSchema = z.object({
+    version: z.literal(1),
+    iterations: z.number().int().min(100_000),
+    salt: z.string().min(1),
+    iv: z.string().min(1),
+    ciphertext: z.string().min(1)
+}).strict();
+
+export const SchwabVaultPayloadSchema = z.object({
+    clientId: z.string().trim().min(1),
+    clientSecret: z.string().min(1),
+    callbackUrl: z.string().url(),
+    accessToken: z.string().optional(),
+    refreshToken: z.string().optional(),
+    accessTokenExpiresAt: z.number().finite().optional(),
+    refreshTokenExpiresAt: z.number().finite().optional()
+}).strict();
+
+export const SchwabSettingsSchema = z.object({
+    automaticRefresh: z.boolean().default(false)
+}).strict();
+
+const NullableFiniteNumberSchema = z.number().finite().nullable();
+
+export const SchwabOptionQuoteSchema = z.object({
+    symbol: z.string().min(1),
+    bid: NullableFiniteNumberSchema,
+    ask: NullableFiniteNumberSchema,
+    last: NullableFiniteNumberSchema,
+    mark: NullableFiniteNumberSchema,
+    midpoint: NullableFiniteNumberSchema,
+    multiplier: z.number().finite().positive(),
+    providerTimestamp: z.string().nullable(),
+    capturedAt: z.string().datetime()
+}).strict();
+
+export const SchwabTradeQuoteSchema = z.object({
+    tradeId: z.string(),
+    ticker: z.string(),
+    netMark: NullableFiniteNumberSchema,
+    liquidationMark: NullableFiniteNumberSchema,
+    marketValue: NullableFiniteNumberSchema,
+    openingCashFlow: z.number().finite(),
+    unrealizedPL: NullableFiniteNumberSchema,
+    legs: z.array(SchwabOptionQuoteSchema.extend({
+        legId: z.string(),
+        side: z.enum(['long', 'short']),
+        quantity: z.number().finite().nonnegative()
+    })),
+    capturedAt: z.string().datetime(),
+    error: z.string().optional()
+}).strict();
+
+export const SchwabQuoteCacheSchema = z.object({
+    version: z.literal(1),
+    underlying: z.record(z.string(), z.object({
+        price: z.number().finite().positive(),
+        capturedAt: z.string().datetime(),
+        providerTimestamp: z.string().nullable()
+    }).strict()),
+    trades: z.record(z.string(), SchwabTradeQuoteSchema)
+}).strict();
+
 export const StorageSchema = z.object({
     version: z.literal(CURRENT_STORAGE_VERSION),
     exportDate: RequiredTextSchema,
@@ -213,7 +279,8 @@ export const NormalizedLegInputSchema = z.object({
     underlyingPrice: z.preprocess(parseFiniteNumber, z.number().finite().optional()),
     externalId: OptionalNullableTextSchema,
     importGroupId: OptionalNullableTextSchema,
-    importSource: OptionalNullableTextSchema
+    importSource: OptionalNullableTextSchema,
+    schwabSymbol: OptionalNullableTextSchema
 }).passthrough();
 
 function numericFormSchema({

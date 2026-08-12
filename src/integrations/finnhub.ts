@@ -410,6 +410,33 @@ export async function getCurrentPrice(this: any, ticker: string, { forceRefresh 
         throw new Error('Invalid symbol');
     }
 
+    const schwabCached = this.schwab?.quoteCache?.get?.(symbol);
+    if (schwabCached && (!forceRefresh || !this.schwab?.automaticRefresh)) {
+        return {
+            symbol,
+            price: schwabCached.price,
+            change: null,
+            changePercent: null,
+            previousClose: null,
+            fetchedAt: schwabCached.capturedAt,
+            provider: 'Schwab',
+            providerTimestamp: schwabCached.providerTimestamp
+        };
+    }
+    if (this.schwab?.vault && this.schwab?.automaticRefresh && typeof this.getSchwabUnderlyingQuote === 'function') {
+        const quote = await this.getSchwabUnderlyingQuote(symbol, forceRefresh);
+        return {
+            symbol,
+            price: quote.price,
+            change: null,
+            changePercent: null,
+            previousClose: null,
+            fetchedAt: quote.capturedAt,
+            provider: 'Schwab',
+            providerTimestamp: quote.providerTimestamp
+        };
+    }
+
     if (forceRefresh) {
         this.finnhub.cache.delete(symbol);
     } else {
@@ -932,7 +959,17 @@ export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: An
     if (cached) {
         this.renderQuoteValue(cell, row, trade, cached.value);
         return;
-    } else if (!this.finnhub.apiKey) {
+    }
+    const schwabCached = this.schwab?.quoteCache?.get?.(ticker);
+    if (schwabCached) {
+        this.renderQuoteValue(cell, row, trade, {
+            price: schwabCached.price,
+            fetchedAt: schwabCached.capturedAt,
+            provider: 'Schwab',
+            providerTimestamp: schwabCached.providerTimestamp
+        });
+        return;
+    } else if (!this.finnhub.apiKey && !(this.schwab?.vault && this.schwab?.automaticRefresh)) {
         cell.dataset.priceState = 'error';
         this.setQuoteCellError(cell, row, trade, 'Set API key');
         const lastStatus = this.finnhub.lastStatus?.message;
@@ -949,7 +986,7 @@ export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: An
         cell.classList.remove('quote-error');
     }
 
-    if (!this.finnhub.apiKey || deferNetworkFetch) {
+    if ((!this.finnhub.apiKey && !(this.schwab?.vault && this.schwab?.automaticRefresh)) || deferNetworkFetch) {
         return;
     }
 
@@ -986,10 +1023,19 @@ export function renderQuoteValue(this: any, cell: HTMLElement | null, row: HTMLE
 
     const changePercent = this.getQuoteChangePercent(quote);
     const changeValue = this.getQuoteChangeValue(quote);
+    const fetchedAt = typeof quote?.fetchedAt === 'string' ? quote.fetchedAt : '';
+    const provider = typeof quote?.provider === 'string' ? quote.provider : 'Market data';
+    const stale = fetchedAt && typeof this.isSchwabQuoteStale === 'function'
+        ? this.isSchwabQuoteStale(fetchedAt)
+        : false;
 
     updateLiveTradeSnapshotFromQuote.call(this, trade, quote);
 
     cell.innerHTML = '';
+    cell.dataset.quoteState = stale ? 'stale' : 'fresh';
+    cell.title = fetchedAt
+        ? `${provider} quote · Updated ${new Date(fetchedAt).toLocaleString()}${stale ? ' · Stale' : ''}`
+        : `${provider} quote`;
 
     const priceEl = document.createElement('span');
     priceEl.className = 'quote-price';
@@ -1023,6 +1069,13 @@ export function renderQuoteValue(this: any, cell: HTMLElement | null, row: HTMLE
         }
 
         cell.appendChild(changeEl);
+    }
+
+    if (stale) {
+        const staleEl = document.createElement('span');
+        staleEl.className = 'quote-age';
+        staleEl.textContent = 'Stale';
+        cell.appendChild(staleEl);
     }
 
     this.applyPositionHighlight(row, trade, numeric);

@@ -116,6 +116,14 @@ function normalizeTradeAliasFields(trade: TradeRecord): TradeRecord {
     return normalized;
 }
 
+function duplicateTradeIdRepairCount(parsed: unknown): number {
+    if (!parsed || typeof parsed !== 'object') return 0;
+    const repairs = (parsed as Record<string, unknown>)._migrationRepairs;
+    if (!repairs || typeof repairs !== 'object') return 0;
+    const count = Number((repairs as Record<string, unknown>).duplicateTradeIds);
+    return Number.isInteger(count) && count > 0 ? count : 0;
+}
+
 export function getStorageTrades(this: PersistContext): StorageSnapshot[] {
     if (!Array.isArray(this.trades)) {
         return [];
@@ -551,6 +559,7 @@ export function processLoadedData(
     metadata: Record<string, unknown> = {}
 ): void {
     const parsed = parseStorageSchema(data);
+    const repairedTradeIds = duplicateTradeIdRepairCount(parsed);
 
     this.trades = parsed.trades.map(trade => {
         const updatedTrade = normalizeTradeAliasFields(trade as unknown as Record<string, unknown>);
@@ -570,7 +579,7 @@ export function processLoadedData(
         this.currentFileName = 'Unsaved Database';
     }
 
-    this.hasUnsavedChanges = false;
+    this.hasUnsavedChanges = repairedTradeIds > 0;
     this.updateUnsavedIndicator();
     this.saveToStorage({ fileName: this.currentFileName, source: metadata.source || 'import' });
     this.updateDashboard();
@@ -584,6 +593,12 @@ export function processLoadedData(
     this.importMergeSelection.clear();
     this.renderImportSummary();
     this.refreshImportMergeList();
+    if (repairedTradeIds > 0) {
+        this.showNotification(
+            `${repairedTradeIds} duplicate trade ID${repairedTradeIds === 1 ? '' : 's'} repaired. Save Database to persist the repair.`,
+            'warning'
+        );
+    }
 }
 
 export function newDatabase(this: PersistContext): void {
@@ -642,6 +657,7 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
                 || (raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).trades));
             if (hasPrimaryTrades) {
                 const parsed = parseStorageSchema(raw);
+                const repairedTradeIds = duplicateTradeIdRepairCount(parsed);
                 this.trades = parsed.trades.map(trade => {
                     const normalized = normalizeTradeAliasFields(trade as unknown as Record<string, unknown>);
                     if (normalized.tradeReasoning && !normalized.notes) {
@@ -659,8 +675,15 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
                 }
                 this.currentFileHandle = null;
                 this.currentFileLastModified = null;
-                this.hasUnsavedChanges = false;
+                this.hasUnsavedChanges = repairedTradeIds > 0;
                 this.updateUnsavedIndicator();
+                if (repairedTradeIds > 0) {
+                    this.saveToStorage({ fileName: this.currentFileName, source: 'duplicate-id-repair' });
+                    this.showNotification(
+                        `${repairedTradeIds} duplicate trade ID${repairedTradeIds === 1 ? '' : 's'} repaired. Save Database to update the database file.`,
+                        'warning'
+                    );
+                }
                 this.updateFileNameDisplay();
                 this.updateDashboard();
                 return true;
@@ -680,6 +703,7 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
             const parsedTrades = JSON.parse(legacy);
             if (Array.isArray(parsedTrades)) {
                 const migrated = parseStorageSchema(parsedTrades);
+                const repairedTradeIds = duplicateTradeIdRepairCount(migrated);
                 this.trades = migrated.trades.map(trade => {
                     const normalized = normalizeTradeAliasFields(trade as unknown as Record<string, unknown>);
                     if (normalized.tradeReasoning && !normalized.notes) {
@@ -690,11 +714,17 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
                 });
                 this.watchlist = [];
                 this.currentFileName = 'Unsaved Database';
-                this.hasUnsavedChanges = false;
+                this.hasUnsavedChanges = repairedTradeIds > 0;
                 this.updateUnsavedIndicator();
                 this.saveToStorage({ fileName: this.currentFileName });
                 this.updateFileNameDisplay();
                 this.updateDashboard();
+                if (repairedTradeIds > 0) {
+                    this.showNotification(
+                        `${repairedTradeIds} duplicate trade ID${repairedTradeIds === 1 ? '' : 's'} repaired. Save Database to persist the repair.`,
+                        'warning'
+                    );
+                }
                 return true;
             }
         }

@@ -4178,6 +4178,7 @@ select.form-control {
 
 #credit-playbook-table {
   font-size: var(--font-size-sm);
+  height: clamp(500px, 68vh, 760px);
 }
 
 #credit-playbook-table th,
@@ -4189,6 +4190,51 @@ select.form-control {
   white-space: normal;
   max-width: 240px;
   line-height: 1.45;
+}
+
+.credit-playbook-ticker-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-6);
+  height: 100%;
+  width: 100%;
+}
+
+.credit-playbook-row-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+}
+
+.credit-playbook-row-toggle:hover,
+.credit-playbook-row-toggle:focus-visible {
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.credit-playbook-trade-detail {
+  display: grid;
+  gap: var(--space-20);
+  padding: var(--space-16) var(--space-20) var(--space-20);
+  background: var(--color-background);
+  white-space: normal;
+}
+
+.credit-playbook-trade-detail__section {
+  min-width: 0;
+  padding: var(--space-16);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-base);
+  background: var(--color-surface);
 }
 
 .credit-stage-group {
@@ -4316,12 +4362,11 @@ select.form-control {
   gap: var(--space-16);
 }
 
-/* Paste-to-parse fills block (Add Trade → Trade Legs) */
+/* Paste-to-parse fills block (Add/Edit Trade → Trade Legs) */
 .leg-paste {
-  margin-bottom: var(--space-12);
+  margin-top: var(--space-12);
 }
 .leg-paste__panel {
-  margin-top: var(--space-8);
   padding: var(--space-12);
   border: 1px dashed rgba(var(--color-teal-500-rgb), 0.45);
   border-radius: var(--radius-base);
@@ -4338,6 +4383,41 @@ select.form-control {
   gap: var(--space-12);
   margin-top: var(--space-8);
   flex-wrap: wrap;
+}
+.leg-paste__review-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-12);
+  margin-bottom: var(--space-8);
+}
+.leg-paste__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-base);
+}
+.leg-paste__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+.leg-paste__table th,
+.leg-paste__table td {
+  padding: var(--space-8);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.leg-paste__table tr:last-child td {
+  border-bottom: 0;
+}
+.leg-paste__warnings {
+  margin-top: var(--space-8);
+  padding: var(--space-8);
+  border-radius: var(--radius-base);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  white-space: pre-line;
 }
 
 .trade-legs-actions {
@@ -4997,6 +5077,24 @@ tr:hover {
   gap: var(--space-16);
 }
 
+.schwab-form-grid {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(240px, 1fr);
+  gap: var(--space-8) var(--space-16);
+  align-items: center;
+}
+
+.schwab-form-grid .btn { grid-column: 2; justify-self: start; }
+.schwab-toggle { display: flex; gap: var(--space-8); align-items: center; margin-bottom: var(--space-12); }
+.schwab-status { margin-top: var(--space-12); color: var(--color-text-secondary); }
+.schwab-status--success { color: var(--color-success); }
+.schwab-status--error { color: var(--color-error); }
+
+@media (max-width: 700px) {
+  .schwab-form-grid { grid-template-columns: 1fr; }
+  .schwab-form-grid .btn { grid-column: 1; }
+}
+
 .settings-card__header h3 {
   margin: 0;
   font-size: var(--font-size-xl);
@@ -5280,6 +5378,16 @@ tr:hover {
 
 .quote-cell .quote-change.is-flat {
   color: var(--color-text-secondary);
+}
+
+.quote-cell .quote-age,
+.quote-cell[data-quote-state="stale"] {
+  color: var(--color-text-secondary);
+}
+
+.quote-cell .quote-age {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
 }
 
 .feature-disabled {

@@ -40,3 +40,15 @@ export const safeLocalStorage: SafeLocalStorage = {
         }
     }
 };
+
+export const safeSessionStorage: SafeLocalStorage = {
+    getItem: (key) => {
+        try { return sessionStorage.getItem(key); } catch { return null; }
+    },
+    setItem: (key, value) => {
+        try { sessionStorage.setItem(key, value); return true; } catch { return false; }
+    },
+    removeItem: (key) => {
+        try { sessionStorage.removeItem(key); return true; } catch { return false; }
+    }
+};
