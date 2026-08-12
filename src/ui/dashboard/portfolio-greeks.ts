@@ -8,6 +8,7 @@ import { computeNetOpenLegs, filterUnexpired, type NetLegInput } from '@calculat
 import { blackScholesGreeks } from '@calculations/black-scholes.js'
 import type { Stats } from '@types-gl/stats'
 import type { NormalizedLeg } from '@types-gl/leg'
+import type { CachedQuoteEntry } from '@types-gl/integrations'
 
 type TradeRecord = Record<string, unknown>
 
@@ -15,7 +16,7 @@ export interface PortfolioGreeksContext {
   currentDate: Date
   summarizeLegs(legs: unknown[]): { legs: NormalizedLeg[] }
   getLegOrderDescriptor(leg: Record<string, unknown>): { action: string; side: string }
-  getCachedQuote(ticker: string): { value?: { c?: number } } | null
+  getCachedQuote(ticker: string): CachedQuoteEntry | null
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
 }
@@ -47,7 +48,8 @@ export function resolveSpotForTrade(this: PortfolioGreeksContext, trade: TradeRe
     const ticker = String(trade?.ticker ?? '').toUpperCase()
     if (ticker) {
         const cached = this.getCachedQuote(ticker)
-        const live = Number(cached?.value?.c)
+        // Cached quotes are normalized (`price`), not raw Finnhub keys (`c`).
+        const live = Number(cached?.value?.price)
         if (Number.isFinite(live) && live > 0) return live
     }
     const legs = Array.isArray(trade?.legs) ? trade.legs as Record<string, unknown>[] : []

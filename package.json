@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "ag-grid-community": "^35.2.1",
-    "dompurify": "^3.4.12",
+    "dompurify": "^3.4.13",
     "echarts": "^6.1.0",
     "marked": "^18.0.3",
     "postcss": "^8.5.26",

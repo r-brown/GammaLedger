@@ -3,11 +3,11 @@
 // Uses the .call(this, …) delegation pattern; state lives on the instance.
 
 import { showNotification } from './notifications.js'
-import { createGrid, type ColDef, type GridApi, type GridOptions, type ICellRendererParams } from './tables/ag-grid.js'
+import { createGrid, type ColDef, type GridApi, type GridOptions, type ICellRendererParams, type IRowNode } from './tables/ag-grid.js'
 import { buildPanelSkeleton, computePreTradeRiskScore, triggerDataFetch, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
 import { createTickerElement } from '@utils/dom'
 import type { WatchlistEntry } from '../types/watchlist.js'
-import type { EarningsCalendarEntry, StockMetrics } from '../types/integrations.js'
+import type { EarningsCalendarEntry, NormalizedQuote, StockMetrics } from '../types/integrations.js'
 
 type WatchlistRow = Record<string, unknown>
 
@@ -185,6 +185,7 @@ export function renderWatchlistView(this: WatchlistContext): void {
     }
     requestAnimationFrame(() => {
         this.watchlistGridApi = createGrid<WatchlistRow>(gridRoot, buildGridOptions.call(this))
+        primeTargetAlertQuotes.call(this)
     })
 
     // fetchEarningsCalendar is a bare fetch with no rate-limit queue or cache (unlike
@@ -271,17 +272,113 @@ function buildWatchlistRows(entries: WatchlistEntry[], expandedTicker: string | 
 }
 
 // Grid rows and the expanded detail row's `_entry` are independent shallow
-// copies (see buildWatchlistRows). Editing a field via the detail panel
-// already rebuilds rowData wholesale, but an inline edit in the grid cell
-// itself (e.g. double-clicking the Target column) only updates that row's
-// own copy — the detail row below it would keep showing the pre-edit value
-// until something rebuilds rowData. Deferred via setTimeout so this runs
-// after AG Grid's own edit-commit cycle finishes, not from inside it.
-function refreshExpandedDetailRow(context: WatchlistContext, ticker: string): void {
-    if (context.expandedWatchlistTicker !== ticker) return
+// copies (see buildWatchlistRows). An inline edit in the grid cell itself
+// (e.g. double-clicking the Target column) only updates that row's own copy,
+// so the detail row below it would keep showing the pre-edit value — reaching
+// it needs a full rowData rebuild. When no panel is open, the far cheaper
+// single-row sync is enough and avoids tearing down other rows. Deferred via
+// setTimeout so this runs after AG Grid's own edit-commit cycle finishes,
+// not from inside it.
+function afterInlineEdit(context: WatchlistContext, ticker: string): void {
     setTimeout(() => {
-        context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+        if (context.expandedWatchlistTicker === ticker) {
+            context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+        }
+        syncSummaryRow(context, ticker)
     }, 0)
+}
+
+// ── Target-price alerts ──────────────────────────────────────────
+// `finnhub.cache` stores `{ value, timestamp }` wrappers of a NormalizedQuote,
+// so reaching into it directly and reading the raw Finnhub `.c`/`.pc` keys
+// silently yields undefined. Always go through getCachedQuote — it unwraps the
+// wrapper and honours the TTL.
+function readCachedQuote(context: WatchlistContext, ticker: string): NormalizedQuote | null {
+    if (!ticker) return null
+    return context.getCachedQuote?.(ticker)?.value ?? null
+}
+
+interface TargetAlertState {
+    /** Price currently sits at or beyond the target, in the configured direction. */
+    met: boolean
+    /** The move past the target happened during today's session. */
+    crossedToday: boolean
+}
+
+const NO_TARGET_ALERT: TargetAlertState = { met: false, crossedToday: false }
+
+/**
+ * `met` drives the steady row tint: it stays on for as long as the price
+ * remains beyond the target. `crossedToday` additionally animates the Target
+ * cell on the day of the cross, so a fresh trigger reads differently from one
+ * that has been true for a week.
+ */
+function evaluateTargetAlert(context: WatchlistContext, row: WatchlistRow | undefined): TargetAlertState {
+    const targetPrice = Number(row?.targetPrice)
+    if (row?.targetPrice == null || !Number.isFinite(targetPrice)) return NO_TARGET_ALERT
+
+    const quote = readCachedQuote(context, String(row?.ticker ?? ''))
+    const price = Number(quote?.price)
+    if (!Number.isFinite(price)) return NO_TARGET_ALERT
+
+    const direction = row?.targetDirection === 'down' ? 'down' : 'up'
+    const met = direction === 'up' ? price >= targetPrice : price <= targetPrice
+    if (!met) return NO_TARGET_ALERT
+
+    const prevClose = Number(quote?.previousClose)
+    const crossedToday = Number.isFinite(prevClose) && (
+        direction === 'up' ? prevClose < targetPrice : prevClose > targetPrice
+    )
+    return { met, crossedToday }
+}
+
+/**
+ * Quotes arrive asynchronously (see quoteCell), long after AG Grid has already
+ * evaluated its row/cell class rules against an empty cache — without this the
+ * highlight would never appear on a fresh load. Redraws summary rows only; the
+ * expanded detail row is a full-width row whose renderer would be torn down and
+ * rebuilt (losing focus and in-flight panel fetches) if it were redrawn too.
+ */
+function refreshTargetAlertRows(this: WatchlistContext): void {
+    const api = this.watchlistGridApi
+    if (!api) return
+    const nodes: IRowNode<WatchlistRow>[] = []
+    api.forEachNode(node => {
+        if (!(node.data as { _isDetailRow?: boolean } | undefined)?._isDetailRow) nodes.push(node)
+    })
+    if (nodes.length) api.redrawRows({ rowNodes: nodes })
+}
+
+/**
+ * Warms the quote cache for every watched ticker, then re-evaluates the alert
+ * classes once the batch settles. quoteCell's own getCurrentPrice calls dedupe
+ * against these through finnhub's outstandingRequests map, so this costs no
+ * extra API requests.
+ */
+function primeTargetAlertQuotes(this: WatchlistContext): void {
+    if (!this.finnhub?.apiKey || !this.watchlist.length) return
+    const tickers = this.watchlist.map(entry => entry.ticker)
+    void Promise.allSettled(tickers.map(ticker => this.getCurrentPrice(ticker))).then(() => {
+        if (this.currentView !== 'watchlist') return
+        refreshTargetAlertRows.call(this)
+    })
+}
+
+/**
+ * Pushes an edited entry into its grid row without rebuilding rowData. A full
+ * rowData swap makes AG Grid recreate the full-width detail row, which destroys
+ * the panel's DOM mid-interaction — that is what used to swallow a click on the
+ * direction toggle: the target input's blur fired first, the button was removed
+ * between mousedown and mouseup, and the click never landed.
+ */
+function syncSummaryRow(context: WatchlistContext, ticker: string): void {
+    const api = context.watchlistGridApi
+    const entry = context.watchlist.find(candidate => candidate.ticker === ticker)
+    const node = api?.getRowNode(ticker)
+    if (!api || !entry || !node) return
+    node.setData({ ...entry })
+    // setData refreshes cell values but does not re-run rowClassRules.
+    api.redrawRows({ rowNodes: [node] })
 }
 
 const RISK_EMOJI: Record<'green' | 'yellow' | 'red', string> = { green: '🟢', yellow: '🟡', red: '🔴' }
@@ -386,11 +483,11 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
                 const current = context.watchlist.find(candidate => candidate.ticker === ticker)
                 const parsed = parseFloat(targetInput.value)
                 const newVal = isNaN(parsed) ? null : parsed
-                if (current && newVal !== current.targetPrice) {
+                if (current && newVal !== (current.targetPrice ?? null)) {
                     updateWatchlistEntry.call(context, ticker, { targetPrice: newVal })
                     savedIndicator.style.opacity = '1'
                     setTimeout(() => { savedIndicator.style.opacity = '0' }, 2000)
-                    context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+                    syncSummaryRow(context, ticker)
                 }
             })
             
@@ -402,22 +499,30 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             targetDirectionBtn.style.fontSize = '1.2em'
             targetDirectionBtn.title = 'Toggle target direction (above or below)'
             
-            let currentDir = entry.targetDirection || 'up'
-            targetDirectionBtn.textContent = currentDir === 'up' ? '🔼' : '🔽'
-            
-            targetDirectionBtn.addEventListener('click', () => {
-                currentDir = currentDir === 'up' ? 'down' : 'up'
-                targetDirectionBtn.textContent = currentDir === 'up' ? '🔼' : '🔽'
+            // Read the direction back off the persisted entry on every click
+            // rather than tracking it in a closure variable — an inline grid
+            // edit or a re-render would otherwise leave the closure's copy
+            // stale and make the first click a no-op.
+            const readDirection = (): 'up' | 'down' => {
                 const current = context.watchlist.find(candidate => candidate.ticker === ticker)
-                if (current && currentDir !== current.targetDirection) {
-                    updateWatchlistEntry.call(context, ticker, { targetDirection: currentDir as 'up' | 'down' })
-                    savedIndicator.style.opacity = '1'
-                    setTimeout(() => { savedIndicator.style.opacity = '0' }, 2000)
-                    context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
-                    // targetDirection isn't the Target column's bound field, so AG Grid's
-                    // own value-diffing won't know to redraw the icon — force it.
-                    context.watchlistGridApi?.refreshCells({ columns: ['targetPrice'], force: true })
-                }
+                return current?.targetDirection === 'down' ? 'down' : 'up'
+            }
+            const paintDirection = (direction: 'up' | 'down'): void => {
+                targetDirectionBtn.textContent = direction === 'up' ? '🔼' : '🔽'
+                targetDirectionBtn.setAttribute(
+                    'aria-label',
+                    direction === 'up' ? 'Alert when price rises to or above target' : 'Alert when price drops to or below target'
+                )
+            }
+            paintDirection(readDirection())
+
+            targetDirectionBtn.addEventListener('click', () => {
+                const next: 'up' | 'down' = readDirection() === 'up' ? 'down' : 'up'
+                paintDirection(next)
+                updateWatchlistEntry.call(context, ticker, { targetDirection: next })
+                savedIndicator.style.opacity = '1'
+                setTimeout(() => { savedIndicator.style.opacity = '0' }, 2000)
+                syncSummaryRow(context, ticker)
             })
             
             targetWrap.appendChild(targetLabel)
@@ -434,13 +539,12 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
                 const current = context.watchlist.find(candidate => candidate.ticker === ticker)
                 if (current && textarea.value !== current.notes) {
                     updateWatchlistEntry.call(context, ticker, { notes: textarea.value })
-                    
+
                     savedIndicator.style.opacity = '1'
                     setTimeout(() => { savedIndicator.style.opacity = '0' }, 2000)
-                    
-                    // Row objects are copies, so refreshCells would re-read stale data —
-                    // rebuild rowData instead. Safe here: blur means focus already left.
-                    context.watchlistGridApi?.setGridOption('rowData', buildWatchlistRows(context.watchlist, context.expandedWatchlistTicker))
+
+                    // Row objects are copies, so refreshCells would re-read stale data.
+                    syncSummaryRow(context, ticker)
                 }
             })
             card.appendChild(textarea)
@@ -497,7 +601,7 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                     const parsed = parseFloat(params.newValue)
                     const ticker = String(params.data.ticker)
                     updateWatchlistEntry.call(context, ticker, { targetPrice: isNaN(parsed) ? null : parsed })
-                    refreshExpandedDetailRow(context, ticker)
+                    afterInlineEdit(context, ticker)
                     return true
                 }
                 return false
@@ -524,23 +628,11 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 return wrap
             },
             cellClassRules: {
-                // Pulses only on the day the price crosses the target in the
-                // configured direction — mirrors a stock alert, not a
-                // permanent "still beyond target" indicator (which would
-                // pulse forever once triggered and never settle down).
-                'target-alert-pulse': (params) => {
-                    const ticker = String(params.data?.ticker ?? '')
-                    const quote = context.finnhub?.cache?.get(ticker) as import('../types/integrations.js').FinnhubQuote | undefined
-                    const currentPrice = quote?.c
-                    const prevClose = quote?.pc
-                    const targetPrice = params.data?.targetPrice as number | undefined | null
-                    const targetDirection = (params.data?.targetDirection as 'up' | 'down' | undefined) || 'up'
-                    if (!currentPrice || !prevClose || !targetPrice) return false
-
-                    return targetDirection === 'up'
-                        ? (prevClose < targetPrice && currentPrice >= targetPrice)
-                        : (prevClose > targetPrice && currentPrice <= targetPrice)
-                }
+                // Animation is reserved for the day of the cross; the steady
+                // "still beyond target" state is the row tint below, so a
+                // long-standing target does not pulse forever.
+                'target-alert-pulse': (params) => evaluateTargetAlert(context, params.data).crossedToday,
+                'target-alert-met': (params) => evaluateTargetAlert(context, params.data).met
             }
         },
         {
@@ -556,7 +648,7 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 if (params.data && params.newValue !== params.oldValue) {
                     const ticker = String(params.data.ticker)
                     updateWatchlistEntry.call(context, ticker, { notes: String(params.newValue ?? '') })
-                    refreshExpandedDetailRow(context, ticker)
+                    afterInlineEdit(context, ticker)
                     return true
                 }
                 return false
@@ -662,6 +754,15 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
         rowData: buildWatchlistRows(this.watchlist, this.expandedWatchlistTicker),
         columnDefs,
         defaultColDef: { resizable: true, minWidth: 60 },
+        rowClassRules: {
+            // Steady tint across the whole row for as long as the price sits
+            // beyond the target, so a met target is scannable down the list.
+            'watchlist-target-met': (params) => {
+                const row = params.data as (WatchlistRow & { _isDetailRow?: boolean }) | undefined
+                if (!row || row._isDetailRow) return false
+                return evaluateTargetAlert(context, row).met
+            }
+        },
         getRowId: params => {
             const row = params.data as WatchlistRow & { _isDetailRow?: boolean; _entry?: WatchlistEntry }
             return row._isDetailRow ? `detail-${row._entry?.ticker ?? ''}` : String(row.ticker ?? '')

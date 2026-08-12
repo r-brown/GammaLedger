@@ -6976,13 +6976,32 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 .watchlist-target-dir.is-up { color: var(--color-trend-up); }
 .watchlist-target-dir.is-down { color: var(--color-trend-down); }
 
+/* Target reached and still holding: steady tint across the whole row, so a met
+   target is scannable down the list without relying on motion. */
+.ag-theme-quartz .ag-row.watchlist-target-met,
+.ag-theme-quartz .ag-row.watchlist-target-met .ag-cell {
+  background-color: rgba(var(--color-success-rgb), 0.10);
+}
+.ag-theme-quartz .ag-row.watchlist-target-met:hover,
+.ag-theme-quartz .ag-row.watchlist-target-met:hover .ag-cell {
+  background-color: rgba(var(--color-success-rgb), 0.18);
+}
+/* The Target cell itself carries the stronger accent within a tinted row. */
+.target-alert-met {
+  color: var(--color-success) !important;
+  font-weight: var(--font-weight-bold, 700);
+}
+
+/* Layered on top of .target-alert-met on the day the price crosses the target,
+   marking a fresh trigger apart from one that has been true for days. */
 .target-alert-pulse {
   animation: target-pulse 2s infinite;
-  color: var(--color-success) !important;
-  font-weight: bold;
 }
 @keyframes target-pulse {
   0% { opacity: 1; }
   50% { opacity: 0.5; }
   100% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .target-alert-pulse { animation: none; }
 }

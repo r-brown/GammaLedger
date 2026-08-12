@@ -8,12 +8,13 @@ import { DEFAULT_SIGMA, DEFAULT_RISK_FREE_RATE } from '@calculations/black-schol
 import type { EnrichedTrade } from '@types-gl/trade'
 import type { NormalizedLeg } from '@types-gl/leg'
 import type { Stats } from '@types-gl/stats'
+import type { CachedQuoteEntry } from '@types-gl/integrations'
 
 interface GroupedMetricsContext {
   currentDate: Date
   summarizeLegs(legs: unknown[]): { legs: NormalizedLeg[] }
   getLegOrderDescriptor(leg: Record<string, unknown>): { action: string; side: string }
-  getCachedQuote(ticker: string): { value?: { c?: number } } | null
+  getCachedQuote(ticker: string): CachedQuoteEntry | null
   formatCurrency(value: unknown, opts?: Record<string, unknown>): string
   formatNumber(value: unknown, opts: Record<string, unknown>): string | null
 }

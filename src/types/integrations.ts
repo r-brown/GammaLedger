@@ -71,6 +71,38 @@ export interface FinnhubQuote {
   t: number
 }
 
+/**
+ * A quote after `performFinnhubFetch` normalizes the raw `FinnhubQuote` keys
+ * into readable names. This — not `FinnhubQuote` — is what every consumer of
+ * the quote cache actually receives, so read `price`/`previousClose`, never
+ * `c`/`pc`.
+ */
+export interface NormalizedQuote {
+  symbol: string
+  /** Current price (raw `c`). */
+  price: number
+  change: number | null
+  changePercent: number | null
+  /** Previous close (raw `pc`). */
+  previousClose: number
+  open: number
+  high: number
+  low: number
+  /** ISO timestamp of the fetch. */
+  fetchedAt: string
+  currency: string
+}
+
+/**
+ * What `setCachedQuote` actually stores: the quote wrapped alongside its fetch
+ * time for TTL expiry. Reaching into `finnhub.cache` directly means unwrapping
+ * `.value` yourself — prefer `getCachedQuote()`, which also honours the TTL.
+ */
+export interface CachedQuoteEntry {
+  value: NormalizedQuote
+  timestamp: number
+}
+
 /** Transient status message shown on the Finnhub / Gemini adapters. */
 export interface StatusMessage {
   message: string
@@ -86,14 +118,14 @@ export interface FinnhubState {
   apiKey: string | null
   encryptionKey: CryptoKey | null
 
-  /** Quote cache keyed by ticker symbol. */
-  cache: Map<string, FinnhubQuote>
+  /** Quote cache keyed by ticker symbol. Values are TTL-stamped wrappers. */
+  cache: Map<string, CachedQuoteEntry>
 
   /** Cache TTL in milliseconds. */
   cacheTTL: number
 
   /** In-flight requests keyed by request key. */
-  outstandingRequests: Map<string, Promise<FinnhubQuote>>
+  outstandingRequests: Map<string, Promise<NormalizedQuote>>
 
   /** Rate-limiter queue promise chain. */
   rateLimitQueue: Promise<unknown>
