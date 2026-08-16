@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { parsePastedLegs } from '../src/trades/leg-paste.ts'
 
 const referenceDate = new Date('2026-08-10T12:00:00Z')
@@ -121,5 +122,11 @@ assert.deepEqual(assignment.legs[0], {
   expirationDate: '', executionDate: '2026-08-07', premium: 0, fees: 0,
   multiplier: 1, underlyingPrice: 17.18, isAssignment: true, importSource: 'Robinhood',
 })
+
+const addTradeMarkup = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
+assert.match(addTradeMarkup, /id="leg-paste-toggle"[^>]*>📋 Paste fills…<\/button>/)
+assert.match(addTradeMarkup, /id="robinhood-paste-toggle"[^>]*>📋 Paste from Robinhood<\/button>/)
+assert.equal(addTradeMarkup.match(/id="leg-paste-toggle"/g)?.length, 1)
+assert.equal(addTradeMarkup.match(/id="robinhood-paste-toggle"/g)?.length, 1)
 
 console.log('Robinhood paste parser checks passed.')

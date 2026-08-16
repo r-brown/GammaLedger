@@ -621,7 +621,7 @@ interface LegPasteContext {
 
 /** A leg row the user has not touched: no premium, strike, or expiration yet. */
 function isBlankLegRow(row: HTMLElement): boolean {
-  return ['premium', 'strike', 'expirationDate', 'executionDate'].every(field => {
+  return ['premium', 'strike', 'expirationDate'].every(field => {
     const input = row.querySelector(`[data-leg-field="${field}"]`) as HTMLInputElement | null
     return !input || input.value === ''
   })
@@ -747,20 +747,37 @@ export function applyParsedLegsToForm(this: LegPasteContext, result: LegPasteRes
 export function initializeLegPasteControls(this: LegPasteContext): void {
   const toggle = document.getElementById('leg-paste-toggle') as HTMLButtonElement | null
   const panel = document.getElementById('leg-paste-panel') as HTMLElement | null
-  const editor = document.getElementById('leg-paste-editor') as HTMLElement | null
-  const review = document.getElementById('leg-paste-review') as HTMLElement | null
-  const reviewTitle = document.getElementById('leg-paste-review-title') as HTMLElement | null
-  const reviewSource = document.getElementById('leg-paste-review-source') as HTMLElement | null
-  const reviewLegs = document.getElementById('leg-paste-review-legs') as HTMLElement | null
-  const reviewWarnings = document.getElementById('leg-paste-review-warnings') as HTMLElement | null
   const parseButton = document.getElementById('leg-paste-parse') as HTMLButtonElement | null
-  const applyButton = document.getElementById('leg-paste-apply') as HTMLButtonElement | null
-  const editButton = document.getElementById('leg-paste-edit') as HTMLButtonElement | null
-  const cancelButton = document.getElementById('leg-paste-cancel') as HTMLButtonElement | null
   const input = document.getElementById('leg-paste-input') as HTMLTextAreaElement | null
+  if (toggle && panel && parseButton && input) {
+    toggle.addEventListener('click', () => {
+      const isOpen = panel.classList.toggle('is-hidden') === false
+      toggle.setAttribute('aria-expanded', String(isOpen))
+      if (isOpen) input.focus()
+    })
+
+    parseButton.addEventListener('click', () => {
+      const result = parsePastedLegs(input.value)
+      if (applyParsedLegsToForm.call(this, result)) input.value = ''
+    })
+  }
+
+  const robinhoodToggle = document.getElementById('robinhood-paste-toggle') as HTMLButtonElement | null
+  const robinhoodPanel = document.getElementById('robinhood-paste-panel') as HTMLElement | null
+  const editor = document.getElementById('robinhood-paste-editor') as HTMLElement | null
+  const review = document.getElementById('robinhood-paste-review') as HTMLElement | null
+  const reviewTitle = document.getElementById('robinhood-paste-review-title') as HTMLElement | null
+  const reviewSource = document.getElementById('robinhood-paste-review-source') as HTMLElement | null
+  const reviewLegs = document.getElementById('robinhood-paste-review-legs') as HTMLElement | null
+  const reviewWarnings = document.getElementById('robinhood-paste-review-warnings') as HTMLElement | null
+  const robinhoodParseButton = document.getElementById('robinhood-paste-parse') as HTMLButtonElement | null
+  const applyButton = document.getElementById('robinhood-paste-apply') as HTMLButtonElement | null
+  const editButton = document.getElementById('robinhood-paste-edit') as HTMLButtonElement | null
+  const cancelButton = document.getElementById('robinhood-paste-cancel') as HTMLButtonElement | null
+  const robinhoodInput = document.getElementById('robinhood-paste-input') as HTMLTextAreaElement | null
   const form = document.getElementById('add-trade-form') as HTMLFormElement | null
-  if (!toggle || !panel || !editor || !review || !reviewTitle || !reviewSource || !reviewLegs
-      || !reviewWarnings || !parseButton || !applyButton || !editButton || !cancelButton || !input) return
+  if (!robinhoodToggle || !robinhoodPanel || !editor || !review || !reviewTitle || !reviewSource || !reviewLegs
+      || !reviewWarnings || !robinhoodParseButton || !applyButton || !editButton || !cancelButton || !robinhoodInput) return
 
   let pendingResult: LegPasteResult | null = null
 
@@ -768,16 +785,16 @@ export function initializeLegPasteControls(this: LegPasteContext): void {
     pendingResult = null
     editor.hidden = false
     review.hidden = true
-    input.focus()
+    robinhoodInput.focus()
   }
 
   const closePanel = () => {
     pendingResult = null
-    panel.classList.add('is-hidden')
-    toggle.setAttribute('aria-expanded', 'false')
+    robinhoodPanel.classList.add('is-hidden')
+    robinhoodToggle.setAttribute('aria-expanded', 'false')
     editor.hidden = false
     review.hidden = true
-    input.value = ''
+    robinhoodInput.value = ''
   }
 
   const activityLabels: Record<string, string> = {
@@ -823,16 +840,20 @@ export function initializeLegPasteControls(this: LegPasteContext): void {
     review.hidden = false
   }
 
-  toggle.addEventListener('click', () => {
-    const isOpen = panel.classList.toggle('is-hidden') === false
-    toggle.setAttribute('aria-expanded', String(isOpen))
+  robinhoodToggle.addEventListener('click', () => {
+    const isOpen = robinhoodPanel.classList.toggle('is-hidden') === false
+    robinhoodToggle.setAttribute('aria-expanded', String(isOpen))
     if (isOpen) showEditor()
   })
 
-  parseButton.addEventListener('click', () => {
-    const result = parsePastedLegs(input.value)
+  robinhoodParseButton.addEventListener('click', () => {
+    const result = parsePastedLegs(robinhoodInput.value)
     if (result.legs.length === 0) {
       this.showNotification(result.warnings[0] ?? 'No fills recognized.', 'error')
+      return
+    }
+    if (result.source !== 'Robinhood') {
+      this.showNotification('This entry point accepts completed Robinhood order details. Use Paste fills for other broker formats.', 'error')
       return
     }
     pendingResult = result

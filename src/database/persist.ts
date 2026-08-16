@@ -43,6 +43,7 @@ interface CachedQuote {
 interface PersistContext {
     trades: TradeRecord[]
     watchlist: WatchlistEntry[]
+    schwab?: { quoteCache?: Map<string, { price?: unknown; capturedAt?: string }> }
     currentFileHandle: PickerFileHandle | null
     currentFileName: string | null
     currentFileLastModified: number | null
@@ -129,8 +130,8 @@ export function getStorageTrades(this: PersistContext): StorageSnapshot[] {
         return [];
     }
 
-    // Capture latest market price for awaiting-coverage trades from the Finnhub
-    // quote cache so MCP and reload-time Unrealized G/L stay in sync without a
+    // Capture latest market price for awaiting-coverage trades from the Schwab
+    // or Finnhub quote cache so MCP and reload-time Unrealized G/L stay in sync without a
     // live API call. Mutates the in-memory trade record (these are persisted,
     // not runtime, fields).
     let snapshotChanged = false;
@@ -145,11 +146,16 @@ export function getStorageTrades(this: PersistContext): StorageSnapshot[] {
         if (!needsSnapshot(trade)) return;
         const ticker = (trade.ticker || '').toString().trim().toUpperCase();
         if (!ticker) return;
+        const schwabQuote = this.schwab?.quoteCache?.get(ticker);
         const cached = this.getCachedQuote ? this.getCachedQuote(ticker) : null;
-        const price = Number(cached?.value?.price);
+        const schwabPrice = Number(schwabQuote?.price);
+        const hasSchwabPrice = Number.isFinite(schwabPrice) && schwabPrice > 0;
+        const price = hasSchwabPrice ? schwabPrice : Number(cached?.value?.price);
         if (Number.isFinite(price) && price > 0) {
             trade.marketPriceSnapshot = price;
-            trade.marketPriceSnapshotAt = new Date().toISOString();
+            trade.marketPriceSnapshotAt = hasSchwabPrice && schwabQuote?.capturedAt
+                ? schwabQuote.capturedAt
+                : new Date().toISOString();
             snapshotChanged = true;
         }
     });

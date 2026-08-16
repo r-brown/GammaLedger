@@ -411,7 +411,7 @@ export async function getCurrentPrice(this: any, ticker: string, { forceRefresh 
     }
 
     const schwabCached = this.schwab?.quoteCache?.get?.(symbol);
-    if (schwabCached && (!forceRefresh || !this.schwab?.automaticRefresh)) {
+    if (schwabCached && !forceRefresh) {
         return {
             symbol,
             price: schwabCached.price,
@@ -423,18 +423,24 @@ export async function getCurrentPrice(this: any, ticker: string, { forceRefresh 
             providerTimestamp: schwabCached.providerTimestamp
         };
     }
-    if (this.schwab?.vault && this.schwab?.automaticRefresh && typeof this.getSchwabUnderlyingQuote === 'function') {
-        const quote = await this.getSchwabUnderlyingQuote(symbol, forceRefresh);
-        return {
-            symbol,
-            price: quote.price,
-            change: null,
-            changePercent: null,
-            previousClose: null,
-            fetchedAt: quote.capturedAt,
-            provider: 'Schwab',
-            providerTimestamp: quote.providerTimestamp
-        };
+    if (this.schwab?.vault
+        && (forceRefresh || this.schwab?.automaticRefresh)
+        && typeof this.getSchwabUnderlyingQuote === 'function') {
+        try {
+            const quote = await this.getSchwabUnderlyingQuote(symbol, forceRefresh);
+            return {
+                symbol,
+                price: quote.price,
+                change: null,
+                changePercent: null,
+                previousClose: null,
+                fetchedAt: quote.capturedAt,
+                provider: 'Schwab',
+                providerTimestamp: quote.providerTimestamp
+            };
+        } catch (error) {
+            if (!this.finnhub.apiKey) throw error;
+        }
     }
 
     if (forceRefresh) {
@@ -955,11 +961,6 @@ export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: An
         return;
     }
 
-    const cached = forceRefresh ? null : this.getCachedQuote(ticker);
-    if (cached) {
-        this.renderQuoteValue(cell, row, trade, cached.value);
-        return;
-    }
     const schwabCached = this.schwab?.quoteCache?.get?.(ticker);
     if (schwabCached) {
         this.renderQuoteValue(cell, row, trade, {
@@ -969,7 +970,13 @@ export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: An
             providerTimestamp: schwabCached.providerTimestamp
         });
         return;
-    } else if (!this.finnhub.apiKey && !(this.schwab?.vault && this.schwab?.automaticRefresh)) {
+    }
+    const cached = forceRefresh ? null : this.getCachedQuote(ticker);
+    if (cached) {
+        this.renderQuoteValue(cell, row, trade, cached.value);
+        return;
+    }
+    if (!this.finnhub.apiKey && !(this.schwab?.vault && this.schwab?.automaticRefresh)) {
         cell.dataset.priceState = 'error';
         this.setQuoteCellError(cell, row, trade, 'Set API key');
         const lastStatus = this.finnhub.lastStatus?.message;

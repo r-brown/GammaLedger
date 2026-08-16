@@ -15,6 +15,7 @@
     "preview": "vite preview",
     "verify:artifact:local": "node scripts/verify-app-artifact.mjs --mode=local",
     "verify:artifact:pages": "node scripts/verify-app-artifact.mjs --mode=pages",
+    "check:quote-priority": "node scripts/check-quote-priority.mjs",
     "check:robinhood-paste": "node --experimental-strip-types scripts/check-robinhood-paste.ts",
     "typecheck": "tsc --noEmit && npm run typecheck:strict",
     "typecheck:strict": "npm run typecheck:strict:calculations && npm run typecheck:strict:core && npm run typecheck:strict:trades && npm run typecheck:strict:utils && npm run typecheck:strict:ui && npm run typecheck:strict:imports && npm run typecheck:strict:integrations",

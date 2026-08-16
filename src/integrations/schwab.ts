@@ -583,6 +583,7 @@ async function refreshTradeQuote(this: SchwabContext, trade: TradeRecord, allowP
     const realization = this.summarizeLegRealization(trade)
     const activeLegs = summary.activeOpenLegs
         .filter(leg => (leg.type === 'CALL' || leg.type === 'PUT')
+            && Number(leg.strike) > 0 && Boolean(leg.expirationDate)
             && realization.openGroupKeys.has(this.buildLegLifecycleKey(leg as unknown as TradeRecord)))
     if (!activeLegs.length) {
         this.schwab.tradeQuoteCache.delete(quoteKey)

@@ -566,6 +566,7 @@ class GammaLedger {
         try {
             this.initializeThemeControls();
             this.loadStartupBehaviorFromStorage();
+            await this.loadSchwabConfigFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.currentFileHandle = null;
                 this.currentFileLastModified = null;
@@ -576,7 +577,6 @@ class GammaLedger {
                 await this.loadFromStorage();
             }
             await this.loadFinnhubConfigFromStorage();
-            await this.loadSchwabConfigFromStorage();
             await this.loadGeminiConfigFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.updateFileNameDisplay();
