@@ -4,6 +4,7 @@ import {
   AllCommunityModule,
   ModuleRegistry,
   createGrid as createAgGrid,
+  type ColumnState,
   type ColDef,
   type GridApi,
   type GridOptions,
@@ -24,6 +25,7 @@ function createGrid<TData>(gridRoot: HTMLElement, options: GridOptions<TData>): 
 
 export {
   createGrid,
+  type ColumnState,
   type ColDef,
   type GridApi,
   type GridOptions,

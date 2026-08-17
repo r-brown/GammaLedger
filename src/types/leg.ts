@@ -39,6 +39,12 @@ export interface PersistedLeg {
   /** Date the leg was executed. Empty string for legs with no known execution date. */
   executionDate: ISODate | ''
 
+  /** Exact broker fill timestamp when available, including its UTC offset. */
+  executionTimestamp?: string
+
+  /** Broker-displayed time-zone abbreviation retained for auditability. */
+  brokerTimeZone?: string
+
   /** Option expiration date. Empty string for stock / cash legs. */
   expirationDate: ISODate | ''
 
@@ -70,6 +76,9 @@ export interface PersistedLeg {
 
   /** Import source (e.g. 'Robinhood', 'OFX'). */
   importSource?: string | null
+
+  /** Exact Schwab contract symbol resolved for current market-data requests. */
+  schwabSymbol?: string | null
 
   // Legacy action/side fields may be present on imported data.
   // normalizeLeg collapses them into orderType before persistence.
@@ -148,6 +157,9 @@ export interface NormalizedLeg {
    * Populated by the import pipeline and persisted for provenance.
    */
   importSource: string | null
+
+  /** Exact Schwab contract symbol when one has been resolved. */
+  schwabSymbol: string | null
 
   // ---------------------------------------------------------------------------
   // Legacy / alias fields — present in real data from older schema versions.

@@ -92,6 +92,7 @@ interface LegsContext {
     calculateAnnualizedROI(trade: Record<string, unknown>): number
     // Optional external helpers
     getCachedQuote?: (ticker: string) => { value?: { price?: number } } | null
+    schwab?: { quoteCache?: Map<string, { price?: number }> }
     // Properties
     currentDate: Date | unknown
     _wheelPriceFallbackWarned?: boolean
@@ -261,7 +262,8 @@ export function normalizeLeg(
         underlyingPrice: parsedLeg.underlyingPrice ?? null,
         externalId: externalIdValue ?? null,
         importGroupId: importGroupIdValue ?? null,
-        importSource: importSourceValue ?? null
+        importSource: importSourceValue ?? null,
+        schwabSymbol: parsedLeg.schwabSymbol ?? null
     };
 }
 
@@ -1251,22 +1253,28 @@ export function enrichTradeData(
             ? Number(cb.effectiveCostBasis.toFixed(2))
             : null;
 
-        let resolvedPrice = Number(trade.marketPriceSnapshot);
-        let priceSource = 'snapshot';
+        const ticker = ((trade.ticker as string) || '').toString().trim().toUpperCase();
+        const schwabPrice = Number(this.schwab?.quoteCache?.get(ticker)?.price);
+        const cachedQuote = this.getCachedQuote ? this.getCachedQuote(ticker) : null;
+        const finnhubPrice = Number(cachedQuote?.value?.price);
+        const snapshotPrice = Number(trade.marketPriceSnapshot);
+        let resolvedPrice = schwabPrice;
+        let priceSource = 'schwab-cache';
         if (!Number.isFinite(resolvedPrice) || resolvedPrice <= 0) {
-            const ticker = ((trade.ticker as string) || '').toString().trim().toUpperCase();
-            const cachedQuote = this.getCachedQuote ? this.getCachedQuote(ticker) : null;
-            const livePrice = Number(cachedQuote?.value?.price);
-            if (Number.isFinite(livePrice) && livePrice > 0) {
-                resolvedPrice = livePrice;
-                priceSource = 'live';
-            } else if (cb.shares > 0 && Number.isFinite(cb.assignmentCostBasis) && cb.assignmentCostBasis > 0) {
-                resolvedPrice = cb.assignmentCostBasis / cb.shares;
-                priceSource = 'fallback-strike';
-                if (!this._wheelPriceFallbackWarned) {
-                    console.warn('[GammaLedger] No market price for wheel/PMCC position(s); falling back to entry strike for unrealized P&L. Set Finnhub API key in Settings for live quotes.');
-                    this._wheelPriceFallbackWarned = true;
-                }
+            resolvedPrice = finnhubPrice;
+            priceSource = 'live';
+        }
+        if (!Number.isFinite(resolvedPrice) || resolvedPrice <= 0) {
+            resolvedPrice = snapshotPrice;
+            priceSource = 'snapshot';
+        }
+        if ((!Number.isFinite(resolvedPrice) || resolvedPrice <= 0)
+            && cb.shares > 0 && Number.isFinite(cb.assignmentCostBasis) && cb.assignmentCostBasis > 0) {
+            resolvedPrice = cb.assignmentCostBasis / cb.shares;
+            priceSource = 'fallback-strike';
+            if (!this._wheelPriceFallbackWarned) {
+                console.warn('[GammaLedger] No market price for wheel/PMCC position(s); falling back to entry strike for unrealized P&L. Set Finnhub API key in Settings for live quotes.');
+                this._wheelPriceFallbackWarned = true;
             }
         }
 

@@ -1,5 +1,52 @@
 import type { DollarAmount, GeminiModel, ToastVariant } from './common'
 
+export interface SchwabVaultPayload {
+  clientId: string
+  clientSecret: string
+  callbackUrl: string
+  accessToken?: string
+  refreshToken?: string
+  accessTokenExpiresAt?: number
+  refreshTokenExpiresAt?: number
+}
+
+export interface SchwabOptionQuote {
+  symbol: string
+  bid: number | null
+  ask: number | null
+  last: number | null
+  mark: number | null
+  midpoint: number | null
+  multiplier: number
+  providerTimestamp: string | null
+  capturedAt: string
+}
+
+export interface SchwabTradeQuote {
+  tradeId: string
+  ticker: string
+  netMark: number | null
+  liquidationMark: number | null
+  marketValue: number | null
+  openingCashFlow: number
+  unrealizedPL: number | null
+  legs: Array<SchwabOptionQuote & { legId: string; side: 'long' | 'short'; quantity: number }>
+  capturedAt: string
+  error?: string
+}
+
+export interface SchwabState {
+  vault: SchwabVaultPayload | null
+  encryptionKey: CryptoKey | null
+  automaticRefresh: boolean
+  quoteCache: Map<string, { price: number; capturedAt: string; providerTimestamp: string | null }>
+  optionQuoteCache: Map<string, SchwabOptionQuote>
+  tradeQuoteCache: Map<string, SchwabTradeQuote>
+  timerId: ReturnType<typeof setInterval> | null
+  refreshPromise: Promise<void> | null
+  elements: Record<string, HTMLElement>
+}
+
 // ---------------------------------------------------------------------------
 // §15 — FinnhubState / GeminiState / StatusMessage
 // In-class struct fields on GammaLedger.

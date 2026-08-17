@@ -43,6 +43,10 @@ interface AppConfigShape {
         readonly LAST_STRATEGY: string
         readonly STARTUP_BEHAVIOR: string
         readonly EXTERNAL_ANALYTICS: string
+        readonly SCHWAB_VAULT: string
+        readonly SCHWAB_SETTINGS: string
+        readonly SCHWAB_SESSION_KEY: string
+        readonly SCHWAB_QUOTE_CACHE: string
         readonly LEGACY_KEYS: readonly string[]
     }
     SHARE_CARD: {
@@ -84,6 +88,10 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         LAST_STRATEGY: 'GammaLedgerLastStrategy',
         STARTUP_BEHAVIOR: 'GammaLedgerStartupBehavior',
         EXTERNAL_ANALYTICS: 'GammaLedgerExternalAnalytics',
+        SCHWAB_VAULT: 'GammaLedgerSchwabVault',
+        SCHWAB_SETTINGS: 'GammaLedgerSchwabSettings',
+        SCHWAB_SESSION_KEY: 'GammaLedgerSchwabSessionKey',
+        SCHWAB_QUOTE_CACHE: 'GammaLedgerSchwabQuoteCache',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',
@@ -137,7 +145,7 @@ export const EXTERNAL_ANALYTICS_STORAGE_KEY: string = APP_CONFIG.STORAGE.EXTERNA
 export const DEFAULT_EXTERNAL_ANALYTICS_URL = 'https://www.investing.com/search/?q={ticker}' as const;
 export const DEFAULT_FINNHUB_RATE_LIMIT = 60 as const;
 export const DEFAULT_GEMINI_MAX_TOKENS = 65536 as const;
-export const CURRENT_STORAGE_VERSION = '2.5' as const;
+export const CURRENT_STORAGE_VERSION = '2.6' as const;
 
 // ---------------------------------------------------------------------------
 // Runtime field sets — used to strip transient properties before persistence

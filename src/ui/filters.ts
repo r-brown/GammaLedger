@@ -68,6 +68,13 @@ export function normalizeFilterSelect(selectElement: HTMLSelectElement | null): 
     }
 }
 
+export function getAvailableStrategies(trades: TradeRecord[] = []): string[] {
+    return [...new Set((Array.isArray(trades) ? trades : [])
+        .map(trade => typeof trade.strategy === 'string' ? trade.strategy : '')
+        .filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b));
+}
+
 export function resetFilterSelect(this: FiltersContext, selectElement: HTMLSelectElement): void {
     if (!selectElement) {
         return;
@@ -197,9 +204,7 @@ export function populateFilters(this: FiltersContext): void {
             .map(option => option.value)
         : [''];
 
-    const strategies = [...new Set(this.trades.map(trade => trade.strategy as string))]
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b));
+    const strategies = getAvailableStrategies(this.trades);
 
     if (strategySelect) {
         strategySelect.innerHTML = '';

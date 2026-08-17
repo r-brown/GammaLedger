@@ -21,6 +21,8 @@ export interface LegRealizationSummary {
     /** 'YYYY-MM-DD' (expiration date) → pending net cash flow of open groups.
      *  Date-keyed so weekly expirations bucket correctly. */
     openByExpiryDate: Map<string, number>
+    /** Lifecycle keys for option groups that are still economically open. */
+    openGroupKeys: Set<string>
     /**
      * Data-integrity flags. orphanCloseGroups: groups with more closing than
      * opening contracts (netOpen < 0) — usually a closing leg keyed to the
@@ -75,6 +77,7 @@ export function summarizeLegRealization(
         hasOpenGroups: false,
         openCashFlow: 0,
         openByExpiryDate: new Map<string, number>(),
+        openGroupKeys: new Set<string>(),
         orphanCloseGroups: 0,
         closeAfterExpiryLegs: 0
     }
@@ -146,7 +149,7 @@ export function summarizeLegRealization(
 
     let total = 0
     let openTotal = 0
-    for (const group of groups.values()) {
+    for (const [key, group] of groups) {
         const fullyClosed = group.netOpen <= 0
         if (group.netOpen < 0) result.orphanCloseGroups += 1
         const expired = isExpired(group.expiration)
@@ -155,6 +158,7 @@ export function summarizeLegRealization(
         const terminated = tradeClosed || fullyClosed || expired || assigned
         if (!terminated) {
             result.hasOpenGroups = true
+            result.openGroupKeys.add(key)
             let openGroupTotal = 0
             for (const leg of group.legs) {
                 const cashFlow = this.calculateLegCashFlow(leg)

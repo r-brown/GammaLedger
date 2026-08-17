@@ -79,6 +79,33 @@ function normalizeLegacyTrade(trade: MutableRecord, index: number): Trade {
     return normalized as unknown as Trade;
 }
 
+function repairDuplicateTradeIds(trades: Trade[]): { trades: Trade[]; repaired: number } {
+    const reserved = new Set(trades.map(trade => trade.id));
+    const used = new Set<string>();
+    let repaired = 0;
+
+    return {
+        trades: trades.map(trade => {
+            if (!used.has(trade.id)) {
+                used.add(trade.id);
+                return trade;
+            }
+
+            let suffix = 2;
+            let id = `${trade.id}-dup-${suffix}`;
+            while (reserved.has(id) || used.has(id)) {
+                suffix += 1;
+                id = `${trade.id}-dup-${suffix}`;
+            }
+            reserved.add(id);
+            used.add(id);
+            repaired += 1;
+            return { ...trade, id };
+        }),
+        repaired
+    };
+}
+
 export function emptySchema(): StorageSchema {
     return {
         version: CURRENT_STORAGE_VERSION,
@@ -99,9 +126,15 @@ export function migrateSchema(raw: unknown): StorageSchema {
     const version = getMigrationVersion(source.version);
     const trades = Array.isArray(source.trades) ? source.trades : [];
 
-    source.trades = trades
+    const normalizedTrades = trades
         .filter(isRecord)
         .map((trade, index) => normalizeLegacyTrade(trade, index));
+    const repair = repairDuplicateTradeIds(normalizedTrades);
+    source.trades = repair.trades;
+    delete source._migrationRepairs;
+    if (repair.repaired > 0) {
+        source._migrationRepairs = { duplicateTradeIds: repair.repaired };
+    }
 
     if (version < LEGACY_MIGRATION_VERSION || source.version !== CURRENT_STORAGE_VERSION) {
         source.version = CURRENT_STORAGE_VERSION;

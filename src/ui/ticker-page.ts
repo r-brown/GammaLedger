@@ -23,7 +23,6 @@ export interface TickerPageContext extends PortfolioGreeksContext {
   latestStats: Stats | null
   tickerPage: TickerPageState
   tickerPageGridApi: GridApi<TradeRecord> | null
-  finnhub: { apiKey: string }
   currentView: string
   calculateAdvancedStats(): Stats
   showView(viewName: string): void
@@ -33,7 +32,7 @@ export interface TickerPageContext extends PortfolioGreeksContext {
   getStrategyDisplayName(strategy: string): string
   calculateLegCashFlow(leg: Record<string, unknown>): number
   formatDate(value: unknown): string
-  getCurrentPrice(ticker: string, opts?: Record<string, unknown>): Promise<unknown>
+  getCurrentPrice(ticker: string, opts?: Record<string, unknown>): Promise<Record<string, unknown>>
   hasAssignedInventory(trade: TradeRecord): boolean
 }
 
@@ -371,13 +370,11 @@ export function renderTickerPage(this: TickerPageContext): void {
     renderCumulativeSection.call(this, root, trades)
     renderTradesGrid.call(this, root, trades)
 
-    // Async live-quote refresh (best effort, only when a key exists).
-    if (this.finnhub?.apiKey) {
-        void this.getCurrentPrice(ticker, {}).then(() => {
-            const el = document.getElementById('ticker-page-quote')
-            if (!el || this.currentView !== 'ticker-page' || this.tickerPage.ticker !== ticker) return
-            const fresh = resolveSpotForTrade.call(this, (open[0] ?? trades[0]) as TradeRecord)
-            if (fresh !== null) el.textContent = this.formatCurrency(fresh)
-        }).catch(() => { /* quote is decorative here */ })
-    }
+    // Request a current Schwab quote first, with Finnhub as fallback.
+    void this.getCurrentPrice(ticker, { forceRefresh: true }).then((freshQuote) => {
+        const el = document.getElementById('ticker-page-quote')
+        if (!el || this.currentView !== 'ticker-page' || this.tickerPage.ticker !== ticker) return
+        const fresh = Number(freshQuote.price)
+        if (Number.isFinite(fresh) && fresh > 0) el.textContent = this.formatCurrency(fresh)
+    }).catch(() => { /* quote is decorative here */ })
 }

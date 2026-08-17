@@ -607,7 +607,7 @@ export function extractSingleLegPair(
     const expirationDate = this.parseDateValue(expiration);
     const hasExpired = expirationDate && expirationDate < now;
     // A partially closed single-leg position is still active while contracts remain.
-    const isOpen = netQuantity > 0 && !hasExpired && !isTradeClosed;
+    const isOpen = netQuantity !== 0 && !hasExpired && !isTradeClosed;
 
     if (netQuantity === 0 && !isOpen) {
         netQuantity = Math.abs(openingLegs.reduce((sum, leg) => {
