@@ -152,6 +152,12 @@ function startCreditPlaybookQuoteRefreshStatus(this: CreditPlaybookContext): voi
 }
 
 export function syncCreditPlaybookQuoteRefreshStatus(this: CreditPlaybookContext): void {
+    // The countdown timer keeps ticking after the user navigates away, so skip
+    // the DOM writes and date formatting while the view is not on screen.
+    if (this.currentView !== 'credit-playbook') {
+        return;
+    }
+
     const status = document.getElementById('credit-playbook-refresh-status');
     const detail = document.getElementById('credit-playbook-refresh-detail');
     if (!status || !detail) {
