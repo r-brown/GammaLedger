@@ -532,51 +532,40 @@
                                 <h3>Trade Legs</h3>
                                 <p class="form-help-text">Add one or more legs to fully describe this trade. Each leg represents a single execution (including rolls).</p>
                             </div>
-                            <div class="leg-paste" id="leg-paste">
-                                <button type="button" class="btn btn--sm btn--secondary" id="leg-paste-toggle" aria-expanded="false" aria-controls="leg-paste-panel">📋 Paste fills…</button>
-                                <div class="leg-paste__panel is-hidden" id="leg-paste-panel">
-                                    <textarea id="leg-paste-input" class="form-control leg-paste__input" rows="6"
-                                        placeholder="Paste broker fills — IBKR Orders &amp; Trades text, fill strings like &quot;SPY 08/15/2026 450P STO 2 @ 1.25&quot;, or OCC symbols. One or many legs at once."></textarea>
-                                    <div class="leg-paste__actions">
-                                        <button type="button" class="btn btn--sm btn--primary" id="leg-paste-parse">Parse fills</button>
-                                        <span class="form-help-text">Split fills are consolidated automatically. Bot/Sold map to BTO/STO — flip closing legs to BTC/STC after parsing.</span>
-                                    </div>
-                                </div>
-                            </div>
                             <div id="trade-legs-container" class="trade-legs-container" aria-live="polite"></div>
                             <div class="form-row trade-legs-actions">
                                 <button type="button" class="btn btn--secondary" id="add-leg-button">Add Leg</button>
-                                <button type="button" class="btn btn--secondary" id="robinhood-paste-toggle" aria-expanded="false" aria-controls="robinhood-paste-panel">📋 Paste from Robinhood</button>
+                                <button type="button" class="btn btn--secondary" id="leg-paste-toggle" aria-expanded="false" aria-controls="leg-paste-panel">📋 Paste fills…</button>
                             </div>
-                            <div class="leg-paste" id="robinhood-paste">
-                                <div class="leg-paste__panel is-hidden" id="robinhood-paste-panel">
-                                    <div id="robinhood-paste-editor">
-                                        <label class="form-label" for="robinhood-paste-input">Robinhood filled-order details</label>
-                                        <textarea id="robinhood-paste-input" class="form-control leg-paste__input" rows="8"
-                                            placeholder="Copy the complete filled order from Robinhood History and paste it here. Closings, assignments, spreads, and rolls use the same button."></textarea>
+                            <div class="leg-paste" id="leg-paste">
+                                <div class="leg-paste__panel is-hidden" id="leg-paste-panel">
+                                    <div id="leg-paste-editor">
+                                        <label class="form-label" for="leg-paste-input">Broker fill details</label>
+                                        <textarea id="leg-paste-input" class="form-control leg-paste__input" rows="8"
+                                            placeholder="Paste broker fills — a completed Robinhood order, IBKR Orders &amp; Trades text, a compact fill string like &quot;SPY 08/15/2026 450P STO 2 @ 1.25&quot;, or an OCC symbol. Closings, assignments, spreads, and rolls use the same button."></textarea>
                                         <div class="leg-paste__actions">
-                                            <button type="button" class="btn btn--sm btn--primary" id="robinhood-paste-parse">Review activity</button>
-                                            <button type="button" class="btn btn--sm btn--secondary" id="robinhood-paste-cancel">Cancel</button>
+                                            <button type="button" class="btn btn--sm btn--primary" id="leg-paste-parse">Review fills</button>
+                                            <button type="button" class="btn btn--sm btn--secondary" id="leg-paste-cancel">Cancel</button>
                                             <span class="form-help-text">Nothing is added until you review and apply the detected legs.</span>
                                         </div>
                                     </div>
-                                    <div class="leg-paste__review" id="robinhood-paste-review" hidden>
+                                    <div class="leg-paste__review" id="leg-paste-review" hidden>
                                         <div class="leg-paste__review-header">
-                                            <strong id="robinhood-paste-review-title">Detected activity</strong>
-                                            <span class="form-help-text" id="robinhood-paste-review-source"></span>
+                                            <strong id="leg-paste-review-title">Detected activity</strong>
+                                            <span class="form-help-text" id="leg-paste-review-source"></span>
                                         </div>
                                         <div class="leg-paste__table-wrap">
                                             <table class="leg-paste__table">
                                                 <thead>
                                                     <tr><th>Action</th><th>Contract</th><th>Qty</th><th>Fill</th><th>Filled</th><th>Fee</th></tr>
                                                 </thead>
-                                                <tbody id="robinhood-paste-review-legs"></tbody>
+                                                <tbody id="leg-paste-review-legs"></tbody>
                                             </table>
                                         </div>
-                                        <div class="leg-paste__warnings" id="robinhood-paste-review-warnings" hidden></div>
+                                        <div class="leg-paste__warnings" id="leg-paste-review-warnings" hidden></div>
                                         <div class="leg-paste__actions">
-                                            <button type="button" class="btn btn--sm btn--primary" id="robinhood-paste-apply">Apply to trade</button>
-                                            <button type="button" class="btn btn--sm btn--secondary" id="robinhood-paste-edit">Edit pasted text</button>
+                                            <button type="button" class="btn btn--sm btn--primary" id="leg-paste-apply">Apply to trade</button>
+                                            <button type="button" class="btn btn--sm btn--secondary" id="leg-paste-edit">Edit pasted text</button>
                                         </div>
                                     </div>
                                 </div>
