@@ -40,6 +40,7 @@ interface LegPair {
   isAssigned?: boolean
   wasAssigned?: boolean
   isExpired?: boolean
+  expiredWithoutClose?: boolean
   isRolling?: boolean
   isCreditAggregate?: boolean
   aggregateKind?: 'wheel' | 'covered-call' | 'cash-secured-put'

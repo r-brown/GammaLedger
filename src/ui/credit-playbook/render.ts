@@ -36,6 +36,7 @@ interface LegPair {
   wasAssigned?: boolean
   isRolling?: boolean
   isExpired?: boolean
+  expiredWithoutClose?: boolean
   isCreditAggregate?: boolean
   aggregateKind?: 'wheel' | 'covered-call' | 'cash-secured-put'
   heldShares?: number
@@ -543,8 +544,11 @@ export function applyCreditPlaybookSortToLegPairs(this: CreditPlaybookRenderCont
                 }
                 break;
             case 'status':
-                aVal = a.isAssigned ? -1 : (a.isRolling ? 0 : (a.isExpired && a.isOpen ? 2 : (a.isOpen ? 1 : 3)));
-                bVal = b.isAssigned ? -1 : (b.isRolling ? 0 : (b.isExpired && b.isOpen ? 2 : (b.isOpen ? 1 : 3)));
+                // Mirrors getPairStatus: assigned < rolling < open < expired < closed.
+                // `isExpired && isOpen` never held (isOpen already excludes expired),
+                // so the expired bucket was unreachable before expiredWithoutClose.
+                aVal = a.isAssigned ? -1 : (a.isRolling ? 0 : (a.isOpen ? 1 : (a.expiredWithoutClose ? 2 : 3)));
+                bVal = b.isAssigned ? -1 : (b.isRolling ? 0 : (b.isOpen ? 1 : (b.expiredWithoutClose ? 2 : 3)));
                 break;
             case 'quantity':
                 aVal = numericSortValue(a.quantity, 0);
@@ -786,7 +790,9 @@ function getPairStatus(pair: LegPair): { className: string; label: string } {
     if (pair.isCreditAggregate && Number(pair.openCallContracts) > 0) return { className: 'open', label: 'Open' };
     if (pair.isAssigned || pair.wasAssigned) return { className: 'assigned', label: 'Assigned' };
     if (pair.isRolling) return { className: 'rolling', label: 'Rolling' };
-    if (pair.isExpired) return { className: 'expired', label: 'Expired' };
+    // isExpired is date-only and stays true for positions closed before their
+    // expiration passed — those are Closed, not Expired.
+    if (pair.expiredWithoutClose) return { className: 'expired', label: 'Expired' };
     if (pair.isOpen) return { className: 'open', label: 'Open' };
     return { className: 'closed', label: 'Closed' };
 }

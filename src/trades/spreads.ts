@@ -19,7 +19,19 @@ interface SpreadPair {
     pl: number
     roi: number | null
     isOpen: boolean
+    /** Expiration date has passed. True regardless of how the position ended. */
     isExpired: boolean
+    /**
+     * Expiration passed and the position was never bought back for value — it
+     * ran to expiry. `isExpired` alone is date-only, so it stays true for
+     * positions closed early whose expiration has since passed; use this for
+     * anything that reports *how* a position ended.
+     *
+     * An expiry is commonly recorded as a zero-premium CLOSE leg, so presence
+     * of a closing leg is not enough — only a leg with premium > 0 is a real
+     * buyback.
+     */
+    expiredWithoutClose: boolean
     isRolling: boolean
     isAssigned: boolean
     capital: number
@@ -113,6 +125,8 @@ export function extractRolledSpread(
 
     const openingLegs = sortedLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
     const closingLegs = sortedLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
+    // A zero-premium close is how an expiry is recorded; only a paid close is a buyback.
+    const boughtBack = closingLegs.some(leg => (Number(leg.premium) || 0) > 0);
 
     sortedLegs.forEach(leg => {
         const legSide = this.getLegSide(leg);
@@ -173,7 +187,8 @@ export function extractRolledSpread(
         strike: spreadStrike, type, quantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate, expirationDate: currentExpiration, dte,
         exitDate: effectiveExitDate, daysHeld,
-        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling: isRollingNow,
+        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired),
+        expiredWithoutClose: Boolean(hasExpired && !boughtBack), isRolling: isRollingNow,
         isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
@@ -191,6 +206,8 @@ export function extractSingleSpread(
 
     const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
     const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
+    // A zero-premium close is how an expiry is recorded; only a paid close is a buyback.
+    const boughtBack = closingLegs.some(leg => (Number(leg.premium) || 0) > 0);
 
     const allLegsForType = openingLegs.length > 0 ? openingLegs : closingLegs;
     const legTypes = new Set(allLegsForType.map(l => l.type as string).filter(Boolean));
@@ -285,7 +302,8 @@ export function extractSingleSpread(
         strike: spreadStrike, type, quantity: displayQuantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate: entryDateMs !== null ? new Date(entryDateMs) : null, expirationDate: expiration, dte,
         exitDate: effectiveExitDate, daysHeld,
-        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling: false,
+        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired),
+        expiredWithoutClose: Boolean(hasExpired && !boughtBack), isRolling: false,
         isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
@@ -392,6 +410,8 @@ export function extractRolledPositionAcrossStrikes(
 
     let totalGrossPremium = 0, totalFees = 0, entryDate: Date | null = null, exitDate: Date | null = null;
     let currentStrike: number | null = null, currentExpiration: string | null = null, netQuantity = 0;
+    // A zero-premium close is how an expiry is recorded; only a paid close is a buyback.
+    let boughtBack = false;
 
     allLegs.forEach(leg => {
         const legSide = this.getLegSide(leg);
@@ -412,6 +432,7 @@ export function extractRolledPositionAcrossStrikes(
         } else if (legSide === 'CLOSE') {
             if (action === 'BUY') netQuantity -= quantity;
             else netQuantity += quantity;
+            if (legPremium > 0) boughtBack = true;
         }
 
         const legDate = this.parseDateValue(leg.executionDate);
@@ -459,7 +480,8 @@ export function extractRolledPositionAcrossStrikes(
         strike, type, quantity: absoluteQuantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate, expirationDate: currentExpiration, dte,
         exitDate: effectiveExitDate, daysHeld,
-        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling,
+        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired),
+        expiredWithoutClose: Boolean(hasExpired && !boughtBack), isRolling,
         isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
@@ -485,6 +507,8 @@ export function extractRolledPosition(
 
     let totalGrossPremium = 0, totalFees = 0, netQuantity = 0;
     let entryDate: Date | null = null, exitDate: Date | null = null, currentExpiration: string | null = null;
+    // A zero-premium close is how an expiry is recorded; only a paid close is a buyback.
+    let boughtBack = false;
 
     sortedLegs.forEach(leg => {
         const legSide = this.getLegSide(leg);
@@ -503,6 +527,7 @@ export function extractRolledPosition(
         } else if (legSide === 'CLOSE') {
             if (action === 'BUY') netQuantity -= quantity;
             else if (action === 'SELL') netQuantity += quantity;
+            if (legPremium > 0) boughtBack = true;
         }
 
         const legDate = this.parseDateValue(leg.executionDate);
@@ -547,7 +572,8 @@ export function extractRolledPosition(
         strike, type, quantity: absoluteQuantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate, expirationDate: currentExpiration, dte,
         exitDate: effectiveExitDate, daysHeld,
-        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling,
+        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired),
+        expiredWithoutClose: Boolean(hasExpired && !boughtBack), isRolling,
         isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
@@ -567,6 +593,8 @@ export function extractSingleLegPair(
 
     const openingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
     const closingLegs = groupLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
+    // A zero-premium close is how an expiry is recorded; only a paid close is a buyback.
+    const boughtBack = closingLegs.some(leg => (Number(leg.premium) || 0) > 0);
 
     let netQuantity = 0, totalGrossPremium = 0, totalFees = 0, entryDate: Date | null = null, exitDate: Date | null = null;
 
@@ -637,7 +665,8 @@ export function extractSingleLegPair(
         strike, type, quantity: absoluteQuantity, pricePerContract, fees: totalFees,
         premium: netPremium, entryDate, expirationDate: expiration, dte,
         exitDate: effectiveExitDate, daysHeld,
-        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired), isRolling: false,
+        pl, roi, isOpen: Boolean(isOpen), isExpired: Boolean(hasExpired),
+        expiredWithoutClose: Boolean(hasExpired && !boughtBack), isRolling: false,
         isAssigned: this.hasAssignedInventory(trade), capital
     });
 }
