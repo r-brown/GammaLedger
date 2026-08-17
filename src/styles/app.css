@@ -6956,6 +6956,7 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 .watchlist-position-badge { background: var(--color-border); border: none; border-radius: 10px; cursor: pointer; font-size: 11px; font-weight: var(--font-weight-semibold); padding: 3px 10px; }
 .watchlist-position-badge.is-active { background: var(--color-primary); color: var(--color-bg); }
 .watchlist-position-badge.is-wheel { background: var(--color-warning, #f59e0b); color: var(--color-bg); }
+.watchlist-position-badge.is-closed { background: var(--color-border); color: var(--color-text-secondary); }
 .watchlist-risk { cursor: help; }
 .watchlist-detail { padding: 8px 12px; }
 .watchlist-notes-card { margin-bottom: 12px; }

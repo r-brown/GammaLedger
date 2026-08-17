@@ -693,15 +693,25 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                     }
                 }
 
-                if (!hasActive && !hasWheel) {
-                    return document.createTextNode('')
-                }
-
                 const container = document.createElement('div')
                 container.style.display = 'flex'
                 container.style.gap = '6px'
                 container.style.alignItems = 'center'
                 container.style.height = '100%'
+
+                if (!hasActive && !hasWheel) {
+                    const badge = document.createElement('button')
+                    badge.type = 'button'
+                    badge.className = 'watchlist-position-badge is-closed'
+                    badge.textContent = 'Closed'
+                    badge.title = `View past trades for ${ticker}`
+                    badge.addEventListener('click', (event) => {
+                        event.stopPropagation()
+                        context.openTradesFilteredByTicker(ticker)
+                    })
+                    container.appendChild(badge)
+                    return container
+                }
 
                 if (hasActive) {
                     const badge = document.createElement('button')
