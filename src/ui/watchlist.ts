@@ -24,7 +24,6 @@ export interface WatchlistContext extends PositionDetailPanelContext {
   saveToStorage(metadata?: Record<string, unknown>): void
   markUnsavedChanges(): void
   showView(viewName: string): void
-  showTickerPage(ticker: unknown): void
   openTradesFilteredByTicker(ticker: unknown): void
   getCurrentPrice(ticker: string, opts?: { forceRefresh?: boolean }): Promise<Record<string, unknown>>
   getQuoteChangePercent(quote: Record<string, unknown>): number | null
@@ -584,8 +583,8 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
             cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
                 createTickerElement(params.value, 'ticker-pill', {
                     behavior: 'filter',
-                    onClick: (value: unknown) => context.showTickerPage(value),
-                    title: `Open ${String(params.value ?? '')} ticker page`
+                    onClick: (value: unknown) => context.openTradesFilteredByTicker(value),
+                    title: `View all trades for ${String(params.value ?? '')}`
                 })
         },
         {

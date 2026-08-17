@@ -118,8 +118,6 @@ import * as shortcutsModule from './ui/shortcuts.js';
 import * as themeModule from './ui/theme.js';
 import type { ThemePreference } from './ui/theme.js';
 import * as commandPaletteModule from './ui/command-palette.js';
-import * as tickerPageModule from './ui/ticker-page.js';
-import type { TickerPageState } from './ui/ticker-page.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
 import * as watchlistModule from './ui/watchlist.js';
 
@@ -212,8 +210,6 @@ class GammaLedger {
     declare defaultFeePerContract: number | null
     declare sidebarState: Record<string, unknown>
     declare commandPaletteIndex: number
-    declare tickerPage: TickerPageState
-    declare tickerPageGridApi: unknown
     declare watchlistGridApi: unknown
     declare expandedWatchlistTicker: string | null
     declare shareCard: { root: HTMLElement | null; card: HTMLElement | null; button: HTMLElement | null; chartCanvas: HTMLCanvasElement | null; chartTitle: HTMLElement | null; rangeLabel: HTMLElement | null; chart: { destroy(): void } | null; metrics: Record<string, unknown>; timestamp: unknown; exportSize: number }
@@ -451,8 +447,6 @@ class GammaLedger {
         };
 
         this.commandPaletteIndex = 0;
-        this.tickerPage = { ticker: null, selectedTradeId: 'all' };
-        this.tickerPageGridApi = null;
         this.watchlistGridApi = null;
         this.expandedWatchlistTicker = null;
 
@@ -1277,10 +1271,6 @@ class GammaLedger {
     setTodayDate() { return viewsModule.setTodayDate.call(this); }
 
     showView(viewName) { return viewsModule.showView.call(this, viewName); }
-
-    showTickerPage(ticker) { return tickerPageModule.showTickerPage.call(this, ticker); }
-
-    renderTickerPage() { return tickerPageModule.renderTickerPage.call(this); }
 
     renderWatchlistView() { return watchlistModule.renderWatchlistView.call(this); }
 
