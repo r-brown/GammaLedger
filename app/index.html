@@ -45,8 +45,8 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/app/gammaledger-logo-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/app/gammaledger-logo-32x32.png">
     <link rel="icon" type="image/png" sizes="64x64" href="/app/gammaledger-logo-64x64.png">
-  <script type="module" crossorigin src="/app/assets/index-B2w9Xfbx.js"></script>
-  <link rel="stylesheet" crossorigin href="/app/assets/index-DIvTdOxz.css">
+  <script type="module" crossorigin src="/app/assets/index-4lUy4R99.js"></script>
+  <link rel="stylesheet" crossorigin href="/app/assets/index-BVVygepi.css">
 </head>
 
 <body>
@@ -129,12 +129,10 @@
                     <span class="nav-icon">📋</span>
                     <span class="nav-label">All Trades</span>
                 </button>
-                <!-- Disabled for now - will re-evaluate adding "Credit Playbook" in the future after we have stabilized core tracking and analytics features
                 <button class="nav-item" data-view="credit-playbook">
                     <span class="nav-icon">💳</span>
                     <span class="nav-label">Credit Playbook</span>
                 </button>
-                -->
                 <button class="nav-item" data-view="add-trade">
                     <span class="nav-icon">➕</span>
                     <span class="nav-label">Add Trade</span>
@@ -550,6 +548,40 @@
                             <div id="trade-legs-container" class="trade-legs-container" aria-live="polite"></div>
                             <div class="form-row trade-legs-actions">
                                 <button type="button" class="btn btn--secondary" id="add-leg-button">Add Leg</button>
+                                <button type="button" class="btn btn--secondary" id="robinhood-paste-toggle" aria-expanded="false" aria-controls="robinhood-paste-panel">📋 Paste from Robinhood</button>
+                            </div>
+                            <div class="leg-paste" id="robinhood-paste">
+                                <div class="leg-paste__panel is-hidden" id="robinhood-paste-panel">
+                                    <div id="robinhood-paste-editor">
+                                        <label class="form-label" for="robinhood-paste-input">Robinhood filled-order details</label>
+                                        <textarea id="robinhood-paste-input" class="form-control leg-paste__input" rows="8"
+                                            placeholder="Copy the complete filled order from Robinhood History and paste it here. Closings, assignments, spreads, and rolls use the same button."></textarea>
+                                        <div class="leg-paste__actions">
+                                            <button type="button" class="btn btn--sm btn--primary" id="robinhood-paste-parse">Review activity</button>
+                                            <button type="button" class="btn btn--sm btn--secondary" id="robinhood-paste-cancel">Cancel</button>
+                                            <span class="form-help-text">Nothing is added until you review and apply the detected legs.</span>
+                                        </div>
+                                    </div>
+                                    <div class="leg-paste__review" id="robinhood-paste-review" hidden>
+                                        <div class="leg-paste__review-header">
+                                            <strong id="robinhood-paste-review-title">Detected activity</strong>
+                                            <span class="form-help-text" id="robinhood-paste-review-source"></span>
+                                        </div>
+                                        <div class="leg-paste__table-wrap">
+                                            <table class="leg-paste__table">
+                                                <thead>
+                                                    <tr><th>Action</th><th>Contract</th><th>Qty</th><th>Fill</th><th>Filled</th><th>Fee</th></tr>
+                                                </thead>
+                                                <tbody id="robinhood-paste-review-legs"></tbody>
+                                            </table>
+                                        </div>
+                                        <div class="leg-paste__warnings" id="robinhood-paste-review-warnings" hidden></div>
+                                        <div class="leg-paste__actions">
+                                            <button type="button" class="btn btn--sm btn--primary" id="robinhood-paste-apply">Apply to trade</button>
+                                            <button type="button" class="btn btn--sm btn--secondary" id="robinhood-paste-edit">Edit pasted text</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </section>
                     </div>
@@ -636,7 +668,7 @@
                 <header class="credit-playbook-header">
                     <div class="credit-playbook-metrics" id="credit-playbook-metrics" aria-live="polite"></div>
                     <div class="credit-playbook-detail-meta credit-playbook-help">
-                        Wheel trades: Credit Playbook tracks option premium legs. Total wheel P&amp;L (including stock assignment/sale) is shown in All Trades and Dashboard → Wheel/PMCC tracker.
+                        Accounting view: realized option and realized stock P&amp;L are booked; assigned shares still held contribute to Unrealized stock P&amp;L. All-in marked P&amp;L combines all three.
                     </div>
                 </header>
 
@@ -664,79 +696,31 @@
                         </select>
                     </div>
                     <div class="credit-playbook-filter">
-                        <span class="filter-label">Strategy</span>
-                        <select id="credit-playbook-strategy-filter" class="form-control">
-                            <option value="all" selected>All strategies</option>
-                            <option value="Bear Call Ladder">Bear Call Ladder</option>
-                            <option value="Bear Call Spread">Bear Call Spread</option>
-                            <option value="Bear Put Ladder">Bear Put Ladder</option>
-                            <option value="Bear Put Spread">Bear Put Spread</option>
-                            <option value="Box Spread">Box Spread</option>
-                            <option value="Bull Call Ladder">Bull Call Ladder</option>
-                            <option value="Bull Call Spread">Bull Call Spread</option>
-                            <option value="Bull Put Ladder">Bull Put Ladder</option>
-                            <option value="Bull Put Spread">Bull Put Spread</option>
-                            <option value="Calendar Call Spread">Calendar Call Spread</option>
-                            <option value="Calendar Put Spread">Calendar Put Spread</option>
-                            <option value="Calendar Straddle">Calendar Straddle</option>
-                            <option value="Calendar Strangle">Calendar Strangle</option>
-                            <option value="Call Broken Wing">Call Broken Wing</option>
-                            <option value="Call Ratio Backspread">Call Ratio Backspread</option>
-                            <option value="Call Ratio Spread">Call Ratio Spread</option>
-                            <option value="Cash-Secured Put">Cash-Secured Put</option>
-                            <option value="Collar">Collar</option>
-                            <option value="Covered Call">Covered Call</option>
-                            <option value="Covered Put">Covered Put</option>
-                            <option value="Covered Short Straddle">Covered Short Straddle</option>
-                            <option value="Covered Short Strangle">Covered Short Strangle</option>
-                            <option value="Diagonal Call Spread">Diagonal Call Spread</option>
-                            <option value="Diagonal Put Spread">Diagonal Put Spread</option>
-                            <option value="Double Diagonal">Double Diagonal</option>
-                            <option value="Guts">Guts</option>
-                            <option value="Inverse Call Broken Wing">Inverse Call Broken Wing</option>
-                            <option value="Inverse Iron Butterfly">Inverse Iron Butterfly</option>
-                            <option value="Inverse Iron Condor">Inverse Iron Condor</option>
-                            <option value="Inverse Put Broken Wing">Inverse Put Broken Wing</option>
-                            <option value="Iron Albatross">Iron Albatross</option>
-                            <option value="Iron Butterfly">Iron Butterfly</option>
-                            <option value="Iron Condor">Iron Condor</option>
-                            <option value="Jade Lizard">Jade Lizard</option>
-                            <option value="Long Call">Long Call</option>
-                            <option value="Long Call Butterfly">Long Call Butterfly</option>
-                            <option value="Long Call Condor">Long Call Condor</option>
-                            <option value="Long Put">Long Put</option>
-                            <option value="Long Put Butterfly">Long Put Butterfly</option>
-                            <option value="Long Put Condor">Long Put Condor</option>
-                            <option value="Long Straddle">Long Straddle</option>
-                            <option value="Long Strangle">Long Strangle</option>
-                            <option value="Poor Man's Covered Call">Poor Man's Covered Call</option>
-                            <option value="Protective Put">Protective Put</option>
-                            <option value="Put Broken Wing">Put Broken Wing</option>
-                            <option value="Put Ratio Backspread">Put Ratio Backspread</option>
-                            <option value="Put Ratio Spread">Put Ratio Spread</option>
-                            <option value="Reverse Jade Lizard">Reverse Jade Lizard</option>
-                            <option value="Short Call">Short Call</option>
-                            <option value="Short Call Butterfly">Short Call Butterfly</option>
-                            <option value="Short Call Condor">Short Call Condor</option>
-                            <option value="Short Guts">Short Guts</option>
-                            <option value="Short Put">Short Put</option>
-                            <option value="Short Put Butterfly">Short Put Butterfly</option>
-                            <option value="Short Put Condor">Short Put Condor</option>
-                            <option value="Short Straddle">Short Straddle</option>
-                            <option value="Short Strangle">Short Strangle</option>
-                            <option value="Strap">Strap</option>
-                            <option value="Strip">Strip</option>
-                            <option value="Synthetic Long Stock">Synthetic Long Stock</option>
-                            <option value="Synthetic Short Stock">Synthetic Short Stock</option>
-                            <option value="Synthetic Put">Synthetic Put</option>
-                            <option value="Wheel">Wheel</option>
-                        </select>
-                    </div>
-                    <div class="credit-playbook-filter">
                         <label class="filter-label" for="credit-playbook-symbol-filter">Symbol</label>
                         <input type="search" id="credit-playbook-symbol-filter" class="form-control" placeholder="Filter ticker...">
                     </div>
+                    <div class="credit-playbook-filter credit-playbook-filter--strategy">
+                        <select id="credit-playbook-strategy-filter" class="sr-only" multiple size="6" aria-hidden="true" tabindex="-1">
+                            <option value="">All Strategies</option>
+                        </select>
+                        <div class="filter-chip-group" role="group" aria-label="Filter by strategy">
+                            <span class="filter-chip-group__label">Strategy</span>
+                            <div class="filter-chips" id="credit-playbook-strategy-chips"></div>
+                        </div>
+                    </div>
                 </section>
+
+                <div class="credit-playbook-table-toolbar" aria-label="Credit Playbook quote actions">
+                    <div class="credit-playbook-table-summary">
+                        <span class="credit-playbook-table-summary__label" id="credit-playbook-refresh-status">Automatic quote refresh</span>
+                        <span class="credit-playbook-table-summary__detail" id="credit-playbook-refresh-detail">One position at a time · 5-minute pause after a full pass</span>
+                    </div>
+                    <div class="credit-playbook-refresh-control">
+                        <button type="button" class="btn btn--sm btn--secondary" id="credit-playbook-refresh-quotes" aria-label="Refresh Credit Playbook market data" title="Refresh current stock and option quotes from Schwab when connected; otherwise refresh the next underlying quote">
+                            ↻ Refresh quotes
+                        </button>
+                    </div>
+                </div>
 
                 <div class="credit-playbook-table-container">
                     <div id="credit-playbook-table" class="credit-playbook-grid ag-theme-quartz" aria-label="Credit playbook positions"></div>
@@ -804,6 +788,51 @@
                         <h2>Integration Settings</h2>
                         <p>Manage live data connections and other preferences that stay on this device.</p>
                     </header>
+                    <div class="settings-card" id="schwab-controls">
+                        <div class="settings-card__header">
+                            <h3>Charles Schwab Market Data</h3>
+                            <p class="settings-card__subtitle">Current underlying, call, put, and multi-leg spread prices. Credentials and tokens are encrypted in this browser.</p>
+                        </div>
+                        <div class="settings-card__body">
+                            <div id="schwab-setup" class="schwab-form-grid">
+                                <label class="form-label" for="schwab-client-id">Client ID</label>
+                                <input id="schwab-client-id" class="form-control" type="text" autocomplete="off">
+                                <label class="form-label" for="schwab-client-secret">Client secret</label>
+                                <input id="schwab-client-secret" class="form-control" type="password" autocomplete="new-password">
+                                <label class="form-label" for="schwab-callback-url">Registered callback URL</label>
+                                <input id="schwab-callback-url" class="form-control" type="url" autocomplete="off">
+                                <label class="form-label" for="schwab-passphrase">Vault passphrase</label>
+                                <input id="schwab-passphrase" class="form-control" type="password" minlength="12" autocomplete="new-password">
+                                <label class="form-label" for="schwab-passphrase-confirm">Confirm passphrase</label>
+                                <input id="schwab-passphrase-confirm" class="form-control" type="password" minlength="12" autocomplete="new-password">
+                                <button class="btn btn--sm btn--primary" id="schwab-save-vault" type="button">Create encrypted vault</button>
+                            </div>
+                            <div id="schwab-actions" hidden>
+                                <div class="settings-input-row">
+                                    <input id="schwab-unlock-passphrase" class="form-control" type="password" placeholder="Vault passphrase" autocomplete="current-password">
+                                    <button class="btn btn--sm btn--primary" id="schwab-unlock" type="button">Unlock</button>
+                                    <button class="btn btn--sm btn--secondary" id="schwab-lock" type="button">Lock Schwab</button>
+                                </div>
+                                <div class="settings-divider"></div>
+                                <div class="settings-input-row">
+                                    <button class="btn btn--sm btn--primary" id="schwab-authorize" type="button">1. Authorize Schwab</button>
+                                    <input id="schwab-callback-paste" class="form-control" type="url" placeholder="2. Paste the full callback URL" autocomplete="off">
+                                    <button class="btn btn--sm btn--secondary" id="schwab-complete-auth" type="button">3. Complete authorization</button>
+                                </div>
+                                <div class="settings-divider"></div>
+                                <label class="schwab-toggle" for="schwab-auto-refresh">
+                                    <input id="schwab-auto-refresh" type="checkbox">
+                                    <span>Automatically refresh every five minutes during regular US market hours</span>
+                                </label>
+                                <div class="settings-input-row">
+                                    <button class="btn btn--sm btn--primary" id="schwab-refresh" type="button">Refresh current prices</button>
+                                    <button class="btn btn--sm btn--secondary" id="schwab-reset" type="button">Reset Schwab connection</button>
+                                </div>
+                            </div>
+                            <p class="settings-help-text">Current quotes never replace recorded fill prices. Greeks and historical reconstruction are not included in Phase 1.</p>
+                            <div class="schwab-status" id="schwab-status" role="status">Not configured</div>
+                        </div>
+                    </div>
                     <div class="settings-card" id="finnhub-controls">
                         <div class="settings-card__header">
                             <h3>Finnhub API Key</h3>
