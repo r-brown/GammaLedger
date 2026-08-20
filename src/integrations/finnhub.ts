@@ -687,41 +687,53 @@ export function refreshAssignedPositionsQuotes(this: any, { force = false, immed
         return;
     }
 
-    // Find one entry to refresh, prioritizing entries without prices or with errors
-    let entryToRefresh: AnyRecord | null = null;
-    let keyToRefresh: string | null = null;
-
-    // First pass: look for high-priority entries (no price yet, errors, rate-limited)
+    // Table rebuilds replace assignedPositionsQuoteEntries with a fresh Map on
+    // every quote update (see updateAssignedPositionsTable), which resets every
+    // cell back to "no price". Without a cursor that survives that replacement,
+    // scanning from the start of the Map on every call re-selects row 1 (or 2)
+    // forever and rows further down are never reached — persist the cursor on
+    // `this` (like quoteRefreshCursor/creditPlaybookQuoteCursor) instead.
+    const entries: Array<[string, AnyRecord]> = [];
     for (const [key, entry] of this.assignedPositionsQuoteEntries.entries()) {
         if (!entry || !entry.key) {
             this.assignedPositionsQuoteEntries.delete(key);
             continue;
         }
+        entries.push([key, entry]);
+    }
 
-        // Check if this entry needs a price (no market value displayed or shows error)
+    if (entries.length === 0) {
+        return;
+    }
+
+    if (!Number.isInteger(this.assignedPositionsQuoteCursor)) {
+        this.assignedPositionsQuoteCursor = 0;
+    }
+
+    const hasNoPrice = (entry: AnyRecord) => {
         const marketValueText = entry.marketValueCell?.textContent || '';
-        const hasNoPrice = !marketValueText || marketValueText === '—' || marketValueText === 'Loading…';
+        return !marketValueText || marketValueText === '—' || marketValueText === 'Loading…';
+    };
 
-        if (hasNoPrice) {
-            entryToRefresh = entry;
-            keyToRefresh = key;
+    const startIndex = this.assignedPositionsQuoteCursor % entries.length;
+    let selectedIndex = -1;
+
+    // First pass: look for the next high-priority entry (no price yet, errors, rate-limited)
+    for (let offset = 0; offset < entries.length; offset += 1) {
+        const index = (startIndex + offset) % entries.length;
+        if (hasNoPrice(entries[index][1])) {
+            selectedIndex = index;
             break;
         }
     }
 
-    // Second pass: if no high-priority entry found, take any entry for refresh
-    if (!entryToRefresh) {
-        for (const [key, entry] of this.assignedPositionsQuoteEntries.entries()) {
-            if (!entry || !entry.key) {
-                this.assignedPositionsQuoteEntries.delete(key);
-                continue;
-            }
-
-            entryToRefresh = entry;
-            keyToRefresh = key;
-            break;
-        }
+    // Second pass: if every entry already has a price, just take the next one in rotation
+    if (selectedIndex === -1) {
+        selectedIndex = startIndex;
     }
+
+    const [keyToRefresh, entryToRefresh] = entries[selectedIndex];
+    this.assignedPositionsQuoteCursor = (selectedIndex + 1) % entries.length;
 
     // Process one entry per refresh cycle
     if (entryToRefresh) {

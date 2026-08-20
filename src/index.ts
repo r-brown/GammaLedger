@@ -180,6 +180,7 @@ class GammaLedger {
     declare autoRefreshIntervalMs: number
     declare quoteRefreshKeys: string[]
     declare quoteRefreshCursor: number
+    declare assignedPositionsQuoteCursor: number
     declare earningsMap: Map<string, import('./types/integrations.js').EarningsCalendarEntry>
     declare dividendMap: Map<string, import('./types/integrations.js').DividendCalendarEntry>
     declare metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
@@ -347,6 +348,7 @@ class GammaLedger {
         this.autoRefreshIntervalMs = this.computeAutoRefreshInterval();
         this.quoteRefreshKeys = [];
         this.quoteRefreshCursor = 0;
+        this.assignedPositionsQuoteCursor = 0;
 
         this.positionHighlightConfig = {
             expirationWarningDays: 20,
