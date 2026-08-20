@@ -925,20 +925,44 @@ export function determineTradeLifecycleStatus(
         });
     }
 
+    const now: Date = this.currentDate instanceof Date ? this.currentDate : new Date();
+
+    // A contract that reached its expiration without an explicit closing leg is
+    // terminated, not live exposure. Split the two apart so a wing the user let
+    // run out (e.g. the long put of a spread that expired worthless months ago)
+    // can't pin an otherwise-flat trade in "Rolling" forever.
+    const contractExpired = (lifecycleKey: string): boolean => {
+        const expiration = lifecycleKey.split('|')[2] || '';
+        const expDate = expiration ? this.parseDateValue(expiration) : null;
+        if (!expDate) return false;
+        return now.getTime() > Date.UTC(
+            expDate.getUTCFullYear(), expDate.getUTCMonth(), expDate.getUTCDate(), 21, 0, 0
+        );
+    };
+
     let matchedPairs = 0;
     let allPairsMatched = true;
     let unmatchedExposure = 0;
+    let liveUnmatchedExposure = 0;
+    let lastExpiredExposureDate = '';
 
-    pairMap.forEach((bucket) => {
+    pairMap.forEach((bucket, key) => {
         const longDiff = Math.abs(bucket.longOpen - bucket.longClose);
         const shortDiff = Math.abs(bucket.shortOpen - bucket.shortClose);
         matchedPairs += Math.min(bucket.longOpen, bucket.longClose) + Math.min(bucket.shortOpen, bucket.shortClose);
-        if (longDiff > 0 || shortDiff > 0) allPairsMatched = false;
-        unmatchedExposure += longDiff + shortDiff;
+        const diff = longDiff + shortDiff;
+        if (diff <= 0) return;
+        allPairsMatched = false;
+        unmatchedExposure += diff;
+        if (contractExpired(key)) {
+            const expiration = key.split('|')[2] || '';
+            if (expiration > lastExpiredExposureDate) lastExpiredExposureDate = expiration;
+        } else {
+            liveUnmatchedExposure += diff;
+        }
     });
 
     const expirationDate = this.parseDateValue((trade.expirationDate as string) || summary.latestExpiration);
-    const now = this.currentDate instanceof Date ? this.currentDate : new Date();
     const expirationWithMarketClose = expirationDate
         ? new Date(Date.UTC(
             expirationDate.getUTCFullYear(), expirationDate.getUTCMonth(), expirationDate.getUTCDate(), 21, 0, 0
@@ -1037,6 +1061,31 @@ export function determineTradeLifecycleStatus(
         result.openContractsOverride = 0;
         if (expirationDate) {
             result.effectiveClosedDate = expirationDate.toISOString().slice(0, 10);
+        }
+        return result;
+    }
+
+    // Every unmatched contract has already expired — there is nothing left to
+    // roll or mark to market, so terminate rather than falling through to
+    // "Rolling". Label it by whichever event flattened the position last: an
+    // expiration that outlived the final closing fill means the trade expired,
+    // otherwise the closing fill is what ended it.
+    if (liveUnmatchedExposure === 0 && !hasOpenStockPosition && !hasAssignmentEvent) {
+        const lastExpiredDate = lastExpiredExposureDate ? this.parseDateValue(lastExpiredExposureDate) : null;
+        const expiredLast = lastExpiredDate
+            ? !lastActivityDate || lastExpiredDate.getTime() > lastActivityDate.getTime()
+            : false;
+        result.openContractsOverride = 0;
+        if (expiredLast) {
+            result.status = 'Expired';
+            result.exitReason = ((trade.exitReason as string) || 'Expired OTM') as ExitReason;
+            result.effectiveClosedDate = result.effectiveClosedDate || lastExpiredExposureDate;
+        } else {
+            result.status = 'Closed';
+            result.exitReason = ((trade.exitReason as string) || null) as ExitReason;
+            if (!result.effectiveClosedDate && lastActivityDate) {
+                result.effectiveClosedDate = lastActivityDate.toISOString().slice(0, 10);
+            }
         }
         return result;
     }
