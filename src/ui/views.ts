@@ -52,6 +52,15 @@ export function showView(this: ViewsContext, viewName: string): void {
         this.stopQuoteAutoRefresh();
     }
 
+    // Leaving an in-progress edit via any nav item other than Cancel/Save must
+    // still drop the edit session — otherwise the next "add-trade" entry sees a
+    // stale currentEditingId and skips resetAddTradeForm() below, resurrecting
+    // the previous trade's prefilled data.
+    if (this.currentView === 'add-trade' && viewName !== 'add-trade' && this.currentEditingId) {
+        this.currentEditingId = null;
+        this.currentEditingTrade = null;
+    }
+
     // Update navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
