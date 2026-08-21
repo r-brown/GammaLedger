@@ -1,4 +1,5 @@
 import type { DollarAmount, GeminiModel, ToastVariant } from './common'
+import type { RequestScheduler } from '../integrations/request-scheduler'
 
 export interface SchwabVaultPayload {
   clientId: string
@@ -127,8 +128,12 @@ export interface FinnhubState {
   /** In-flight requests keyed by request key. */
   outstandingRequests: Map<string, Promise<NormalizedQuote>>
 
-  /** Rate-limiter queue promise chain. */
-  rateLimitQueue: Promise<unknown>
+  /**
+   * Shared request governor for every outbound Finnhub call: priority queue,
+   * sliding-window rate limiter, bounded concurrency, per-request abort
+   * deadline, and scope cancellation. Created lazily by getRequestScheduler().
+   */
+  scheduler: RequestScheduler | null
 
   /** Maximum requests allowed per minute. */
   maxRequestsPerMinute: number

@@ -61,7 +61,7 @@ interface AssignedPositionsContext extends PositionDetailPanelContext {
   getQuoteEntryKey(trade: TradeRecord): string
   rebuildQuoteRefreshSchedule(): void
   startQuoteAutoRefreshIfNeeded(): void
-  refreshAssignedPositionsQuotes(opts: { immediate: boolean }): void
+  refreshAssignedPositionsQuotes(opts: { force?: boolean; immediate?: boolean; prime?: boolean }): void
   updateAssignedPositionMetrics(entry: Record<string, unknown>, quote: Record<string, unknown>): void
 }
 
@@ -631,7 +631,7 @@ export function updateAssignedPositionsTable(this: AssignedPositionsContext): vo
         });
         this.rebuildQuoteRefreshSchedule();
         this.startQuoteAutoRefreshIfNeeded();
-        this.refreshAssignedPositionsQuotes({ immediate: true });
+        this.refreshAssignedPositionsQuotes({ prime: true });
     }
 }
 

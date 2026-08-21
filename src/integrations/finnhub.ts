@@ -7,9 +7,138 @@ import {
     FINNHUB_SECRET_STORAGE_KEY,
     FINNHUB_STORAGE_KEY
 } from '@core/config'
+import {
+    createRequestScheduler,
+    isCancelledError,
+    PRIORITY,
+    type RequestScheduler
+} from './request-scheduler'
 
 type AnyRecord = Record<string, any>
 const CREDIT_PLAYBOOK_QUOTE_CYCLE_PAUSE_MS = 5 * 60 * 1000;
+
+/**
+ * Cancellation groups for outbound Finnhub work. Every request carries one so
+ * that switching away from a view can drop the requests that view asked for —
+ * the free tier is 60 calls/minute and a hidden table must not spend them.
+ */
+export const QUOTE_SCOPE = {
+    ACTIVE_POSITIONS: 'active-positions',
+    ASSIGNED_POSITIONS: 'assigned-positions',
+    CREDIT_PLAYBOOK: 'credit-playbook',
+    WATCHLIST: 'watchlist',
+    /** User-initiated and view-independent (form lookups, expanded row detail). */
+    MANUAL: 'manual',
+    /** Background enrichment: earnings, metrics, profiles, market status. */
+    ENRICHMENT: 'enrichment'
+} as const;
+
+export type QuoteScope = typeof QUOTE_SCOPE[keyof typeof QUOTE_SCOPE];
+
+/** Which view has to be open for a scope's requests to be worth spending on. */
+const SCOPE_REQUIRED_VIEW: Record<string, string> = {
+    [QUOTE_SCOPE.ACTIVE_POSITIONS]: 'dashboard',
+    [QUOTE_SCOPE.ASSIGNED_POSITIONS]: 'dashboard',
+    [QUOTE_SCOPE.CREDIT_PLAYBOOK]: 'credit-playbook',
+    [QUOTE_SCOPE.WATCHLIST]: 'watchlist'
+};
+
+/** Scopes that are cancelled when their view closes, in cancellation order. */
+const VIEW_BOUND_SCOPES: string[] = Object.keys(SCOPE_REQUIRED_VIEW);
+
+/**
+ * True when `scope`'s view is on screen. MANUAL and ENRICHMENT are never
+ * view-bound: the user asked for those directly, or they feed data the whole
+ * app reads from cache.
+ */
+export function isQuoteScopeVisible(this: any, scope: string): boolean {
+    const requiredView = SCOPE_REQUIRED_VIEW[scope];
+    if (!requiredView) return true;
+    return this.currentView === requiredView;
+}
+
+/**
+ * The shared request governor: priority queue + sliding-window rate limiter +
+ * bounded concurrency + per-request timeout. Created lazily so existing
+ * constructor wiring stays untouched, and re-synced with the user's configured
+ * rate limit on every access (it is the single source of truth for the budget).
+ */
+export function getRequestScheduler(this: any): RequestScheduler {
+    if (!this.finnhub.scheduler) {
+        this.finnhub.scheduler = createRequestScheduler({
+            maxConcurrent: 4,
+            requestTimeoutMs: 10_000,
+            maxRetries: 1,
+            retryDelayMs: 750,
+            maxRequestsPerWindow: Number(this.finnhub.maxRequestsPerMinute) || DEFAULT_FINNHUB_RATE_LIMIT
+        });
+    } else {
+        this.finnhub.scheduler.setRateLimit(
+            Number(this.finnhub.maxRequestsPerMinute) || DEFAULT_FINNHUB_RATE_LIMIT
+        );
+    }
+    return this.finnhub.scheduler as RequestScheduler;
+}
+
+/**
+ * Cancels every view-bound scope that is not currently on screen, then primes
+ * the one that is. Called on each view switch: queued work for the view the
+ * user just left is dropped and its in-flight fetches aborted, so the newly
+ * opened view gets the whole per-minute budget immediately.
+ */
+export function syncQuoteScopesToActiveView(this: any): void {
+    const scheduler: RequestScheduler = getRequestScheduler.call(this);
+    VIEW_BOUND_SCOPES.forEach((scope) => {
+        if (!isQuoteScopeVisible.call(this, scope)) scheduler.cancelScope(scope);
+    });
+
+    if (this.currentView === 'dashboard') {
+        this.refreshActivePositionsQuotes({ prime: true });
+        this.refreshAssignedPositionsQuotes({ prime: true });
+    } else if (this.currentView === 'credit-playbook') {
+        this.refreshCreditPlaybookQuotes({ prime: true });
+    }
+}
+
+/**
+ * Runs one Finnhub HTTP call under the scheduler: rate-limited, capped in
+ * concurrency, aborted if it stalls, and cancellable by scope. `key` dedupes
+ * concurrent callers asking for the same thing.
+ */
+export function scheduleFinnhubRequest<T>(
+    this: any,
+    key: string,
+    scope: string,
+    priority: number,
+    run: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
+    const scheduler: RequestScheduler = getRequestScheduler.call(this);
+    return scheduler.submit<T>({ key, scope, priority, run });
+}
+
+/**
+ * Shared transport for the non-quote endpoints. Wrapping them in the scheduler
+ * keeps the rate-limit budget honest (they draw on the same 60/minute) and,
+ * more importantly, gives every one of them the abort deadline they previously
+ * lacked — an untimed fetch here used to hang forever with no way out.
+ */
+async function fetchFinnhubJson(
+    this: any,
+    url: string,
+    key: string,
+    scope: string,
+    priority: number
+): Promise<unknown> {
+    return scheduleFinnhubRequest.call(this, key, scope, priority, async (signal: AbortSignal) => {
+        const response = await fetch(url, { cache: 'no-store', signal });
+        if (!response.ok) {
+            throw new Error(response.status === 429
+                ? 'Finnhub rate limit exceeded. Please wait.'
+                : `Finnhub API error (${response.status})`);
+        }
+        return response.json();
+    });
+}
 
 interface FinnhubQuotePayload {
     c: number
@@ -404,7 +533,15 @@ export async function encryptAndStoreFinnhubApiKey(this: any, cryptoApi = this.g
     }
 }
 
-export async function getCurrentPrice(this: any, ticker: string, { forceRefresh = false }: { forceRefresh?: boolean } = {}) {
+export async function getCurrentPrice(
+    this: any,
+    ticker: string,
+    {
+        forceRefresh = false,
+        scope = QUOTE_SCOPE.MANUAL,
+        priority = PRIORITY.VISIBLE_EMPTY
+    }: { forceRefresh?: boolean; scope?: string; priority?: number } = {}
+) {
     const symbol = (ticker || '').toString().trim().toUpperCase();
     if (!symbol) {
         throw new Error('Invalid symbol');
@@ -461,14 +598,18 @@ export async function getCurrentPrice(this: any, ticker: string, { forceRefresh 
         return existing;
     }
 
-    const request = this.enqueueFinnhubRequest(symbol)
+    const request = this.enqueueFinnhubRequest(symbol, { scope, priority })
         .then((result: AnyRecord) => {
             this.setCachedQuote(symbol, result);
             return result;
         })
         .catch((error: unknown) => {
-            const message = error instanceof Error ? error.message : 'Failed to load quote.';
-            this.updateFinnhubStatus(message || 'Failed to load quote.', 'error', 7000);
+            // A scope cancellation (view switch) is routine housekeeping, not a
+            // failure the user needs to read about.
+            if (!isCancelledError(error)) {
+                const message = error instanceof Error ? error.message : 'Failed to load quote.';
+                this.updateFinnhubStatus(message || 'Failed to load quote.', 'error', 7000);
+            }
             throw error;
         })
         .finally(() => {
@@ -613,6 +754,10 @@ export function stopQuoteAutoRefresh(this: any) {
 }
 
 export function restartQuoteRefreshWithNewRate(this: any) {
+    // The scheduler owns the per-minute budget — keep it in step with the
+    // user's new setting before recomputing the polling cadence.
+    getRequestScheduler.call(this);
+
     // Force recalculation of the refresh interval
     this.autoRefreshIntervalMs = this.computeAutoRefreshInterval();
     
@@ -629,11 +774,91 @@ export function restartQuoteRefreshWithNewRate(this: any) {
     }
 }
 
-export function refreshActivePositionsQuotes(this: any, { force = false, immediate = false }: { force?: boolean; immediate?: boolean } = {}) {
+/**
+ * Enqueues every entry of a scope that has no price yet, letting the scheduler's
+ * pool and rate limiter govern the pace. This is the "fill the table now" path
+ * used on table build and view activation.
+ *
+ * WHY NOT force: a rebuild re-renders rows that already hold a fresh cached
+ * quote. Priming respects the cache, so a rebuild costs zero API calls for the
+ * tickers it already knows and spends the budget only on genuinely empty cells.
+ */
+/**
+ * Fetches one entry's quote. Renders straight into the entry's cell when that
+ * cell is on screen; otherwise still fetches, which warms the shared quote cache
+ * and updates the live trade snapshot.
+ *
+ * WHY THE CELL IS OPTIONAL: AG Grid virtualises columns, so a table wide enough
+ * to push its price column out of the viewport never instantiates those cells.
+ * Tying the fetch to the cell meant such a table silently showed no prices at
+ * all — and the value is wanted regardless, because it feeds P&L snapshots and
+ * must be there the moment the column scrolls into view.
+ */
+function refreshQuoteEntry(
+    this: any,
+    entry: AnyRecord,
+    scope: string,
+    { force = false, priority }: { force?: boolean; priority?: number } = {}
+): boolean {
+    const ticker = (entry?.trade?.ticker || '').toString().trim().toUpperCase();
+    if (!ticker) return false;
+
+    const cell = entry.cell as HTMLElement | null;
+    if (cell?.isConnected) {
+        const hasPrice = cell.dataset.priceState === 'ready';
+        this.populateQuoteCell(cell, entry.trade, entry.row, {
+            forceRefresh: force,
+            silentIfCached: !force,
+            suppressLoadingText: hasPrice,
+            scope,
+            priority: priority ?? (hasPrice ? PRIORITY.VISIBLE_REFRESH : PRIORITY.VISIBLE_EMPTY)
+        });
+        return true;
+    }
+
+    if (!force && this.getCachedQuote(ticker)) return true;
+    this.getCurrentPrice(ticker, {
+        forceRefresh: force,
+        scope,
+        priority: priority ?? PRIORITY.VISIBLE_EMPTY
+    }).catch(() => undefined);
+    return true;
+}
+
+function primeQuoteEntries(
+    this: any,
+    entries: Map<string, AnyRecord> | undefined,
+    scope: string
+): void {
+    if (!(entries instanceof Map) || entries.size === 0) return;
+    if (!isQuoteScopeVisible.call(this, scope)) return;
+
+    for (const [key, entry] of [...entries.entries()]) {
+        const cell = entry?.cell as HTMLElement | null | undefined;
+        // A detached cell means the column is not rendered right now, not that
+        // the row is gone — clear the stale element and keep fetching.
+        if (cell && !cell.isConnected) entry.cell = null;
+        if (!refreshQuoteEntry.call(this, entry, scope)) {
+            entries.delete(key);
+        }
+    }
+}
+
+export function refreshActivePositionsQuotes(this: any, { force = false, immediate = false, prime = false }: { force?: boolean; immediate?: boolean; prime?: boolean } = {}) {
     // Process ONE Active Positions quote per call to respect rate limits
     // Called by unified auto-refresh timer that alternates between tables
     if (!(this.activeQuoteEntries instanceof Map) || this.activeQuoteEntries.size === 0) {
         this.stopQuoteAutoRefresh();
+        return;
+    }
+
+    // Dashboard is not on screen — its rows are stale DOM behind another view.
+    if (!isQuoteScopeVisible.call(this, QUOTE_SCOPE.ACTIVE_POSITIONS)) {
+        return;
+    }
+
+    if (prime) {
+        primeQuoteEntries.call(this, this.activeQuoteEntries, QUOTE_SCOPE.ACTIVE_POSITIONS);
         return;
     }
 
@@ -670,7 +895,9 @@ export function refreshActivePositionsQuotes(this: any, { force = false, immedia
         this.populateQuoteCell(entry.cell, entry.trade, entry.row, {
             forceRefresh: force,
             silentIfCached: !force,
-            suppressLoadingText: !immediate
+            suppressLoadingText: !immediate,
+            scope: QUOTE_SCOPE.ACTIVE_POSITIONS,
+            priority: PRIORITY.VISIBLE_REFRESH
         });
         return;
     }
@@ -680,10 +907,14 @@ export function refreshActivePositionsQuotes(this: any, { force = false, immedia
     }
 }
 
-export function refreshAssignedPositionsQuotes(this: any, { force = false, immediate = false }: { force?: boolean; immediate?: boolean } = {}) {
+export function refreshAssignedPositionsQuotes(this: any, { force = false, immediate = false, prime = false }: { force?: boolean; immediate?: boolean; prime?: boolean } = {}) {
     // Process ONE Assigned Positions quote per call to respect rate limits
     // Called by unified auto-refresh timer that alternates between tables
     if (!(this.assignedPositionsQuoteEntries instanceof Map) || this.assignedPositionsQuoteEntries.size === 0) {
+        return;
+    }
+
+    if (!isQuoteScopeVisible.call(this, QUOTE_SCOPE.ASSIGNED_POSITIONS)) {
         return;
     }
 
@@ -715,6 +946,14 @@ export function refreshAssignedPositionsQuotes(this: any, { force = false, immed
         return !marketValueText || marketValueText === '—' || marketValueText === 'Loading…';
     };
 
+    if (prime) {
+        entries.forEach(([, entry]) => {
+            if (!hasNoPrice(entry)) return;
+            fetchAssignedPositionQuote.call(this, entry, false, PRIORITY.VISIBLE_EMPTY);
+        });
+        return;
+    }
+
     const startIndex = this.assignedPositionsQuoteCursor % entries.length;
     let selectedIndex = -1;
 
@@ -737,31 +976,50 @@ export function refreshAssignedPositionsQuotes(this: any, { force = false, immed
 
     // Process one entry per refresh cycle
     if (entryToRefresh) {
-        const ticker = (entryToRefresh.trade?.ticker || '').toString().trim().toUpperCase();
-        if (!ticker) {
+        if (!fetchAssignedPositionQuote.call(this, entryToRefresh, force, PRIORITY.VISIBLE_REFRESH)) {
             this.assignedPositionsQuoteEntries.delete(keyToRefresh);
-            return;
         }
-
-        this.getCurrentPrice(ticker, { forceRefresh: force })
-            .then((quote: AnyRecord) => {
-                updateLiveTradeSnapshotFromQuote.call(this, entryToRefresh.trade, quote);
-                this.updateAssignedPositionMetrics(entryToRefresh, quote);
-            })
-            .catch((_error: unknown) => {
-                // Mark as needing refresh on next cycle
-                if (entryToRefresh.currentPriceCell) {
-                    entryToRefresh.currentPriceCell.textContent = '—';
-                }
-                if (entryToRefresh.marketValueCell) {
-                    entryToRefresh.marketValueCell.textContent = '—';
-                }
-                if (entryToRefresh.unrealizedGLCell) {
-                    entryToRefresh.unrealizedGLCell.textContent = '—';
-                    entryToRefresh.unrealizedGLCell.classList.remove('pl-positive', 'pl-negative', 'pl-neutral');
-                }
-            });
     }
+}
+
+/**
+ * Fetches one assigned-position quote and pushes it into that row's metric
+ * cells. Returns false when the entry has no usable ticker (caller drops it).
+ */
+function fetchAssignedPositionQuote(
+    this: any,
+    entry: AnyRecord,
+    force: boolean,
+    priority: number
+): boolean {
+    const ticker = (entry.trade?.ticker || '').toString().trim().toUpperCase();
+    if (!ticker) return false;
+
+    this.getCurrentPrice(ticker, {
+        forceRefresh: force,
+        scope: QUOTE_SCOPE.ASSIGNED_POSITIONS,
+        priority
+    })
+        .then((quote: AnyRecord) => {
+            updateLiveTradeSnapshotFromQuote.call(this, entry.trade, quote);
+            this.updateAssignedPositionMetrics(entry, quote);
+        })
+        .catch((error: unknown) => {
+            // A view switch cancelled this — keep whatever the row already shows.
+            if (isCancelledError(error)) return;
+            // Mark as needing refresh on next cycle
+            if (entry.currentPriceCell) {
+                entry.currentPriceCell.textContent = '—';
+            }
+            if (entry.marketValueCell) {
+                entry.marketValueCell.textContent = '—';
+            }
+            if (entry.unrealizedGLCell) {
+                entry.unrealizedGLCell.textContent = '—';
+                entry.unrealizedGLCell.classList.remove('pl-positive', 'pl-negative', 'pl-neutral');
+            }
+        });
+    return true;
 }
 
 function updateLiveTradeSnapshotFromQuote(this: any, quoteTrade: AnyRecord, quote: AnyRecord): void {
@@ -851,10 +1109,19 @@ function updateLiveTradeSnapshotFromQuote(this: any, quoteTrade: AnyRecord, quot
     }, 0);
 }
 
-export function refreshCreditPlaybookQuotes(this: any, { force = false, immediate = false, manual = false }: { force?: boolean; immediate?: boolean; manual?: boolean } = {}) {
+export function refreshCreditPlaybookQuotes(this: any, { force = false, immediate = false, manual = false, prime = false }: { force?: boolean; immediate?: boolean; manual?: boolean; prime?: boolean } = {}) {
     // Process ONE Credit Playbook quote per call to respect rate limits
     // Called by unified auto-refresh timer that alternates between tables
     if (!(this.creditPlaybookQuoteEntries instanceof Map) || this.creditPlaybookQuoteEntries.size === 0) {
+        return;
+    }
+
+    if (!isQuoteScopeVisible.call(this, QUOTE_SCOPE.CREDIT_PLAYBOOK)) {
+        return;
+    }
+
+    if (prime) {
+        primeQuoteEntries.call(this, this.creditPlaybookQuoteEntries, QUOTE_SCOPE.CREDIT_PLAYBOOK);
         return;
     }
 
@@ -874,14 +1141,18 @@ export function refreshCreditPlaybookQuotes(this: any, { force = false, immediat
         this.syncCreditPlaybookQuoteRefreshStatus();
     }
 
-    // Find one entry to refresh, prioritizing by state
+    // Find one entry to refresh, prioritizing by state. An entry whose cell is
+    // absent or detached is kept: that only means AG Grid has not rendered the
+    // Current Price column (it is virtualised out at normal window widths), and
+    // the quote is still wanted for the cache and the P&L snapshot.
     const entries: Array<[string, AnyRecord]> = [];
     for (const [key, entry] of this.creditPlaybookQuoteEntries.entries()) {
-        if (!entry || !entry.cell?.isConnected) {
+        if (!entry || !entry.trade?.ticker) {
             this.creditPlaybookQuoteEntries.delete(key);
             this.creditPlaybookQuoteCycleKeys.delete(key);
             continue;
         }
+        if (entry.cell && !entry.cell.isConnected) entry.cell = null;
         entries.push([key, entry]);
     }
 
@@ -910,6 +1181,10 @@ export function refreshCreditPlaybookQuotes(this: any, { force = false, immediat
     };
 
     let selected = findEntry((entry) => {
+        // No cell rendered → judge by the cache instead of the DOM.
+        if (!entry.cell) {
+            return !this.getCachedQuote((entry.trade?.ticker || '').toString().trim().toUpperCase());
+        }
         const state = entry.cell?.dataset?.priceState;
         return !state || state === 'idle' || state === 'error' || state === 'loading' || state === 'refreshing';
     });
@@ -942,10 +1217,9 @@ export function refreshCreditPlaybookQuotes(this: any, { force = false, immediat
     }
 
     // Process one entry per refresh cycle
-    this.populateQuoteCell(entryToRefresh.cell, entryToRefresh.trade, entryToRefresh.row, {
-        forceRefresh: force,
-        silentIfCached: !force,
-        suppressLoadingText: !immediate
+    refreshQuoteEntry.call(this, entryToRefresh, QUOTE_SCOPE.CREDIT_PLAYBOOK, {
+        force,
+        priority: PRIORITY.VISIBLE_REFRESH
     });
 
     // Stop auto-refresh if no more entries
@@ -954,12 +1228,14 @@ export function refreshCreditPlaybookQuotes(this: any, { force = false, immediat
     }
 }
 
-export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: AnyRecord, row: HTMLElement | null, options: { forceRefresh?: boolean; deferNetworkFetch?: boolean; silentIfCached?: boolean; suppressLoadingText?: boolean } = {}) {
+export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: AnyRecord, row: HTMLElement | null, options: { forceRefresh?: boolean; deferNetworkFetch?: boolean; silentIfCached?: boolean; suppressLoadingText?: boolean; scope?: string; priority?: number } = {}) {
     const {
         forceRefresh = false,
         deferNetworkFetch = false,
         silentIfCached = false,
-        suppressLoadingText = false
+        suppressLoadingText = false,
+        scope = QUOTE_SCOPE.MANUAL,
+        priority = PRIORITY.VISIBLE_EMPTY
     } = options;
     if (!cell) {
         return;
@@ -1009,7 +1285,14 @@ export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: An
         return;
     }
 
-    this.getCurrentPrice(ticker, { forceRefresh })
+    // Hidden views never spend the per-minute budget. Anything cached above has
+    // already rendered; the rest waits until the view is opened and primed.
+    if (!isQuoteScopeVisible.call(this, scope)) {
+        cell.dataset.priceState = 'idle';
+        return;
+    }
+
+    this.getCurrentPrice(ticker, { forceRefresh, scope, priority })
         .then((quote: AnyRecord) => {
             if (!cell.isConnected) {
                 return;
@@ -1018,6 +1301,12 @@ export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: An
         })
         .catch((error: unknown) => {
             if (!cell.isConnected) {
+                return;
+            }
+            // Cancelled by a view switch — leave the cell as-is so it does not
+            // flash an error the user never caused.
+            if (isCancelledError(error)) {
+                if (cell.dataset.priceState !== 'ready') cell.dataset.priceState = 'idle';
                 return;
             }
             const message = this.getQuoteErrorMessage(error);
@@ -1211,30 +1500,44 @@ export function setCachedQuote(this: any, ticker: string, value: AnyRecord) {
     });
 }
 
-export function enqueueFinnhubRequest(this: any, symbol: string) {
-    const execute = () => this.performFinnhubFetch(symbol);
-    const chain = this.finnhub.rateLimitQueue
-        .catch(() => undefined)
-        .then(execute);
-
-    this.finnhub.rateLimitQueue = chain
-        .then(() => undefined)
-        .catch(() => undefined);
-
-    return chain;
+/**
+ * Queues one quote fetch on the shared scheduler.
+ *
+ * WHY NOT A PROMISE CHAIN: this used to append every request to a single
+ * `finnhub.rateLimitQueue` promise whose head awaited an untimed `fetch()`.
+ * One stalled connection therefore blocked every quote in the app forever —
+ * cells sat at "Loading…" and no further request was ever issued. The
+ * scheduler bounds each request with an abort deadline and keeps the other
+ * pool lanes draining.
+ */
+export function enqueueFinnhubRequest(
+    this: any,
+    symbol: string,
+    { scope = QUOTE_SCOPE.MANUAL, priority = PRIORITY.VISIBLE_EMPTY }: { scope?: string; priority?: number } = {}
+) {
+    return scheduleFinnhubRequest.call(
+        this,
+        `quote:${symbol}`,
+        scope,
+        priority,
+        (signal: AbortSignal) => this.performFinnhubFetch(symbol, signal)
+    );
 }
 
-export async function performFinnhubFetch(this: any, symbol: string) {
-    await this.enforceFinnhubRateLimit();
-
+export async function performFinnhubFetch(this: any, symbol: string, signal?: AbortSignal) {
     const url = new URL('https://finnhub.io/api/v1/quote');
     url.searchParams.set('symbol', symbol);
     url.searchParams.set('token', String(this.finnhub.apiKey || ''));
 
     let response: Response;
     try {
-        response = await fetch(url.toString(), { cache: 'no-store' });
+        response = await fetch(url.toString(), { cache: 'no-store', signal });
     } catch (error) {
+        // Re-throw abort/timeout unchanged so the scheduler can retry or the
+        // caller can tell cancellation apart from a genuine network failure.
+        if ((error as { name?: string })?.name === 'AbortError' || isCancelledError(error)) {
+            throw error;
+        }
         throw new Error('Network error fetching price');
     }
 
@@ -1265,32 +1568,6 @@ export async function performFinnhubFetch(this: any, symbol: string) {
         fetchedAt: new Date().toISOString(),
         currency: 'USD'
     };
-}
-
-export async function enforceFinnhubRateLimit(this: any) {
-    const windowMs = 60_000;
-    const timestamps = this.finnhub.timestamps;
-    const maxRequests = this.finnhub.maxRequestsPerMinute;
-    const now = Date.now();
-
-    // Clean up old timestamps outside the rate limit window
-    while (timestamps.length > 0 && now - timestamps[0] >= windowMs) {
-        timestamps.shift();
-    }
-
-    // Enforce rate limit (requests per minute) using sliding window
-    if (timestamps.length >= maxRequests) {
-        const waitTime = windowMs - (now - timestamps[0]) + 50;
-        await new Promise<void>((resolve) => setTimeout(resolve, waitTime));
-        // Re-clean after waiting
-        const afterWait = Date.now();
-        while (timestamps.length > 0 && afterWait - timestamps[0] >= windowMs) {
-            timestamps.shift();
-        }
-    }
-
-    // Record this request timestamp
-    timestamps.push(Date.now());
 }
 
 // ─── Market Status Badge ───────────────────────────────────────────────────
@@ -1418,9 +1695,9 @@ export async function fetchMarketStatus(this: FinnhubContext): Promise<void> {
     let payload: unknown;
     try {
         const url = `https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${encodeURIComponent(apiKey)}`;
-        const response = await fetch(url, { cache: 'no-store' });
-        if (!response.ok) return;
-        payload = await response.json();
+        payload = await fetchFinnhubJson.call(
+            this as any, url, 'market-status', QUOTE_SCOPE.ENRICHMENT, PRIORITY.BACKGROUND
+        );
     } catch {
         return;
     }
@@ -1513,12 +1790,10 @@ export async function fetchEarningsCalendar(
     url.searchParams.set('token', String(apiKey));
 
     try {
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            console.warn(`[Finnhub] earnings calendar request failed: ${response.status}`);
-            return;
-        }
-        const data: unknown = await response.json();
+        const data: unknown = await fetchFinnhubJson.call(
+            this, url.toString(), `earnings-calendar:${from}:${toDate}`,
+            QUOTE_SCOPE.ENRICHMENT, PRIORITY.BACKGROUND
+        );
         if (
             !data ||
             typeof data !== 'object' ||
@@ -1571,12 +1846,10 @@ export async function fetchStockMetrics(
     url.searchParams.set('token', String(apiKey));
 
     try {
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            console.warn(`[Finnhub] stock/metric request failed for ${ticker}: ${response.status}`);
-            return null;
-        }
-        const data: unknown = await response.json();
+        const data: unknown = await fetchFinnhubJson.call(
+            this, url.toString(), `metric:${ticker.toUpperCase()}`,
+            QUOTE_SCOPE.MANUAL, PRIORITY.IMMEDIATE
+        );
         if (!data || typeof data !== 'object') return null;
 
         const raw = data as Record<string, unknown>;
@@ -1683,12 +1956,10 @@ export async function fetchDividendCalendar(
     url.searchParams.set('token', String(apiKey));
 
     try {
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            console.warn(`[Finnhub] calendar/dividend failed: ${response.status}`);
-            return [];
-        }
-        const data: any = await response.json();
+        const data: any = await fetchFinnhubJson.call(
+            this, url.toString(), `dividend:${fromYYYYMMDD}:${toYYYYMMDD}`,
+            QUOTE_SCOPE.ENRICHMENT, PRIORITY.BACKGROUND
+        );
         if (!data || !Array.isArray(data.calendar)) return [];
         
         return data.calendar as import('../types/integrations.js').DividendCalendarEntry[];
@@ -1714,12 +1985,10 @@ export async function fetchCompanyProfile(
     url.searchParams.set('token', String(apiKey));
 
     try {
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            console.warn(`[Finnhub] company-profile2 failed for ${ticker}: ${response.status}`);
-            return null;
-        }
-        const data: unknown = await response.json();
+        const data: unknown = await fetchFinnhubJson.call(
+            this, url.toString(), `profile:${ticker.toUpperCase()}`,
+            QUOTE_SCOPE.MANUAL, PRIORITY.IMMEDIATE
+        );
         if (!data || typeof data !== 'object') return null;
         const d = data as Record<string, unknown>;
         const name = typeof d.name === 'string' ? d.name : '';
@@ -1757,12 +2026,10 @@ export async function fetchEarningsSurprise(
     }
 
     try {
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            console.warn(`[Finnhub] stock/earnings failed for ${ticker}: ${response.status}`);
-            return null;
-        }
-        const data: unknown = await response.json();
+        const data: unknown = await fetchFinnhubJson.call(
+            this, url.toString(), `earnings-surprise:${ticker.toUpperCase()}`,
+            QUOTE_SCOPE.MANUAL, PRIORITY.IMMEDIATE
+        );
         if (!Array.isArray(data) || data.length === 0) return null;
 
         return (data as Record<string, unknown>[])
@@ -1820,10 +2087,14 @@ export async function fetchSignalsData(
     insiderUrl.searchParams.set('symbol', sym)
     insiderUrl.searchParams.set('token', token)
 
+    // IMMEDIATE, not BACKGROUND: the user expanded this row and is watching a
+    // spinner. The dashboard's quote polling occupies the whole per-minute
+    // budget at the default rate, so a lower priority here would leave the panel
+    // waiting behind up to a minute of routine re-polls.
     const [recResult, newsResult, insiderResult] = await Promise.allSettled([
-        fetch(recUrl.toString()).then(r => r.ok ? r.json() : null),
-        fetch(newsUrl.toString()).then(r => r.ok ? r.json() : null),
-        fetch(insiderUrl.toString()).then(r => r.ok ? r.json() : null),
+        fetchFinnhubJson.call(this, recUrl.toString(), `recommendation:${sym}`, QUOTE_SCOPE.MANUAL, PRIORITY.IMMEDIATE),
+        fetchFinnhubJson.call(this, newsUrl.toString(), `news:${sym}`, QUOTE_SCOPE.MANUAL, PRIORITY.IMMEDIATE),
+        fetchFinnhubJson.call(this, insiderUrl.toString(), `insider:${sym}`, QUOTE_SCOPE.MANUAL, PRIORITY.IMMEDIATE),
     ]);
 
     // Recommendation — results[0] is the most recent period

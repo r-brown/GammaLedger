@@ -123,7 +123,7 @@ interface CreditPlaybookRenderContext {
   updateExpirationHighlight(cell: HTMLElement, trade: TradeRecord): void
   applyResponsiveLabels(row: HTMLTableRowElement, labels: string[]): void
   startQuoteAutoRefreshIfNeeded(): void
-  refreshCreditPlaybookQuotes(opts: { force: boolean; immediate: boolean; manual?: boolean }): void
+  refreshCreditPlaybookQuotes(opts: { force?: boolean; immediate?: boolean; manual?: boolean; prime?: boolean }): void
   renderSchwabTradeQuoteCell(cell: HTMLElement, trade: TradeRecord): HTMLElement
   extractSpreadPair(trade: TradeRecord, legs: unknown[], now: Date, pairs: LegPair[]): void
   extractIndividualLegPairs(trade: TradeRecord, legs: unknown[], now: Date, pairs: LegPair[]): void
@@ -823,24 +823,24 @@ function createStatusBadge(pair: LegPair): HTMLElement {
     return badge;
 }
 
-function createCreditQuoteRenderer(
-    this: CreditPlaybookRenderContext,
-    quoteEntries: Map<string, Record<string, unknown>>,
-    params: ICellRendererParams<LegPair>
-): HTMLElement {
-    const cell = document.createElement('div');
-    cell.className = 'quote-cell';
-    const pair = params.data;
-    const status = pair ? getPairStatus(pair) : null;
-    const hasHeldAssignedInventory = Boolean(pair?.isAssigned);
-    if (!pair || (!pair.isOpen && !hasHeldAssignedInventory) || status?.className === 'closed' || status?.className === 'expired') {
-        cell.textContent = '—';
-        return cell;
-    }
+/**
+ * True when a pair is live enough to be worth a quote — the same predicate the
+ * Current Price cell renderer uses to decide between a value and a dash.
+ */
+function pairWantsQuote(pair: LegPair | undefined | null): pair is LegPair {
+    if (!pair || !pair.ticker) return false;
+    if (!pair.isOpen && !pair.isAssigned) return false;
+    const status = getPairStatus(pair);
+    return status.className !== 'closed' && status.className !== 'expired';
+}
 
+/**
+ * Builds the quote entry for one pair. The DOM cell is attached later, if and
+ * when AG Grid actually renders that column.
+ */
+function buildCreditQuoteEntry(pair: LegPair, key: string): Record<string, unknown> {
     const rowProxy = document.createElement('div');
-    const quoteKey = `${pair.ticker}|${pair.tradeId}|creditPlaybook:${params.node?.rowIndex ?? quoteEntries.size}`;
-    rowProxy.dataset.quoteKey = quoteKey;
+    rowProxy.dataset.quoteKey = key;
     rowProxy.dataset.ticker = pair.ticker ?? '';
 
     if (typeof pair.strike === 'string' && pair.strike.includes('/')) {
@@ -858,13 +858,70 @@ function createCreditQuoteRenderer(
         dte: pair.dte
     };
 
-    this.populateQuoteCell(cell, mockTrade, rowProxy, { deferNetworkFetch: true });
-    quoteEntries.set(quoteKey, {
-        trade: mockTrade,
-        row: rowProxy,
-        cell,
-        key: quoteKey,
-        pair
+    return { trade: mockTrade, row: rowProxy, cell: null, key, pair };
+}
+
+/**
+ * Registers a quote entry for every live pair, straight from the row data.
+ *
+ * WHY NOT FROM THE CELL RENDERER: this table carries 21 columns totalling
+ * ~2790px, so at any normal window width AG Grid's column virtualisation never
+ * instantiates the Current Price cell — it sits ~1900px in. Registration used
+ * to be a side effect of that renderer, so `creditPlaybookQuoteEntries` stayed
+ * empty and the Credit Playbook fetched no quotes at all unless the window was
+ * roughly 2560px wide. Row data is always present; the DOM cell is optional.
+ */
+function syncCreditQuoteEntries(
+    rows: LegPair[],
+    quoteEntries: Map<string, Record<string, unknown>>
+): void {
+    const wanted = new Set<string>();
+    rows.forEach((pair) => {
+        if (!pairWantsQuote(pair)) return;
+        const key = legPairRowKey(pair);
+        wanted.add(key);
+        const existing = quoteEntries.get(key);
+        if (existing) {
+            // Keep the entry (and any cell already attached to it) but refresh
+            // the pair snapshot so downstream reads see current values.
+            existing.pair = pair;
+            return;
+        }
+        quoteEntries.set(key, buildCreditQuoteEntry(pair, key));
+    });
+
+    for (const key of [...quoteEntries.keys()]) {
+        if (!wanted.has(key)) quoteEntries.delete(key);
+    }
+}
+
+function createCreditQuoteRenderer(
+    this: CreditPlaybookRenderContext,
+    quoteEntries: Map<string, Record<string, unknown>>,
+    params: ICellRendererParams<LegPair>
+): HTMLElement {
+    const cell = document.createElement('div');
+    cell.className = 'quote-cell';
+    const pair = params.data;
+    if (!pairWantsQuote(pair)) {
+        cell.textContent = '—';
+        return cell;
+    }
+
+    const quoteKey = legPairRowKey(pair);
+    let entry = quoteEntries.get(quoteKey);
+    if (!entry) {
+        entry = buildCreditQuoteEntry(pair, quoteKey);
+        quoteEntries.set(quoteKey, entry);
+    }
+    // Late binding: the row was registered when the table was built, this is
+    // just the column finally scrolling into view.
+    entry.cell = cell;
+    entry.pair = pair;
+
+    this.populateQuoteCell(cell, entry.trade as TradeRecord, entry.row as HTMLElement, {
+        deferNetworkFetch: true,
+        scope: 'credit-playbook'
     });
     return cell;
 }
@@ -1265,6 +1322,11 @@ export function renderCreditPlaybookTableFromLegPairs(this: CreditPlaybookRender
         ? this.creditPlaybookQuoteEntries
         : new Map<string, Record<string, unknown>>();
 
+    // Register from row data before the grid renders, so quotes do not depend on
+    // whether AG Grid virtualised the Current Price column into existence.
+    syncCreditQuoteEntries(rows, quoteEntries);
+    this.creditPlaybookQuoteEntries = quoteEntries;
+
     if (!this.creditPlaybookGridApi || this.creditPlaybookGridApi.isDestroyed()) {
         this.creditPlaybookGridApi = createGrid(
             gridRoot,
@@ -1284,15 +1346,16 @@ export function renderCreditPlaybookTableFromLegPairs(this: CreditPlaybookRender
         );
     }
 
-    for (const [key, entry] of quoteEntries) {
-        if (!(entry.cell as HTMLElement | undefined)?.isConnected) quoteEntries.delete(key);
+    // A detached cell just means that column is not currently rendered — drop the
+    // stale element but keep the entry so its quote still refreshes.
+    for (const entry of quoteEntries.values()) {
+        if (!(entry.cell as HTMLElement | null)?.isConnected) entry.cell = null;
     }
-    this.creditPlaybookQuoteEntries = quoteEntries;
 
     if (quoteEntries.size > 0) {
         this.startQuoteAutoRefreshIfNeeded();
         if (!this.creditPlaybookQuoteRefreshSuppressed) {
-            this.refreshCreditPlaybookQuotes({ force: true, immediate: true });
+            this.refreshCreditPlaybookQuotes({ prime: true });
         }
     }
 }

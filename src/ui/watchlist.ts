@@ -25,7 +25,7 @@ export interface WatchlistContext extends PositionDetailPanelContext {
   markUnsavedChanges(): void
   showView(viewName: string): void
   openTradesFilteredByTicker(ticker: unknown): void
-  getCurrentPrice(ticker: string, opts?: { forceRefresh?: boolean }): Promise<Record<string, unknown>>
+  getCurrentPrice(ticker: string, opts?: { forceRefresh?: boolean; scope?: string; priority?: number }): Promise<Record<string, unknown>>
   getQuoteChangePercent(quote: Record<string, unknown>): number | null
   fetchEarningsCalendar(tickers: string[], toDate: string): Promise<void>
   fetchDividendCalendar(from: string, to: string): Promise<import('../types/integrations.js').DividendCalendarEntry[]>
@@ -353,11 +353,21 @@ function refreshTargetAlertRows(this: WatchlistContext): void {
  * classes once the batch settles. quoteCell's own getCurrentPrice calls dedupe
  * against these through finnhub's outstandingRequests map, so this costs no
  * extra API requests.
+ *
+ * These are submitted under the `watchlist` scope rather than fired as a bare
+ * Promise.allSettled burst: 20 watched tickers used to hit the API within
+ * ~75 ms — a third of the free minute — and jumped ahead of whatever the
+ * visible table still needed. The scheduler now paces them and drops them
+ * outright if the user navigates away mid-flight.
  */
 function primeTargetAlertQuotes(this: WatchlistContext): void {
     if (!this.finnhub?.apiKey || !this.watchlist.length) return
+    if (this.currentView !== 'watchlist') return
     const tickers = this.watchlist.map(entry => entry.ticker)
-    void Promise.allSettled(tickers.map(ticker => this.getCurrentPrice(ticker))).then(() => {
+    void Promise.allSettled(tickers.map(ticker => this.getCurrentPrice(ticker, {
+        scope: 'watchlist',
+        priority: 20
+    }))).then(() => {
         if (this.currentView !== 'watchlist') return
         refreshTargetAlertRows.call(this)
     })
@@ -393,7 +403,7 @@ function quoteCell(this: WatchlistContext, ticker: string): HTMLElement {
         cell.title = 'Add a Finnhub API key in Settings to see live data'
         return cell
     }
-    this.getCurrentPrice(ticker).then((quote) => {
+    this.getCurrentPrice(ticker, { scope: 'watchlist', priority: 10 }).then((quote) => {
         if (!cell.isConnected) return
         const numeric = Number(quote?.price)
         if (!Number.isFinite(numeric)) {
@@ -419,7 +429,14 @@ function quoteCell(this: WatchlistContext, ticker: string): HTMLElement {
             else changeEl.classList.add('is-flat')
             cell.appendChild(changeEl)
         }
-    }).catch(() => { if (cell.isConnected) { cell.dataset.priceState = 'error'; cell.textContent = '—' } })
+    }).catch((error: unknown) => {
+        if (!cell.isConnected) return
+        // Cancelled by a view switch — leave the cell idle rather than showing
+        // an error the user never triggered.
+        const cancelled = (error as { name?: string } | null)?.name === 'GammaLedgerRequestCancelled'
+        cell.dataset.priceState = cancelled ? 'idle' : 'error'
+        cell.textContent = '—'
+    })
     return cell
 }
 

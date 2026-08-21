@@ -36,7 +36,7 @@ interface CreditPlaybookContext {
   setCreditPlaybookStrategy(strategy: string | null): void
   setCreditPlaybookHorizon(horizon: string): void
   setCreditPlaybookSymbol(symbol: string): void
-  refreshCreditPlaybookQuotes(opts: { force: boolean; immediate: boolean; manual?: boolean }): void
+  refreshCreditPlaybookQuotes(opts: { force?: boolean; immediate?: boolean; manual?: boolean; prime?: boolean }): void
   refreshSchwabMarketData(opts?: { allowContractPrompt?: boolean }): Promise<void>
   getSchwabLastQuoteAt(): string | null
   isSchwabQuoteStale(capturedAt: string): boolean

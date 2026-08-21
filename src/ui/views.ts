@@ -23,6 +23,7 @@ interface ViewsContext {
   updateCreditPlaybookView(): void
   releaseCreditPlaybookGrid(): void
   stopQuoteAutoRefresh(): void
+  syncQuoteScopesToActiveView(): void
   updateFinnhubStatus(message: string, variant: unknown, delay: number): void
   collectLegsFromForm(): TradeRecord[] | null
   showNotification(message: string, type: string): void
@@ -84,6 +85,12 @@ export function showView(this: ViewsContext, viewName: string): void {
     if (titleEl) titleEl.textContent = titleText;
 
     this.currentView = viewName;
+
+    // Free-tier budget is 60 calls/minute: drop queued work and abort in-flight
+    // fetches for the view we just left, so the one now on screen gets the whole
+    // budget. Runs before the per-view loaders below, which re-prime the
+    // now-visible scope against a clean queue.
+    this.syncQuoteScopesToActiveView();
 
     // Load view-specific data
     switch (viewName) {

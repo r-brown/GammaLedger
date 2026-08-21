@@ -46,7 +46,7 @@ interface ActivePositionsContext extends PositionDetailPanelContext {
   updateExpirationHighlight(cell: HTMLElement, trade: TradeRecord): void
   rebuildQuoteRefreshSchedule(): void
   startQuoteAutoRefreshIfNeeded(): void
-  refreshActivePositionsQuotes(opts: { force: boolean; immediate: boolean }): void
+  refreshActivePositionsQuotes(opts: { force?: boolean; immediate?: boolean; prime?: boolean }): void
   renderSchwabTradeQuoteCell(cell: HTMLElement, trade: TradeRecord): HTMLElement
   earningsMap: Map<string, EarningsCalendarEntry>
   getEarningsDateForTrade(trade: TradeRecord): EarningsCalendarEntry | null
@@ -285,10 +285,13 @@ function createQuoteRenderer(
         rowProxy.dataset.dte = String(dteValue);
     }
 
-    const baseQuoteKey = this.getQuoteEntryKey(trade);
-    const quoteKey = `${baseQuoteKey}|row:${quoteEntries.size}`;
+    // Keyed by trade alone. It used to carry a `|row:${quoteEntries.size}` suffix,
+    // which is neither stable nor meaningful: when AG Grid re-rendered a cell the
+    // map size had moved on, so the same trade was registered twice and the first
+    // entry lingered pointing at a detached cell.
+    const quoteKey = this.getQuoteEntryKey(trade);
     rowProxy.dataset.quoteKey = quoteKey;
-    this.populateQuoteCell(cell, trade, rowProxy, { deferNetworkFetch: true });
+    this.populateQuoteCell(cell, trade, rowProxy, { deferNetworkFetch: true, scope: 'active-positions' });
     quoteEntries.set(quoteKey, { trade, row: rowProxy, cell, key: quoteKey });
     return cell;
 }
@@ -535,5 +538,9 @@ export function updateActivePositionsTable(
     this.activeQuoteEntries = quoteEntries;
     this.rebuildQuoteRefreshSchedule();
     this.startQuoteAutoRefreshIfNeeded();
-    this.refreshActivePositionsQuotes({ force: true, immediate: true });
+    // Prime, not force: a rebuild re-renders rows whose cached quote is still
+    // fresh, and forcing would spend an API call to re-fetch a price we already
+    // have. Priming fills only the empty cells — and does nothing at all when
+    // the dashboard is not the visible view.
+    this.refreshActivePositionsQuotes({ prime: true });
 }

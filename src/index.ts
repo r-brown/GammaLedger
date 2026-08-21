@@ -158,7 +158,7 @@ class GammaLedger {
     declare disclaimerBanner: { element: HTMLDialogElement | null; agreeButton: Element | null; agreeHandler: (() => void) | null }
     declare disclaimerFadeMs: number
     declare aiCoachConsent: AICoachConsentState
-    declare finnhub: { apiKey: string; encryptionKey: CryptoKey | null; cache: Map<string, unknown>; cacheTTL: number; outstandingRequests: Map<string, unknown>; rateLimitQueue: Promise<unknown>; maxRequestsPerMinute: number; timestamps: number[]; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; elements: Record<string, unknown>; marketStatusTimer: ReturnType<typeof setTimeout> | null; marketStatusCountdownTimer: ReturnType<typeof setInterval> | null }
+    declare finnhub: { apiKey: string; encryptionKey: CryptoKey | null; cache: Map<string, unknown>; cacheTTL: number; outstandingRequests: Map<string, unknown>; scheduler: import('./integrations/request-scheduler').RequestScheduler | null; maxRequestsPerMinute: number; timestamps: number[]; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; elements: Record<string, unknown>; marketStatusTimer: ReturnType<typeof setTimeout> | null; marketStatusCountdownTimer: ReturnType<typeof setInterval> | null }
     declare schwab: SchwabState
     declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; maxOutputTokens: number; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
     declare aiAgent: GeminiInsightsAgent | null
@@ -295,7 +295,7 @@ class GammaLedger {
             cache: new Map(),
             cacheTTL: 1000 * 60, // 1 minute
             outstandingRequests: new Map(),
-            rateLimitQueue: Promise.resolve(),
+            scheduler: null,
             maxRequestsPerMinute: this.loadFinnhubRateLimitFromStorage(),
             timestamps: [],
             statusTimeoutId: null,
@@ -1690,11 +1690,15 @@ class GammaLedger {
 
     async getCurrentPrice(ticker, options = {}) { return finnhubModule.getCurrentPrice.call(this, ticker, options); }
 
-    enqueueFinnhubRequest(symbol) { return finnhubModule.enqueueFinnhubRequest.call(this, symbol); }
+    enqueueFinnhubRequest(symbol, options = {}) { return finnhubModule.enqueueFinnhubRequest.call(this, symbol, options); }
 
-    async performFinnhubFetch(symbol) { return finnhubModule.performFinnhubFetch.call(this, symbol); }
+    async performFinnhubFetch(symbol, signal) { return finnhubModule.performFinnhubFetch.call(this, symbol, signal); }
 
-    async enforceFinnhubRateLimit() { return finnhubModule.enforceFinnhubRateLimit.call(this); }
+    getRequestScheduler() { return finnhubModule.getRequestScheduler.call(this); }
+
+    isQuoteScopeVisible(scope) { return finnhubModule.isQuoteScopeVisible.call(this, scope); }
+
+    syncQuoteScopesToActiveView() { return finnhubModule.syncQuoteScopesToActiveView.call(this); }
 
     initMarketStatus() { return finnhubModule.initMarketStatus.call(this); }
 

@@ -42,7 +42,7 @@ interface LegFormContext {
     collectLegsFromForm(): Record<string, unknown>[] | null
     autoFillUnderlyingPrice(input: HTMLInputElement | null): Promise<void>
     autoFillUnderlyingPricesForLegs(): Promise<void>
-    getCurrentPrice(ticker: string): Promise<{ price?: unknown }>
+    getCurrentPrice(ticker: string, opts?: { forceRefresh?: boolean; scope?: string; priority?: number }): Promise<{ price?: unknown }>
     getDefaultFeeForQuantity(qty: number): number | null
     showNotification(msg: string, type: string): void
 }
@@ -253,7 +253,7 @@ export async function autoFillUnderlyingPrice(
     }
 
     try {
-        const quote = await this.getCurrentPrice(ticker);
+        const quote = await this.getCurrentPrice(ticker, { scope: 'manual', priority: 0 });
         const price = Number(quote?.price);
         if (Number.isFinite(price) && price > 0 && !inputElement.value) {
             inputElement.value = String(price);
@@ -283,7 +283,7 @@ export async function autoFillUnderlyingPricesForLegs(this: LegFormContext): Pro
     }
 
     try {
-        const quote = await this.getCurrentPrice(ticker);
+        const quote = await this.getCurrentPrice(ticker, { scope: 'manual', priority: 0 });
         const price = Number(quote?.price);
         if (Number.isFinite(price) && price > 0) {
             emptyInputs.forEach(input => {
