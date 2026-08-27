@@ -132,6 +132,16 @@ function buildRecentTradesColumnDefs(this: RecentTradesContext): ColDef<TradeRec
             },
             cellClass: params => signedClass(safeNumber(params.value)),
             filter: 'agNumberColumnFilter'
+        },
+        {
+            colId: 'notes',
+            field: 'notes',
+            headerName: 'Notes',
+            minWidth: 180,
+            flex: 1,
+            valueFormatter: params => ((params.value || '') as string).trim() || '—',
+            cellClass: 'notes-cell',
+            tooltipValueGetter: params => ((params.value || '') as string).trim()
         }
     ];
 }
