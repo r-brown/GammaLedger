@@ -2809,7 +2809,7 @@ select.form-control {
 /* Finnhub risk signals */
 .ag-row.earnings-risk-row,
 .ag-row.earnings-risk-row .ag-cell {
-  background-color: rgba(var(--color-warning-rgb), 0.14) !important;
+  background-color: rgba(var(--color-warning-rgb), 0.05) !important;
 }
 
 .earnings-badge {
