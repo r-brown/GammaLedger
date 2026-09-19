@@ -45,6 +45,8 @@ export function buildStrategyTemplateLegs(
             return [leg('STO', 'CALL')]
         case "Poor Man's Covered Call":
             return [leg('BTO', 'CALL'), leg('STO', 'CALL')]
+        case 'Bull Put Spread':
+            return [leg('BTO', 'PUT'), leg('STO', 'PUT')]
         default:
             return null
     }
