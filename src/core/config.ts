@@ -25,6 +25,14 @@ export type AIProviderId = typeof AI_PROVIDER_IDS[number]
 /** Whole-request budget for one LLM call, including reading a streamed body. */
 export const LLM_REQUEST_TIMEOUT_MS = 120_000
 
+export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.8-flash'
+export const OPENROUTER_CHAT_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions'
+export const OPENROUTER_MODELS_ENDPOINT = 'https://openrouter.ai/api/v1/models'
+/** Sent as HTTP-Referer / X-Title so OpenRouter attributes traffic to the app. */
+export const OPENROUTER_APP_URL = 'https://gammaledger.com'
+export const OPENROUTER_APP_TITLE = 'GammaLedger'
+export const OPENROUTER_MAX_FALLBACK_MODELS = 2
+
 // ---------------------------------------------------------------------------
 // Config shape type
 // ---------------------------------------------------------------------------

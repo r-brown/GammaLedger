@@ -197,6 +197,63 @@ test('loadOrCreateAesKey creates a key once and reuses the stored one', async ()
     assert.equal(await decryptString(payload, globalThis.crypto, second), 'sk-or-secret')
 })
 
+// ── OpenRouter catalogue ─────────────────────────────────────────────────────
+
+const modelsFixture = () => JSON.parse(readFileSync(new URL('./fixtures/openrouter-models.json', import.meta.url), 'utf8'))
+const catalogueState = () => ({ models: null, modelsLoading: null, modelsError: null })
+
+test('parseOpenRouterModels derives capabilities, prices and skips :batch and malformed entries', async () => {
+    const { parseOpenRouterModels } = await load('/src/integrations/llm/openrouter-models.ts')
+    const models = parseOpenRouterModels(modelsFixture())
+    const ids = models.map(m => m.id)
+    assert.ok(!ids.includes('google/gemini-3.8-flash:batch'))
+    assert.ok(!ids.includes(42))
+    const flash = models.find(m => m.id === 'google/gemini-3.8-flash')
+    assert.deepEqual(
+        { vision: flash.vision, structuredOutput: flash.structuredOutput, maxOutputTokens: flash.maxOutputTokens, prompt: flash.promptPricePerMillion, completion: flash.completionPricePerMillion },
+        { vision: true, structuredOutput: true, maxOutputTokens: 65536, prompt: 0.75, completion: 3.75 }
+    )
+    assert.equal(models.find(m => m.id === 'z-ai/glm-5.3-prime').vision, false)
+    assert.equal(models.find(m => m.id === 'openrouter/auto').promptPricePerMillion, null)
+    assert.ok(models.some(m => m.maxOutputTokens === null))
+})
+
+test('isValidOpenRouterModelId accepts provider/model forms only', async () => {
+    const { isValidOpenRouterModelId } = await load('/src/integrations/llm/openrouter-models.ts')
+    for (const ok of ['anthropic/claude-sonnet-5', 'qwen/qwen3.8-27b:free', 'openai/gpt-6-sol', 'openrouter/auto']) assert.ok(isValidOpenRouterModelId(ok), ok)
+    for (const bad of ['claude', 'a/b/c', 'anthropic/claude sonnet', ' anthropic/x', '', '/x', 'x/']) assert.ok(!isValidOpenRouterModelId(bad), bad)
+})
+
+test('ensureOpenRouterCatalogue de-duplicates concurrent loads and caches the result', async () => {
+    const { ensureOpenRouterCatalogue } = await load('/src/integrations/llm/openrouter-models.ts')
+    let calls = 0
+    const fetchImpl = async () => { calls++; return jsonResponse(200, modelsFixture()) }
+    const state = catalogueState()
+    const [a, b] = await Promise.all([ensureOpenRouterCatalogue(state, fetchImpl), ensureOpenRouterCatalogue(state, fetchImpl)])
+    assert.equal(calls, 1)
+    assert.equal(a, b)
+    assert.equal(state.models, a)
+    assert.equal(state.modelsLoading, null)
+    await ensureOpenRouterCatalogue(state, fetchImpl)
+    assert.equal(calls, 1)
+})
+
+test('ensureOpenRouterCatalogue falls back to the curated list and retries later', async () => {
+    const { ensureOpenRouterCatalogue, OPENROUTER_CURATED_MODELS, availableOpenRouterModels } = await load('/src/integrations/llm/openrouter-models.ts')
+    const state = catalogueState()
+    const models = await ensureOpenRouterCatalogue(state, async () => jsonResponse(503, {}))
+    assert.deepEqual(models.map(m => m.id), OPENROUTER_CURATED_MODELS.map(m => m.id))
+    assert.equal(state.models, null)
+    assert.match(state.modelsError, /503/)
+    assert.equal(availableOpenRouterModels(state), OPENROUTER_CURATED_MODELS)
+    assert.ok(OPENROUTER_CURATED_MODELS.some(m => m.id === 'google/gemini-3.8-flash'))
+})
+
+test('describeOpenRouterModel summarises context, prices and capabilities', async () => {
+    const { describeOpenRouterModel, OPENROUTER_CURATED_MODELS } = await load('/src/integrations/llm/openrouter-models.ts')
+    assert.equal(describeOpenRouterModel(OPENROUTER_CURATED_MODELS[0]), 'Google: Gemini 3.8 Flash · 1.05M context · $0.75/M in · $3.75/M out · reads images · structured output')
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0
