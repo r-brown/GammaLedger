@@ -189,6 +189,30 @@ test('generateResponse keeps streamed text and marks it interrupted when the str
     assert.equal(reply.usage, null)
 })
 
+// ── usage format ─────────────────────────────────────────────────────────────
+
+test('formatReplyUsage renders tokens, cost and the answering model', async () => {
+    const { formatReplyUsage } = await load('/src/ai/usage-format.ts')
+    assert.equal(formatReplyUsage({ inputTokens: 1234, outputTokens: 567, costUsd: 0.0042 }, 'anthropic/claude-sonnet-5'), '1,234 in · 567 out · $0.0042 · claude-sonnet-5')
+    assert.equal(formatReplyUsage({ inputTokens: 1234, outputTokens: 567, costUsd: null }, 'gemini-3.5-flash'), '1,234 in · 567 out · gemini-3.5-flash')
+    assert.equal(formatReplyUsage({ inputTokens: null, outputTokens: 5, costUsd: 0 }, null), '5 out · $0.00')
+    assert.equal(formatReplyUsage({ inputTokens: 10, outputTokens: 5, costUsd: 1.5 }, 'x/y'), '10 in · 5 out · $1.50 · y')
+    assert.equal(formatReplyUsage(null, 'x/y'), '')
+})
+
+test('summarizeSessionUsage totals replies, tokens and known costs', async () => {
+    const { summarizeSessionUsage } = await load('/src/ai/usage-format.ts')
+    const messages = [
+        { usage: { inputTokens: 10000, outputTokens: 2000, costUsd: 0.01 } },
+        { usage: null },
+        {},
+        { usage: { inputTokens: 300, outputTokens: 45, costUsd: 0.0023 } }
+    ]
+    assert.equal(summarizeSessionUsage(messages), 'This chat: 2 replies · 12,345 tokens · $0.01')
+    assert.equal(summarizeSessionUsage([{ usage: { inputTokens: 5, outputTokens: 1, costUsd: null } }]), 'This chat: 1 reply · 6 tokens')
+    assert.equal(summarizeSessionUsage([{ usage: null }]), '')
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

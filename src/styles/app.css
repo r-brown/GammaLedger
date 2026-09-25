@@ -3593,6 +3593,21 @@ select.form-control {
   .ai-chat__message--streaming .ai-chat__bubble::after { animation: none; }
 }
 
+.ai-chat__usage,
+.ai-chat__session-usage {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ai-chat__session-usage {
+  margin: var(--space-4) 0 0;
+}
+
+.ai-chat__session-usage[hidden] {
+  display: none;
+}
+
 .ai-chat__bubble p {
   margin: 0 0 var(--space-8);
 }

@@ -3,7 +3,8 @@
 
 import type { DraftLegExtraction } from './draft-leg-extraction.js'
 import type { AIReply } from './insights-agent.js'
-import { describeLLMError, type LLMProvider } from '../integrations/llm/types.js'
+import { describeLLMError, type LLMProvider, type LLMUsage } from '../integrations/llm/types.js'
+import { formatReplyUsage, summarizeSessionUsage } from './usage-format.js'
 
 interface ChatMessage {
     id: string
@@ -12,6 +13,8 @@ interface ChatMessage {
     timestamp: Date
     pending: boolean
     streaming?: boolean
+    usage?: LLMUsage | null
+    model?: string | null
 }
 
 interface AIAgent {
@@ -987,7 +990,7 @@ async function runAIChatRequest(this: AIChatContext, query: string, promptType: 
         if (!isCurrentSession()) {
             return;
         }
-        this.appendAIChatMessage('ai', reply.text, { replaceId: placeholderId, pending: false });
+        this.appendAIChatMessage('ai', reply.text, { replaceId: placeholderId, pending: false, usage: reply.usage, model: reply.model });
     } catch (error) {
         if (!isCurrentSession()) {
             return;
@@ -1063,14 +1066,16 @@ export function appendAIChatMessage(
     this: AIChatContext,
     sender: string,
     text: string,
-    options: { suppressRender?: boolean; replaceId?: string | null; id?: string | null; pending?: boolean } = {}
+    options: { suppressRender?: boolean; replaceId?: string | null; id?: string | null; pending?: boolean; usage?: LLMUsage | null; model?: string | null } = {}
 ): string | null {
     const normalizedSender = sender === 'ai' ? 'ai' : 'user';
     const {
         suppressRender = false,
         replaceId = null,
         id = null,
-        pending = false
+        pending = false,
+        usage = null,
+        model = null
     } = options || {};
 
     if (!replaceId && (typeof text !== 'string' || text.length === 0)) {
@@ -1089,7 +1094,9 @@ export function appendAIChatMessage(
                 text: text || '',
                 timestamp,
                 pending: Boolean(pending),
-                streaming: false
+                streaming: false,
+                usage,
+                model
             };
 
             if (!suppressRender) {
@@ -1106,7 +1113,9 @@ export function appendAIChatMessage(
         text: text || '',
         timestamp,
         pending: Boolean(pending),
-        streaming: false
+        streaming: false,
+        usage,
+        model
     };
 
     this.aiChatMessages = [...this.aiChatMessages, entry].slice(-200);
@@ -1188,8 +1197,25 @@ export function renderAIChatMessages(this: AIChatContext): void {
         }
         item.appendChild(bubble);
 
+        if (message.sender === 'ai' && !message.pending && !message.streaming) {
+            const usageLine = formatReplyUsage(message.usage, message.model);
+            if (usageLine) {
+                const footer = document.createElement('div');
+                footer.className = 'ai-chat__usage';
+                footer.textContent = usageLine;
+                item.appendChild(footer);
+            }
+        }
+
         history.appendChild(item);
     });
+
+    const sessionUsage = document.getElementById('ai-chat-session-usage');
+    if (sessionUsage) {
+        const summary = summarizeSessionUsage(this.aiChatMessages);
+        sessionUsage.textContent = summary;
+        sessionUsage.hidden = !summary;
+    }
 
     history.scrollTop = history.scrollHeight;
 }
