@@ -137,6 +137,35 @@ test('generateResponse answers locally when the provider is not configured', asy
     assert.equal(calls.length, 0)
 })
 
+// ── provider selection & consent ─────────────────────────────────────────────
+
+test('resolveAIProviderSelection: stored choice wins, Gemini key keeps Gemini, otherwise OpenRouter', async () => {
+    const { resolveAIProviderSelection } = await load('/src/integrations/ai-provider.ts')
+    assert.deepEqual(resolveAIProviderSelection('{"version":1,"active":"gemini"}', null), { active: 'gemini', persist: false })
+    assert.deepEqual(resolveAIProviderSelection(null, '{"model":"gemini-3.5-flash","enc":true,"payload":{"iv":"a","ct":"b"}}'), { active: 'gemini', persist: true })
+    assert.deepEqual(resolveAIProviderSelection(null, '{"apiKey":"AIza…"}'), { active: 'gemini', persist: true })
+    assert.deepEqual(resolveAIProviderSelection(null, '{"model":"gemini-3.5-flash"}'), { active: 'openrouter', persist: true })
+    assert.deepEqual(resolveAIProviderSelection('{"version":1,"active":"claude"}', 'not json'), { active: 'openrouter', persist: true })
+    assert.deepEqual(resolveAIProviderSelection(null, null), { active: 'openrouter', persist: true })
+})
+
+test('parseAICoachConsent reads JSON records, treats a legacy timestamp as Gemini consent, rejects garbage', async () => {
+    const { parseAICoachConsent } = await load('/src/ui/modals/ai-coach-consent.ts')
+    assert.deepEqual(parseAICoachConsent('{"at":"2026-09-25T10:00:00.000Z","provider":"openrouter"}'), { at: '2026-09-25T10:00:00.000Z', provider: 'openrouter' })
+    assert.deepEqual(parseAICoachConsent('2026-01-02T03:04:05.000Z'), { at: '2026-01-02T03:04:05.000Z', provider: 'gemini' })
+    assert.equal(parseAICoachConsent('{"at":"x","provider":"claude"}'), null)
+    assert.equal(parseAICoachConsent('yes please'), null)
+    assert.equal(parseAICoachConsent(''), null)
+    assert.equal(parseAICoachConsent(null), null)
+})
+
+test('OpenRouterConfigSchema applies defaults and caps fallbacks at two', async () => {
+    const { OpenRouterConfigSchema } = await load('/src/core/schema.ts')
+    assert.deepEqual(OpenRouterConfigSchema.parse({ version: 1, model: 'openai/gpt-6-luna' }), { version: 1, model: 'openai/gpt-6-luna', fallbackModels: [], dataCollection: 'deny' })
+    assert.ok(!OpenRouterConfigSchema.safeParse({ version: 1, model: 'a/b', fallbackModels: ['a/c', 'a/d', 'a/e'] }).success)
+    assert.ok(!OpenRouterConfigSchema.safeParse({ version: 1, model: 'a/b', extra: true }).success)
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

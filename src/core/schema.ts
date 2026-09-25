@@ -1,7 +1,7 @@
 // src/core/schema.ts — Zod schemas for storage and form validation.
 
 import { z } from 'zod'
-import { CURRENT_STORAGE_VERSION } from './config.js'
+import { AI_PROVIDER_IDS, CURRENT_STORAGE_VERSION, OPENROUTER_MAX_FALLBACK_MODELS } from './config.js'
 
 export const UNDERLYING_TYPES = ['Stock', 'ETF', 'Index', 'Future'] as const;
 export const ORDER_TYPES = ['BTO', 'STO', 'BTC', 'STC'] as const;
@@ -209,6 +209,32 @@ export const SchwabVaultPayloadSchema = z.object({
 export const SchwabSettingsSchema = z.object({
     automaticRefresh: z.boolean().default(false)
 }).strict();
+
+export const AIProviderSelectionSchema = z.object({
+    version: z.literal(1),
+    active: z.enum(AI_PROVIDER_IDS)
+}).strict();
+
+export const AICoachConsentSchema = z.object({
+    at: z.string().min(1),
+    provider: z.enum(AI_PROVIDER_IDS)
+}).strict();
+
+export const EncryptedSecretSchema = z.object({
+    iv: z.string().min(1),
+    ct: z.string().min(1)
+}).strict();
+
+export const OpenRouterConfigSchema = z.object({
+    version: z.literal(1),
+    model: z.string().trim().min(1),
+    fallbackModels: z.array(z.string().trim().min(1)).max(OPENROUTER_MAX_FALLBACK_MODELS).default([]),
+    dataCollection: z.enum(['deny', 'allow']).default('deny'),
+    payload: EncryptedSecretSchema.optional(),
+    apiKey: z.string().optional()
+}).strict();
+
+export type OpenRouterConfig = z.infer<typeof OpenRouterConfigSchema>;
 
 const NullableFiniteNumberSchema = z.number().finite().nullable();
 

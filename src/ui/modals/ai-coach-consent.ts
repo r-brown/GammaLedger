@@ -1,7 +1,8 @@
 // src/ui/modals/ai-coach-consent.ts — Wave 8: AI Coach consent modal (native <dialog>).
 // Uses the .call(this, …) delegation pattern.
 
-import { AI_COACH_CONSENT_STORAGE_KEY } from '@core/config'
+import { AI_COACH_CONSENT_STORAGE_KEY, type AIProviderId } from '@core/config'
+import { AICoachConsentSchema } from '@core/schema'
 import { safeLocalStorage } from '@core/storage'
 
 export interface AICoachConsentState {
@@ -17,6 +18,11 @@ export interface AICoachConsentState {
   isVisible: boolean
 }
 
+export interface AICoachConsentRecord {
+  at: string
+  provider: AIProviderId
+}
+
 interface AICoachConsentContext {
   aiCoachConsent: AICoachConsentState
   initializeAICoachConsent(): void
@@ -25,8 +31,10 @@ interface AICoachConsentContext {
   acceptAICoachConsent(): void
   cancelAICoachConsent(): void
   hasAICoachConsent(): boolean
-  getAICoachConsent(): string | null
-  setAICoachConsent(value: string | null): void
+  getAICoachConsent(): AICoachConsentRecord | null
+  setAICoachConsent(value: AICoachConsentRecord | null): void
+  aiProvider: { active: AIProviderId }
+  getActiveLLMProvider(): { displayName: string }
   updateAIChatHeader(): void
 }
 
@@ -94,6 +102,10 @@ export function showAICoachConsent(this: AICoachConsentContext): void {
     const { element, panel } = consent
     if (!element) return
 
+    const providerName = this.getActiveLLMProvider().displayName
+    element.querySelectorAll<HTMLElement>('[data-ai-consent-provider]').forEach((node) => { node.textContent = providerName })
+    element.querySelectorAll<HTMLElement>('[data-ai-consent-routing]').forEach((node) => { node.hidden = this.aiProvider.active !== 'openrouter' })
+
     if (!element.open) element.showModal()
     requestAnimationFrame(() => {
         element.classList.add('is-visible')
@@ -141,7 +153,7 @@ export function promptAICoachConsent(this: AICoachConsentContext, nextAction: ((
 }
 
 export function acceptAICoachConsent(this: AICoachConsentContext): void {
-    this.setAICoachConsent(new Date().toISOString())
+    this.setAICoachConsent({ at: new Date().toISOString(), provider: this.aiProvider.active })
     const followUp = this.aiCoachConsent.pendingAction
     this.aiCoachConsent.pendingAction = null
     this.hideAICoachConsent()
@@ -158,18 +170,35 @@ export function cancelAICoachConsent(this: AICoachConsentContext): void {
     this.updateAIChatHeader()
 }
 
+/** Consent is per provider: switching provider sends data to a different party. */
 export function hasAICoachConsent(this: AICoachConsentContext): boolean {
-    return Boolean(this.getAICoachConsent())
+    const record = this.getAICoachConsent()
+    return Boolean(record && record.provider === this.aiProvider.active)
 }
 
-export function getAICoachConsent(): string | null {
-    return safeLocalStorage.getItem(AI_COACH_CONSENT_STORAGE_KEY) || null
+export function parseAICoachConsent(raw: string | null): AICoachConsentRecord | null {
+    const value = raw?.trim()
+    if (!value) return null
+    if (value.startsWith('{')) {
+        try {
+            const parsed = AICoachConsentSchema.safeParse(JSON.parse(value))
+            return parsed.success ? parsed.data : null
+        } catch {
+            return null
+        }
+    }
+    // Legacy: a bare ISO timestamp from before provider choice existed — that consent was given for Gemini.
+    return Number.isNaN(Date.parse(value)) ? null : { at: value, provider: 'gemini' }
 }
 
-export function setAICoachConsent(value: string | null): void {
+export function getAICoachConsent(): AICoachConsentRecord | null {
+    return parseAICoachConsent(safeLocalStorage.getItem(AI_COACH_CONSENT_STORAGE_KEY))
+}
+
+export function setAICoachConsent(value: AICoachConsentRecord | null): void {
     if (!value) {
         safeLocalStorage.removeItem(AI_COACH_CONSENT_STORAGE_KEY)
         return
     }
-    safeLocalStorage.setItem(AI_COACH_CONSENT_STORAGE_KEY, value)
+    safeLocalStorage.setItem(AI_COACH_CONSENT_STORAGE_KEY, JSON.stringify(value))
 }

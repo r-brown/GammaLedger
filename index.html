@@ -87,14 +87,15 @@
             <div class="ai-consent-modal__header">
                 <h2 id="ai-consent-title" class="ai-consent-modal__title">AI Coach Data Sharing</h2>
                 <p id="ai-consent-description" class="ai-consent-modal__lead">By using this feature, you agree that your
-                    portfolio data — including trade details and summary information — will be securely sent to the AI Agent
-                    for analysis and response generation.</p>
+                    portfolio data — including trade details and summary information — will be securely sent to
+                    <strong data-ai-consent-provider>your AI provider</strong> for analysis and response generation.</p>
             </div>
             <div class="ai-consent-modal__body">
                 <ul class="ai-consent-modal__list">
                     <li>The AI Coach uses your shared data only to craft responses for this session.</li>
                     <li>Your API key and portfolio remain saved locally; requests are transmitted securely to your configured
                         AI endpoint.</li>
+                    <li data-ai-consent-routing hidden>Prompts are routed through OpenRouter to the host of the model you picked.</li>
                     <li>You can revoke access any time by clearing the AI key in Settings.</li>
                 </ul>
             </div>

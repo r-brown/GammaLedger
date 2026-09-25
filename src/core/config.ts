@@ -65,6 +65,9 @@ interface AppConfigShape {
         readonly SCHWAB_SETTINGS: string
         readonly SCHWAB_SESSION_KEY: string
         readonly SCHWAB_QUOTE_CACHE: string
+        readonly AI_PROVIDER: string
+        readonly OPENROUTER_CONFIG: string
+        readonly OPENROUTER_SECRET: string
         readonly LEGACY_KEYS: readonly string[]
     }
     SHARE_CARD: {
@@ -110,6 +113,9 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         SCHWAB_SETTINGS: 'GammaLedgerSchwabSettings',
         SCHWAB_SESSION_KEY: 'GammaLedgerSchwabSessionKey',
         SCHWAB_QUOTE_CACHE: 'GammaLedgerSchwabQuoteCache',
+        AI_PROVIDER: 'GammaLedgerAIProvider',
+        OPENROUTER_CONFIG: 'GammaLedgerOpenRouterConfig',
+        OPENROUTER_SECRET: 'GammaLedgerOpenRouterSecret',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',
@@ -142,6 +148,9 @@ export const DEFAULT_GEMINI_TEMPERATURE: number = APP_CONFIG.GEMINI.DEFAULT_TEMP
 export const DEFAULT_GEMINI_ENDPOINT: string = APP_CONFIG.GEMINI.DEFAULT_ENDPOINT;
 export const GEMINI_STORAGE_KEY: string = APP_CONFIG.STORAGE.GEMINI_CONFIG;
 export const GEMINI_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.GEMINI_SECRET;
+export const AI_PROVIDER_STORAGE_KEY: string = APP_CONFIG.STORAGE.AI_PROVIDER;
+export const OPENROUTER_STORAGE_KEY: string = APP_CONFIG.STORAGE.OPENROUTER_CONFIG;
+export const OPENROUTER_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.OPENROUTER_SECRET;
 export const DISCLAIMER_STORAGE_KEY: string = APP_CONFIG.STORAGE.DISCLAIMER;
 export const AI_COACH_CONSENT_STORAGE_KEY: string = APP_CONFIG.STORAGE.AI_COACH_CONSENT;
 export const SIDEBAR_COLLAPSED_STORAGE_KEY: string = APP_CONFIG.STORAGE.SIDEBAR_COLLAPSED;
