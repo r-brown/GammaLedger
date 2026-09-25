@@ -16,6 +16,16 @@ export const GEMINI_MODELS = [
 export type GeminiModel = typeof GEMINI_MODELS[number]['id']
 
 // ---------------------------------------------------------------------------
+// AI providers
+// ---------------------------------------------------------------------------
+
+export const AI_PROVIDER_IDS = ['gemini', 'openrouter'] as const
+export type AIProviderId = typeof AI_PROVIDER_IDS[number]
+
+/** Whole-request budget for one LLM call, including reading a streamed body. */
+export const LLM_REQUEST_TIMEOUT_MS = 120_000
+
+// ---------------------------------------------------------------------------
 // Config shape type
 // ---------------------------------------------------------------------------
 
