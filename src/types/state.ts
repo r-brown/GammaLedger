@@ -102,6 +102,7 @@ export interface AppState {
   aiChatSessionId: string | null
   aiChatPendingRequest: Promise<unknown> | null
   aiChatOpen: boolean
+  aiChatStreamFrame: number | null
 
   // ---- Quotes ----
   activeQuoteEntries: Map<string, QuoteEntry>

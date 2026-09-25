@@ -174,6 +174,7 @@ class GammaLedger {
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
     declare aiChatOpen: boolean
+    declare aiChatStreamFrame: number | null
     declare aiDraftImport: Record<string, unknown> | null
     declare activeQuoteEntries: Map<string, unknown>
     declare quoteRefreshIntervalId: ReturnType<typeof setInterval> | null
@@ -359,6 +360,7 @@ class GammaLedger {
         this.aiChatSessionId = Date.now();
         this.aiChatPendingRequest = false;
         this.aiChatOpen = false;
+        this.aiChatStreamFrame = null;
         this.aiDraftImport = null;
 
         this.activeQuoteEntries = new Map();
@@ -1296,6 +1298,8 @@ class GammaLedger {
     applyAIDraftLegsToTradeForm() { return aiChatModule.applyAIDraftLegsToTradeForm.call(this); }
 
     appendAIChatMessage(sender, text, options = {}) { return aiChatModule.appendAIChatMessage.call(this, sender, text, options); }
+
+    updateAIChatStreamingMessage(id, text) { return aiChatModule.updateAIChatStreamingMessage.call(this, id, text); }
 
     renderAIChatMessages() { return aiChatModule.renderAIChatMessages.call(this); }
 

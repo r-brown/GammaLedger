@@ -166,6 +166,29 @@ test('OpenRouterConfigSchema applies defaults and caps fallbacks at two', async 
     assert.ok(!OpenRouterConfigSchema.safeParse({ version: 1, model: 'a/b', extra: true }).success)
 })
 
+// ── streaming ────────────────────────────────────────────────────────────────
+
+test('generateResponse streams deltas when onDelta is given', async () => {
+    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
+    const { provider, calls } = fakeProvider({
+        stream: async (_request, onDelta) => { onDelta('Hel'); onDelta('Hello'); return { text: 'Hello', provider: 'openrouter', model: 'm', usage: { inputTokens: 1, outputTokens: 1, costUsd: 0 } } }
+    })
+    const deltas = []
+    const reply = await agentWith(AIInsightsAgent, provider).generateResponse('hi', { onDelta: (t) => deltas.push(t) })
+    assert.deepEqual(deltas, ['Hel', 'Hello'])
+    assert.equal(reply.text, 'Hello')
+    assert.deepEqual(calls.map(c => c.type), ['prepare', 'stream'])
+})
+
+test('generateResponse keeps streamed text and marks it interrupted when the stream fails midway', async () => {
+    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
+    const { LLMError } = await load('/src/integrations/llm/types.ts')
+    const { provider } = fakeProvider({ stream: async (_r, onDelta) => { onDelta('Partial answer'); throw new LLMError('network', 'reset') } })
+    const reply = await agentWith(AIInsightsAgent, provider).generateResponse('hi', { onDelta: () => {} })
+    assert.equal(reply.text, 'Partial answer\n\n_(Response interrupted: Could not reach OpenRouter. Check your connection.)_')
+    assert.equal(reply.usage, null)
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

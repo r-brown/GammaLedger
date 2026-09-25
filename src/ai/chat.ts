@@ -11,6 +11,7 @@ interface ChatMessage {
     text: string
     timestamp: Date
     pending: boolean
+    streaming?: boolean
 }
 
 interface AIAgent {
@@ -30,6 +31,8 @@ interface AIChatContext {
     aiChatSessionId: number | null
     aiChatPendingRequest: boolean | Promise<unknown> | null
     aiChatOpen: boolean
+    aiChatStreamFrame: number | null
+    updateAIChatStreamingMessage(id: string, text: string): void
     aiDraftImport: AIDraftImportState | null
     trades: Record<string, unknown>[]
     renderAIChatMessages(): void
@@ -116,8 +119,8 @@ const SUPPORTED_SCREENSHOT_TYPES = new Set([
     'image/heif'
 ]);
 
-function replyText(reply: AIReply | string): string {
-    return typeof reply === 'string' ? reply : reply.text;
+function normalizeAIReply(reply: AIReply | string): AIReply {
+    return typeof reply === 'string' ? { text: reply, usage: null, model: null, provider: null } : reply;
 }
 
 function dataUrlToBase64(dataUrl: string): string {
@@ -959,6 +962,46 @@ export function toggleAIChat(this: AIChatContext, forceOpen: boolean | null = nu
     }
 }
 
+/** Shared by typed questions and quick prompts: placeholder → streamed reply → final render. */
+async function runAIChatRequest(this: AIChatContext, query: string, promptType: string | null): Promise<void> {
+    const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
+    const historySnapshot = this.aiChatMessages
+        .filter(message => message.id !== placeholderId)
+        .slice(-10)
+        .map(message => ({ ...message }));
+    const sessionId = this.aiChatSessionId;
+    const isCurrentSession = () => this.aiChatSessionId === sessionId;
+
+    this.aiChatPendingRequest = true;
+
+    try {
+        const onDelta = (text: string) => {
+            if (placeholderId && isCurrentSession()) {
+                this.updateAIChatStreamingMessage(placeholderId, text);
+            }
+        };
+        const reply = this.aiAgent
+            ? normalizeAIReply(await this.aiAgent.generateResponse(query, { history: historySnapshot, promptType, onDelta }))
+            : normalizeAIReply('AI assistant is unavailable at the moment.');
+        // A provider switch or key change mid-reply starts a new session; drop the late answer.
+        if (!isCurrentSession()) {
+            return;
+        }
+        this.appendAIChatMessage('ai', reply.text, { replaceId: placeholderId, pending: false });
+    } catch (error) {
+        if (!isCurrentSession()) {
+            return;
+        }
+        const providerName = this.getActiveLLMProvider().displayName;
+        const fallback = `Sorry, I could not reach ${providerName} right now.`;
+        this.appendAIChatMessage('ai', `${fallback} ${describeLLMError(error, providerName)}`, { replaceId: placeholderId, pending: false });
+    } finally {
+        this.aiChatPendingRequest = false;
+        const input = document.getElementById('ai-chat-input') as HTMLInputElement | null;
+        input?.focus();
+    }
+}
+
 export async function handleAIChatSubmit(this: AIChatContext): Promise<void> {
     if (this.aiChatPendingRequest) {
         return;
@@ -987,29 +1030,7 @@ export async function handleAIChatSubmit(this: AIChatContext): Promise<void> {
     this.appendAIChatMessage('user', query);
     input.value = '';
 
-    const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
-    const historySnapshot = this.aiChatMessages
-        .filter(message => message.id !== placeholderId)
-        .slice(-10)
-        .map(message => ({ ...message }));
-
-    this.aiChatPendingRequest = true;
-
-    try {
-        const response = this.aiAgent
-            ? await this.aiAgent.generateResponse(query, { history: historySnapshot })
-            : 'AI assistant is unavailable at the moment.';
-        this.appendAIChatMessage('ai', replyText(response), { replaceId: placeholderId, pending: false });
-    } catch (error) {
-        const providerName = this.getActiveLLMProvider().displayName;
-        const fallback = `Sorry, I could not reach ${providerName} right now.`;
-        this.appendAIChatMessage('ai', `${fallback} ${describeLLMError(error, providerName)}`, { replaceId: placeholderId, pending: false });
-    } finally {
-        this.aiChatPendingRequest = false;
-        if (input) {
-            input.focus();
-        }
-    }
+    await runAIChatRequest.call(this, query, null);
 }
 
 export async function handleAIQuickPrompt(
@@ -1035,29 +1056,7 @@ export async function handleAIQuickPrompt(
 
     this.appendAIChatMessage('user', prompt);
 
-    const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
-    const historySnapshot = this.aiChatMessages
-        .filter(message => message.id !== placeholderId)
-        .slice(-10)
-        .map(message => ({ ...message }));
-
-    this.aiChatPendingRequest = true;
-
-    try {
-        const response = this.aiAgent
-            ? await this.aiAgent.generateResponse(prompt, { history: historySnapshot, promptType: options.promptType || null })
-            : 'AI assistant is unavailable at the moment.';
-        this.appendAIChatMessage('ai', replyText(response), { replaceId: placeholderId, pending: false });
-    } catch (error) {
-        const providerName = this.getActiveLLMProvider().displayName;
-        const fallback = `Sorry, I could not reach ${providerName} right now.`;
-        this.appendAIChatMessage('ai', `${fallback} ${describeLLMError(error, providerName)}`, { replaceId: placeholderId, pending: false });
-    } finally {
-        this.aiChatPendingRequest = false;
-        if (input) {
-            input.focus();
-        }
-    }
+    await runAIChatRequest.call(this, prompt, options.promptType || null);
 }
 
 export function appendAIChatMessage(
@@ -1089,7 +1088,8 @@ export function appendAIChatMessage(
                 sender: normalizedSender as 'ai' | 'user',
                 text: text || '',
                 timestamp,
-                pending: Boolean(pending)
+                pending: Boolean(pending),
+                streaming: false
             };
 
             if (!suppressRender) {
@@ -1105,7 +1105,8 @@ export function appendAIChatMessage(
         sender: normalizedSender as 'ai' | 'user',
         text: text || '',
         timestamp,
-        pending: Boolean(pending)
+        pending: Boolean(pending),
+        streaming: false
     };
 
     this.aiChatMessages = [...this.aiChatMessages, entry].slice(-200);
@@ -1115,6 +1116,37 @@ export function appendAIChatMessage(
     }
 
     return entry.id;
+}
+
+/** Updates one streaming bubble at most once per animation frame, without rebuilding the history. */
+export function updateAIChatStreamingMessage(this: AIChatContext, id: string, text: string): void {
+    const index = this.aiChatMessages.findIndex(message => message.id === id);
+    if (index === -1) {
+        return;
+    }
+    this.aiChatMessages[index] = { ...this.aiChatMessages[index], text, pending: false, streaming: true };
+    if (this.aiChatStreamFrame !== null) {
+        return;
+    }
+    this.aiChatStreamFrame = requestAnimationFrame(() => {
+        this.aiChatStreamFrame = null;
+        const message = this.aiChatMessages.find(entry => entry.id === id);
+        const history = document.getElementById('ai-chat-history');
+        const item = history?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(id)}"]`);
+        const bubble = item?.querySelector<HTMLElement>('.ai-chat__bubble');
+        // The final full render may already have landed; don't resurrect the caret.
+        if (!message?.streaming || !history || !item || !bubble) {
+            return;
+        }
+        const nearBottom = history.scrollHeight - history.scrollTop - history.clientHeight <= 48;
+        item.classList.remove('ai-chat__message--pending');
+        item.classList.add('ai-chat__message--streaming');
+        bubble.removeAttribute('data-pending');
+        bubble.innerHTML = this.renderMarkdownToHTML(message.text);
+        if (nearBottom) {
+            history.scrollTop = history.scrollHeight;
+        }
+    });
 }
 
 export function renderAIChatMessages(this: AIChatContext): void {
@@ -1128,9 +1160,14 @@ export function renderAIChatMessages(this: AIChatContext): void {
     this.aiChatMessages.forEach(message => {
         const item = document.createElement('div');
         item.className = `ai-chat__message ai-chat__message--${message.sender}`;
+        item.dataset.messageId = message.id;
 
         if (message.pending) {
             item.classList.add('ai-chat__message--pending');
+        }
+
+        if (message.streaming) {
+            item.classList.add('ai-chat__message--streaming');
         }
 
         const label = document.createElement('span');

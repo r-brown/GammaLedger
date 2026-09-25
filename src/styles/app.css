@@ -3577,6 +3577,22 @@ select.form-control {
   box-shadow: 0 6px 20px rgba(var(--color-slate-900-rgb), 0.08);
 }
 
+.ai-chat__message--streaming .ai-chat__bubble::after {
+  content: '▍';
+  display: inline-block;
+  margin-left: 2px;
+  opacity: 0.7;
+  animation: ai-chat-caret 1s steps(1) infinite;
+}
+
+@keyframes ai-chat-caret {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-chat__message--streaming .ai-chat__bubble::after { animation: none; }
+}
+
 .ai-chat__bubble p {
   margin: 0 0 var(--space-8);
 }
