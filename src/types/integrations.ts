@@ -385,14 +385,23 @@ export interface GeminiApiError {
   status?: string
 }
 
+/** Token accounting returned with generateContent responses (last stream chunk when streaming). */
+export interface GeminiUsageMetadata {
+  promptTokenCount?: number
+  candidatesTokenCount?: number
+  totalTokenCount?: number
+}
+
 /**
- * Top-level response shape from POST .../generateContent.
- * Both `candidates` and `error` are optional because only one is present.
+ * Top-level response shape from POST .../generateContent (and each streamGenerateContent chunk).
+ * Every field is optional because error, blocked and usage-only chunks each carry a subset.
  */
 export interface GeminiApiResponse {
   candidates?: GeminiApiCandidate[]
   promptFeedback?: GeminiPromptFeedback
   error?: GeminiApiError
+  usageMetadata?: GeminiUsageMetadata
+  modelVersion?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -414,7 +423,8 @@ export function isGeminiApiResponse(v: unknown): v is GeminiApiResponse {
   return (
     'candidates' in v ||
     'promptFeedback' in v ||
-    'error' in v
+    'error' in v ||
+    'usageMetadata' in v
   )
 }
 

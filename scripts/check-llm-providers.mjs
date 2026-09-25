@@ -92,6 +92,96 @@ test('describeLLMError gives a provider-named sentence per kind', async () => {
     assert.equal(describeLLMError('weird', 'Gemini'), 'Unknown error')
 })
 
+// ── Gemini ───────────────────────────────────────────────────────────────────
+
+const geminiCtx = (overrides = {}) => ({ gemini: { apiKey: 'g-key', model: 'gemini-3.5-flash', ...overrides } })
+const textRequest = (extra = {}) => ({
+    messages: [
+        { role: 'user', content: [{ type: 'text', text: 'hi' }] },
+        { role: 'assistant', content: [{ type: 'text', text: 'hello' }] },
+        { role: 'user', content: [{ type: 'text', text: 'how am I doing?' }] }
+    ],
+    maxOutputTokens: 1000,
+    temperature: 0.25,
+    ...extra
+})
+
+test('buildGeminiBody maps roles, images, system text and response schema', async () => {
+    const { buildGeminiBody } = await load('/src/integrations/llm/gemini.ts')
+    const body = buildGeminiBody({
+        messages: [
+            { role: 'system', content: [{ type: 'text', text: 'be brief' }] },
+            { role: 'user', content: [{ type: 'image', mimeType: 'image/png', base64: 'AAA' }, { type: 'text', text: 'read this' }] },
+            { role: 'assistant', content: [{ type: 'text', text: 'ok' }] }
+        ],
+        maxOutputTokens: 500,
+        temperature: 0.05,
+        responseSchema: { name: 's', schema: { type: 'object' } }
+    })
+    assert.deepEqual(body, {
+        contents: [
+            { role: 'user', parts: [{ inlineData: { mimeType: 'image/png', data: 'AAA' } }, { text: 'read this' }] },
+            { role: 'model', parts: [{ text: 'ok' }] }
+        ],
+        generationConfig: { maxOutputTokens: 500, temperature: 0.05, responseMimeType: 'application/json', responseJsonSchema: { type: 'object' } },
+        systemInstruction: { parts: [{ text: 'be brief' }] }
+    })
+})
+
+test('Gemini complete sends the key only in the header and parses text + usage', async () => {
+    const { createGeminiProvider } = await load('/src/integrations/llm/gemini.ts')
+    const reply = { candidates: [{ content: { parts: [{ text: '  Hello ' }, { text: 'there  ' }] } }], usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 5 }, modelVersion: 'gemini-3.5-flash-002' }
+    await withFetch(() => jsonResponse(200, reply), async (calls) => {
+        const result = await createGeminiProvider(geminiCtx()).complete(textRequest())
+        assert.equal(calls[0].url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent')
+        assert.ok(!calls[0].url.includes('g-key'))
+        assert.equal(calls[0].init.headers['x-goog-api-key'], 'g-key')
+        assert.deepEqual(result, { text: 'Hello there', provider: 'gemini', model: 'gemini-3.5-flash-002', usage: { inputTokens: 12, outputTokens: 5, costUsd: null } })
+    })
+})
+
+test('Gemini complete maps HTTP errors and blocked prompts to LLMError kinds', async () => {
+    const { createGeminiProvider } = await load('/src/integrations/llm/gemini.ts')
+    const provider = createGeminiProvider(geminiCtx())
+    await withFetch(() => jsonResponse(400, { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT' } }), () => rejectsKind(provider.complete(textRequest()), 'auth'))
+    await withFetch(() => jsonResponse(429, { error: { code: 429, message: 'quota', status: 'RESOURCE_EXHAUSTED' } }), () => rejectsKind(provider.complete(textRequest()), 'rate_limit'))
+    await withFetch(() => jsonResponse(404, { error: { code: 404, message: 'models/x is not found', status: 'NOT_FOUND' } }), () => rejectsKind(provider.complete(textRequest()), 'model_unavailable'))
+    await withFetch(() => jsonResponse(200, { promptFeedback: { blockReason: 'SAFETY' } }), () => rejectsKind(provider.complete(textRequest()), 'blocked'))
+    await withFetch(() => jsonResponse(500, 'oops'), () => rejectsKind(provider.complete(textRequest()), 'http'))
+    await rejectsKind(createGeminiProvider(geminiCtx({ apiKey: '' })).complete(textRequest()), 'missing_key')
+})
+
+test('Gemini stream uses alt=sse, keeps leading spaces between chunks and reads final usage', async () => {
+    const { createGeminiProvider } = await load('/src/integrations/llm/gemini.ts')
+    const chunk = (text, extra = {}) => `data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }], ...extra })}\n\n`
+    const deltas = []
+    await withFetch(() => sseResponse(chunk('Hello'), chunk(' world'), chunk('!', { usageMetadata: { promptTokenCount: 3, candidatesTokenCount: 2 } })), async (calls) => {
+        const result = await createGeminiProvider(geminiCtx()).stream(textRequest(), (t) => deltas.push(t))
+        assert.equal(calls[0].url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:streamGenerateContent?alt=sse')
+        assert.deepEqual(deltas, ['Hello', 'Hello world', 'Hello world!'])
+        assert.equal(result.text, 'Hello world!')
+        assert.deepEqual(result.usage, { inputTokens: 3, outputTokens: 2, costUsd: null })
+    })
+})
+
+test('Gemini stream surfaces a JSON error body returned instead of SSE', async () => {
+    const { createGeminiProvider } = await load('/src/integrations/llm/gemini.ts')
+    await withFetch(() => jsonResponse(403, [{ error: { code: 403, message: 'Permission denied', status: 'PERMISSION_DENIED' } }]),
+        () => rejectsKind(createGeminiProvider(geminiCtx()).stream(textRequest(), () => {}), 'auth'))
+})
+
+test('Gemini provider falls back to the default model for unknown IDs and labels models', async () => {
+    const { createGeminiProvider, geminiModelLabel } = await load('/src/integrations/llm/gemini.ts')
+    assert.equal(createGeminiProvider(geminiCtx({ model: 'nope' })).activeModel(), 'gemini-3.5-flash')
+    assert.equal(geminiModelLabel('gemini-3.1-pro-preview'), 'Gemini 3.1 Pro (Preview)')
+    assert.equal(geminiModelLabel('gemini-9-ultra'), 'Gemini 9 Ultra')
+})
+
+test('registry returns the Gemini provider when gemini is active', async () => {
+    const { getActiveLLMProvider } = await load('/src/integrations/llm/registry.ts')
+    assert.equal(getActiveLLMProvider({ aiProvider: { active: 'gemini' }, ...geminiCtx() }).id, 'gemini')
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0
