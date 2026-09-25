@@ -66,6 +66,7 @@ import * as spreadsModule from './trades/spreads.js';
 import * as finnhubModule from './integrations/finnhub.js';
 import * as schwabModule from './integrations/schwab.js';
 import * as geminiIntegrationModule from './integrations/gemini.js';
+import * as aiProviderModule from './integrations/ai-provider.js';
 import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
 import * as startupBehaviorModule from './settings/startup-behavior.js';
@@ -1200,7 +1201,7 @@ class GammaLedger {
                 this.showView('settings');
                 this.toggleAIChat(false);
 
-                const keyField = document.getElementById('gemini-api-key');
+                const keyField = document.getElementById(this.aiProvider.active === 'openrouter' ? 'openrouter-api-key' : 'gemini-api-key');
                 if (keyField) {
                     setTimeout(() => keyField.focus(), 120);
                 }
@@ -1468,9 +1469,7 @@ class GammaLedger {
 
     flushPendingGeminiStatus() { return geminiIntegrationModule.flushPendingGeminiStatus.call(this); }
 
-    getGeminiModelLabel(model = '') { return geminiIntegrationModule.getGeminiModelLabel.call(this, model); }
 
-    getGeminiChatDisplayName() { return geminiIntegrationModule.getGeminiChatDisplayName.call(this); }
 
     updateAIChatHeader() { return aiChatModule.updateAIChatHeader.call(this); }
 
@@ -1594,6 +1593,8 @@ class GammaLedger {
     cancelAICoachConsent() { return aiCoachConsentModule.cancelAICoachConsent.call(this); }
 
     hasAICoachConsent() { return aiCoachConsentModule.hasAICoachConsent.call(this); }
+
+    getAIChatDisplayName() { return aiProviderModule.getAIChatDisplayName.call(this); }
 
     getActiveLLMProvider(): LLMProvider { return resolveActiveLLMProvider(this); }
 

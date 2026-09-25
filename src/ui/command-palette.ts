@@ -54,7 +54,7 @@ function buildCommands(this: PaletteContext, query: string): PaletteCommand[] {
         { label: 'Load Database', hint: '', keywords: 'file open', run: () => { void this.loadDatabase() } },
         { label: 'New Database', hint: '', keywords: 'file fresh blank', run: () => this.newDatabase() },
         { label: 'Export CSV', hint: '', keywords: 'file download', run: () => this.exportToCSV() },
-        { label: 'Toggle AI Coach', hint: '', keywords: 'chat gemini assistant', run: () => this.toggleAIChat() },
+        { label: 'Toggle AI Coach', hint: '', keywords: 'chat ai assistant gemini openrouter', run: () => this.toggleAIChat() },
         {
             label: 'Theme: switch to light', hint: '', keywords: 'theme color scheme',
             run: () => this.setThemePreference('light')

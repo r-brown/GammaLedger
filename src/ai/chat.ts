@@ -3,6 +3,7 @@
 
 import type { DraftLegExtraction } from './draft-leg-extraction.js'
 import type { AIReply } from './insights-agent.js'
+import { describeLLMError, type LLMProvider } from '../integrations/llm/types.js'
 
 interface ChatMessage {
     id: string
@@ -31,7 +32,6 @@ interface AIChatContext {
     aiChatOpen: boolean
     aiDraftImport: AIDraftImportState | null
     trades: Record<string, unknown>[]
-    gemini?: { apiKey?: string | null } | null
     renderAIChatMessages(): void
     appendAIChatMessage(sender: string, text: string, options?: Record<string, unknown>): string | null
     calculateAdvancedStats(): Record<string, unknown>
@@ -40,7 +40,8 @@ interface AIChatContext {
     handleAIChatSubmit(): Promise<void>
     handleAIQuickPrompt(prompt: string, options?: { promptType?: string | null; [key: string]: unknown }): Promise<void>
     toggleAIChat(forceOpen?: boolean | null): void
-    getGeminiChatDisplayName(): string
+    getAIChatDisplayName(): string
+    getActiveLLMProvider(): LLMProvider
     renderMarkdownToHTML(text: string): string
     updateAIChatHeader(): void
     updateActivePositionsTable(): void
@@ -150,7 +151,7 @@ async function preprocessScreenshotFile(file: File): Promise<PreparedScreenshotI
         throw new Error('Use a PNG, JPEG, WebP, HEIC, or HEIF screenshot.');
     }
     if (file.size > MAX_SCREENSHOT_BYTES) {
-        throw new Error('Screenshot is larger than 10 MB. Crop or compress it before sending to Gemini.');
+        throw new Error('Screenshot is larger than 10 MB. Crop or compress it before sending it to the AI provider.');
     }
 
     try {
@@ -582,7 +583,7 @@ export async function extractAIDraftLegsFromScreenshot(this: AIChatContext): Pro
         return;
     }
     if (!this.aiAgent?.extractDraftLegsFromImage) {
-        this.showNotification('Gemini screenshot extraction is unavailable.', 'error');
+        this.showNotification('Screenshot extraction is unavailable.', 'error');
         return;
     }
     if (this.aiChatPendingRequest) {
@@ -627,7 +628,7 @@ export async function extractAIDraftLegsFromScreenshot(this: AIChatContext): Pro
             ...state,
             status: 'error',
             extraction: null,
-            error: (error as Error)?.message || 'Gemini could not extract draft legs.'
+            error: describeLLMError(error, this.getActiveLLMProvider().displayName)
         };
     } finally {
         this.aiChatPendingRequest = false;
@@ -1000,9 +1001,9 @@ export async function handleAIChatSubmit(this: AIChatContext): Promise<void> {
             : 'AI assistant is unavailable at the moment.';
         this.appendAIChatMessage('ai', replyText(response), { replaceId: placeholderId, pending: false });
     } catch (error) {
-        const message = error?.message || 'Unknown error';
-        const fallback = 'Sorry, I could not reach Gemini right now. Please try again soon.';
-        this.appendAIChatMessage('ai', `${fallback} (${message})`, { replaceId: placeholderId, pending: false });
+        const providerName = this.getActiveLLMProvider().displayName;
+        const fallback = `Sorry, I could not reach ${providerName} right now.`;
+        this.appendAIChatMessage('ai', `${fallback} ${describeLLMError(error, providerName)}`, { replaceId: placeholderId, pending: false });
     } finally {
         this.aiChatPendingRequest = false;
         if (input) {
@@ -1048,9 +1049,9 @@ export async function handleAIQuickPrompt(
             : 'AI assistant is unavailable at the moment.';
         this.appendAIChatMessage('ai', replyText(response), { replaceId: placeholderId, pending: false });
     } catch (error) {
-        const message = error?.message || 'Unknown error';
-        const fallback = 'Sorry, I could not reach Gemini right now. Please try again soon.';
-        this.appendAIChatMessage('ai', `${fallback} (${message})`, { replaceId: placeholderId, pending: false });
+        const providerName = this.getActiveLLMProvider().displayName;
+        const fallback = `Sorry, I could not reach ${providerName} right now.`;
+        this.appendAIChatMessage('ai', `${fallback} ${describeLLMError(error, providerName)}`, { replaceId: placeholderId, pending: false });
     } finally {
         this.aiChatPendingRequest = false;
         if (input) {
@@ -1134,7 +1135,7 @@ export function renderAIChatMessages(this: AIChatContext): void {
 
         const label = document.createElement('span');
         label.textContent = message.sender === 'ai'
-            ? this.getGeminiChatDisplayName()
+            ? this.getAIChatDisplayName()
             : 'You';
         item.appendChild(label);
 
@@ -1172,12 +1173,13 @@ export function updateAIChatHeader(this: AIChatContext): void {
         return;
     }
 
-    const hasKey = Boolean(this.gemini?.apiKey);
+    const provider = this.getActiveLLMProvider();
+    const hasKey = provider.isConfigured();
     const hasConsent = this.hasAICoachConsent();
 
     if (!hasKey) {
         subtitleEl.textContent = '';
-        const text1 = document.createTextNode('Connect your Gemini API key in ');
+        const text1 = document.createTextNode(`Connect your ${provider.displayName} API key in `);
         const link = document.createElement('a');
         link.href = '#settings';
         link.className = 'ai-chat__settings-link';

@@ -182,6 +182,21 @@ test('registry returns the Gemini provider when gemini is active', async () => {
     assert.equal(getActiveLLMProvider({ aiProvider: { active: 'gemini' }, ...geminiCtx() }).id, 'gemini')
 })
 
+// ── crypto ───────────────────────────────────────────────────────────────────
+
+test('loadOrCreateAesKey creates a key once and reuses the stored one', async () => {
+    const { loadOrCreateAesKey, encryptString, decryptString } = await load('/src/utils/crypto.ts')
+    const store = new Map()
+    const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => { store.set(k, v); return true }, removeItem: (k) => store.delete(k) }
+    const first = await loadOrCreateAesKey(storage, 'TestSecret', globalThis.crypto)
+    const storedRaw = store.get('TestSecret')
+    assert.ok(storedRaw && storedRaw.length > 20)
+    const second = await loadOrCreateAesKey(storage, 'TestSecret', globalThis.crypto)
+    assert.equal(store.get('TestSecret'), storedRaw)
+    const payload = await encryptString('sk-or-secret', globalThis.crypto, first)
+    assert.equal(await decryptString(payload, globalThis.crypto, second), 'sk-or-secret')
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

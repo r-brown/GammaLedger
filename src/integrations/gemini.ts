@@ -11,6 +11,7 @@ import {
     GEMINI_SECRET_STORAGE_KEY,
     GEMINI_MAX_TOKENS_STORAGE_KEY
 } from '@core/config'
+import { loadOrCreateAesKey } from '@utils/crypto'
 
 type AnyRecord = Record<string, any>
 type GeminiStatusVariant = 'success' | 'error' | 'neutral'
@@ -274,32 +275,6 @@ export function flushPendingGeminiStatus(this: any) {
     this.gemini.pendingStatus = null;
 }
 
-export function getGeminiModelLabel(this: any, model = '') {
-    const normalized = (model || '').toLowerCase();
-    const labels: Record<string, string> = Object.fromEntries(GEMINI_MODELS.map(m => [m.id, m.label]));
-
-    if (labels[normalized]) {
-        return labels[normalized];
-    }
-
-    if (!normalized) {
-        return '';
-    }
-
-    const fallback = normalized
-        .replace(/^gemini[-\s]?/i, 'Gemini ')
-        .replace(/-/g, ' ')
-        .replace(/\b([a-z])/g, (_, letter) => letter.toUpperCase())
-        .trim();
-
-    return fallback || 'Gemini';
-}
-
-export function getGeminiChatDisplayName(this: any) {
-    const label = this.getGeminiModelLabel(this.gemini?.model);
-    return label ? label : 'Gemini';
-}
-
 export function updateGeminiStatus(this: any, message: string, variant: GeminiStatusVariant = 'neutral', autoClearMs = 0) {
     const statusEl = this.gemini?.elements?.status;
     if (!statusEl || !message) {
@@ -542,15 +517,7 @@ export async function ensureGeminiEncryptionKey(this: any, cryptoApi = this.getC
         return this.gemini.encryptionKey;
     }
 
-    let rawKeyB64 = this.safeLocalStorage.getItem(GEMINI_SECRET_STORAGE_KEY);
-    if (!rawKeyB64) {
-        const raw = cryptoApi.getRandomValues(new Uint8Array(32));
-        rawKeyB64 = this.arrayBufferToBase64(raw.buffer);
-        this.safeLocalStorage.setItem(GEMINI_SECRET_STORAGE_KEY, rawKeyB64);
-    }
-
-    const rawKey = new Uint8Array(this.base64ToArrayBuffer(rawKeyB64));
-    const cryptoKey = await cryptoApi.subtle.importKey('raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    const cryptoKey = await loadOrCreateAesKey(this.safeLocalStorage, GEMINI_SECRET_STORAGE_KEY, cryptoApi);
     this.gemini.encryptionKey = cryptoKey;
     return cryptoKey;
 }
