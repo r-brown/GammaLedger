@@ -52,7 +52,8 @@ import { parseCsvRow } from './utils/import-csv.js';
 import { LocalInsightsAgent } from './ai/local-agent.js';
 import { AIInsightsAgent } from './ai/insights-agent.js';
 import { getActiveLLMProvider as resolveActiveLLMProvider } from './integrations/llm/registry.js';
-import type { LLMProvider, LLMProviderId, OpenRouterProviderState } from './integrations/llm/types.js';
+import type { LLMProvider, LLMProviderId } from './integrations/llm/types.js';
+import type { OpenRouterState } from './types/integrations.js';
 import * as legsModule from './trades/legs.js';
 import * as pnlModule from './calculations/pnl.js';
 import * as daysHeldModule from './calculations/daysheld.js';
@@ -68,6 +69,7 @@ import * as finnhubModule from './integrations/finnhub.js';
 import * as schwabModule from './integrations/schwab.js';
 import * as geminiIntegrationModule from './integrations/gemini.js';
 import * as aiProviderModule from './integrations/ai-provider.js';
+import * as openRouterIntegrationModule from './integrations/openrouter.js';
 import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
 import * as startupBehaviorModule from './settings/startup-behavior.js';
@@ -167,7 +169,7 @@ class GammaLedger {
     declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
     declare aiAgent: AIInsightsAgent | null
     declare aiProvider: { active: LLMProviderId; maxOutputTokens: number }
-    declare openRouter: OpenRouterProviderState & { encryptionKey: CryptoKey | null; statusTimeoutId: ReturnType<typeof setTimeout> | null; pendingStatus: { message: string; variant: 'success' | 'error' | 'neutral'; autoClearMs: number } | null; elements: Record<string, unknown> }
+    declare openRouter: OpenRouterState
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
@@ -547,6 +549,9 @@ class GammaLedger {
         if (this.gemini?.statusTimeoutId) {
             clearTimeout(this.gemini.statusTimeoutId);
         }
+        if (this.openRouter?.statusTimeoutId) {
+            clearTimeout(this.openRouter.statusTimeoutId);
+        }
         if (this.finnhub?.statusTimeoutId) {
             clearTimeout(this.finnhub.statusTimeoutId);
         }
@@ -598,6 +603,8 @@ class GammaLedger {
             }
             await this.loadFinnhubConfigFromStorage();
             await this.loadGeminiConfigFromStorage();
+            await this.loadOpenRouterConfigFromStorage();
+            this.loadActiveAIProvider();
             if (this.startupBehavior === 'manual') {
                 this.updateFileNameDisplay();
             } else if (!this.trades || this.trades.length === 0) {
@@ -608,6 +615,8 @@ class GammaLedger {
             }
             this.bindEvents();
             this.initializeGeminiControls();
+            this.initializeOpenRouterControls();
+            this.initializeAIProviderControls();
             this.initializeAIChat();
             this.initializeFinnhubControls();
             this.initializeSchwabControls();
@@ -1476,6 +1485,24 @@ class GammaLedger {
     generateMonteCarloProjection(dailyReturns = [], options = {}) { return dashboardChartsModule.generateMonteCarloProjection.call(this, dailyReturns, options); }
 
     initializeGeminiControls() { return geminiIntegrationModule.initializeGeminiControls.call(this); }
+
+    async loadOpenRouterConfigFromStorage() { return openRouterIntegrationModule.loadOpenRouterConfigFromStorage.call(this); }
+
+    initializeOpenRouterControls() { return openRouterIntegrationModule.initializeOpenRouterControls.call(this); }
+
+    updateOpenRouterStatus(message, variant = 'neutral', autoClearMs = 0) { return openRouterIntegrationModule.updateOpenRouterStatus.call(this, message, variant, autoClearMs); }
+
+    async ensureOpenRouterModels() { return openRouterIntegrationModule.ensureOpenRouterModels.call(this); }
+
+    renderOpenRouterModelOptions() { return openRouterIntegrationModule.renderOpenRouterModelOptions.call(this); }
+
+    loadActiveAIProvider() { return aiProviderModule.loadActiveAIProvider.call(this); }
+
+    setActiveAIProvider(active) { return aiProviderModule.setActiveAIProvider.call(this, active); }
+
+    renderAIProviderSelector() { return aiProviderModule.renderAIProviderSelector.call(this); }
+
+    initializeAIProviderControls() { return aiProviderModule.initializeAIProviderControls.call(this); }
 
     initializeGeminiMaxTokensControls() { return geminiIntegrationModule.initializeGeminiMaxTokensControls.call(this); }
 

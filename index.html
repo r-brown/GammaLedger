@@ -842,34 +842,74 @@
                             <div class="finnhub-rate-status" id="finnhub-rate-status" role="status">Default: 60/min</div>
                         </div>
                     </div>
-                    <div class="settings-card" id="gemini-controls">
+                    <div class="settings-card" id="ai-provider-controls">
                         <div class="settings-card__header">
-                            <h3>Gemini API</h3>
-                            <p class="settings-card__subtitle">Store a Google Gemini-compatible API key to enable AI portfolio insights.</p>
+                            <h3>AI Provider</h3>
+                            <p class="settings-card__subtitle">Connect an AI provider to enable AI Coach insights and screenshot import. Keys stay on this device.</p>
                         </div>
                         <div class="settings-card__body">
-                            <label for="gemini-api-key" class="form-label">API Key</label>
-                            <div class="settings-input-row">
-                                <input type="password" id="gemini-api-key" class="form-control" placeholder="Paste API key" autocomplete="off">
-                                <button class="btn btn--sm btn--primary" id="gemini-save">Save Key</button>
-                                <button class="btn btn--sm btn--secondary" id="gemini-clear">Clear</button>
+                            <div class="ai-provider-switch" role="radiogroup" aria-label="AI provider">
+                                <button type="button" class="ai-provider-switch__option" role="radio" aria-checked="false" data-ai-provider="openrouter">OpenRouter</button>
+                                <button type="button" class="ai-provider-switch__option" role="radio" aria-checked="false" data-ai-provider="gemini">Gemini</button>
                             </div>
-                            <div class="form-group">
-                                <label for="gemini-model" class="form-label">Model</label>
-                                <select id="gemini-model" class="form-control"></select>
+
+                            <div id="openrouter-controls" class="ai-provider-fields" data-ai-provider-fields="openrouter" hidden>
+                                <label for="openrouter-api-key" class="form-label">API Key</label>
+                                <div class="settings-input-row">
+                                    <input type="password" id="openrouter-api-key" class="form-control" placeholder="sk-or-…" autocomplete="off">
+                                    <button class="btn btn--sm btn--primary" id="openrouter-save">Save Key</button>
+                                    <button class="btn btn--sm btn--secondary" id="openrouter-clear">Clear</button>
+                                </div>
+                                <p class="settings-help-text">Create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>. One key works with models from Anthropic, OpenAI, Google and others.</p>
+                                <div class="form-group">
+                                    <label for="openrouter-model" class="form-label">Model</label>
+                                    <div class="settings-input-row">
+                                        <input type="text" id="openrouter-model" class="form-control" list="openrouter-model-options" placeholder="google/gemini-3.8-flash" autocomplete="off" spellcheck="false">
+                                        <button class="btn btn--sm btn--primary" id="openrouter-model-save">Use Model</button>
+                                    </div>
+                                    <datalist id="openrouter-model-options"></datalist>
+                                    <p class="settings-help-text" id="openrouter-model-info"></p>
+                                </div>
+                                <label class="settings-toggle" for="openrouter-data-collection">
+                                    <input id="openrouter-data-collection" type="checkbox" checked>
+                                    <span>Only use providers that don't train on my data</span>
+                                </label>
+                                <details class="ai-provider-advanced">
+                                    <summary>Advanced</summary>
+                                    <label for="openrouter-fallback-models" class="form-label">Fallback models</label>
+                                    <div class="settings-input-row">
+                                        <input type="text" id="openrouter-fallback-models" class="form-control" placeholder="anthropic/claude-sonnet-5, openai/gpt-6-luna" autocomplete="off" spellcheck="false">
+                                        <button class="btn btn--sm btn--primary" id="openrouter-fallback-save">Save</button>
+                                    </div>
+                                    <p class="settings-help-text">Up to two model IDs, comma-separated. OpenRouter tries them in order if the main model is down or rate-limited.</p>
+                                </details>
+                                <div class="ai-provider-status" id="openrouter-status" role="status">Not set</div>
                             </div>
-                            <p class="settings-help-text">Keys stay on this device. Use Google AI Studio or any compatible service exposing the Gemini generateContent API.</p>
-                            <div class="gemini-status" id="gemini-status" role="status">Not set</div>
-                            
+
+                            <div id="gemini-controls" class="ai-provider-fields" data-ai-provider-fields="gemini" hidden>
+                                <label for="gemini-api-key" class="form-label">API Key</label>
+                                <div class="settings-input-row">
+                                    <input type="password" id="gemini-api-key" class="form-control" placeholder="Paste API key" autocomplete="off">
+                                    <button class="btn btn--sm btn--primary" id="gemini-save">Save Key</button>
+                                    <button class="btn btn--sm btn--secondary" id="gemini-clear">Clear</button>
+                                </div>
+                                <div class="form-group">
+                                    <label for="gemini-model" class="form-label">Model</label>
+                                    <select id="gemini-model" class="form-control"></select>
+                                </div>
+                                <p class="settings-help-text">Use Google AI Studio or any compatible service exposing the Gemini generateContent API.</p>
+                                <div class="gemini-status" id="gemini-status" role="status">Not set</div>
+                            </div>
+
                             <div class="settings-divider"></div>
-                            
+
                             <label for="gemini-max-tokens" class="form-label">Max Output Tokens</label>
                             <div class="settings-input-row">
                                 <input type="number" id="gemini-max-tokens" class="form-control" placeholder="65536" min="1024" max="1000000" step="1024" autocomplete="off">
                                 <button class="btn btn--sm btn--primary" id="gemini-tokens-save">Save</button>
                                 <button class="btn btn--sm btn--secondary" id="gemini-tokens-reset">Reset</button>
                             </div>
-                            <p class="settings-help-text">Maximum tokens for AI responses. Higher values allow longer responses but may increase cost.</p>
+                            <p class="settings-help-text">Maximum tokens for AI responses, for either provider. OpenRouter also caps this at the model's own limit.</p>
                             <div class="gemini-tokens-status" id="gemini-tokens-status" role="status">Default: 65536</div>
                         </div>
                     </div>

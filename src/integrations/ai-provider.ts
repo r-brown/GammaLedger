@@ -2,7 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { z } from 'zod'
-import { AI_PROVIDER_IDS, AI_PROVIDER_STORAGE_KEY, type AIProviderId } from '@core/config'
+import { AI_PROVIDER_IDS, AI_PROVIDER_STORAGE_KEY, GEMINI_STORAGE_KEY, type AIProviderId } from '@core/config'
 import { AIProviderSelectionSchema } from '@core/schema'
 import { safeLocalStorage } from '@core/storage'
 import type { LLMProvider } from './llm/types.js'
@@ -65,4 +65,65 @@ export function saveActiveAIProvider(active: AIProviderId): void {
 export function getAIChatDisplayName(this: AIProviderDisplayContext): string {
     const provider = this.getActiveLLMProvider()
     return provider.modelLabel(provider.activeModel()) || provider.displayName
+}
+
+interface AIProviderSelectorContext {
+    aiProvider: { active: AIProviderId }
+    initializeAIChat(): void
+    updateAIChatHeader(): void
+    renderAIProviderSelector(): void
+    setActiveAIProvider(active: AIProviderId): void
+    ensureOpenRouterModels(): Promise<unknown>
+}
+
+/** Runs after the Gemini and OpenRouter configs have loaded. */
+export function loadActiveAIProvider(this: AIProviderSelectorContext): void {
+    const resolved = resolveAIProviderSelection(
+        safeLocalStorage.getItem(AI_PROVIDER_STORAGE_KEY),
+        safeLocalStorage.getItem(GEMINI_STORAGE_KEY)
+    )
+    this.aiProvider.active = resolved.active
+    if (resolved.persist) {
+        saveActiveAIProvider(resolved.active)
+    }
+}
+
+export function setActiveAIProvider(this: AIProviderSelectorContext, active: AIProviderId): void {
+    if (this.aiProvider.active === active) {
+        this.renderAIProviderSelector()
+        return
+    }
+    this.aiProvider.active = active
+    saveActiveAIProvider(active)
+    this.renderAIProviderSelector()
+    if (active === 'openrouter') {
+        void this.ensureOpenRouterModels()
+    }
+    // New provider → new chat session (and consent is re-checked on next open).
+    this.initializeAIChat()
+    this.updateAIChatHeader()
+}
+
+export function renderAIProviderSelector(this: AIProviderSelectorContext): void {
+    document.querySelectorAll<HTMLElement>('[data-ai-provider]').forEach((button) => {
+        const selected = button.dataset.aiProvider === this.aiProvider.active
+        button.setAttribute('aria-checked', String(selected))
+        button.classList.toggle('is-active', selected)
+    })
+    document.querySelectorAll<HTMLElement>('[data-ai-provider-fields]').forEach((panel) => {
+        panel.hidden = panel.dataset.aiProviderFields !== this.aiProvider.active
+    })
+}
+
+export function initializeAIProviderControls(this: AIProviderSelectorContext): void {
+    document.querySelectorAll<HTMLElement>('[data-ai-provider]').forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault()
+            const id = button.dataset.aiProvider
+            if (isAIProviderId(id)) {
+                this.setActiveAIProvider(id)
+            }
+        })
+    })
+    this.renderAIProviderSelector()
 }

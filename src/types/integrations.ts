@@ -1,5 +1,6 @@
 import type { DollarAmount, GeminiModel, ToastVariant } from './common'
 import type { RequestScheduler } from '../integrations/request-scheduler'
+import type { OpenRouterProviderState } from '../integrations/llm/types'
 
 export interface SchwabVaultPayload {
   clientId: string
@@ -173,6 +174,30 @@ export interface GeminiState {
 
   /** Cached DOM element references for the Gemini UI. */
   elements: Record<string, HTMLElement>
+}
+
+export type AIStatusVariant = 'success' | 'error' | 'neutral'
+
+/** OpenRouter adapter state (this.openRouter on GammaLedger). */
+export interface OpenRouterState extends OpenRouterProviderState {
+  encryptionKey: CryptoKey | null
+  statusTimeoutId: ReturnType<typeof setTimeout> | null
+  /** Status raised before the settings DOM exists; shown by initializeOpenRouterControls. */
+  pendingStatus: { message: string; variant: AIStatusVariant; autoClearMs: number } | null
+  elements: {
+    container?: HTMLElement
+    keyInput?: HTMLInputElement | null
+    saveButton?: HTMLElement | null
+    clearButton?: HTMLElement | null
+    modelInput?: HTMLInputElement | null
+    modelSaveButton?: HTMLElement | null
+    modelOptions?: HTMLDataListElement | null
+    modelInfo?: HTMLElement | null
+    fallbackInput?: HTMLInputElement | null
+    fallbackSaveButton?: HTMLElement | null
+    dataCollectionInput?: HTMLInputElement | null
+    status?: HTMLElement | null
+  }
 }
 
 // ---------------------------------------------------------------------------

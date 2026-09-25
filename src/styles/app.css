@@ -5135,6 +5135,7 @@ tr:hover {
 
 .settings-view .finnhub-status,
 .settings-view .gemini-status,
+.settings-view .ai-provider-status,
 .settings-view .default-fee-status,
 .settings-view .finnhub-rate-status,
 .settings-view .gemini-tokens-status {
@@ -5147,6 +5148,7 @@ tr:hover {
 
 .settings-view .finnhub-status.is-success,
 .settings-view .gemini-status.is-success,
+.settings-view .ai-provider-status.is-success,
 .settings-view .default-fee-status.is-success,
 .settings-view .finnhub-rate-status.is-success,
 .settings-view .gemini-tokens-status.is-success {
@@ -5156,11 +5158,65 @@ tr:hover {
 
 .settings-view .finnhub-status.is-error,
 .settings-view .gemini-status.is-error,
+.settings-view .ai-provider-status.is-error,
 .settings-view .default-fee-status.is-error,
 .settings-view .finnhub-rate-status.is-error,
 .settings-view .gemini-tokens-status.is-error {
   background: rgba(var(--color-error-rgb), var(--status-bg-opacity));
   color: var(--color-error);
+}
+
+/* AI provider selector */
+.ai-provider-switch {
+  display: inline-flex;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  margin-bottom: var(--space-16);
+  border-radius: var(--radius-base);
+  background: rgba(var(--color-info-rgb), var(--status-bg-opacity));
+}
+
+.ai-provider-switch__option {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  padding: var(--space-6) var(--space-16);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.ai-provider-switch__option.is-active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-xs);
+}
+
+.ai-provider-switch__option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.ai-provider-fields[hidden] {
+  display: none;
+}
+
+.settings-toggle {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  margin: var(--space-8) 0 var(--space-12);
+}
+
+.ai-provider-advanced {
+  margin-bottom: var(--space-12);
+}
+
+.ai-provider-advanced summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-8);
 }
 
 /* Settings section divider */

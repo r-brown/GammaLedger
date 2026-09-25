@@ -6,7 +6,7 @@ import type {
 import type { EnrichedTrade } from './trade'
 import type { Stats } from './stats'
 import type { FilterState, QuoteEntry, PositionHighlightConfig, CreditPlaybookEntry } from './ui'
-import type { FinnhubState, GeminiState, StockMetrics, SignalsData, CompanyProfile, EarningsSurprise, EarningsCalendarEntry } from './integrations'
+import type { FinnhubState, GeminiState, OpenRouterState, StockMetrics, SignalsData, CompanyProfile, EarningsSurprise, EarningsCalendarEntry } from './integrations'
 import type { Message } from './ai'
 import type { ImportLogEntry, ImportSummary } from './imports'
 
@@ -114,6 +114,7 @@ export interface AppState {
   finnhub: FinnhubState
   gemini: GeminiState
   aiProvider: { active: import('../core/config').AIProviderId; maxOutputTokens: number }
+  openRouter: OpenRouterState
 
   // ---- Finnhub enrichment caches ----
   /** ticker → earliest upcoming earnings entry within any open position's expiration window. Populated once on init(). */
