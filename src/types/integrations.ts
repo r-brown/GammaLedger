@@ -161,7 +161,6 @@ export interface GeminiState {
   apiKey: string | null
   encryptionKey: CryptoKey | null
   model: GeminiModel
-  maxOutputTokens: number
 
   /** Timeout ID for auto-clearing the status badge. null when idle. */
   statusTimeoutId: number | null

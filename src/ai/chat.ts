@@ -1,7 +1,8 @@
 // src/ai/chat.ts — Wave 10: AI chat UI panel.
 // Uses the .call(this, …) delegation pattern.
 
-import type { GeminiDraftLegExtraction } from './gemini-agent.js'
+import type { DraftLegExtraction } from './draft-leg-extraction.js'
+import type { AIReply } from './insights-agent.js'
 
 interface ChatMessage {
     id: string
@@ -14,12 +15,12 @@ interface ChatMessage {
 interface AIAgent {
     updateContext(ctx: Record<string, unknown>): void
     getGreeting(): string
-    generateResponse(query: string, options?: Record<string, unknown>): Promise<string> | string
+    generateResponse(query: string, options?: Record<string, unknown>): Promise<AIReply | string> | string
     extractDraftLegsFromImage?(input: {
         mimeType: string
         data: string
         metadata?: Record<string, unknown>
-    }): Promise<GeminiDraftLegExtraction>
+    }): Promise<DraftLegExtraction>
 }
 
 interface AIChatContext {
@@ -83,7 +84,7 @@ interface AIDraftImportState {
     status: 'empty' | 'ready' | 'extracting' | 'review' | 'error'
     fileName: string
     image: PreparedScreenshotImage | null
-    extraction: GeminiDraftLegExtraction | null
+    extraction: DraftLegExtraction | null
     error: string | null
 }
 
@@ -113,6 +114,10 @@ const SUPPORTED_SCREENSHOT_TYPES = new Set([
     'image/heic',
     'image/heif'
 ]);
+
+function replyText(reply: AIReply | string): string {
+    return typeof reply === 'string' ? reply : reply.text;
+}
 
 function dataUrlToBase64(dataUrl: string): string {
     const commaIndex = dataUrl.indexOf(',');
@@ -993,7 +998,7 @@ export async function handleAIChatSubmit(this: AIChatContext): Promise<void> {
         const response = this.aiAgent
             ? await this.aiAgent.generateResponse(query, { history: historySnapshot })
             : 'AI assistant is unavailable at the moment.';
-        this.appendAIChatMessage('ai', response, { replaceId: placeholderId, pending: false });
+        this.appendAIChatMessage('ai', replyText(response), { replaceId: placeholderId, pending: false });
     } catch (error) {
         const message = error?.message || 'Unknown error';
         const fallback = 'Sorry, I could not reach Gemini right now. Please try again soon.';
@@ -1041,7 +1046,7 @@ export async function handleAIQuickPrompt(
         const response = this.aiAgent
             ? await this.aiAgent.generateResponse(prompt, { history: historySnapshot, promptType: options.promptType || null })
             : 'AI assistant is unavailable at the moment.';
-        this.appendAIChatMessage('ai', response, { replaceId: placeholderId, pending: false });
+        this.appendAIChatMessage('ai', replyText(response), { replaceId: placeholderId, pending: false });
     } catch (error) {
         const message = error?.message || 'Unknown error';
         const fallback = 'Sorry, I could not reach Gemini right now. Please try again soon.';

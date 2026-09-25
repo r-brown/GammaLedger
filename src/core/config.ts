@@ -155,6 +155,9 @@ export const EXTERNAL_ANALYTICS_STORAGE_KEY: string = APP_CONFIG.STORAGE.EXTERNA
 export const DEFAULT_EXTERNAL_ANALYTICS_URL = 'https://www.investing.com/search/?q={ticker}' as const;
 export const DEFAULT_FINNHUB_RATE_LIMIT = 60 as const;
 export const DEFAULT_GEMINI_MAX_TOKENS = 65536 as const;
+/** Output-token cap shared by every AI provider (stored under the legacy Gemini key). */
+export const DEFAULT_AI_MAX_TOKENS: number = DEFAULT_GEMINI_MAX_TOKENS;
+export const AI_MAX_TOKENS_STORAGE_KEY: string = GEMINI_MAX_TOKENS_STORAGE_KEY;
 export const CURRENT_STORAGE_VERSION = '2.6' as const;
 
 // ---------------------------------------------------------------------------

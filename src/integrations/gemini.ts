@@ -1,5 +1,5 @@
 // src/integrations/gemini.ts — Wave 5: Gemini API settings & UI controls.
-// The agent class itself lives in src/ai/gemini-agent.ts.
+// The agent class itself lives in src/ai/insights-agent.ts; transport in src/integrations/llm/gemini.ts.
 // Uses the .call(this, …) delegation pattern so all this.* refs work.
 
 import {
@@ -170,7 +170,7 @@ export function initializeGeminiMaxTokensControls(this: any) {
 
     // Initialize input with current value
     if (maxTokensInput) {
-        maxTokensInput.value = this.gemini.maxOutputTokens;
+        maxTokensInput.value = this.aiProvider.maxOutputTokens;
     }
 
     // Update status display
@@ -182,7 +182,7 @@ export function initializeGeminiMaxTokensControls(this: any) {
         const value = parseInt(maxTokensInput?.value || '', 10);
         
         if (Number.isFinite(value) && value >= 1024) {
-            this.gemini.maxOutputTokens = value;
+            this.aiProvider.maxOutputTokens = value;
             this.saveGeminiMaxTokensToStorage();
             this.updateGeminiTokensStatus(tokensStatus, `Max tokens set to ${value.toLocaleString()}`, 'success');
         } else {
@@ -193,7 +193,7 @@ export function initializeGeminiMaxTokensControls(this: any) {
     // Reset button handler
     tokensResetButton?.addEventListener('click', (event) => {
         event.preventDefault();
-        this.gemini.maxOutputTokens = DEFAULT_GEMINI_MAX_TOKENS;
+        this.aiProvider.maxOutputTokens = DEFAULT_GEMINI_MAX_TOKENS;
         this.removeGeminiMaxTokensFromStorage();
         if (maxTokensInput) {
             maxTokensInput.value = String(DEFAULT_GEMINI_MAX_TOKENS);
@@ -227,12 +227,12 @@ export function updateGeminiTokensStatus(this: any, element: HTMLElement | null,
     }
 
     // Default status based on current value
-    const isDefault = this.gemini.maxOutputTokens === DEFAULT_GEMINI_MAX_TOKENS;
+    const isDefault = this.aiProvider.maxOutputTokens === DEFAULT_GEMINI_MAX_TOKENS;
     if (isDefault) {
         element.textContent = `Default: ${DEFAULT_GEMINI_MAX_TOKENS.toLocaleString()}`;
         element.className = 'gemini-tokens-status';
     } else {
-        element.textContent = `Custom: ${this.gemini.maxOutputTokens.toLocaleString()}`;
+        element.textContent = `Custom: ${this.aiProvider.maxOutputTokens.toLocaleString()}`;
         element.className = 'gemini-tokens-status is-success';
     }
 }
@@ -593,8 +593,8 @@ export function loadGeminiMaxTokensFromStorage(this: any) {
 }
 
 export function saveGeminiMaxTokensToStorage(this: any) {
-    if (this.gemini?.maxOutputTokens) {
-        this.safeLocalStorage.setItem(GEMINI_MAX_TOKENS_STORAGE_KEY, String(this.gemini.maxOutputTokens));
+    if (this.aiProvider.maxOutputTokens) {
+        this.safeLocalStorage.setItem(GEMINI_MAX_TOKENS_STORAGE_KEY, String(this.aiProvider.maxOutputTokens));
     }
 }
 

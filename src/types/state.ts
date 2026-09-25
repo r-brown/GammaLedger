@@ -97,7 +97,7 @@ export interface AppState {
   tradesMergePanelOpen: boolean
 
   // ---- AI chat ----
-  aiAgent: unknown // LocalInsightsAgent | GeminiInsightsAgent
+  aiAgent: unknown // LocalInsightsAgent | AIInsightsAgent
   aiChatMessages: Message[]
   aiChatSessionId: string | null
   aiChatPendingRequest: Promise<unknown> | null
@@ -113,6 +113,7 @@ export interface AppState {
   // ---- Integrations ----
   finnhub: FinnhubState
   gemini: GeminiState
+  aiProvider: { active: import('../core/config').AIProviderId; maxOutputTokens: number }
 
   // ---- Finnhub enrichment caches ----
   /** ticker → earliest upcoming earnings entry within any open position's expiration window. Populated once on init(). */

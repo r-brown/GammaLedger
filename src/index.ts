@@ -2,7 +2,7 @@
 // Phase 2 (Phase F): converted from src/index.js to TypeScript.
 // All module imports now use relative paths from src/. Constants and sample data
 // live in dedicated modules; they are re-imported here so existing references
-// inside class GammaLedger / LocalInsightsAgent / GeminiInsightsAgent work unchanged.
+// inside class GammaLedger / LocalInsightsAgent / AIInsightsAgent work unchanged.
 
 // --- Global type declarations for host-provided libraries -------------------
 
@@ -49,7 +49,9 @@ import * as cryptoUtil from './utils/crypto.js';
 import { safeLocalStorage } from './core/storage.js';
 import { parseCsvRow } from './utils/import-csv.js';
 import { LocalInsightsAgent } from './ai/local-agent.js';
-import { GeminiInsightsAgent } from './ai/gemini-agent.js';
+import { AIInsightsAgent } from './ai/insights-agent.js';
+import { getActiveLLMProvider as resolveActiveLLMProvider } from './integrations/llm/registry.js';
+import type { LLMProvider, LLMProviderId } from './integrations/llm/types.js';
 import * as legsModule from './trades/legs.js';
 import * as pnlModule from './calculations/pnl.js';
 import * as daysHeldModule from './calculations/daysheld.js';
@@ -160,8 +162,9 @@ class GammaLedger {
     declare aiCoachConsent: AICoachConsentState
     declare finnhub: { apiKey: string; encryptionKey: CryptoKey | null; cache: Map<string, unknown>; cacheTTL: number; outstandingRequests: Map<string, unknown>; scheduler: import('./integrations/request-scheduler').RequestScheduler | null; maxRequestsPerMinute: number; timestamps: number[]; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; elements: Record<string, unknown>; marketStatusTimer: ReturnType<typeof setTimeout> | null; marketStatusCountdownTimer: ReturnType<typeof setInterval> | null }
     declare schwab: SchwabState
-    declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; maxOutputTokens: number; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
-    declare aiAgent: GeminiInsightsAgent | null
+    declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
+    declare aiAgent: AIInsightsAgent | null
+    declare aiProvider: { active: LLMProviderId; maxOutputTokens: number }
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
@@ -321,14 +324,18 @@ class GammaLedger {
             apiKey: '',
             encryptionKey: null,
             model: DEFAULT_GEMINI_MODEL,
-            maxOutputTokens: this.loadGeminiMaxTokensFromStorage(),
             statusTimeoutId: null,
             lastStatus: null,
             pendingStatus: null,
             elements: {}
         };
 
-        this.aiAgent = new GeminiInsightsAgent(this as unknown as ConstructorParameters<typeof GeminiInsightsAgent>[0]);
+        this.aiProvider = {
+            active: 'gemini',
+            maxOutputTokens: this.loadGeminiMaxTokensFromStorage()
+        };
+
+        this.aiAgent = new AIInsightsAgent(this as unknown as ConstructorParameters<typeof AIInsightsAgent>[0]);
         this.aiChatMessages = [];
         this.aiChatSessionId = Date.now();
         this.aiChatPendingRequest = false;
@@ -1587,6 +1594,8 @@ class GammaLedger {
     cancelAICoachConsent() { return aiCoachConsentModule.cancelAICoachConsent.call(this); }
 
     hasAICoachConsent() { return aiCoachConsentModule.hasAICoachConsent.call(this); }
+
+    getActiveLLMProvider(): LLMProvider { return resolveActiveLLMProvider(this); }
 
     getAICoachConsent() { return aiCoachConsentModule.getAICoachConsent.call(this); }
 
