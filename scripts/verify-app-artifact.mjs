@@ -29,6 +29,9 @@ if (mode !== 'local' && mode !== 'pages') {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+// Browser-side AI provider origins; each must be in the pages build CSP connect-src.
+const REQUIRED_CONNECT_ORIGINS = ['https://generativelanguage.googleapis.com', 'https://openrouter.ai']
+
 let failures = 0
 
 function pass(msg) {
@@ -154,6 +157,23 @@ function verifyPages() {
     pass(`assets/ contains ${cssFiles.length} CSS file(s): ${cssFiles.join(', ')}`)
   } else {
     fail('assets/ contains no CSS files')
+  }
+
+  // CSP must allow every AI provider origin, or production requests are silently blocked
+  const cspMatch = html.match(/<meta[^>]+http-equiv="Content-Security-Policy"[^>]+content="([^"]+)"/i)
+  if (!cspMatch) {
+    fail('index.html has no Content-Security-Policy meta tag')
+  } else {
+    const connectSrc = (cspMatch[1].split(';').map((d) => d.trim()).find((d) => d.startsWith('connect-src')) || '')
+      .split(/\s+/)
+      .slice(1)
+    for (const origin of REQUIRED_CONNECT_ORIGINS) {
+      if (connectSrc.includes(origin)) {
+        pass(`CSP connect-src allows ${origin}`)
+      } else {
+        fail(`CSP connect-src is missing ${origin} — requests to it will be blocked in production`)
+      }
+    }
   }
 }
 

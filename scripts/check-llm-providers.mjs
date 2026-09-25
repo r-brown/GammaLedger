@@ -254,6 +254,119 @@ test('describeOpenRouterModel summarises context, prices and capabilities', asyn
     assert.equal(describeOpenRouterModel(OPENROUTER_CURATED_MODELS[0]), 'Google: Gemini 3.8 Flash · 1.05M context · $0.75/M in · $3.75/M out · reads images · structured output')
 })
 
+// ── OpenRouter provider ──────────────────────────────────────────────────────
+
+const orState = (overrides = {}) => ({ apiKey: 'or-key', model: 'anthropic/claude-sonnet-5', fallbackModels: [], dataCollection: 'deny', models: null, modelsLoading: null, modelsError: null, ...overrides })
+const orCtx = (overrides) => ({ openRouter: orState(overrides) })
+const orSettings = (overrides = {}) => ({ model: 'anthropic/claude-sonnet-5', fallbackModels: [], dataCollection: 'deny', modelMaxOutputTokens: null, ...overrides })
+
+test('buildOpenRouterBody: string content for text, parts for images, schema + require_parameters, fallbacks, clamp, stream', async () => {
+    const { buildOpenRouterBody } = await load('/src/integrations/llm/openrouter.ts')
+    const plain = buildOpenRouterBody(textRequest({ maxOutputTokens: 65536 }), orSettings({ modelMaxOutputTokens: 8192 }), false)
+    assert.deepEqual(plain, {
+        model: 'anthropic/claude-sonnet-5',
+        messages: [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'hello' }, { role: 'user', content: 'how am I doing?' }],
+        max_tokens: 8192,
+        temperature: 0.25,
+        usage: { include: true },
+        provider: { data_collection: 'deny' }
+    })
+    const rich = buildOpenRouterBody({
+        messages: [{ role: 'user', content: [{ type: 'image', mimeType: 'image/png', base64: 'AAA' }, { type: 'text', text: 'read' }] }],
+        maxOutputTokens: 100, temperature: 0.05, responseSchema: { name: 'draft', schema: { type: 'object' } }
+    }, orSettings({ fallbackModels: ['openai/gpt-6-luna', 'anthropic/claude-sonnet-5'], dataCollection: 'allow' }), true)
+    assert.deepEqual(rich.messages[0].content, [{ type: 'image_url', image_url: { url: 'data:image/png;base64,AAA' } }, { type: 'text', text: 'read' }])
+    assert.deepEqual(rich.models, ['anthropic/claude-sonnet-5', 'openai/gpt-6-luna'])
+    assert.deepEqual(rich.provider, { data_collection: 'allow', require_parameters: true })
+    assert.deepEqual(rich.response_format, { type: 'json_schema', json_schema: { name: 'draft', strict: true, schema: { type: 'object' } } })
+    assert.equal(rich.stream, true)
+    assert.equal(rich.max_tokens, 100)
+})
+
+test('OpenRouter complete sends attribution headers and parses text, answering model, usage and cost', async () => {
+    const { createOpenRouterProvider } = await load('/src/integrations/llm/openrouter.ts')
+    const reply = { model: 'openai/gpt-6-luna', choices: [{ message: { content: ' Fine. ' }, finish_reason: 'stop' }], usage: { prompt_tokens: 100, completion_tokens: 20, cost: 0.00042 } }
+    await withFetch(() => jsonResponse(200, reply), async (calls) => {
+        const result = await createOpenRouterProvider(orCtx()).complete(textRequest())
+        assert.equal(calls[0].url, 'https://openrouter.ai/api/v1/chat/completions')
+        assert.equal(calls[0].init.headers.Authorization, 'Bearer or-key')
+        assert.equal(calls[0].init.headers['HTTP-Referer'], 'https://gammaledger.com')
+        assert.equal(calls[0].init.headers['X-Title'], 'GammaLedger')
+        assert.deepEqual(result, { text: 'Fine.', provider: 'openrouter', model: 'openai/gpt-6-luna', usage: { inputTokens: 100, outputTokens: 20, costUsd: 0.00042 } })
+    })
+})
+
+test('OpenRouter maps status codes and 200-with-error bodies to LLMError kinds', async () => {
+    const { createOpenRouterProvider } = await load('/src/integrations/llm/openrouter.ts')
+    const provider = createOpenRouterProvider(orCtx())
+    const cases = [[401, 'auth'], [402, 'insufficient_credits'], [403, 'blocked'], [404, 'model_unavailable'], [408, 'timeout'], [429, 'rate_limit'], [500, 'http']]
+    for (const [status, kind] of cases) {
+        await withFetch(() => jsonResponse(status, { error: { code: status, message: `status ${status}` } }), () => rejectsKind(provider.complete(textRequest()), kind))
+    }
+    await withFetch(() => jsonResponse(400, { error: { code: 400, message: 'No endpoints found that support the requested parameters' } }), async () => {
+        await assert.rejects(provider.complete(textRequest()), (error) => {
+            assert.equal(error.kind, 'model_unavailable')
+            assert.match(error.message, /^The model "anthropic\/claude-sonnet-5" is unavailable: No endpoints found/)
+            assert.match(error.message, /train on my data/)
+            return true
+        })
+    })
+    await withFetch(() => jsonResponse(200, { error: { code: 502, message: 'upstream died' } }), () => rejectsKind(provider.complete(textRequest()), 'http'))
+    await withFetch(() => jsonResponse(200, { choices: [{ message: { content: null } }] }), async () => {
+        assert.equal((await provider.complete(textRequest())).text, '')
+    })
+    await rejectsKind(createOpenRouterProvider(orCtx({ apiKey: '' })).complete(textRequest()), 'missing_key')
+})
+
+test('OpenRouter stream ignores comments, stops at [DONE], reads final usage', async () => {
+    const { createOpenRouterProvider } = await load('/src/integrations/llm/openrouter.ts')
+    const chunk = (obj) => `data: ${JSON.stringify(obj)}\n\n`
+    const deltas = []
+    await withFetch(() => sseResponse(
+        ': OPENROUTER PROCESSING\n\n',
+        chunk({ model: 'anthropic/claude-sonnet-5', choices: [{ delta: { content: 'Hel' } }] }),
+        chunk({ choices: [{ delta: { content: 'lo' } }] }),
+        chunk({ choices: [{ delta: { content: '' }, finish_reason: 'stop' }], usage: { prompt_tokens: 9, completion_tokens: 2, cost: 0 } }),
+        'data: [DONE]\n\n'
+    ), async (calls) => {
+        const result = await createOpenRouterProvider(orCtx()).stream(textRequest(), (t) => deltas.push(t))
+        assert.equal(JSON.parse(calls[0].init.body).stream, true)
+        assert.deepEqual(deltas, ['Hel', 'Hello'])
+        assert.deepEqual(result, { text: 'Hello', provider: 'openrouter', model: 'anthropic/claude-sonnet-5', usage: { inputTokens: 9, outputTokens: 2, costUsd: 0 } })
+    })
+})
+
+test('OpenRouter stream throws on a mid-stream error chunk and on a JSON error response', async () => {
+    const { createOpenRouterProvider } = await load('/src/integrations/llm/openrouter.ts')
+    const provider = createOpenRouterProvider(orCtx())
+    const chunk = (obj) => `data: ${JSON.stringify(obj)}\n\n`
+    const deltas = []
+    await withFetch(() => sseResponse(
+        chunk({ choices: [{ delta: { content: 'partial' } }] }),
+        chunk({ error: { code: 'server_error', message: 'provider disconnected' }, choices: [{ delta: { content: '' }, finish_reason: 'error' }] })
+    ), async () => {
+        await assert.rejects(provider.stream(textRequest(), (t) => deltas.push(t)), /provider disconnected/)
+        assert.deepEqual(deltas, ['partial'])
+    })
+    await withFetch(() => jsonResponse(402, { error: { code: 402, message: 'Insufficient credits' } }), () => rejectsKind(provider.stream(textRequest(), () => {}), 'insufficient_credits'))
+})
+
+test('OpenRouter capabilities: catalogue values when known, optimistic when unknown; labels strip vendor prefix', async () => {
+    const { createOpenRouterProvider } = await load('/src/integrations/llm/openrouter.ts')
+    const { parseOpenRouterModels } = await load('/src/integrations/llm/openrouter-models.ts')
+    const provider = createOpenRouterProvider(orCtx({ models: parseOpenRouterModels(modelsFixture()) }))
+    assert.equal(provider.capabilities('z-ai/glm-5.3-prime').vision, false)
+    assert.deepEqual(provider.capabilities('someone/custom-model'), { vision: true, structuredOutput: true, maxOutputTokens: null })
+    assert.equal(provider.modelLabel('anthropic/claude-sonnet-5'), 'Claude Sonnet 5')
+    assert.equal(provider.modelLabel('qwen/qwen3.8-27b:free'), 'qwen3.8-27b:free')
+    assert.equal(createOpenRouterProvider(orCtx({ model: 'not valid' })).activeModel(), 'google/gemini-3.8-flash')
+})
+
+test('registry returns the OpenRouter provider when openrouter is active', async () => {
+    const { getActiveLLMProvider } = await load('/src/integrations/llm/registry.ts')
+    assert.equal(getActiveLLMProvider({ aiProvider: { active: 'openrouter' }, ...geminiCtx(), ...orCtx() }).id, 'openrouter')
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

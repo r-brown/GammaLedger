@@ -39,7 +39,8 @@ import {
     DEFAULT_FINNHUB_RATE_LIMIT,
     DEFAULT_GEMINI_MAX_TOKENS,
     RUNTIME_TRADE_FIELDS,
-    RUNTIME_LEG_FIELDS
+    RUNTIME_LEG_FIELDS,
+    DEFAULT_OPENROUTER_MODEL
 } from './core/config.js';
 import { BUILTIN_SAMPLE_DATA } from './core/sample-data.js';
 import * as dates from './utils/dates.js';
@@ -51,7 +52,7 @@ import { parseCsvRow } from './utils/import-csv.js';
 import { LocalInsightsAgent } from './ai/local-agent.js';
 import { AIInsightsAgent } from './ai/insights-agent.js';
 import { getActiveLLMProvider as resolveActiveLLMProvider } from './integrations/llm/registry.js';
-import type { LLMProvider, LLMProviderId } from './integrations/llm/types.js';
+import type { LLMProvider, LLMProviderId, OpenRouterProviderState } from './integrations/llm/types.js';
 import * as legsModule from './trades/legs.js';
 import * as pnlModule from './calculations/pnl.js';
 import * as daysHeldModule from './calculations/daysheld.js';
@@ -166,6 +167,7 @@ class GammaLedger {
     declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
     declare aiAgent: AIInsightsAgent | null
     declare aiProvider: { active: LLMProviderId; maxOutputTokens: number }
+    declare openRouter: OpenRouterProviderState & { encryptionKey: CryptoKey | null; statusTimeoutId: ReturnType<typeof setTimeout> | null; pendingStatus: { message: string; variant: 'success' | 'error' | 'neutral'; autoClearMs: number } | null; elements: Record<string, unknown> }
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
@@ -334,6 +336,20 @@ class GammaLedger {
         this.aiProvider = {
             active: 'gemini',
             maxOutputTokens: this.loadGeminiMaxTokensFromStorage()
+        };
+
+        this.openRouter = {
+            apiKey: '',
+            encryptionKey: null,
+            model: DEFAULT_OPENROUTER_MODEL,
+            fallbackModels: [],
+            dataCollection: 'deny',
+            models: null,
+            modelsLoading: null,
+            modelsError: null,
+            statusTimeoutId: null,
+            pendingStatus: null,
+            elements: {}
         };
 
         this.aiAgent = new AIInsightsAgent(this as unknown as ConstructorParameters<typeof AIInsightsAgent>[0]);
