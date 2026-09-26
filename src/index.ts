@@ -51,6 +51,7 @@ import { safeLocalStorage } from './core/storage.js';
 import { parseCsvRow } from './utils/import-csv.js';
 import { LocalInsightsAgent } from './ai/local-agent.js';
 import { AIInsightsAgent } from './ai/insights-agent.js';
+import { gatherCoachContext } from './ai/coach-context.js';
 import { getActiveLLMProvider as resolveActiveLLMProvider } from './integrations/llm/registry.js';
 import type { LLMProvider, LLMProviderId } from './integrations/llm/types.js';
 import type { OpenRouterState } from './types/integrations.js';
@@ -1653,6 +1654,8 @@ class GammaLedger {
     getAIChatDisplayName() { return aiProviderModule.getAIChatDisplayName.call(this); }
 
     getActiveLLMProvider(): LLMProvider { return resolveActiveLLMProvider(this); }
+
+    buildCoachContext(): string { return gatherCoachContext.call(this as never); }
 
     getAICoachConsent() { return aiCoachConsentModule.getAICoachConsent.call(this); }
 

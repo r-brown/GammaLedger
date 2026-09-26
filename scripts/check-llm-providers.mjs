@@ -385,6 +385,26 @@ test('registry returns the OpenRouter provider when openrouter is active', async
     assert.equal(getActiveLLMProvider({ aiProvider: { active: 'openrouter' }, ...geminiCtx(), ...orCtx() }).id, 'openrouter')
 })
 
+test('cache flag: OpenRouter marks flagged text parts with cache_control; Gemini ignores it', async () => {
+    const { buildOpenRouterBody } = await load('/src/integrations/llm/openrouter.ts')
+    const { buildGeminiBody } = await load('/src/integrations/llm/gemini.ts')
+    const request = {
+        messages: [
+            { role: 'system', content: [{ type: 'text', text: 'rules' }] },
+            { role: 'user', content: [{ type: 'text', text: 'SNAPSHOT', cache: true }] },
+            { role: 'user', content: [{ type: 'text', text: 'question' }] }
+        ],
+        maxOutputTokens: 100, temperature: 0.25
+    }
+    const body = buildOpenRouterBody(request, orSettings(), false)
+    assert.equal(body.messages[0].content, 'rules')
+    assert.deepEqual(body.messages[1].content, [{ type: 'text', text: 'SNAPSHOT', cache_control: { type: 'ephemeral' } }])
+    assert.equal(body.messages[2].content, 'question')
+    const gemini = buildGeminiBody(request)
+    assert.deepEqual(gemini.contents[0], { role: 'user', parts: [{ text: 'SNAPSHOT' }] })
+    assert.ok(!JSON.stringify(gemini).includes('cache'))
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

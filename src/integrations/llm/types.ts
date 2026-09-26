@@ -7,7 +7,7 @@ import type { AIProviderId } from '@core/config'
 export type LLMProviderId = AIProviderId
 
 export type LLMContentPart =
-    | { type: 'text'; text: string }
+    | { type: 'text'; text: string; /** Marks the end of a stable prefix; providers with explicit caching honour it. */ cache?: boolean }
     | { type: 'image'; mimeType: string; base64: string }
 
 export interface LLMMessage {

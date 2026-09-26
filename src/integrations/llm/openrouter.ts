@@ -81,7 +81,8 @@ export function openRouterModelLabel(state: OpenRouterCatalogueState, model: str
 }
 
 function toOpenRouterMessage(message: LLMMessage): Record<string, unknown> {
-    if (message.content.every(part => part.type === 'text')) {
+    const needsParts = message.content.some(part => part.type === 'image' || part.cache)
+    if (!needsParts) {
         return {
             role: message.role,
             content: message.content.map(part => (part.type === 'text' ? part.text : '')).join('\n\n')
@@ -90,7 +91,9 @@ function toOpenRouterMessage(message: LLMMessage): Record<string, unknown> {
     return {
         role: message.role,
         content: message.content.map(part => part.type === 'text'
-            ? { type: 'text', text: part.text }
+            ? (part.cache
+                ? { type: 'text', text: part.text, cache_control: { type: 'ephemeral' } }
+                : { type: 'text', text: part.text })
             : { type: 'image_url', image_url: { url: `data:${part.mimeType};base64,${part.base64}` } })
     }
 }

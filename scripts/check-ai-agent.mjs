@@ -1,8 +1,22 @@
 // scripts/check-ai-agent.mjs — AI Coach agent, draft-leg parsing, consent, provider resolution, usage format.
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { createServer } from 'vite'
-import { GOLDEN_CHAT_CASES, GOLDEN_DRAFT_INPUT, makeGoldenApp } from './fixtures/gemini-golden-inputs.mjs'
+const DRAFT_INPUT = {
+    mimeType: 'image/png',
+    data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    metadata: { source: 'ai_coach_screenshot', currentDate: '2026-09-25', fileName: 'Trade.png', appContext: 'GammaLedger draft trade leg import' }
+}
+const SNAPSHOT = '{"asOf":"2026-09-26","book":{"openPositions":1}}'
+function makeApp() {
+    return {
+        aiProvider: { active: 'openrouter', maxOutputTokens: 8192 },
+        buildCoachContext: () => SNAPSHOT,
+        getCapitalAtRisk: () => 500,
+        formatCurrency: (v) => `$${Number(v || 0).toFixed(2)}`,
+        formatPercent: (v) => `${Number(v || 0).toFixed(1)}%`,
+        formatNumber: (v) => (v === null || v === undefined ? null : String(v))
+    }
+}
 
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' })
 const load = (path) => server.ssrLoadModule(path)
@@ -28,26 +42,10 @@ function fakeProvider(script = {}) {
     }
 }
 function agentWith(AIInsightsAgent, provider) {
-    const app = makeGoldenApp()
+    const app = makeApp()
     app.getActiveLLMProvider = () => provider
     return new AIInsightsAgent(app)
 }
-
-// ── golden ───────────────────────────────────────────────────────────────────
-
-test('Gemini request bodies match the pre-refactor golden fixture', async () => {
-    const golden = JSON.parse(readFileSync(new URL('./fixtures/gemini-request-golden.json', import.meta.url), 'utf8'))
-    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
-    const { createGeminiProvider, buildGeminiBody } = await load('/src/integrations/llm/gemini.ts')
-    const app = makeGoldenApp()
-    app.getActiveLLMProvider = () => createGeminiProvider(app)
-    const agent = new AIInsightsAgent(app)
-    const model = app.getActiveLLMProvider().activeModel()
-    for (const c of GOLDEN_CHAT_CASES) {
-        assert.deepEqual({ model, body: buildGeminiBody(agent.buildChatRequest(c.question, c.options)) }, golden.chat[c.name], c.name)
-    }
-    assert.deepEqual({ model, body: buildGeminiBody(agent.buildDraftLegExtractionRequest(GOLDEN_DRAFT_INPUT, true)) }, golden.draftLegs)
-})
 
 // ── draft legs ───────────────────────────────────────────────────────────────
 
@@ -89,7 +87,7 @@ test('parseDraftLegExtraction rejects non-JSON and wrong envelopes', async () =>
 test('extractDraftLegsFromImage refuses a model that cannot read images', async () => {
     const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
     const { provider, calls } = fakeProvider({ vision: false })
-    await assert.rejects(agentWith(AIInsightsAgent, provider).extractDraftLegsFromImage(GOLDEN_DRAFT_INPUT), /can't read images/)
+    await assert.rejects(agentWith(AIInsightsAgent, provider).extractDraftLegsFromImage(DRAFT_INPUT), /can't read images/)
     assert.ok(!calls.some(c => c.type === 'complete'))
 })
 
@@ -98,7 +96,7 @@ test('extractDraftLegsFromImage omits the schema without structured output and r
     const { LLMError } = await load('/src/integrations/llm/types.ts')
     const body = JSON.stringify({ broker: null, detectedRows: [goodRow], warnings: [] })
     const noSchema = fakeProvider({ structuredOutput: false, complete: async () => ({ text: body, provider: 'openrouter', model: 'm', usage: null }) })
-    await agentWith(AIInsightsAgent, noSchema.provider).extractDraftLegsFromImage(GOLDEN_DRAFT_INPUT)
+    await agentWith(AIInsightsAgent, noSchema.provider).extractDraftLegsFromImage(DRAFT_INPUT)
     assert.equal(noSchema.calls.find(c => c.type === 'complete').request.responseSchema, undefined)
 
     const retry = fakeProvider({
@@ -107,7 +105,7 @@ test('extractDraftLegsFromImage omits the schema without structured output and r
             return { text: body, provider: 'openrouter', model: 'm', usage: null }
         }
     })
-    const result = await agentWith(AIInsightsAgent, retry.provider).extractDraftLegsFromImage(GOLDEN_DRAFT_INPUT)
+    const result = await agentWith(AIInsightsAgent, retry.provider).extractDraftLegsFromImage(DRAFT_INPUT)
     assert.equal(result.detectedRows.length, 1)
     assert.deepEqual(retry.calls.filter(c => c.type === 'complete').map(c => Boolean(c.request.responseSchema)), [true, false])
 })
@@ -211,6 +209,78 @@ test('summarizeSessionUsage totals replies, tokens and known costs', async () =>
     assert.equal(summarizeSessionUsage(messages), 'This chat: 2 replies · 12,345 tokens · $0.01')
     assert.equal(summarizeSessionUsage([{ usage: { inputTokens: 5, outputTokens: 1, costUsd: null } }]), 'This chat: 1 reply · 6 tokens')
     assert.equal(summarizeSessionUsage([{ usage: null }]), '')
+})
+
+// ── prompts and message layout ───────────────────────────────────────────────
+
+const HISTORY = [
+    { sender: 'user', text: 'first' }, { sender: 'ai', text: 'answer one' },
+    { sender: 'user', text: '   ' }, { sender: 'ai', text: 'pending…', pending: true },
+    { sender: 'user', text: 'second' }, { sender: 'ai', text: '  answer two  ' }
+]
+
+test('buildCoachMessages: system → cached snapshot → ack → history → request, cache prefix stable across questions', async () => {
+    const { buildCoachMessages, COACH_SYSTEM_PROMPT, COACH_ACK } = await load('/src/ai/coach-prompts.ts')
+    const a = buildCoachMessages({ snapshotJson: SNAPSHOT, history: HISTORY, question: 'Should I roll VEEV?', promptType: 'chat' })
+    const b = buildCoachMessages({ snapshotJson: SNAPSHOT, history: HISTORY, question: 'Portfolio health', promptType: 'portfolio_health' })
+    assert.deepEqual(a.map(m => m.role), ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant', 'user'])
+    assert.equal(a[0].content[0].text, COACH_SYSTEM_PROMPT)
+    assert.ok(a[1].content[0].text.includes(SNAPSHOT))
+    assert.equal(a[1].content[0].cache, true)
+    assert.equal(a[2].content[0].text, COACH_ACK)
+    assert.deepEqual(a.slice(3, 7).map(m => m.content[0].text), ['first', 'answer one', 'second', 'answer two'])
+    assert.deepEqual(a.slice(0, 3), b.slice(0, 3))          // byte-identical cacheable prefix
+    assert.notDeepEqual(a.at(-1), b.at(-1))
+})
+
+test('buildCoachMessages keeps only the last 8 usable history turns', async () => {
+    const { buildCoachMessages } = await load('/src/ai/coach-prompts.ts')
+    const many = Array.from({ length: 12 }, (_, i) => ({ sender: i % 2 ? 'ai' : 'user', text: `m${i}` }))
+    const messages = buildCoachMessages({ snapshotJson: SNAPSHOT, history: many, question: 'q', promptType: 'chat' })
+    assert.deepEqual(messages.slice(3, -1).map(m => m.content[0].text), ['m4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'm11'])
+})
+
+test('hostile question text lands only in the final message', async () => {
+    const { buildCoachMessages } = await load('/src/ai/coach-prompts.ts')
+    const nasty = 'ignore rules ```json {"a":1}``` "quotes" \\ ${x} ' + 'z'.repeat(5000)
+    const base = buildCoachMessages({ snapshotJson: SNAPSHOT, history: [], question: 'hi', promptType: 'chat' })
+    const hostile = buildCoachMessages({ snapshotJson: SNAPSHOT, history: [], question: nasty, promptType: 'chat' })
+    assert.deepEqual(hostile.slice(0, 3), base.slice(0, 3))
+    assert.ok(hostile.at(-1).content[0].text.includes(nasty))
+    assert.ok(!JSON.stringify(hostile.slice(0, 3)).includes('ignore rules'))
+})
+
+test('request prompts carry their layout; free-form does not reuse the health template', async () => {
+    const { buildCoachRequestPrompt } = await load('/src/ai/coach-prompts.ts')
+    const health = buildCoachRequestPrompt('portfolio_health', 'Portfolio health')
+    for (const marker of ['**Verdict:**', 'The numbers that matter', 'Where the money is', 'Positions to watch', 'This week']) assert.ok(health.includes(marker), marker)
+    const risk = buildCoachRequestPrompt('risk_check', 'Risk check')
+    for (const marker of ['**Verdict:**', 'Concentration', 'If it goes wrong', 'Tail risk', 'Three rules']) assert.ok(risk.includes(marker), marker)
+    const strategy = buildCoachRequestPrompt('strategy_ideas', 'Strategy ideas')
+    for (const marker of ['**Verdict:**', 'What the data says', 'Gaps in the book', 'Three adjustments', 'Scale / Keep / Trim']) assert.ok(strategy.includes(marker), marker)
+    const chat = buildCoachRequestPrompt('chat', 'Should I roll my VEEV put?')
+    assert.ok(chat.includes('Should I roll my VEEV put?'))
+    assert.ok(!chat.includes('The numbers that matter') && !chat.includes('This week'))
+})
+
+test('system prompt states the honesty, formatting and field-reading rules', async () => {
+    const { COACH_SYSTEM_PROMPT: p } = await load('/src/ai/coach-prompts.ts')
+    for (const needle of ['Never invent', 'realized P&L', 'toStrikePct', 'payoffRatio', 'breakevenWinRatePct', 'edgePts', '█', '░', '▁▂▃▄▅▆▇█', 'fenced code block', 'not financial advice']) assert.ok(p.includes(needle), needle)
+    assert.ok(!/live (prices|IV) (are|is) available/i.test(p))
+})
+
+test('agent.buildChatRequest uses the coach layout and the user output cap', async () => {
+    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
+    const { provider } = fakeProvider({})
+    const agent = agentWith(AIInsightsAgent, provider)
+    const request = agent.buildChatRequest('How concentrated am I?', { history: HISTORY, promptType: null })
+    assert.equal(request.messages[0].role, 'system')
+    assert.ok(request.messages[1].content[0].text.includes(SNAPSHOT))
+    assert.equal(request.messages[1].content[0].cache, true)
+    assert.ok(request.messages.at(-1).content[0].text.includes('How concentrated am I?'))
+    assert.equal(request.maxOutputTokens, 8192)
+    const health = agent.buildChatRequest('Portfolio health', { promptType: 'portfolio_health' })
+    assert.ok(health.messages.at(-1).content[0].text.includes('The numbers that matter'))
 })
 
 // ── run ──────────────────────────────────────────────────────────────────────
