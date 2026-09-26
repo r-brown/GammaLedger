@@ -13,6 +13,7 @@ import {
     PRIORITY,
     type RequestScheduler
 } from './request-scheduler'
+import { loadOrCreateAesKey } from '@utils/crypto'
 
 type AnyRecord = Record<string, any>
 const CREDIT_PLAYBOOK_QUOTE_CYCLE_PAUSE_MS = 5 * 60 * 1000;
@@ -495,15 +496,7 @@ export async function ensureFinnhubEncryptionKey(this: any, cryptoApi = this.get
         return this.finnhub.encryptionKey;
     }
 
-    let rawKeyB64 = this.safeLocalStorage.getItem(this.getFinnhubSecretStorageKey()) || '';
-    if (!rawKeyB64) {
-        const raw = cryptoApi.getRandomValues(new Uint8Array(32));
-        rawKeyB64 = String(this.arrayBufferToBase64(raw.buffer));
-        this.safeLocalStorage.setItem(this.getFinnhubSecretStorageKey(), rawKeyB64);
-    }
-
-    const rawKey = new Uint8Array(this.base64ToArrayBuffer(rawKeyB64));
-    const cryptoKey = await cryptoApi.subtle.importKey('raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    const cryptoKey = await loadOrCreateAesKey(this.safeLocalStorage, this.getFinnhubSecretStorageKey(), cryptoApi);
     this.finnhub.encryptionKey = cryptoKey;
     return cryptoKey;
 }

@@ -1,5 +1,5 @@
 // src/integrations/gemini.ts — Wave 5: Gemini API settings & UI controls.
-// The agent class itself lives in src/ai/gemini-agent.ts.
+// The agent class itself lives in src/ai/insights-agent.ts; transport in src/integrations/llm/gemini.ts.
 // Uses the .call(this, …) delegation pattern so all this.* refs work.
 
 import {
@@ -11,6 +11,7 @@ import {
     GEMINI_SECRET_STORAGE_KEY,
     GEMINI_MAX_TOKENS_STORAGE_KEY
 } from '@core/config'
+import { loadOrCreateAesKey } from '@utils/crypto'
 
 type AnyRecord = Record<string, any>
 type GeminiStatusVariant = 'success' | 'error' | 'neutral'
@@ -170,7 +171,7 @@ export function initializeGeminiMaxTokensControls(this: any) {
 
     // Initialize input with current value
     if (maxTokensInput) {
-        maxTokensInput.value = this.gemini.maxOutputTokens;
+        maxTokensInput.value = this.aiProvider.maxOutputTokens;
     }
 
     // Update status display
@@ -182,7 +183,7 @@ export function initializeGeminiMaxTokensControls(this: any) {
         const value = parseInt(maxTokensInput?.value || '', 10);
         
         if (Number.isFinite(value) && value >= 1024) {
-            this.gemini.maxOutputTokens = value;
+            this.aiProvider.maxOutputTokens = value;
             this.saveGeminiMaxTokensToStorage();
             this.updateGeminiTokensStatus(tokensStatus, `Max tokens set to ${value.toLocaleString()}`, 'success');
         } else {
@@ -193,7 +194,7 @@ export function initializeGeminiMaxTokensControls(this: any) {
     // Reset button handler
     tokensResetButton?.addEventListener('click', (event) => {
         event.preventDefault();
-        this.gemini.maxOutputTokens = DEFAULT_GEMINI_MAX_TOKENS;
+        this.aiProvider.maxOutputTokens = DEFAULT_GEMINI_MAX_TOKENS;
         this.removeGeminiMaxTokensFromStorage();
         if (maxTokensInput) {
             maxTokensInput.value = String(DEFAULT_GEMINI_MAX_TOKENS);
@@ -215,25 +216,17 @@ export function updateGeminiTokensStatus(this: any, element: HTMLElement | null,
         return;
     }
 
-    if (message) {
-        element.textContent = message;
-        element.className = 'gemini-tokens-status';
-        if (variant === 'success') {
-            element.classList.add('is-success');
-        } else if (variant === 'error') {
-            element.classList.add('is-error');
-        }
-        return;
-    }
-
-    // Default status based on current value
-    const isDefault = this.gemini.maxOutputTokens === DEFAULT_GEMINI_MAX_TOKENS;
-    if (isDefault) {
-        element.textContent = `Default: ${DEFAULT_GEMINI_MAX_TOKENS.toLocaleString()}`;
-        element.className = 'gemini-tokens-status';
-    } else {
-        element.textContent = `Custom: ${this.gemini.maxOutputTokens.toLocaleString()}`;
-        element.className = 'gemini-tokens-status is-success';
+    // The note carries the default itself, so there is no separate status banner.
+    const current = this.aiProvider.maxOutputTokens;
+    const base = current === DEFAULT_GEMINI_MAX_TOKENS
+        ? `Maximum tokens for AI responses, for either provider. Default: ${DEFAULT_GEMINI_MAX_TOKENS.toLocaleString()}.`
+        : `Maximum tokens for AI responses, for either provider. Currently ${current.toLocaleString()}. Default: ${DEFAULT_GEMINI_MAX_TOKENS.toLocaleString()}.`;
+    element.textContent = message ? `${message} ${base}` : base;
+    element.className = 'settings-help-text';
+    if (variant === 'success') {
+        element.classList.add('is-success');
+    } else if (variant === 'error') {
+        element.classList.add('is-error');
     }
 }
 
@@ -272,32 +265,6 @@ export function flushPendingGeminiStatus(this: any) {
 
     this.updateGeminiStatus(pending.message, pending.variant, pending.autoClearMs);
     this.gemini.pendingStatus = null;
-}
-
-export function getGeminiModelLabel(this: any, model = '') {
-    const normalized = (model || '').toLowerCase();
-    const labels: Record<string, string> = Object.fromEntries(GEMINI_MODELS.map(m => [m.id, m.label]));
-
-    if (labels[normalized]) {
-        return labels[normalized];
-    }
-
-    if (!normalized) {
-        return '';
-    }
-
-    const fallback = normalized
-        .replace(/^gemini[-\s]?/i, 'Gemini ')
-        .replace(/-/g, ' ')
-        .replace(/\b([a-z])/g, (_, letter) => letter.toUpperCase())
-        .trim();
-
-    return fallback || 'Gemini';
-}
-
-export function getGeminiChatDisplayName(this: any) {
-    const label = this.getGeminiModelLabel(this.gemini?.model);
-    return label ? label : 'Gemini';
 }
 
 export function updateGeminiStatus(this: any, message: string, variant: GeminiStatusVariant = 'neutral', autoClearMs = 0) {
@@ -542,15 +509,7 @@ export async function ensureGeminiEncryptionKey(this: any, cryptoApi = this.getC
         return this.gemini.encryptionKey;
     }
 
-    let rawKeyB64 = this.safeLocalStorage.getItem(GEMINI_SECRET_STORAGE_KEY);
-    if (!rawKeyB64) {
-        const raw = cryptoApi.getRandomValues(new Uint8Array(32));
-        rawKeyB64 = this.arrayBufferToBase64(raw.buffer);
-        this.safeLocalStorage.setItem(GEMINI_SECRET_STORAGE_KEY, rawKeyB64);
-    }
-
-    const rawKey = new Uint8Array(this.base64ToArrayBuffer(rawKeyB64));
-    const cryptoKey = await cryptoApi.subtle.importKey('raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    const cryptoKey = await loadOrCreateAesKey(this.safeLocalStorage, GEMINI_SECRET_STORAGE_KEY, cryptoApi);
     this.gemini.encryptionKey = cryptoKey;
     return cryptoKey;
 }
@@ -593,8 +552,8 @@ export function loadGeminiMaxTokensFromStorage(this: any) {
 }
 
 export function saveGeminiMaxTokensToStorage(this: any) {
-    if (this.gemini?.maxOutputTokens) {
-        this.safeLocalStorage.setItem(GEMINI_MAX_TOKENS_STORAGE_KEY, String(this.gemini.maxOutputTokens));
+    if (this.aiProvider.maxOutputTokens) {
+        this.safeLocalStorage.setItem(GEMINI_MAX_TOKENS_STORAGE_KEY, String(this.aiProvider.maxOutputTokens));
     }
 }
 

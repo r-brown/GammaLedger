@@ -70,6 +70,18 @@ export function calculateRealizedPL(
     return this.summarizeLegRealization(trade).realizedCashFlow;
 }
 
+/**
+ * ROI of held shares against their effective cost basis. Undefined (0) when the basis is not
+ * positive — e.g. a wheel whose premiums already exceed the stock cost — where dividing would
+ * flip the sign (a +$2,467 position read as -1,502%).
+ */
+export function calculateBasisROI(unrealizedPL: number, effectiveCostBasis: number): number {
+    if (!Number.isFinite(unrealizedPL) || !Number.isFinite(effectiveCostBasis) || !(effectiveCostBasis > 0)) {
+        return 0;
+    }
+    return parseFloat(((unrealizedPL / effectiveCostBasis) * 100).toFixed(2));
+}
+
 /** Return on investment as a percentage (e.g. 15.5 = 15.5%). */
 export function calculateROI(this: PnlContext, trade: EnrichedTrade): number {
     const pl = this.calculatePL(trade);

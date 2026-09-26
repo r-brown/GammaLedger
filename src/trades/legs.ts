@@ -7,6 +7,7 @@ import type { LegLifecycleResult } from '@types-gl/lifecycle'
 import type { ExitReason } from '@types-gl/common'
 import { NormalizedLegInputSchema } from '@core/schema'
 import { toRiskValue } from './risk'
+import { calculateBasisROI } from '@calculations/pnl'
 
 interface VerticalSpreadInfo {
     width: number
@@ -1334,9 +1335,7 @@ export function enrichTradeData(
             enriched.unrealizedPL = Number(unrealizedPL.toFixed(2));
             enriched.marketPriceSource = priceSource;
             enriched.pl = enriched.unrealizedPL;
-            enriched.roi = cb.effectiveCostBasis !== 0
-                ? Number(((unrealizedPL / (cb.effectiveCostBasis as number)) * 100).toFixed(2))
-                : 0;
+            enriched.roi = calculateBasisROI(unrealizedPL, cb.effectiveCostBasis as number);
         } else {
             enriched.marketValue = null;
             enriched.unrealizedPL = null;

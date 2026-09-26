@@ -9,6 +9,7 @@
   },
   "include": [
     "./*.ts",
+    "./llm/*.ts",
     "../types/**/*.ts"
   ],
   "exclude": [

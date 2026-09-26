@@ -184,6 +184,7 @@ const MARKDOWN_ALLOWED_TAGS = [
     'ul', 'ol', 'li',
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'hr', 'a',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
 ]
 const MARKDOWN_ALLOWED_ATTR = ['href']
 
@@ -191,8 +192,11 @@ export function renderMarkdownToHTML(markdown = ''): string {
     if (!markdown) return ''
     ensureDomPurifyHook()
     const raw = marked.parse(markdown, { async: false }) as string
-    return DOMPurify.sanitize(raw, {
+    const clean = DOMPurify.sanitize(raw, {
         ALLOWED_TAGS: MARKDOWN_ALLOWED_TAGS,
         ALLOWED_ATTR: MARKDOWN_ALLOWED_ATTR,
     })
+    // Wide tables scroll sideways instead of overflowing narrow containers (the chat panel).
+    // Output is already sanitized and attribute-free, so the literal replacement is exact.
+    return clean.replace(/<table>/g, '<div class="md-table-wrap"><table>').replace(/<\/table>/g, '</table></div>')
 }

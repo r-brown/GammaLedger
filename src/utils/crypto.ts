@@ -2,7 +2,7 @@
 // Pure crypto helpers — no class state required. Migrated from
 // class GammaLedger during the TypeScript module split.
 
-interface EncryptedPayload {
+export interface EncryptedPayload {
     iv: string
     ct: string
 }
@@ -52,4 +52,24 @@ export async function decryptString(payload: EncryptedPayload, cryptoApi: Crypto
     const plainBuffer = await cryptoApi.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, cipher);
     const dec = new TextDecoder();
     return dec.decode(plainBuffer);
+}
+
+export interface StringStorage {
+    getItem(key: string): string | null
+    setItem(key: string, value: string): unknown
+}
+
+/**
+ * Loads the base64 AES-GCM key stored under `storageKey`, generating and
+ * storing a fresh 256-bit key the first time.
+ */
+export async function loadOrCreateAesKey(storage: StringStorage, storageKey: string, cryptoApi: Crypto): Promise<CryptoKey> {
+    let rawKeyB64 = storage.getItem(storageKey);
+    if (!rawKeyB64) {
+        const raw = cryptoApi.getRandomValues(new Uint8Array(32));
+        rawKeyB64 = arrayBufferToBase64(raw.buffer as ArrayBuffer);
+        storage.setItem(storageKey, rawKeyB64);
+    }
+    const rawKey = new Uint8Array(base64ToArrayBuffer(rawKeyB64));
+    return cryptoApi.subtle.importKey('raw', rawKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
 }

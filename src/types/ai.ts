@@ -7,7 +7,7 @@ import type { Stats } from './stats'
 // ---------------------------------------------------------------------------
 
 /**
- * Shared context object held by LocalInsightsAgent and GeminiInsightsAgent.
+ * Shared context object held by LocalInsightsAgent and AIInsightsAgent.
  * Updated via updateContext() whenever the portfolio data changes.
  */
 export interface AIAgentContext {

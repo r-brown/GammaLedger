@@ -8,6 +8,7 @@ interface MCPContextBuilderContext {
   trades: Record<string, unknown>[]
   currentDate: Date | unknown
   calculateAdvancedStats(): any
+  calculateRealizedPL(trade: Record<string, unknown>): number
   getClosedTradesInRange(range: string): Record<string, unknown>[]
   isClosedStatus(status: unknown): boolean
   hasAssignedInventory(trade: Record<string, unknown>): boolean
@@ -21,6 +22,10 @@ export function buildMCPContext(this: MCPContextBuilderContext) {
         const stats = this.calculateAdvancedStats();
         const closedTrades: AnyRecord[] = stats.closedTradesList || [];
         const openTrades: AnyRecord[] = stats.openTradesList || [];
+        // Only truly closed trades, ranked by realized P&L. Assigned wheels still holding
+        // shares live in wheelPmccPositions; their pl is unrealized mark-to-market.
+        const settledTrades = closedTrades.filter((t: AnyRecord) => this.isClosedStatus(t.status));
+        const realizedOf = (t: AnyRecord) => Number(this.calculateRealizedPL(t)) || 0;
         const r2 = (v: unknown) => {
             if (v === null || v === undefined || v === '') return null;
             const n = Number(v);
@@ -43,14 +48,14 @@ export function buildMCPContext(this: MCPContextBuilderContext) {
         });
 
         // Current win/loss streak from most-recent closed trades backwards
-        const sortedByExit = [...closedTrades]
+        const sortedByExit = [...settledTrades]
             .filter((t: AnyRecord) => t.closedDate)
             .sort((a, b) =>
                 new Date(b.closedDate).getTime() - new Date(a.closedDate).getTime()
             );
         let streak: Streak = { type: null, count: 0 };
         for (const t of sortedByExit) {
-            const pl = Number(t.pl) || 0;
+            const pl = realizedOf(t);
             if (pl > 0) {
                 if (streak.type === 'win') streak.count++;
                 else if (streak.type === null) streak = { type: 'win', count: 1 };
@@ -74,14 +79,14 @@ export function buildMCPContext(this: MCPContextBuilderContext) {
             : null;
 
         // Largest winner / loser (closed trades only)
-        const sortedByPL = [...closedTrades]
-            .filter((t: AnyRecord) => Number.isFinite(Number(t.pl)))
-            .sort((a, b) => (Number(a.pl) || 0) - (Number(b.pl) || 0));
+        const sortedByPL = [...settledTrades]
+            .filter((t: AnyRecord) => Number.isFinite(realizedOf(t)))
+            .sort((a, b) => realizedOf(a) - realizedOf(b));
         const briefTrade = (t: AnyRecord | null) => t ? compact({
             id: t.id,
             ticker: t.ticker,
             strategy: t.strategy,
-            pl: r2(t.pl),
+            pl: r2(realizedOf(t)),
             roi: r2(t.roi),
             closedDate: t.closedDate || null,
         }) : null;
@@ -294,7 +299,7 @@ export function buildMCPTrade(this: any, trade: AnyRecord, { isOpen = false }: {
 
         pl: r2(trade.pl),
         roi: r2(trade.roi),
-        annualizedROI: r2(trade.annualizedROI),
+        annualizedROI: isOpen ? null : r2(trade.annualizedROI),
 
         capitalAtRisk: r2(trade.capitalAtRisk),
         maxRiskLabel: trade.maxRiskLabel,

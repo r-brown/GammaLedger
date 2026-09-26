@@ -16,6 +16,24 @@ export const GEMINI_MODELS = [
 export type GeminiModel = typeof GEMINI_MODELS[number]['id']
 
 // ---------------------------------------------------------------------------
+// AI providers
+// ---------------------------------------------------------------------------
+
+export const AI_PROVIDER_IDS = ['gemini', 'openrouter'] as const
+export type AIProviderId = typeof AI_PROVIDER_IDS[number]
+
+/** Whole-request budget for one LLM call, including reading a streamed body. */
+export const LLM_REQUEST_TIMEOUT_MS = 120_000
+
+export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-3.8-flash'
+export const OPENROUTER_CHAT_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions'
+export const OPENROUTER_MODELS_ENDPOINT = 'https://openrouter.ai/api/v1/models'
+/** Sent as HTTP-Referer / X-Title so OpenRouter attributes traffic to the app. */
+export const OPENROUTER_APP_URL = 'https://gammaledger.com'
+export const OPENROUTER_APP_TITLE = 'GammaLedger'
+export const OPENROUTER_MAX_FALLBACK_MODELS = 2
+
+// ---------------------------------------------------------------------------
 // Config shape type
 // ---------------------------------------------------------------------------
 
@@ -47,6 +65,10 @@ interface AppConfigShape {
         readonly SCHWAB_SETTINGS: string
         readonly SCHWAB_SESSION_KEY: string
         readonly SCHWAB_QUOTE_CACHE: string
+        readonly AI_PROVIDER: string
+        readonly OPENROUTER_CONFIG: string
+        readonly OPENROUTER_SECRET: string
+        readonly ACCOUNT_SIZE: string
         readonly LEGACY_KEYS: readonly string[]
     }
     SHARE_CARD: {
@@ -92,6 +114,10 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         SCHWAB_SETTINGS: 'GammaLedgerSchwabSettings',
         SCHWAB_SESSION_KEY: 'GammaLedgerSchwabSessionKey',
         SCHWAB_QUOTE_CACHE: 'GammaLedgerSchwabQuoteCache',
+        AI_PROVIDER: 'GammaLedgerAIProvider',
+        OPENROUTER_CONFIG: 'GammaLedgerOpenRouterConfig',
+        OPENROUTER_SECRET: 'GammaLedgerOpenRouterSecret',
+        ACCOUNT_SIZE: 'GammaLedgerAccountSize',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',
@@ -124,6 +150,10 @@ export const DEFAULT_GEMINI_TEMPERATURE: number = APP_CONFIG.GEMINI.DEFAULT_TEMP
 export const DEFAULT_GEMINI_ENDPOINT: string = APP_CONFIG.GEMINI.DEFAULT_ENDPOINT;
 export const GEMINI_STORAGE_KEY: string = APP_CONFIG.STORAGE.GEMINI_CONFIG;
 export const GEMINI_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.GEMINI_SECRET;
+export const AI_PROVIDER_STORAGE_KEY: string = APP_CONFIG.STORAGE.AI_PROVIDER;
+export const OPENROUTER_STORAGE_KEY: string = APP_CONFIG.STORAGE.OPENROUTER_CONFIG;
+export const OPENROUTER_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.OPENROUTER_SECRET;
+export const ACCOUNT_SIZE_STORAGE_KEY: string = APP_CONFIG.STORAGE.ACCOUNT_SIZE;
 export const DISCLAIMER_STORAGE_KEY: string = APP_CONFIG.STORAGE.DISCLAIMER;
 export const AI_COACH_CONSENT_STORAGE_KEY: string = APP_CONFIG.STORAGE.AI_COACH_CONSENT;
 export const SIDEBAR_COLLAPSED_STORAGE_KEY: string = APP_CONFIG.STORAGE.SIDEBAR_COLLAPSED;
@@ -145,6 +175,9 @@ export const EXTERNAL_ANALYTICS_STORAGE_KEY: string = APP_CONFIG.STORAGE.EXTERNA
 export const DEFAULT_EXTERNAL_ANALYTICS_URL = 'https://www.investing.com/search/?q={ticker}' as const;
 export const DEFAULT_FINNHUB_RATE_LIMIT = 60 as const;
 export const DEFAULT_GEMINI_MAX_TOKENS = 65536 as const;
+/** Output-token cap shared by every AI provider (stored under the legacy Gemini key). */
+export const DEFAULT_AI_MAX_TOKENS: number = DEFAULT_GEMINI_MAX_TOKENS;
+export const AI_MAX_TOKENS_STORAGE_KEY: string = GEMINI_MAX_TOKENS_STORAGE_KEY;
 export const CURRENT_STORAGE_VERSION = '2.6' as const;
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import type { DollarAmount, GeminiModel, ToastVariant } from './common'
 import type { RequestScheduler } from '../integrations/request-scheduler'
+import type { OpenRouterProviderState } from '../integrations/llm/types'
 
 export interface SchwabVaultPayload {
   clientId: string
@@ -161,7 +162,6 @@ export interface GeminiState {
   apiKey: string | null
   encryptionKey: CryptoKey | null
   model: GeminiModel
-  maxOutputTokens: number
 
   /** Timeout ID for auto-clearing the status badge. null when idle. */
   statusTimeoutId: number | null
@@ -174,6 +174,31 @@ export interface GeminiState {
 
   /** Cached DOM element references for the Gemini UI. */
   elements: Record<string, HTMLElement>
+}
+
+export type AIStatusVariant = 'success' | 'error' | 'neutral'
+
+/** OpenRouter adapter state (this.openRouter on GammaLedger). */
+export interface OpenRouterState extends OpenRouterProviderState {
+  encryptionKey: CryptoKey | null
+  statusTimeoutId: ReturnType<typeof setTimeout> | null
+  /** Status raised before the settings DOM exists; shown by initializeOpenRouterControls. */
+  pendingStatus: { message: string; variant: AIStatusVariant; autoClearMs: number } | null
+  elements: {
+    container?: HTMLElement
+    keyInput?: HTMLInputElement | null
+    saveButton?: HTMLElement | null
+    clearButton?: HTMLElement | null
+    modelInput?: HTMLInputElement | null
+    modelSaveButton?: HTMLElement | null
+    modelList?: HTMLElement | null
+    modelInfo?: HTMLElement | null
+    fallbackInput?: HTMLInputElement | null
+    fallbackSaveButton?: HTMLElement | null
+    fallbackNote?: HTMLElement | null
+    dataCollectionInput?: HTMLInputElement | null
+    status?: HTMLElement | null
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -385,14 +410,23 @@ export interface GeminiApiError {
   status?: string
 }
 
+/** Token accounting returned with generateContent responses (last stream chunk when streaming). */
+export interface GeminiUsageMetadata {
+  promptTokenCount?: number
+  candidatesTokenCount?: number
+  totalTokenCount?: number
+}
+
 /**
- * Top-level response shape from POST .../generateContent.
- * Both `candidates` and `error` are optional because only one is present.
+ * Top-level response shape from POST .../generateContent (and each streamGenerateContent chunk).
+ * Every field is optional because error, blocked and usage-only chunks each carry a subset.
  */
 export interface GeminiApiResponse {
   candidates?: GeminiApiCandidate[]
   promptFeedback?: GeminiPromptFeedback
   error?: GeminiApiError
+  usageMetadata?: GeminiUsageMetadata
+  modelVersion?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -414,7 +448,8 @@ export function isGeminiApiResponse(v: unknown): v is GeminiApiResponse {
   return (
     'candidates' in v ||
     'promptFeedback' in v ||
-    'error' in v
+    'error' in v ||
+    'usageMetadata' in v
   )
 }
 

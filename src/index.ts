@@ -2,7 +2,7 @@
 // Phase 2 (Phase F): converted from src/index.js to TypeScript.
 // All module imports now use relative paths from src/. Constants and sample data
 // live in dedicated modules; they are re-imported here so existing references
-// inside class GammaLedger / LocalInsightsAgent / GeminiInsightsAgent work unchanged.
+// inside class GammaLedger / LocalInsightsAgent / AIInsightsAgent work unchanged.
 
 // --- Global type declarations for host-provided libraries -------------------
 
@@ -39,7 +39,8 @@ import {
     DEFAULT_FINNHUB_RATE_LIMIT,
     DEFAULT_GEMINI_MAX_TOKENS,
     RUNTIME_TRADE_FIELDS,
-    RUNTIME_LEG_FIELDS
+    RUNTIME_LEG_FIELDS,
+    DEFAULT_OPENROUTER_MODEL
 } from './core/config.js';
 import { BUILTIN_SAMPLE_DATA } from './core/sample-data.js';
 import * as dates from './utils/dates.js';
@@ -49,7 +50,11 @@ import * as cryptoUtil from './utils/crypto.js';
 import { safeLocalStorage } from './core/storage.js';
 import { parseCsvRow } from './utils/import-csv.js';
 import { LocalInsightsAgent } from './ai/local-agent.js';
-import { GeminiInsightsAgent } from './ai/gemini-agent.js';
+import { AIInsightsAgent } from './ai/insights-agent.js';
+import { gatherCoachContext } from './ai/coach-context.js';
+import { getActiveLLMProvider as resolveActiveLLMProvider } from './integrations/llm/registry.js';
+import type { LLMProvider, LLMProviderId } from './integrations/llm/types.js';
+import type { OpenRouterState } from './types/integrations.js';
 import * as legsModule from './trades/legs.js';
 import * as pnlModule from './calculations/pnl.js';
 import * as daysHeldModule from './calculations/daysheld.js';
@@ -64,8 +69,11 @@ import * as spreadsModule from './trades/spreads.js';
 import * as finnhubModule from './integrations/finnhub.js';
 import * as schwabModule from './integrations/schwab.js';
 import * as geminiIntegrationModule from './integrations/gemini.js';
+import * as aiProviderModule from './integrations/ai-provider.js';
+import * as openRouterIntegrationModule from './integrations/openrouter.js';
 import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
+import * as accountSizeModule from './settings/account-size.js';
 import * as startupBehaviorModule from './settings/startup-behavior.js';
 import type { StartupBehavior } from './settings/startup-behavior.js';
 import * as externalAnalyticsModule from './settings/external-analytics.js';
@@ -160,12 +168,16 @@ class GammaLedger {
     declare aiCoachConsent: AICoachConsentState
     declare finnhub: { apiKey: string; encryptionKey: CryptoKey | null; cache: Map<string, unknown>; cacheTTL: number; outstandingRequests: Map<string, unknown>; scheduler: import('./integrations/request-scheduler').RequestScheduler | null; maxRequestsPerMinute: number; timestamps: number[]; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; elements: Record<string, unknown>; marketStatusTimer: ReturnType<typeof setTimeout> | null; marketStatusCountdownTimer: ReturnType<typeof setInterval> | null }
     declare schwab: SchwabState
-    declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; maxOutputTokens: number; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
-    declare aiAgent: GeminiInsightsAgent | null
+    declare gemini: { apiKey: string; encryptionKey: CryptoKey | null; model: string; statusTimeoutId: ReturnType<typeof setTimeout> | null; lastStatus: unknown; pendingStatus: unknown; elements: Record<string, unknown> }
+    declare aiAgent: AIInsightsAgent | null
+    declare aiProvider: { active: LLMProviderId; maxOutputTokens: number }
+    declare openRouter: OpenRouterState
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
     declare aiChatOpen: boolean
+    declare aiChatStreamFrame: number | null
+    declare accountSize: number | null
     declare aiDraftImport: Record<string, unknown> | null
     declare activeQuoteEntries: Map<string, unknown>
     declare quoteRefreshIntervalId: ReturnType<typeof setInterval> | null
@@ -321,18 +333,38 @@ class GammaLedger {
             apiKey: '',
             encryptionKey: null,
             model: DEFAULT_GEMINI_MODEL,
-            maxOutputTokens: this.loadGeminiMaxTokensFromStorage(),
             statusTimeoutId: null,
             lastStatus: null,
             pendingStatus: null,
             elements: {}
         };
 
-        this.aiAgent = new GeminiInsightsAgent(this as unknown as ConstructorParameters<typeof GeminiInsightsAgent>[0]);
+        this.aiProvider = {
+            active: 'gemini',
+            maxOutputTokens: this.loadGeminiMaxTokensFromStorage()
+        };
+
+        this.openRouter = {
+            apiKey: '',
+            encryptionKey: null,
+            model: DEFAULT_OPENROUTER_MODEL,
+            fallbackModels: [],
+            dataCollection: 'deny',
+            models: null,
+            modelsLoading: null,
+            modelsError: null,
+            statusTimeoutId: null,
+            pendingStatus: null,
+            elements: {}
+        };
+
+        this.aiAgent = new AIInsightsAgent(this as unknown as ConstructorParameters<typeof AIInsightsAgent>[0]);
         this.aiChatMessages = [];
         this.aiChatSessionId = Date.now();
         this.aiChatPendingRequest = false;
         this.aiChatOpen = false;
+        this.aiChatStreamFrame = null;
+        this.accountSize = null;
         this.aiDraftImport = null;
 
         this.activeQuoteEntries = new Map();
@@ -523,6 +555,9 @@ class GammaLedger {
         if (this.gemini?.statusTimeoutId) {
             clearTimeout(this.gemini.statusTimeoutId);
         }
+        if (this.openRouter?.statusTimeoutId) {
+            clearTimeout(this.openRouter.statusTimeoutId);
+        }
         if (this.finnhub?.statusTimeoutId) {
             clearTimeout(this.finnhub.statusTimeoutId);
         }
@@ -574,6 +609,9 @@ class GammaLedger {
             }
             await this.loadFinnhubConfigFromStorage();
             await this.loadGeminiConfigFromStorage();
+            await this.loadOpenRouterConfigFromStorage();
+            this.loadActiveAIProvider();
+            this.loadAccountSizeFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.updateFileNameDisplay();
             } else if (!this.trades || this.trades.length === 0) {
@@ -584,6 +622,9 @@ class GammaLedger {
             }
             this.bindEvents();
             this.initializeGeminiControls();
+            this.initializeOpenRouterControls();
+            this.initializeAIProviderControls();
+            this.initializeAccountSizeControls();
             this.initializeAIChat();
             this.initializeFinnhubControls();
             this.initializeSchwabControls();
@@ -1193,7 +1234,7 @@ class GammaLedger {
                 this.showView('settings');
                 this.toggleAIChat(false);
 
-                const keyField = document.getElementById('gemini-api-key');
+                const keyField = document.getElementById(this.aiProvider.active === 'openrouter' ? 'openrouter-api-key' : 'gemini-api-key');
                 if (keyField) {
                     setTimeout(() => keyField.focus(), 120);
                 }
@@ -1263,6 +1304,8 @@ class GammaLedger {
     applyAIDraftLegsToTradeForm() { return aiChatModule.applyAIDraftLegsToTradeForm.call(this); }
 
     appendAIChatMessage(sender, text, options = {}) { return aiChatModule.appendAIChatMessage.call(this, sender, text, options); }
+
+    updateAIChatStreamingMessage(id, text) { return aiChatModule.updateAIChatStreamingMessage.call(this, id, text); }
 
     renderAIChatMessages() { return aiChatModule.renderAIChatMessages.call(this); }
 
@@ -1453,6 +1496,28 @@ class GammaLedger {
 
     initializeGeminiControls() { return geminiIntegrationModule.initializeGeminiControls.call(this); }
 
+    async loadOpenRouterConfigFromStorage() { return openRouterIntegrationModule.loadOpenRouterConfigFromStorage.call(this); }
+
+    initializeOpenRouterControls() { return openRouterIntegrationModule.initializeOpenRouterControls.call(this); }
+
+    updateOpenRouterStatus(message, variant = 'neutral', autoClearMs = 0) { return openRouterIntegrationModule.updateOpenRouterStatus.call(this, message, variant, autoClearMs); }
+
+    async ensureOpenRouterModels() { return openRouterIntegrationModule.ensureOpenRouterModels.call(this); }
+
+    renderOpenRouterModelOptions() { return openRouterIntegrationModule.renderOpenRouterModelOptions.call(this); }
+
+    loadActiveAIProvider() { return aiProviderModule.loadActiveAIProvider.call(this); }
+
+    loadAccountSizeFromStorage() { return accountSizeModule.loadAccountSizeFromStorage.call(this); }
+
+    initializeAccountSizeControls() { return accountSizeModule.initializeAccountSizeControls.call(this); }
+
+    setActiveAIProvider(active) { return aiProviderModule.setActiveAIProvider.call(this, active); }
+
+    renderAIProviderSelector() { return aiProviderModule.renderAIProviderSelector.call(this); }
+
+    initializeAIProviderControls() { return aiProviderModule.initializeAIProviderControls.call(this); }
+
     initializeGeminiMaxTokensControls() { return geminiIntegrationModule.initializeGeminiMaxTokensControls.call(this); }
 
     updateGeminiTokensStatus(element, message = null, variant = 'neutral') { return geminiIntegrationModule.updateGeminiTokensStatus.call(this, element, message, variant); }
@@ -1461,9 +1526,7 @@ class GammaLedger {
 
     flushPendingGeminiStatus() { return geminiIntegrationModule.flushPendingGeminiStatus.call(this); }
 
-    getGeminiModelLabel(model = '') { return geminiIntegrationModule.getGeminiModelLabel.call(this, model); }
 
-    getGeminiChatDisplayName() { return geminiIntegrationModule.getGeminiChatDisplayName.call(this); }
 
     updateAIChatHeader() { return aiChatModule.updateAIChatHeader.call(this); }
 
@@ -1587,6 +1650,12 @@ class GammaLedger {
     cancelAICoachConsent() { return aiCoachConsentModule.cancelAICoachConsent.call(this); }
 
     hasAICoachConsent() { return aiCoachConsentModule.hasAICoachConsent.call(this); }
+
+    getAIChatDisplayName() { return aiProviderModule.getAIChatDisplayName.call(this); }
+
+    getActiveLLMProvider(): LLMProvider { return resolveActiveLLMProvider(this); }
+
+    buildCoachContext(): string { return gatherCoachContext.call(this as never); }
 
     getAICoachConsent() { return aiCoachConsentModule.getAICoachConsent.call(this); }
 
