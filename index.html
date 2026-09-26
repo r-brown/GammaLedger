@@ -860,6 +860,7 @@
                                     <button class="btn btn--sm btn--primary" id="openrouter-save">Save Key</button>
                                     <button class="btn btn--sm btn--secondary" id="openrouter-clear">Clear</button>
                                 </div>
+                                <div class="ai-key-status" id="openrouter-status" role="status">Not set</div>
                                 <p class="settings-help-text">Create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>. One key works with models from Anthropic, OpenAI, Google and others.</p>
                                 <div class="form-group">
                                     <label for="openrouter-model" class="form-label">Model</label>
@@ -876,16 +877,6 @@
                                     <input id="openrouter-data-collection" type="checkbox" checked>
                                     <span>Only use providers that don't train on my data</span>
                                 </label>
-                                <details class="ai-provider-advanced">
-                                    <summary>Advanced: fallback models</summary>
-                                    <label for="openrouter-fallback-models" class="form-label">Fallback models</label>
-                                    <div class="settings-input-row">
-                                        <input type="text" id="openrouter-fallback-models" class="form-control" placeholder="anthropic/claude-sonnet-5, openai/gpt-6-luna" autocomplete="off" spellcheck="false">
-                                        <button class="btn btn--sm btn--primary" id="openrouter-fallback-save">Save</button>
-                                    </div>
-                                    <p class="settings-help-text">Up to two model IDs, comma-separated. OpenRouter tries them in order if the main model is down or rate-limited.</p>
-                                </details>
-                                <div class="ai-provider-status" id="openrouter-status" role="status">Not set</div>
                             </div>
 
                             <div id="gemini-controls" class="ai-provider-fields" data-ai-provider-fields="gemini" hidden>
@@ -895,24 +886,31 @@
                                     <button class="btn btn--sm btn--primary" id="gemini-save">Save Key</button>
                                     <button class="btn btn--sm btn--secondary" id="gemini-clear">Clear</button>
                                 </div>
+                                <div class="ai-key-status" id="gemini-status" role="status">Not set</div>
                                 <div class="form-group">
                                     <label for="gemini-model" class="form-label">Model</label>
                                     <select id="gemini-model" class="form-control"></select>
                                 </div>
                                 <p class="settings-help-text">Use Google AI Studio or any compatible service exposing the Gemini generateContent API.</p>
-                                <div class="gemini-status" id="gemini-status" role="status">Not set</div>
                             </div>
 
                             <details class="ai-provider-advanced">
-                                <summary>Advanced: response length</summary>
+                                <summary>Advanced</summary>
+                                <div class="ai-provider-fields" data-ai-provider-fields="openrouter" hidden>
+                                    <label for="openrouter-fallback-models" class="form-label">Fallback models</label>
+                                    <div class="settings-input-row">
+                                        <input type="text" id="openrouter-fallback-models" class="form-control" placeholder="anthropic/claude-sonnet-5, openai/gpt-6-luna" autocomplete="off" spellcheck="false">
+                                        <button class="btn btn--sm btn--primary" id="openrouter-fallback-save">Save</button>
+                                    </div>
+                                    <p class="settings-help-text" id="openrouter-fallback-note" role="status">Up to two model IDs, comma-separated. OpenRouter tries them in order if the main model is down or rate-limited.</p>
+                                </div>
                                 <label for="gemini-max-tokens" class="form-label">Max Output Tokens</label>
                                 <div class="settings-input-row">
                                     <input type="number" id="gemini-max-tokens" class="form-control" placeholder="65536" min="1024" max="1000000" step="1024" autocomplete="off">
                                     <button class="btn btn--sm btn--primary" id="gemini-tokens-save">Save</button>
                                     <button class="btn btn--sm btn--secondary" id="gemini-tokens-reset">Reset</button>
                                 </div>
-                                <p class="settings-help-text">Maximum tokens for AI responses, for either provider. OpenRouter also caps it at the model's own output limit and context window.</p>
-                                <div class="gemini-tokens-status" id="gemini-tokens-status" role="status">Default: 65536</div>
+                                <p class="settings-help-text" id="gemini-tokens-status" role="status">Maximum tokens for AI responses, for either provider. Default: 65,536.</p>
                             </details>
                         </div>
                     </div>

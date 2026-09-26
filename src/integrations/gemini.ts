@@ -216,25 +216,17 @@ export function updateGeminiTokensStatus(this: any, element: HTMLElement | null,
         return;
     }
 
-    if (message) {
-        element.textContent = message;
-        element.className = 'gemini-tokens-status';
-        if (variant === 'success') {
-            element.classList.add('is-success');
-        } else if (variant === 'error') {
-            element.classList.add('is-error');
-        }
-        return;
-    }
-
-    // Default status based on current value
-    const isDefault = this.aiProvider.maxOutputTokens === DEFAULT_GEMINI_MAX_TOKENS;
-    if (isDefault) {
-        element.textContent = `Default: ${DEFAULT_GEMINI_MAX_TOKENS.toLocaleString()}`;
-        element.className = 'gemini-tokens-status';
-    } else {
-        element.textContent = `Custom: ${this.aiProvider.maxOutputTokens.toLocaleString()}`;
-        element.className = 'gemini-tokens-status is-success';
+    // The note carries the default itself, so there is no separate status banner.
+    const current = this.aiProvider.maxOutputTokens;
+    const base = current === DEFAULT_GEMINI_MAX_TOKENS
+        ? `Maximum tokens for AI responses, for either provider. Default: ${DEFAULT_GEMINI_MAX_TOKENS.toLocaleString()}.`
+        : `Maximum tokens for AI responses, for either provider. Currently ${current.toLocaleString()}. Default: ${DEFAULT_GEMINI_MAX_TOKENS.toLocaleString()}.`;
+    element.textContent = message ? `${message} ${base}` : base;
+    element.className = 'settings-help-text';
+    if (variant === 'success') {
+        element.classList.add('is-success');
+    } else if (variant === 'error') {
+        element.classList.add('is-error');
     }
 }
 

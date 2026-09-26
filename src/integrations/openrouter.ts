@@ -155,7 +155,11 @@ function clearApiKey(this: OpenRouterSettingsContext): void {
 function applyModel(this: OpenRouterSettingsContext, value: string): void {
     const id = value.trim()
     if (!isValidOpenRouterModelId(id)) {
-        this.updateOpenRouterStatus(`"${id || '(empty)'}" is not a valid OpenRouter model ID. Use the provider/model form, e.g. ${DEFAULT_OPENROUTER_MODEL}.`, 'error', 8000)
+        const info = this.openRouter.elements.modelInfo
+        if (info) {
+            info.textContent = `"${id || '(empty)'}" is not a valid OpenRouter model ID. Use the provider/model form, e.g. ${DEFAULT_OPENROUTER_MODEL}.`
+            info.classList.add('is-error')
+        }
         return
     }
     this.openRouter.model = id
@@ -163,31 +167,38 @@ function applyModel(this: OpenRouterSettingsContext, value: string): void {
     if (this.openRouter.elements.modelInput) {
         this.openRouter.elements.modelInput.value = id
     }
-    const listed = this.openRouter.models ? this.openRouter.models.some(model => model.id === id) : true
-    this.updateOpenRouterStatus(
-        listed ? `Model set to ${id}.` : `Model set to ${id}. It isn't in OpenRouter's current list — double-check the ID.`,
-        listed ? 'success' : 'neutral',
-        6000
-    )
+    // The info line under the field now describes the chosen model (or says it is custom).
     this.renderOpenRouterModelOptions()
     this.updateAIChatHeader()
     this.renderAIChatMessages()
 }
 
+/** Shows a message next to a field, ahead of its permanent help text (kept in data-base). */
+function showFieldNote(note: HTMLElement | null | undefined, message: string, variant: AIStatusVariant): void {
+    if (!note) {
+        return
+    }
+    note.dataset.base ??= note.textContent ?? ''
+    note.textContent = message ? `${message} ${note.dataset.base}` : note.dataset.base
+    note.classList.toggle('is-success', variant === 'success')
+    note.classList.toggle('is-error', variant === 'error')
+}
+
 function applyFallbacks(this: OpenRouterSettingsContext, value: string): void {
+    const note = this.openRouter.elements.fallbackNote
     const ids = value.split(',').map(id => id.trim()).filter(Boolean)
     const invalid = ids.filter(id => !isValidOpenRouterModelId(id))
     if (invalid.length) {
-        this.updateOpenRouterStatus(`Not a valid model ID: ${invalid.join(', ')}`, 'error', 8000)
+        showFieldNote(note, `Not a valid model ID: ${invalid.join(', ')}.`, 'error')
         return
     }
     if (ids.length > OPENROUTER_MAX_FALLBACK_MODELS) {
-        this.updateOpenRouterStatus(`Use at most ${OPENROUTER_MAX_FALLBACK_MODELS} fallback models.`, 'error', 8000)
+        showFieldNote(note, `Use at most ${OPENROUTER_MAX_FALLBACK_MODELS} fallback models.`, 'error')
         return
     }
     this.openRouter.fallbackModels = ids
     saveSettings(this.openRouter)
-    this.updateOpenRouterStatus(ids.length ? `Fallback models: ${ids.join(', ')}` : 'Fallback models cleared.', 'success', 6000)
+    showFieldNote(note, ids.length ? `Saved: ${ids.join(', ')}.` : 'Fallback models cleared.', 'success')
 }
 
 export function updateOpenRouterStatus(this: OpenRouterSettingsContext, message: string, variant: AIStatusVariant = 'neutral', autoClearMs = 0): void {
@@ -274,6 +285,7 @@ function setModelListOpen(this: OpenRouterSettingsContext, open: boolean): void 
 export function renderOpenRouterModelOptions(this: OpenRouterSettingsContext): void {
     const { modelList, modelInfo, modelInput } = this.openRouter.elements
     if (modelInfo) {
+        modelInfo.classList.remove('is-error')
         const known = findOpenRouterModel(this.openRouter, this.openRouter.model)
         const prefix = this.openRouter.modelsError ? 'Model list unavailable — showing defaults. ' : ''
         modelInfo.textContent = prefix + (known ? describeOpenRouterModel(known) : 'Custom model — details unknown.')
@@ -351,6 +363,7 @@ export function initializeOpenRouterControls(this: OpenRouterSettingsContext): v
         modelInfo: byId('openrouter-model-info'),
         fallbackInput: byId<HTMLInputElement>('openrouter-fallback-models'),
         fallbackSaveButton: byId('openrouter-fallback-save'),
+        fallbackNote: byId('openrouter-fallback-note'),
         dataCollectionInput: byId<HTMLInputElement>('openrouter-data-collection'),
         status: byId('openrouter-status')
     }
@@ -441,13 +454,6 @@ export function initializeOpenRouterControls(this: OpenRouterSettingsContext): v
     elements.dataCollectionInput?.addEventListener('change', () => {
         this.openRouter.dataCollection = elements.dataCollectionInput?.checked ? 'deny' : 'allow'
         saveSettings(this.openRouter)
-        this.updateOpenRouterStatus(
-            this.openRouter.dataCollection === 'deny'
-                ? 'Only providers that don\'t train on your data will be used.'
-                : 'Any provider may be used, including ones that may train on prompts.',
-            'neutral',
-            6000
-        )
     })
 
     const pending = this.openRouter.pendingStatus
