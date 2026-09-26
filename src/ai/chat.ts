@@ -968,8 +968,10 @@ export function toggleAIChat(this: AIChatContext, forceOpen: boolean | null = nu
 /** Shared by typed questions and quick prompts: placeholder → streamed reply → final render. */
 async function runAIChatRequest(this: AIChatContext, query: string, promptType: string | null): Promise<void> {
     const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
+    // The question being asked is sent as the final request turn, so it is not part of the history.
     const historySnapshot = this.aiChatMessages
         .filter(message => message.id !== placeholderId)
+        .slice(0, -1)
         .slice(-10)
         .map(message => ({ ...message }));
     const sessionId = this.aiChatSessionId;

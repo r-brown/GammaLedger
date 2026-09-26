@@ -106,9 +106,13 @@ export function buildCoachMessages(input: {
     question: string
     promptType: CoachPromptType
 }): LLMMessage[] {
-    const history = (Array.isArray(input.history) ? input.history : [])
+    const usable = (Array.isArray(input.history) ? input.history : [])
         .filter(entry => entry && !entry.pending && typeof entry.text === 'string' && entry.text.trim().length > 0)
         .slice(-8)
+    // The ack is already an assistant turn, so history must open with a user turn; this also drops
+    // the chat's local greeting ("Hi! I'm your local AI coach…"), which is not part of the dialogue.
+    const firstUser = usable.findIndex(entry => entry.sender !== 'ai')
+    const history = (firstUser === -1 ? [] : usable.slice(firstUser))
         .map((entry): LLMMessage => ({
             role: entry.sender === 'ai' ? 'assistant' : 'user',
             content: text((entry.text as string).trim())

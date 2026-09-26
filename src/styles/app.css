@@ -3659,6 +3659,41 @@ select.form-control {
   line-height: 1.5;
 }
 
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 0 0 var(--space-12);
+}
+
+.md-table-wrap:last-child {
+  margin-bottom: 0;
+}
+
+.md-table-wrap table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.md-table-wrap th,
+.md-table-wrap td {
+  padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+}
+
+.md-table-wrap th {
+  font-weight: var(--font-weight-semibold);
+  background: rgba(var(--color-info-rgb), var(--status-bg-opacity));
+  white-space: nowrap;
+}
+
+.md-table-wrap tbody tr:nth-child(even) td {
+  background: rgba(var(--color-slate-900-rgb), 0.04);
+}
+
 .ai-chat__bubble pre:last-child {
   margin-bottom: 0;
 }

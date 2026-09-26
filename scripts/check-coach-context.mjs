@@ -289,6 +289,23 @@ test('gatherCoachContext pulls from the host and never throws', async () => {
     assert.deepEqual(JSON.parse(broken).notes, ['Portfolio data could not be prepared.'])
 })
 
+test('gatherCoachContext prices: Schwab quote first, then Finnhub cache, then the trade snapshot', async () => {
+    const { gatherCoachContext } = await load('/src/ai/coach-context.ts')
+    const { host, closed } = mcpHost()
+    const leg = { type: 'PUT', strike: 100, expirationDate: '2026-12-18', quantity: 1, orderType: 'STO' }
+    const mk = (id, ticker, extra = {}) => ({ id, ticker, strategy: 'Cash-Secured Put', status: 'Open', dte: 30, expirationDate: '2026-12-18', capitalAtRisk: 1000, legs: [leg], ...extra })
+    const opens = [mk('a', 'AAA'), mk('b', 'BBB'), mk('c', 'CCC', { marketPriceSnapshot: 120 }), mk('d', 'DDD')]
+    Object.assign(host, {
+        accountSize: null, earningsMap: new Map(),
+        schwab: { quoteCache: new Map([['AAA', { price: 110 }]]) },
+        getCachedQuote: (t) => (t === 'AAA' ? { value: { price: 999 } } : t === 'BBB' ? { value: { price: 105 } } : null),
+        calculateAdvancedStats: () => ({ closedTradesList: [closed], openTradesList: opens, assignmentStats: { assignments: [] }, collateralAtRisk: 4000 })
+    })
+    const open = JSON.parse(gatherCoachContext.call(host)).open
+    const byTicker = Object.fromEntries(open.map(p => [p.ticker, p.price ?? null]))
+    assert.deepEqual(byTicker, { AAA: 110, BBB: 105, CCC: 120, DDD: null })
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0
