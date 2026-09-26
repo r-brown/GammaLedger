@@ -258,7 +258,7 @@ test('describeOpenRouterModel summarises context, prices and capabilities', asyn
 
 const orState = (overrides = {}) => ({ apiKey: 'or-key', model: 'anthropic/claude-sonnet-5', fallbackModels: [], dataCollection: 'deny', models: null, modelsLoading: null, modelsError: null, ...overrides })
 const orCtx = (overrides) => ({ openRouter: orState(overrides) })
-const orSettings = (overrides = {}) => ({ model: 'anthropic/claude-sonnet-5', fallbackModels: [], dataCollection: 'deny', modelMaxOutputTokens: null, ...overrides })
+const orSettings = (overrides = {}) => ({ model: 'anthropic/claude-sonnet-5', fallbackModels: [], dataCollection: 'deny', modelMaxOutputTokens: null, modelContextLength: null, ...overrides })
 
 test('buildOpenRouterBody: string content for text, parts for images, schema + require_parameters, fallbacks, clamp, stream', async () => {
     const { buildOpenRouterBody } = await load('/src/integrations/llm/openrouter.ts')
@@ -281,6 +281,24 @@ test('buildOpenRouterBody: string content for text, parts for images, schema + r
     assert.deepEqual(rich.response_format, { type: 'json_schema', json_schema: { name: 'draft', strict: true, schema: { type: 'object' } } })
     assert.equal(rich.stream, true)
     assert.equal(rich.max_tokens, 100)
+})
+
+test('OpenRouter max_tokens also fits the model context window: prompt estimate + reply <= context, floor 256', async () => {
+    const { buildOpenRouterBody, estimatePromptTokens } = await load('/src/integrations/llm/openrouter.ts')
+    const textOf = (n) => ({ messages: [{ role: 'user', content: [{ type: 'text', text: 'x'.repeat(n) }] }], maxOutputTokens: 65536, temperature: 0.25 })
+    const imageOnly = { messages: [{ role: 'user', content: [{ type: 'image', mimeType: 'image/png', base64: 'AAA' }] }], maxOutputTokens: 65536, temperature: 0.25 }
+    // ~1 token per 3 chars (deliberately pessimistic) + 4 per message, + 1,500 per image
+    assert.equal(estimatePromptTokens(textOf(3000).messages), 1004)
+    assert.equal(estimatePromptTokens(imageOnly.messages), 1504)
+    assert.equal(buildOpenRouterBody(textOf(3000), orSettings({ modelContextLength: 8192 }), false).max_tokens, 8192 - 1004)
+    // the smaller of context room and the model's own output limit wins
+    assert.equal(buildOpenRouterBody(textOf(3000), orSettings({ modelContextLength: 8192, modelMaxOutputTokens: 2048 }), false).max_tokens, 2048)
+    // a user cap below the room is respected
+    assert.equal(buildOpenRouterBody({ ...textOf(3000), maxOutputTokens: 500 }, orSettings({ modelContextLength: 8192 }), false).max_tokens, 500)
+    // no known context window: unchanged behaviour
+    assert.equal(buildOpenRouterBody(textOf(3000), orSettings({ modelContextLength: null }), false).max_tokens, 65536)
+    // a prompt that fills the window still gets a sane floor rather than 0 or a negative number
+    assert.equal(buildOpenRouterBody(textOf(3000), orSettings({ modelContextLength: 1000 }), false).max_tokens, 256)
 })
 
 test('OpenRouter complete sends attribution headers and parses text, answering model, usage and cost', async () => {

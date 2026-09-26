@@ -34,6 +34,8 @@ export interface OpenRouterRequestSettings {
     dataCollection: OpenRouterDataCollection
     /** The catalogue's max_completion_tokens for `model`, when known. */
     modelMaxOutputTokens: number | null
+    /** The catalogue's context window for `model`, when known. */
+    modelContextLength: number | null
 }
 
 const ErrorSchema = z.object({
@@ -93,12 +95,44 @@ function toOpenRouterMessage(message: LLMMessage): Record<string, unknown> {
     }
 }
 
+/** Smallest reply budget we send, so a nearly full context still gets a usable (not zero/negative) cap. */
+const MIN_OUTPUT_TOKENS = 256
+const CHARS_PER_TOKEN_ESTIMATE = 3
+const TOKENS_PER_IMAGE_ESTIMATE = 1500
+const TOKENS_PER_MESSAGE_OVERHEAD = 4
+
+/** Deliberately pessimistic prompt size, used only to keep prompt + reply inside the context window. */
+export function estimatePromptTokens(messages: readonly LLMMessage[]): number {
+    let tokens = 0
+    for (const message of messages) {
+        tokens += TOKENS_PER_MESSAGE_OVERHEAD
+        for (const part of message.content) {
+            tokens += part.type === 'text'
+                ? Math.ceil(part.text.length / CHARS_PER_TOKEN_ESTIMATE)
+                : TOKENS_PER_IMAGE_ESTIMATE
+        }
+    }
+    return tokens
+}
+
+/** The user's cap, reduced to the model's own output limit and to what is left of its context window. */
+function fitMaxTokens(request: LLMRequest, settings: OpenRouterRequestSettings): number {
+    let tokens = request.maxOutputTokens
+    if (settings.modelMaxOutputTokens && settings.modelMaxOutputTokens > 0) {
+        tokens = Math.min(tokens, settings.modelMaxOutputTokens)
+    }
+    if (settings.modelContextLength && settings.modelContextLength > 0) {
+        const room = settings.modelContextLength - estimatePromptTokens(request.messages)
+        tokens = Math.min(tokens, Math.max(room, MIN_OUTPUT_TOKENS))
+    }
+    return tokens
+}
+
 export function buildOpenRouterBody(request: LLMRequest, settings: OpenRouterRequestSettings, stream: boolean): Record<string, unknown> {
-    const limit = settings.modelMaxOutputTokens
     const body: Record<string, unknown> = {
         model: settings.model,
         messages: request.messages.map(toOpenRouterMessage),
-        max_tokens: limit && limit > 0 ? Math.min(request.maxOutputTokens, limit) : request.maxOutputTokens,
+        max_tokens: fitMaxTokens(request, settings),
         temperature: request.temperature,
         usage: { include: true }
     }
@@ -167,12 +201,16 @@ export function createOpenRouterProvider(ctx: OpenRouterProviderContext): LLMPro
         }
         return key
     }
-    const settingsFor = (model: string): OpenRouterRequestSettings => ({
-        model,
-        fallbackModels: state.fallbackModels.filter(isValidOpenRouterModelId),
-        dataCollection: state.dataCollection,
-        modelMaxOutputTokens: findOpenRouterModel(state, model)?.maxOutputTokens ?? null
-    })
+    const settingsFor = (model: string): OpenRouterRequestSettings => {
+        const known = findOpenRouterModel(state, model)
+        return {
+            model,
+            fallbackModels: state.fallbackModels.filter(isValidOpenRouterModelId),
+            dataCollection: state.dataCollection,
+            modelMaxOutputTokens: known?.maxOutputTokens ?? null,
+            modelContextLength: known?.contextLength ?? null
+        }
+    }
     const post = (key: string, body: Record<string, unknown>, signal: AbortSignal) => fetch(OPENROUTER_CHAT_ENDPOINT, {
         method: 'POST',
         headers: {

@@ -877,7 +877,7 @@
                                     <span>Only use providers that don't train on my data</span>
                                 </label>
                                 <details class="ai-provider-advanced">
-                                    <summary>Advanced</summary>
+                                    <summary>Advanced: fallback models</summary>
                                     <label for="openrouter-fallback-models" class="form-label">Fallback models</label>
                                     <div class="settings-input-row">
                                         <input type="text" id="openrouter-fallback-models" class="form-control" placeholder="anthropic/claude-sonnet-5, openai/gpt-6-luna" autocomplete="off" spellcheck="false">
@@ -903,16 +903,17 @@
                                 <div class="gemini-status" id="gemini-status" role="status">Not set</div>
                             </div>
 
-                            <div class="settings-divider"></div>
-
-                            <label for="gemini-max-tokens" class="form-label">Max Output Tokens</label>
-                            <div class="settings-input-row">
-                                <input type="number" id="gemini-max-tokens" class="form-control" placeholder="65536" min="1024" max="1000000" step="1024" autocomplete="off">
-                                <button class="btn btn--sm btn--primary" id="gemini-tokens-save">Save</button>
-                                <button class="btn btn--sm btn--secondary" id="gemini-tokens-reset">Reset</button>
-                            </div>
-                            <p class="settings-help-text">Maximum tokens for AI responses, for either provider. OpenRouter also caps this at the model's own limit.</p>
-                            <div class="gemini-tokens-status" id="gemini-tokens-status" role="status">Default: 65536</div>
+                            <details class="ai-provider-advanced">
+                                <summary>Advanced: response length</summary>
+                                <label for="gemini-max-tokens" class="form-label">Max Output Tokens</label>
+                                <div class="settings-input-row">
+                                    <input type="number" id="gemini-max-tokens" class="form-control" placeholder="65536" min="1024" max="1000000" step="1024" autocomplete="off">
+                                    <button class="btn btn--sm btn--primary" id="gemini-tokens-save">Save</button>
+                                    <button class="btn btn--sm btn--secondary" id="gemini-tokens-reset">Reset</button>
+                                </div>
+                                <p class="settings-help-text">Maximum tokens for AI responses, for either provider. OpenRouter also caps it at the model's own output limit and context window.</p>
+                                <div class="gemini-tokens-status" id="gemini-tokens-status" role="status">Default: 65536</div>
+                            </details>
                         </div>
                     </div>
             </section>
