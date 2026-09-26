@@ -59,6 +59,26 @@ test('buildMCPTrade: open trades carry no annualizedROI, closed trades keep it',
     assert.equal(closed.annualizedROI, 42.5)
 })
 
+// ── Account size ─────────────────────────────────────────────────────────────
+
+test('parseAccountSize accepts positive finite USD amounts only', async () => {
+    const { parseAccountSize } = await load('/src/settings/account-size.ts')
+    assert.equal(parseAccountSize('50000'), 50000)
+    assert.equal(parseAccountSize(' 62500.5 '), 62500.5)
+    assert.equal(parseAccountSize('1,250'), null)          // no thousands separators
+    for (const bad of ['0', '-5', 'abc', '', '  ', 'NaN', 'Infinity', '1e12', null, undefined]) {
+        assert.equal(parseAccountSize(bad), null, String(bad))
+    }
+})
+
+test('AccountSizeSchema mirrors the parser (max 1e10)', async () => {
+    const { AccountSizeSchema } = await load('/src/core/schema.ts')
+    assert.ok(AccountSizeSchema.safeParse(50000).success)
+    assert.ok(!AccountSizeSchema.safeParse(0).success)
+    assert.ok(!AccountSizeSchema.safeParse(1e11).success)
+    assert.ok(!AccountSizeSchema.safeParse(Number.NaN).success)
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

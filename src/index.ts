@@ -72,6 +72,7 @@ import * as aiProviderModule from './integrations/ai-provider.js';
 import * as openRouterIntegrationModule from './integrations/openrouter.js';
 import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
+import * as accountSizeModule from './settings/account-size.js';
 import * as startupBehaviorModule from './settings/startup-behavior.js';
 import type { StartupBehavior } from './settings/startup-behavior.js';
 import * as externalAnalyticsModule from './settings/external-analytics.js';
@@ -175,6 +176,7 @@ class GammaLedger {
     declare aiChatPendingRequest: boolean
     declare aiChatOpen: boolean
     declare aiChatStreamFrame: number | null
+    declare accountSize: number | null
     declare aiDraftImport: Record<string, unknown> | null
     declare activeQuoteEntries: Map<string, unknown>
     declare quoteRefreshIntervalId: ReturnType<typeof setInterval> | null
@@ -361,6 +363,7 @@ class GammaLedger {
         this.aiChatPendingRequest = false;
         this.aiChatOpen = false;
         this.aiChatStreamFrame = null;
+        this.accountSize = null;
         this.aiDraftImport = null;
 
         this.activeQuoteEntries = new Map();
@@ -607,6 +610,7 @@ class GammaLedger {
             await this.loadGeminiConfigFromStorage();
             await this.loadOpenRouterConfigFromStorage();
             this.loadActiveAIProvider();
+            this.loadAccountSizeFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.updateFileNameDisplay();
             } else if (!this.trades || this.trades.length === 0) {
@@ -619,6 +623,7 @@ class GammaLedger {
             this.initializeGeminiControls();
             this.initializeOpenRouterControls();
             this.initializeAIProviderControls();
+            this.initializeAccountSizeControls();
             this.initializeAIChat();
             this.initializeFinnhubControls();
             this.initializeSchwabControls();
@@ -1501,6 +1506,10 @@ class GammaLedger {
     renderOpenRouterModelOptions() { return openRouterIntegrationModule.renderOpenRouterModelOptions.call(this); }
 
     loadActiveAIProvider() { return aiProviderModule.loadActiveAIProvider.call(this); }
+
+    loadAccountSizeFromStorage() { return accountSizeModule.loadAccountSizeFromStorage.call(this); }
+
+    initializeAccountSizeControls() { return accountSizeModule.initializeAccountSizeControls.call(this); }
 
     setActiveAIProvider(active) { return aiProviderModule.setActiveAIProvider.call(this, active); }
 

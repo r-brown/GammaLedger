@@ -236,6 +236,9 @@ export const OpenRouterConfigSchema = z.object({
 
 export type OpenRouterConfig = z.infer<typeof OpenRouterConfigSchema>;
 
+/** Optional account size in USD used by the AI Coach to express risk as % of account. */
+export const AccountSizeSchema = z.number().finite().positive().max(1e10);
+
 const NullableFiniteNumberSchema = z.number().finite().nullable();
 
 export const SchwabOptionQuoteSchema = z.object({

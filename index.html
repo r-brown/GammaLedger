@@ -914,6 +914,21 @@
                             </details>
                         </div>
                     </div>
+                    <div class="settings-card" id="account-size-controls">
+                        <div class="settings-card__header">
+                            <h3>Account Size (optional)</h3>
+                            <p class="settings-card__subtitle">Lets the AI Coach express risk as a percentage of your account.</p>
+                        </div>
+                        <div class="settings-card__body">
+                            <label for="account-size-input" class="form-label">Account size (USD)</label>
+                            <div class="settings-input-row">
+                                <input type="text" inputmode="decimal" id="account-size-input" class="form-control" placeholder="60000" autocomplete="off">
+                                <button class="btn btn--sm btn--primary" id="account-size-save">Save</button>
+                                <button class="btn btn--sm btn--secondary" id="account-size-clear">Clear</button>
+                            </div>
+                            <p class="settings-help-text" id="account-size-note" role="status">Stays on this device. It is sent to your AI provider only as part of AI Coach questions.</p>
+                        </div>
+                    </div>
             </section>
             <br>
             <section class="settings-section">

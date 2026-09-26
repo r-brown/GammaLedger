@@ -68,6 +68,7 @@ interface AppConfigShape {
         readonly AI_PROVIDER: string
         readonly OPENROUTER_CONFIG: string
         readonly OPENROUTER_SECRET: string
+        readonly ACCOUNT_SIZE: string
         readonly LEGACY_KEYS: readonly string[]
     }
     SHARE_CARD: {
@@ -116,6 +117,7 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         AI_PROVIDER: 'GammaLedgerAIProvider',
         OPENROUTER_CONFIG: 'GammaLedgerOpenRouterConfig',
         OPENROUTER_SECRET: 'GammaLedgerOpenRouterSecret',
+        ACCOUNT_SIZE: 'GammaLedgerAccountSize',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',
@@ -151,6 +153,7 @@ export const GEMINI_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.GEMINI_SECRE
 export const AI_PROVIDER_STORAGE_KEY: string = APP_CONFIG.STORAGE.AI_PROVIDER;
 export const OPENROUTER_STORAGE_KEY: string = APP_CONFIG.STORAGE.OPENROUTER_CONFIG;
 export const OPENROUTER_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.OPENROUTER_SECRET;
+export const ACCOUNT_SIZE_STORAGE_KEY: string = APP_CONFIG.STORAGE.ACCOUNT_SIZE;
 export const DISCLAIMER_STORAGE_KEY: string = APP_CONFIG.STORAGE.DISCLAIMER;
 export const AI_COACH_CONSENT_STORAGE_KEY: string = APP_CONFIG.STORAGE.AI_COACH_CONSENT;
 export const SIDEBAR_COLLAPSED_STORAGE_KEY: string = APP_CONFIG.STORAGE.SIDEBAR_COLLAPSED;
