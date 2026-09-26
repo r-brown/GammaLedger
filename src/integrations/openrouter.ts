@@ -160,6 +160,9 @@ function applyModel(this: OpenRouterSettingsContext, value: string): void {
     }
     this.openRouter.model = id
     saveSettings(this.openRouter)
+    if (this.openRouter.elements.modelInput) {
+        this.openRouter.elements.modelInput.value = id
+    }
     const listed = this.openRouter.models ? this.openRouter.models.some(model => model.id === id) : true
     this.updateOpenRouterStatus(
         listed ? `Model set to ${id}.` : `Model set to ${id}. It isn't in OpenRouter's current list — double-check the ID.`,
@@ -218,7 +221,7 @@ export async function ensureOpenRouterModels(this: OpenRouterSettingsContext): P
 }
 
 export function renderOpenRouterModelOptions(this: OpenRouterSettingsContext): void {
-    const { modelOptions, modelInfo, modelInput } = this.openRouter.elements
+    const { modelOptions, modelInfo } = this.openRouter.elements
     if (modelOptions) {
         const fragment = document.createDocumentFragment()
         availableOpenRouterModels(this.openRouter).forEach((model) => {
@@ -228,9 +231,6 @@ export function renderOpenRouterModelOptions(this: OpenRouterSettingsContext): v
             fragment.appendChild(option)
         })
         modelOptions.replaceChildren(fragment)
-    }
-    if (modelInput && document.activeElement !== modelInput) {
-        modelInput.value = this.openRouter.model
     }
     if (modelInfo) {
         const known = findOpenRouterModel(this.openRouter, this.openRouter.model)
@@ -262,6 +262,7 @@ export function initializeOpenRouterControls(this: OpenRouterSettingsContext): v
     this.openRouter.elements = elements
 
     if (elements.keyInput) elements.keyInput.value = this.openRouter.apiKey ?? ''
+    if (elements.modelInput) elements.modelInput.value = this.openRouter.model
     if (elements.fallbackInput) elements.fallbackInput.value = this.openRouter.fallbackModels.join(', ')
     if (elements.dataCollectionInput) elements.dataCollectionInput.checked = this.openRouter.dataCollection === 'deny'
 
@@ -289,9 +290,12 @@ export function initializeOpenRouterControls(this: OpenRouterSettingsContext): v
     onClick(elements.clearButton, () => clearApiKey.call(this))
     onClick(elements.modelSaveButton, commitModel)
     onEnter(elements.modelInput, commitModel)
+    // Picking from the list or clicking away must apply the model too, not only the button.
+    elements.modelInput?.addEventListener('change', commitModel)
     elements.modelInput?.addEventListener('focus', () => { void this.ensureOpenRouterModels() }, { once: true })
     onClick(elements.fallbackSaveButton, commitFallbacks)
     onEnter(elements.fallbackInput, commitFallbacks)
+    elements.fallbackInput?.addEventListener('change', commitFallbacks)
     elements.dataCollectionInput?.addEventListener('change', () => {
         this.openRouter.dataCollection = elements.dataCollectionInput?.checked ? 'deny' : 'allow'
         saveSettings(this.openRouter)
