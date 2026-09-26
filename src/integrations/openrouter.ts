@@ -16,9 +16,9 @@ import { resolveOpenRouterModel } from './llm/openrouter.js'
 import {
     availableOpenRouterModels,
     describeOpenRouterModel,
-    describeOpenRouterModelShort,
     ensureOpenRouterCatalogue,
     findOpenRouterModel,
+    OPENROUTER_CURATED_MODELS,
     isValidOpenRouterModelId
 } from './llm/openrouter-models.js'
 import type { OpenRouterModel } from './llm/types.js'
@@ -220,23 +220,118 @@ export async function ensureOpenRouterModels(this: OpenRouterSettingsContext): P
     return models
 }
 
-export function renderOpenRouterModelOptions(this: OpenRouterSettingsContext): void {
-    const { modelOptions, modelInfo } = this.openRouter.elements
-    if (modelOptions) {
-        const fragment = document.createDocumentFragment()
-        availableOpenRouterModels(this.openRouter).forEach((model) => {
-            const option = document.createElement('option')
-            option.value = model.id
-            option.label = describeOpenRouterModelShort(model)
-            fragment.appendChild(option)
-        })
-        modelOptions.replaceChildren(fragment)
+const MODEL_LIST_LIMIT = 80
+
+function modelMeta(model: OpenRouterModel): string {
+    const parts: string[] = []
+    if (model.promptPricePerMillion !== null) {
+        parts.push(`$${model.promptPricePerMillion < 0.1 ? model.promptPricePerMillion.toFixed(3) : model.promptPricePerMillion.toFixed(2)}/M in`)
     }
+    if (model.vision) {
+        parts.push('images')
+    }
+    return parts.join(' · ')
+}
+
+function modelListOptions(list: HTMLElement): HTMLElement[] {
+    return Array.from(list.querySelectorAll<HTMLElement>('[role="option"]'))
+}
+
+function setActiveModelOption(this: OpenRouterSettingsContext, index: number): void {
+    const { modelList, modelInput } = this.openRouter.elements
+    if (!modelList || !modelInput) {
+        return
+    }
+    const options = modelListOptions(modelList)
+    options.forEach((option, i) => {
+        option.classList.toggle('is-active', i === index)
+        option.setAttribute('aria-selected', String(i === index))
+    })
+    const active = options[index]
+    if (active) {
+        modelInput.setAttribute('aria-activedescendant', active.id)
+        active.scrollIntoView({ block: 'nearest' })
+    } else {
+        modelInput.removeAttribute('aria-activedescendant')
+    }
+}
+
+function setModelListOpen(this: OpenRouterSettingsContext, open: boolean): void {
+    const { modelList, modelInput } = this.openRouter.elements
+    if (!modelList || !modelInput) {
+        return
+    }
+    modelList.hidden = !open
+    modelInput.setAttribute('aria-expanded', String(open))
+    if (open) {
+        this.renderOpenRouterModelOptions()
+    } else {
+        modelInput.removeAttribute('aria-activedescendant')
+    }
+}
+
+/** Renders the info line and, when open, the filtered model dropdown. */
+export function renderOpenRouterModelOptions(this: OpenRouterSettingsContext): void {
+    const { modelList, modelInfo, modelInput } = this.openRouter.elements
     if (modelInfo) {
         const known = findOpenRouterModel(this.openRouter, this.openRouter.model)
         const prefix = this.openRouter.modelsError ? 'Model list unavailable — showing defaults. ' : ''
         modelInfo.textContent = prefix + (known ? describeOpenRouterModel(known) : 'Custom model — details unknown.')
     }
+    if (!modelList || !modelInput || modelList.hidden) {
+        return
+    }
+
+    // Right after focusing the pre-filled field, show everything; once the user types, filter.
+    const showAll = modelInput.dataset.showAll === '1'
+    const query = modelInput.value.trim().toLowerCase()
+    const all = availableOpenRouterModels(this.openRouter)
+    const filtered = showAll || !query
+        ? [...all]
+        : all.filter(model => model.id.toLowerCase().includes(query) || model.name.toLowerCase().includes(query))
+    // Current model first, then the curated picks, then everything else A–Z (the API lists newest first).
+    const rank = (id: string) => (id === this.openRouter.model ? 0 : OPENROUTER_CURATED_MODELS.some(m => m.id === id) ? 1 : 2)
+    const matches = filtered.sort((a, b) => rank(a.id) - rank(b.id) || a.id.localeCompare(b.id))
+
+    const fragment = document.createDocumentFragment()
+    matches.slice(0, MODEL_LIST_LIMIT).forEach((model, index) => {
+        const item = document.createElement('li')
+        item.id = `openrouter-model-option-${index}`
+        item.className = 'ai-model-picker__option'
+        item.setAttribute('role', 'option')
+        item.setAttribute('aria-selected', 'false')
+        item.dataset.modelId = model.id
+        if (model.id === this.openRouter.model) {
+            item.classList.add('is-current')
+        }
+        const id = document.createElement('span')
+        id.className = 'ai-model-picker__id'
+        id.textContent = model.id
+        item.appendChild(id)
+        const meta = [model.name.replace(/^[^:]+:\s+/, ''), modelMeta(model)].filter(Boolean).join(' · ')
+        if (meta) {
+            const detail = document.createElement('span')
+            detail.className = 'ai-model-picker__meta'
+            detail.textContent = meta
+            item.appendChild(detail)
+        }
+        fragment.appendChild(item)
+    })
+    if (!matches.length) {
+        const note = document.createElement('li')
+        note.className = 'ai-model-picker__note'
+        note.setAttribute('role', 'presentation')
+        note.textContent = 'No matching models. Press Enter to use the ID as typed.'
+        fragment.appendChild(note)
+    } else if (matches.length > MODEL_LIST_LIMIT) {
+        const note = document.createElement('li')
+        note.className = 'ai-model-picker__note'
+        note.setAttribute('role', 'presentation')
+        note.textContent = `${matches.length - MODEL_LIST_LIMIT} more — keep typing to narrow the list.`
+        fragment.appendChild(note)
+    }
+    modelList.replaceChildren(fragment)
+    modelInput.removeAttribute('aria-activedescendant')
 }
 
 export function initializeOpenRouterControls(this: OpenRouterSettingsContext): void {
@@ -252,7 +347,7 @@ export function initializeOpenRouterControls(this: OpenRouterSettingsContext): v
         clearButton: byId('openrouter-clear'),
         modelInput: byId<HTMLInputElement>('openrouter-model'),
         modelSaveButton: byId('openrouter-model-save'),
-        modelOptions: byId<HTMLDataListElement>('openrouter-model-options'),
+        modelList: byId('openrouter-model-list'),
         modelInfo: byId('openrouter-model-info'),
         fallbackInput: byId<HTMLInputElement>('openrouter-fallback-models'),
         fallbackSaveButton: byId('openrouter-fallback-save'),
@@ -289,10 +384,57 @@ export function initializeOpenRouterControls(this: OpenRouterSettingsContext): v
     onEnter(elements.keyInput, commitKey)
     onClick(elements.clearButton, () => clearApiKey.call(this))
     onClick(elements.modelSaveButton, commitModel)
-    onEnter(elements.modelInput, commitModel)
     // Picking from the list or clicking away must apply the model too, not only the button.
     elements.modelInput?.addEventListener('change', commitModel)
-    elements.modelInput?.addEventListener('focus', () => { void this.ensureOpenRouterModels() }, { once: true })
+
+    const modelInput = elements.modelInput
+    const modelList = elements.modelList
+    const openList = () => {
+        if (modelInput) modelInput.dataset.showAll = '1'
+        setModelListOpen.call(this, true)
+        void this.ensureOpenRouterModels()
+    }
+    modelInput?.addEventListener('focus', openList)
+    modelInput?.addEventListener('click', openList)
+    modelInput?.addEventListener('input', () => {
+        delete modelInput.dataset.showAll
+        setModelListOpen.call(this, true)
+    })
+    modelInput?.addEventListener('blur', () => setModelListOpen.call(this, false))
+    modelInput?.addEventListener('keydown', (event) => {
+        if (!modelList) return
+        const options = modelListOptions(modelList)
+        const current = options.findIndex(option => option.classList.contains('is-active'))
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault()
+            if (modelList.hidden) {
+                openList()
+                return
+            }
+            if (!options.length) return
+            const step = event.key === 'ArrowDown' ? 1 : -1
+            setActiveModelOption.call(this, current === -1 ? (step === 1 ? 0 : options.length - 1) : (current + step + options.length) % options.length)
+        } else if (event.key === 'Enter') {
+            event.preventDefault()
+            const picked = !modelList.hidden && current !== -1 ? options[current]?.dataset.modelId : undefined
+            if (picked && modelInput) modelInput.value = picked
+            setModelListOpen.call(this, false)
+            commitModel()
+        } else if (event.key === 'Escape' && !modelList.hidden) {
+            event.preventDefault()
+            setModelListOpen.call(this, false)
+        }
+    })
+    // mousedown (not click) so the input keeps focus and its blur doesn't close the list first
+    modelList?.addEventListener('mousedown', (event) => {
+        event.preventDefault()
+        const option = (event.target instanceof Element ? event.target.closest<HTMLElement>('[role="option"]') : null)
+        const id = option?.dataset.modelId
+        if (!id || !modelInput) return
+        modelInput.value = id
+        setModelListOpen.call(this, false)
+        commitModel()
+    })
     onClick(elements.fallbackSaveButton, commitFallbacks)
     onEnter(elements.fallbackInput, commitFallbacks)
     elements.fallbackInput?.addEventListener('change', commitFallbacks)

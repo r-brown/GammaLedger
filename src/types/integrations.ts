@@ -191,7 +191,7 @@ export interface OpenRouterState extends OpenRouterProviderState {
     clearButton?: HTMLElement | null
     modelInput?: HTMLInputElement | null
     modelSaveButton?: HTMLElement | null
-    modelOptions?: HTMLDataListElement | null
+    modelList?: HTMLElement | null
     modelInfo?: HTMLElement | null
     fallbackInput?: HTMLInputElement | null
     fallbackSaveButton?: HTMLElement | null

@@ -162,9 +162,3 @@ export function describeOpenRouterModel(model: OpenRouterModel): string {
     }
     return parts.join(' · ')
 }
-
-/** Short label for the model <datalist>. */
-export function describeOpenRouterModelShort(model: OpenRouterModel): string {
-    const price = model.promptPricePerMillion === null ? '' : ` · ${formatPricePerMillion(model.promptPricePerMillion)}/M in`
-    return `${model.name}${price}${model.vision ? ' · images' : ''}`
-}

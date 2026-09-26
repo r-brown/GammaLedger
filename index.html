@@ -864,10 +864,12 @@
                                 <div class="form-group">
                                     <label for="openrouter-model" class="form-label">Model</label>
                                     <div class="settings-input-row">
-                                        <input type="text" id="openrouter-model" class="form-control" list="openrouter-model-options" placeholder="google/gemini-3.8-flash" autocomplete="off" spellcheck="false">
+                                        <div class="ai-model-picker">
+                                            <input type="text" id="openrouter-model" class="form-control" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="openrouter-model-list" placeholder="google/gemini-3.8-flash" autocomplete="off" spellcheck="false">
+                                            <ul id="openrouter-model-list" class="ai-model-picker__list" role="listbox" aria-label="OpenRouter models" hidden></ul>
+                                        </div>
                                         <button class="btn btn--sm btn--primary" id="openrouter-model-save">Use Model</button>
                                     </div>
-                                    <datalist id="openrouter-model-options"></datalist>
                                     <p class="settings-help-text" id="openrouter-model-info"></p>
                                 </div>
                                 <label class="settings-toggle" for="openrouter-data-collection">
