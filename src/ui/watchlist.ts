@@ -512,7 +512,7 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             const targetWrap = document.createElement('div')
             targetWrap.style.marginBottom = '8px'
             const targetLabel = document.createElement('label')
-            targetLabel.textContent = 'Target: '
+            targetLabel.textContent = 'Watch price: '
             targetLabel.style.fontSize = '13px'
             targetLabel.style.marginRight = '8px'
             targetLabel.style.color = 'var(--color-text-secondary)'
@@ -543,7 +543,7 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             targetDirectionBtn.style.marginLeft = '8px'
             targetDirectionBtn.style.padding = '2px 8px'
             targetDirectionBtn.style.fontSize = '1.2em'
-            targetDirectionBtn.title = 'Toggle target direction (above or below)'
+            targetDirectionBtn.title = 'Toggle what you are waiting for: the price dropping to this level (e.g. to sell a put) or rising to it'
             
             // Read the direction back off the persisted entry on every click
             // rather than tracking it in a closure variable — an inline grid
@@ -557,7 +557,7 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
                 targetDirectionBtn.textContent = direction === 'up' ? '🔼' : '🔽'
                 targetDirectionBtn.setAttribute(
                     'aria-label',
-                    direction === 'up' ? 'Alert when price rises to or above target' : 'Alert when price drops to or below target'
+                    direction === 'up' ? 'Waiting for the price to rise to or above the watch price' : 'Waiting for the price to drop to or below the watch price'
                 )
             }
             paintDirection(readDirection())
@@ -658,7 +658,7 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 quoteCell.call(context, String(params.data?.ticker ?? ''))
         },
         {
-            colId: 'targetPrice', field: 'targetPrice', headerName: 'Target', width: 100, sortable: true,
+            colId: 'targetPrice', field: 'targetPrice', headerName: 'Watch price', headerTooltip: 'The price you are waiting for before acting (▼ drop to it, ▲ rise to it)', width: 110, sortable: true,
             editable: true,
             valueSetter: (params) => {
                 if (params.data && params.newValue !== params.oldValue) {
@@ -687,7 +687,9 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 const dirEl = document.createElement('span')
                 dirEl.className = `watchlist-target-dir ${isDown ? 'is-down' : 'is-up'}`
                 dirEl.textContent = isDown ? '▼' : '▲'
-                dirEl.setAttribute('aria-label', isDown ? 'Alert when price drops to or below target' : 'Alert when price rises to or above target')
+                const dirLabel = isDown ? 'Waiting for the price to drop to or below this level' : 'Waiting for the price to rise to or above this level'
+                dirEl.setAttribute('aria-label', dirLabel)
+                dirEl.title = dirLabel
                 wrap.append(priceEl, dirEl)
                 return wrap
             },

@@ -15,10 +15,10 @@ const DRIFT_CONCURRENCY = 4
 export const DRIFT_QUESTIONS: { drift: Extract<DecisionQuestion, { type: 'noul' }> } = {
     drift: {
         type: 'noul',
-        instructions: 'The thesis in state.watchlist.thesis no longer fits the current facts in state',
+        instructions: 'The thesis in state.watchlist.thesis no longer fits the current facts in state. state.watchlist.watchPrice is the price level the user waits for before entering (an entry trigger, not a bullish or bearish view); "price at or below level" usually means waiting for a pullback to sell a cash-secured put or bull put spread',
         criteria: {
-            true: 'The price, target status or scores contradict what the thesis waits for or assumes',
-            false: 'The facts are consistent with the thesis, or it cannot be judged'
+            true: 'The price, the watch-price status or the scores contradict what the thesis waits for or assumes',
+            false: 'The facts are consistent with the thesis (including still waiting for the watch price), or it cannot be judged'
         }
     }
 }

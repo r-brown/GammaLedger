@@ -151,7 +151,7 @@ test('AI Read: state excludes position/watchlist; JEV below 0.5 confidence reads
 
 test('drift: state only for a non-empty thesis; hash changes with the notes; 0.7 threshold', async () => {
     const d = await load('/src/ai/watchlist-drift.ts')
-    const ctx = (thesis) => ({ ticker: 'VEEV', asOf: '2026-09-27', price: 214, scores: null, signals: null, momentum: null, position: null, aiRead: null, watchlist: thesis === null ? null : { thesis, targetMet: false, priceVsTargetPct: 12.6, daysSinceAdded: 118 } })
+    const ctx = (thesis) => ({ ticker: 'VEEV', asOf: '2026-09-27', price: 214, scores: null, signals: null, momentum: null, position: null, aiRead: null, watchlist: thesis === null ? null : { thesis, daysSinceAdded: 118, watchPrice: { level: 190, waitingFor: 'price at or below level', priceVsLevelPct: 12.6, reached: false, reachedToday: false } } })
     assert.equal(d.buildDriftState(ctx('   ')), null)
     assert.equal(d.buildDriftState(ctx(null)), null)
     assert.deepEqual(Object.keys(d.buildDriftState(ctx('Wait for a pullback'))).sort(), ['asOf', 'price', 'ticker', 'watchlist'])
@@ -164,6 +164,7 @@ test('drift: state only for a non-empty thesis; hash changes with the notes; 0.7
     assert.equal(d.toDriftView(res(0.81), '2026-09-27').band, 'medium')   // |0.81 − 0.5| × 2 = 0.62
     assert.equal(d.toDriftView(res(1, 'llm'), '2026-09-27').band, null)
     assert.equal(d.DRIFT_QUESTIONS.drift.type, 'noul')
+    assert.ok(d.DRIFT_QUESTIONS.drift.instructions.includes('not a bullish or bearish view'))
 })
 
 const RULE = (tradeId, severity, reasons, dte) => ({ tradeId, ticker: tradeId.split('-')[0], strategy: 'Cash-Secured Put', severity, dte, reasons })

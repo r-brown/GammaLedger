@@ -122,12 +122,12 @@ test('buildTickerContext: position facts with the Schwab quote and earnings insi
     assert.equal(closed.position.quote, null)
 })
 
-test('buildTickerContext: watchlist facts are pre-computed (days, target distance, met/crossed)', async () => {
+test('buildTickerContext: watchlist facts are pre-computed (days, watch-price distance, reached today)', async () => {
     const { buildTickerContext } = await load('/src/ai/ticker-context.ts')
     const ctx = buildTickerContext(baseInput({ watchlistEntry: ENTRY, prices: { finnhub: 188 }, previousClose: 192 }))
     assert.deepEqual(ctx.watchlist, {
         rating: 4, thesis: 'Wait for a pullback under $190 before selling puts.', tags: ['wheel'], daysSinceAdded: 118,
-        targetPrice: 190, targetDirection: 'down', priceVsTargetPct: -1.1, targetMet: true, targetCrossedToday: true
+        watchPrice: { level: 190, waitingFor: 'price at or below level', priceVsLevelPct: -1.1, reached: true, reachedToday: true }
     })
 })
 
@@ -149,7 +149,14 @@ test('Ask Coach questions: open, closed and watchlist variants with a short disp
     assert.ok(closed.request.startsWith('Review this closed trade:'))
     const wl = t.buildWatchlistAskQuestion(t.buildTickerContext(baseInput({ watchlistEntry: ENTRY })))
     assert.equal(wl.display, 'Ask about VEEV (watchlist)')
-    assert.ok(wl.request.startsWith('Is VEEV a candidate to open a position on'))
+    assert.ok(wl.request.startsWith('VEEV has not reached my watch price yet.'))   // 214.3 vs a 190 "at or below" level
+    assert.ok(wl.request.includes('not a bullish or bearish view'))
+    assert.ok(wl.request.includes('"waitingFor":"price at or below level"'))
+    const reached = t.buildWatchlistAskQuestion(t.buildTickerContext(baseInput({ watchlistEntry: ENTRY, prices: { finnhub: 188 } })))
+    assert.ok(reached.request.startsWith('VEEV has reached my watch price.'))
+    const noLevel = t.buildWatchlistAskQuestion(t.buildTickerContext(baseInput({ watchlistEntry: { ...ENTRY, targetPrice: null } })))
+    assert.ok(noLevel.request.startsWith('Is VEEV a candidate to open a position on'))
+    assert.ok(!noLevel.request.includes('"watchPrice"'))
     assert.ok(wl.request.includes('"thesis":"Wait for a pullback under $190 before selling puts."'))
 })
 

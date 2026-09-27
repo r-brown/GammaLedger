@@ -74,11 +74,18 @@ export interface TickerContext {
         thesis: string
         tags: string[]
         daysSinceAdded: number | null
-        targetPrice: number | null
-        targetDirection: 'up' | 'down' | null
-        priceVsTargetPct: number | null
-        targetMet: boolean
-        targetCrossedToday: boolean
+        /**
+         * The user's watch (entry-trigger) price, not a directional view: "down" means waiting for a
+         * pullback to the level, usually to then sell a CSP or bull put spread there.
+         */
+        watchPrice: {
+            level: number
+            waitingFor: 'price at or below level' | 'price at or above level'
+            /** (price − level) / level, in %. */
+            priceVsLevelPct: number | null
+            reached: boolean
+            reachedToday: boolean
+        } | null
     } | null
     aiRead: { grade: AIReadView['grade']; display: AIReadView['display']; confidence: number | null; engine: AIReadView['engine'] } | null
 }
@@ -147,17 +154,20 @@ export function buildTickerContext(input: TickerContextInput): TickerContext {
     if (input.watchlistEntry) {
         const e = input.watchlistEntry
         const thesis = String(e.notes ?? '').trim()
-        const status = targetStatus(price, input.previousClose, e.targetPrice ?? null, e.targetDirection)
+        const level = finite(e.targetPrice ?? null)
+        const status = targetStatus(price, input.previousClose, level, e.targetDirection)
         watchlist = {
             rating: e.rating ?? null,
             thesis: thesis.length > MAX_THESIS_CHARS ? `${thesis.slice(0, MAX_THESIS_CHARS - 1)}…` : thesis,
             tags: Array.isArray(e.tags) ? e.tags : [],
             daysSinceAdded: e.addedDate ? daysBetweenIso(e.addedDate, asOf) : null,
-            targetPrice: finite(e.targetPrice ?? null),
-            targetDirection: e.targetPrice == null ? null : (e.targetDirection === 'down' ? 'down' : 'up'),
-            priceVsTargetPct: status?.priceVsTargetPct ?? null,
-            targetMet: status?.met ?? false,
-            targetCrossedToday: status?.crossedToday ?? false
+            watchPrice: level === null ? null : {
+                level,
+                waitingFor: e.targetDirection === 'down' ? 'price at or below level' : 'price at or above level',
+                priceVsLevelPct: status?.priceVsTargetPct ?? null,
+                reached: status?.met ?? false,
+                reachedToday: status?.crossedToday ?? false
+            }
         }
     }
 
@@ -202,10 +212,19 @@ export function buildPositionAskQuestion(ctx: TickerContext): AskQuestion {
     }
 }
 
+/** How to read watchlist.watchPrice; sent with every watchlist question (and kept for follow-ups). */
+export const WATCH_PRICE_NOTE = 'watchlist.watchPrice is my watch price: the entry trigger I am waiting for, not a bullish or bearish view. "price at or below level" means I am waiting for a pullback to that level, usually to then open a cash-secured put or a bull put spread there; "price at or above level" means I am waiting for the price to rise to it before acting. reached says whether the price is there now, reachedToday whether it got there today, priceVsLevelPct how far away it is.'
+
 export function buildWatchlistAskQuestion(ctx: TickerContext): AskQuestion {
+    const watch = ctx.watchlist?.watchPrice
+    const ask = !watch
+        ? `Is ${ctx.ticker} a candidate to open a position on, given my thesis and the numbers below? If yes, suggest a structure (strategy, rough distance to strike, DTE window) and what to check first. If not, say what would change that.`
+        : watch.reached
+            ? `${ctx.ticker} has reached my watch price. Given my thesis and the numbers below, is it time to open the position? If yes, suggest a structure (strategy, rough distance to strike, DTE window) and what to check first. If not, say what is missing.`
+            : `${ctx.ticker} has not reached my watch price yet. Given my thesis and the numbers below, should I keep waiting for that level, adjust it, or act now? If I should act at some level, suggest a structure (strategy, rough distance to strike, DTE window) and what to check first.`
     return {
         display: `Ask about ${ctx.ticker} (watchlist)`,
-        request: `Is ${ctx.ticker} a candidate to open a position on, given my thesis and the numbers below? If yes, suggest a structure (strategy, rough distance to strike, DTE window) and what to check first. If not, say what would change that. ${AI_READ_NOTE}\n\nWATCHLIST FACTS (compact JSON computed by GammaLedger):\n${tickerContextJson(ctx)}`
+        request: `${ask} ${WATCH_PRICE_NOTE} ${AI_READ_NOTE}\n\nWATCHLIST FACTS (compact JSON computed by GammaLedger):\n${tickerContextJson(ctx)}`
     }
 }
 
