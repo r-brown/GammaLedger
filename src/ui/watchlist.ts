@@ -4,7 +4,7 @@
 
 import { showNotification } from './notifications.js'
 import { createGrid, type ColDef, type GridApi, type GridOptions, type ICellRendererParams, type IRowNode } from './tables/ag-grid.js'
-import { buildPanelSkeleton, computePreTradeRiskScore, renderAIRead, renderAskCoachButton, triggerDataFetch, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
+import { buildPanelSkeleton, computePreTradeRiskScore, createAskCoachButton, renderAIRead, triggerDataFetch, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
 import { createTickerElement } from '@utils/dom'
 import { targetStatus } from '../calculations/market-facts.js'
 import type { WatchlistEntry } from '../types/watchlist.js'
@@ -500,7 +500,13 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             titleWrap.appendChild(savedIndicator)
             
             header.appendChild(titleWrap)
-            header.appendChild(renderStars.call(context, ticker, entry.rating))
+            const headerActions = document.createElement('div')
+            headerActions.className = 'watchlist-notes-actions'
+            // Detail-card Ask Coach (01a) sits with the thesis and watch price it sends.
+            const askCoach = createAskCoachButton(context, { ticker, watchlistEntry: entry }, 'card')
+            if (askCoach) headerActions.appendChild(askCoach)
+            headerActions.appendChild(renderStars.call(context, ticker, entry.rating))
+            header.appendChild(headerActions)
             card.appendChild(header)
 
             const targetWrap = document.createElement('div')
@@ -600,7 +606,6 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             const panel = buildPanelSkeleton(ticker, { threeCol: true })
             this.container.appendChild(panel)
             triggerDataFetch(context, ticker, panel, null, true)
-            renderAskCoachButton(panel, context, { ticker, watchlistEntry: entry })
             renderAIRead(panel, context, { ticker, watchlistEntry: entry })
 
             this.ro = new ResizeObserver((entries) => {
@@ -629,6 +634,23 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                     onClick: (value: unknown) => context.openTradesFilteredByTicker(value),
                     title: `View all trades for ${String(params.value ?? '')}`
                 })
+        },
+        {
+            // Ask Coach straight from the row (01/01a); the column is hidden without an AI provider (G2).
+            colId: 'askCoach',
+            headerName: '',
+            headerTooltip: 'Ask the AI Coach about this ticker',
+            width: 64,
+            minWidth: 64,
+            maxWidth: 64,
+            pinned: 'left',
+            sortable: false,
+            filter: false,
+            resizable: false,
+            hide: !context.isAIConfigured?.(),
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => (params.data
+                ? createAskCoachButton(context, { ticker: String(params.data.ticker ?? ''), watchlistEntry: context.watchlist.find(e => e.ticker === String(params.data?.ticker ?? '')) ?? null }, 'row') ?? ''
+                : '')
         },
         {
             colId: 'quote', headerName: 'Current Price', width: 140, sortable: false,

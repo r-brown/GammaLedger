@@ -19,7 +19,7 @@ export { computePreTradeRiskScore }
 /** AI members GammaLedger provides; optional so non-AI contexts still type-check. */
 export interface PanelAIHost {
   isAIConfigured?(): boolean
-  askCoachAboutTicker?(request: AskCoachRequest): void
+  askCoachAboutTicker?(request: AskCoachRequest): void | Promise<void>
   requestAIRead?(ticker: string): Promise<AIReadView | null>
 }
 
@@ -443,28 +443,40 @@ export function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = 
 // AI header controls (Ask Coach 01/01a)
 // ---------------------------------------------------------------------------
 
-/** "Ask Coach" button. Hidden without a configured AI provider (G2); disabled until metrics load. */
-export function renderAskCoachButton(panelEl: HTMLElement, context: PositionDetailPanelContext, request: AskCoachRequest): void {
-  const slot = panelEl.querySelector<HTMLElement>('[data-role="ai-actions"]')
-  if (!slot || !context.askCoachAboutTicker || !context.isAIConfigured?.()) return
-  const button = el('button', 'btn btn--sm btn--secondary pdp-ask-coach') as HTMLButtonElement
+/**
+ * Ask Coach control (01/01a): 'row' is the compact grid-row button, 'card' the detail-card one.
+ * Null without a configured AI provider (G2). The host loads missing research data itself, so the
+ * button only shows a busy state while that happens.
+ */
+export function createAskCoachButton(context: PanelAIHost, request: AskCoachRequest, variant: 'row' | 'card'): HTMLButtonElement | null {
+  if (!context.askCoachAboutTicker || !context.isAIConfigured?.()) return null
+  const button = el('button', variant === 'row' ? 'ai-ask-row-btn' : 'btn btn--sm btn--secondary pdp-ask-coach') as HTMLButtonElement
   button.type = 'button'
-  button.appendChild(txt('Ask Coach'))
-  const key = request.ticker.toUpperCase()
-  const ready = () => {
-    const metrics = context.metricsCache.get(key)
-    // An 'error' state enables the button too: the question then simply omits the scores.
-    button.disabled = !metrics || metrics === 'loading'
-    button.title = button.disabled ? 'Loading data…' : 'Ask the AI Coach about this'
-  }
-  ready()
-  context.metricsPromiseMap.get(key)?.then(ready, ready)
+  button.appendChild(txt(variant === 'row' ? '✨ AI' : '✨ Ask Coach'))
+  const label = `Ask the AI Coach about ${request.ticker.toUpperCase()}`
+  button.title = label
+  button.setAttribute('aria-label', label)
   button.addEventListener('click', (event) => {
     event.preventDefault()
     event.stopPropagation()
-    context.askCoachAboutTicker?.(request)
+    if (button.disabled) return
+    button.disabled = true
+    button.setAttribute('aria-busy', 'true')
+    button.title = 'Loading data…'
+    void Promise.resolve(context.askCoachAboutTicker?.(request)).finally(() => {
+      button.disabled = false
+      button.removeAttribute('aria-busy')
+      button.title = label
+    })
   })
-  slot.appendChild(button)
+  return button
+}
+
+/** Detail-card Ask Coach button in the panel header. */
+export function renderAskCoachButton(panelEl: HTMLElement, context: PositionDetailPanelContext, request: AskCoachRequest): void {
+  const slot = panelEl.querySelector<HTMLElement>('[data-role="ai-actions"]')
+  const button = slot ? createAskCoachButton(context, request, 'card') : null
+  if (slot && button) slot.appendChild(button)
 }
 
 // ---------------------------------------------------------------------------
@@ -1297,12 +1309,19 @@ export function triggerDataFetch(
   const cachedPrice = Number(context.getCachedQuote?.(ticker)?.value?.price)
   const livePrice = Number.isFinite(cachedPrice) ? cachedPrice : null
 
-  function reRenderSignals(signals: SignalsData): void {
-    if (!sigCard?.isConnected) return
+  function renderSignals(signals: SignalsData): void {
+    if (!sigCard) return
     const earned = context.earningsCache.get(ticker)
     const earnings = (earned && earned !== 'loading' && earned !== 'error') ? earned : null
     renderSignalsColumn(sigCard, signals, livePrice, earnings, { skipNews: threeCol, skipInsiders: threeCol })
-    if (threeCol && newsCard?.isConnected) renderNewsColumn(newsCard, signals)
+    if (threeCol && newsCard) renderNewsColumn(newsCard, signals)
+  }
+
+  // Async results only paint panels that are still on screen. The synchronous cached path below
+  // calls renderSignals directly: the grid attaches the panel only after init returns, so it is
+  // not connected yet (which used to leave cached signals stuck on "Loading…").
+  function reRenderSignals(signals: SignalsData): void {
+    if (sigCard?.isConnected) renderSignals(signals)
   }
 
   // ── Fundamentals (metrics) ────────────────────────────────
@@ -1340,7 +1359,7 @@ export function triggerDataFetch(
   // ── Signals ───────────────────────────────────────────────
   const cachedSignals = context.signalsCache.get(ticker)
   if (cachedSignals && cachedSignals !== 'loading' && cachedSignals !== 'error') {
-    if (sigCard) reRenderSignals(cachedSignals)
+    renderSignals(cachedSignals)
   } else if (cachedSignals === 'loading') {
     context.signalsPromiseMap.get(ticker)?.then(data => {
       if (sigCard?.isConnected && data) reRenderSignals(data)

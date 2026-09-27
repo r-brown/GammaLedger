@@ -2979,6 +2979,11 @@ select.form-control {
 .pdp-header-scores { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; flex-wrap: wrap; }
 .pdp-header-ai, .pdp-header-actions { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; }
 .pdp-header-ai:empty, .pdp-header-actions:empty { display: none; }
+.ai-ask-row-btn { border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-primary); border-radius: var(--radius-sm); font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); padding: 1px 6px; line-height: 1.6; cursor: pointer; white-space: nowrap; }
+.ai-ask-row-btn:hover:not(:disabled) { border-color: var(--color-primary); }
+.ai-ask-row-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.ai-ask-row-btn:disabled, .pdp-ask-coach:disabled { cursor: progress; opacity: 0.6; }
+.watchlist-notes-actions { display: flex; align-items: center; gap: var(--space-8); }
 .pdp-ai-why { border: 0; background: none; color: var(--color-primary); font-size: var(--font-size-xs); cursor: pointer; padding: 0 var(--space-4); }
 .pdp-ai-why:hover { text-decoration: underline; }
 .pdp-ai-why:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
