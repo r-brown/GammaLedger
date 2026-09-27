@@ -3443,7 +3443,7 @@ select.form-control {
 }
 
 .ai-chat__panel {
-  width: 460px;
+  width: 550px;
   max-width: calc(100vw - var(--space-32));
   background-color: var(--color-surface);
   border: 1px solid var(--color-card-border);
@@ -3457,7 +3457,7 @@ select.form-control {
   position: relative;
   min-width: 300px;
   min-height: 400px;
-  height: 600px;
+  height: 750px;
   max-height: calc(100vh - var(--space-32));
 }
 
