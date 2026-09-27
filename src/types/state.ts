@@ -122,6 +122,7 @@ export interface AppState {
   jev: JevState
   aiReadCache: Map<string, import('./ai').AIReadView | 'loading' | 'error'>
   driftCache: Map<string, import('./ai').DriftView | 'loading' | 'error'>
+  attentionUrgencyCache: Map<string, Record<string, number> | 'loading' | 'error'>
   aiReadPromiseMap: Map<string, Promise<import('./ai').AIReadView | null>>
 
   // ---- Finnhub enrichment caches ----

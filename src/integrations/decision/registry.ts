@@ -49,16 +49,24 @@ export function getDecisionProvider(ctx: DecisionContext): DecisionProvider | nu
     return null
 }
 
-/** Decides with the current engine; a JEV network/CORS failure disables JEV for the session and retries once on the LLM. */
-export async function decideWithFallback<K extends string>(ctx: DecisionContext, request: DecisionRequest<K>): Promise<DecisionResult<K> | null> {
+/**
+ * Decides with the current engine; a JEV network/CORS failure disables JEV for the session and
+ * retries once on the LLM. With `jevOnly`, nothing but JEV is ever called (the digest order).
+ */
+export async function decideWithFallback<K extends string>(
+    ctx: DecisionContext,
+    request: DecisionRequest<K>,
+    options: { jevOnly?: boolean } = {}
+): Promise<DecisionResult<K> | null> {
     const provider = getDecisionProvider(ctx)
-    if (!provider) return null
+    if (!provider || (options.jevOnly && provider.id !== 'jev')) return null
     try {
         return await provider.decide(request)
     } catch (error) {
         if (provider.id !== 'jev' || !(error instanceof LLMError) || error.kind !== 'network') throw error
         ctx.jev.reachable = false
         ctx.onJevUnreachable?.()
+        if (options.jevOnly) return null
         const fallback = getDecisionProvider(ctx)
         return fallback ? fallback.decide(request) : null
     }

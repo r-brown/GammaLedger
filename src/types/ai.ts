@@ -69,14 +69,24 @@ export interface DriftView extends DecisionTrust {
   asOf: string
 }
 
-export type AttentionReason = 'breached' | 'near-strike' | 'gamma-tested' | 'earnings' | 'uncovered-shares' | 'wide-spread'
+/**
+ * 'rule' reasons come from the Active Positions attention rules (calculations/attention.ts), so the
+ * digest and the table's status dot agree; the others are digest-only additions.
+ */
+export type AttentionReasonKind = 'rule' | 'earnings' | 'uncovered-shares' | 'wide-spread'
+
+export interface AttentionReason {
+  kind: AttentionReasonKind
+  text: string
+}
 
 export interface AttentionItem {
   key: string
   ticker: string
   label: string
   reasons: AttentionReason[]
-  severity: number
+  /** Same scale as the table dot: 3 act now, 2 look today, 1 worth a glance. */
+  severity: 1 | 2 | 3
   dte: number | null
   /** JEV urgency level 0–2 when ordered by JEV, else null. */
   urgency: number | null

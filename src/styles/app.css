@@ -7132,6 +7132,20 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 .position-status-dot--warning { background: var(--color-risk-high); }
 .position-status-dot--notice { background: var(--color-risk-caution); }
 
+/* Dashboard — "Needs a look" attention digest (same severity colors as the dot) */
+.attention-digest { margin: var(--space-16) 0; padding: var(--space-12) var(--space-16); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-surface); }
+.attention-digest[hidden] { display: none; }
+.attention-digest__title { margin: 0 0 var(--space-8); font-size: var(--font-size-md); }
+.attention-digest__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-6); }
+.attention-digest__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-6); font-size: var(--font-size-sm); }
+.attention-digest__dot { width: 8px; height: 8px; border-radius: var(--radius-full); flex-shrink: 0; }
+.attention-digest__item--act .attention-digest__dot { background: var(--color-risk-critical); }
+.attention-digest__item--look .attention-digest__dot { background: var(--color-risk-high); }
+.attention-digest__item--glance .attention-digest__dot { background: var(--color-risk-caution); }
+.attention-digest__label { font-variant-numeric: tabular-nums; }
+.attention-digest__reason { font-size: var(--font-size-xs); color: var(--color-text-secondary); background: var(--color-border); border-radius: var(--radius-sm); padding: 1px 6px; }
+.attention-digest__urgency { margin-left: auto; font-size: var(--font-size-xs); color: var(--color-text-secondary); }
+
 /* ── Watchlist view ───────────────────────────────────────────── */
 .watchlist-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
 .watchlist-empty-state { text-align: center; padding: 40px 20px; background: var(--color-surface); border-radius: var(--radius-md); border: 1px dashed var(--color-border); }

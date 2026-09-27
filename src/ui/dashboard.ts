@@ -23,6 +23,7 @@ interface DashboardContext {
   calculateAdvancedStats(): Stats
   renderGroupedMetrics(stats: Stats): void
   renderConcentration(stats: Stats): void
+  renderAttentionDigest(): void
 }
 
 export function updateDashboard(this: DashboardContext): void {
@@ -37,6 +38,7 @@ export function updateDashboard(this: DashboardContext): void {
 
     this.renderGroupedMetrics(stats)
     this.renderConcentration(stats)
+    this.renderAttentionDigest()
 
     this.updateActivePositionsTable(openTradesList)
     this.updateRecentTradesTable(closedTradesList, stats.activePositions)

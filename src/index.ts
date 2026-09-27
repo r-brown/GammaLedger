@@ -134,6 +134,9 @@ import * as watchlistModule from './ui/watchlist.js';
 import * as askCoachModule from './ai/ask-coach.js';
 import * as aiReadModule from './ai/ai-read.js';
 import * as driftModule from './ai/watchlist-drift.js';
+import * as attentionDigestModule from './ai/attention.js';
+import * as attentionDigestViewModule from './ui/dashboard/attention-digest.js';
+import * as attentionRulesModule from './ui/attention.js';
 
 
 class GammaLedger {
@@ -181,6 +184,7 @@ class GammaLedger {
     declare jev: JevState
     declare aiReadCache: Map<string, import('./types/ai.js').AIReadView | 'loading' | 'error'>
     declare driftCache: Map<string, import('./types/ai.js').DriftView | 'loading' | 'error'>
+    declare attentionUrgencyCache: Map<string, Record<string, number> | 'loading' | 'error'>
     declare aiReadPromiseMap: Map<string, Promise<import('./types/ai.js').AIReadView | null>>
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
@@ -374,6 +378,7 @@ class GammaLedger {
         this.aiReadCache = new Map();
         this.aiReadPromiseMap = new Map();
         this.driftCache = new Map();
+        this.attentionUrgencyCache = new Map();
 
         this.aiAgent = new AIInsightsAgent(this as unknown as ConstructorParameters<typeof AIInsightsAgent>[0]);
         this.aiChatMessages = [];
@@ -1559,6 +1564,7 @@ class GammaLedger {
         jevModule.refreshJevStatus.call(this);
         this.aiReadCache.clear();
         this.driftCache.clear();
+        this.attentionUrgencyCache.clear();
         this.updateDashboard();
         if (this.currentView === 'watchlist') this.renderWatchlistView();
     }
@@ -1863,6 +1869,14 @@ class GammaLedger {
     renderGroupedMetrics(stats) { return groupedMetricsModule.renderGroupedMetrics.call(this, stats); }
 
     renderConcentration(stats) { return concentrationModule.renderConcentration.call(this, stats); }
+
+    renderAttentionDigest() { return attentionDigestViewModule.renderAttentionDigest.call(this); }
+
+    getAttentionDigest() { return attentionDigestModule.getAttentionDigest.call(this); }
+
+    requestAttentionOrder() { return attentionDigestModule.requestAttentionOrder.call(this); }
+
+    computeAttentionByTrade(trades) { return attentionRulesModule.computeAttentionByTrade.call(this, trades); }
 
     updatePerformanceTrendChart() { return performanceTrendModule.updatePerformanceTrendChart.call(this); }
 
