@@ -34,7 +34,6 @@ interface AICoachConsentContext {
   aiProvider: { active: AIProviderId }
   getActiveLLMProvider(): { displayName: string }
   updateAIChatHeader(): void
-  jev?: { apiKey: string | null }
 }
 
 const HIDE_FADE_MS = 220
@@ -104,7 +103,7 @@ export function showAICoachConsent(this: AICoachConsentContext): void {
     const providerName = this.getActiveLLMProvider().displayName
     element.querySelectorAll<HTMLElement>('[data-ai-consent-provider]').forEach((node) => { node.textContent = providerName })
     element.querySelectorAll<HTMLElement>('[data-ai-consent-routing]').forEach((node) => { node.hidden = this.aiProvider.active !== 'openrouter' })
-    element.querySelectorAll<HTMLElement>('[data-ai-consent-jev]').forEach((node) => { node.hidden = !this.jev?.apiKey?.trim() })
+    element.querySelectorAll<HTMLElement>('[data-ai-consent-jev]').forEach((node) => { node.hidden = this.aiProvider.active !== 'openrouter' })
 
     if (!element.open) element.showModal()
     requestAnimationFrame(() => {
@@ -157,13 +156,8 @@ export function promptAICoachConsent(
 }
 
 export function acceptAICoachConsent(this: AICoachConsentContext): void {
-    // v2 covers research data; JEV is named (and agreed to) only when its key is saved (spec D5).
-    this.setAICoachConsent({
-        at: new Date().toISOString(),
-        provider: this.aiProvider.active,
-        version: 2,
-        decision: this.jev?.apiKey?.trim() ? 'jev' : null
-    })
+    // v2 covers research data and, with OpenRouter, JEV decisions; the modal names both (spec D5).
+    this.setAICoachConsent({ at: new Date().toISOString(), provider: this.aiProvider.active, version: 2 })
     const followUp = this.aiCoachConsent.pendingAction
     this.aiCoachConsent.pendingAction = null
     this.hideAICoachConsent()

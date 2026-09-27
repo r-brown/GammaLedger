@@ -374,7 +374,7 @@ class GammaLedger {
             elements: {}
         };
 
-        this.jev = { apiKey: null, encryptionKey: null, reachable: true, statusTimeoutId: null, elements: {} };
+        this.jev = { reachable: true };
         this.aiReadCache = new Map();
         this.aiReadPromiseMap = new Map();
         this.driftCache = new Map();
@@ -582,9 +582,6 @@ class GammaLedger {
         if (this.openRouter?.statusTimeoutId) {
             clearTimeout(this.openRouter.statusTimeoutId);
         }
-        if (this.jev?.statusTimeoutId) {
-            clearTimeout(this.jev.statusTimeoutId);
-        }
         if (this.finnhub?.statusTimeoutId) {
             clearTimeout(this.finnhub.statusTimeoutId);
         }
@@ -637,7 +634,6 @@ class GammaLedger {
             await this.loadFinnhubConfigFromStorage();
             await this.loadGeminiConfigFromStorage();
             await this.loadOpenRouterConfigFromStorage();
-            await this.loadJevConfigFromStorage();
             this.loadActiveAIProvider();
             this.loadAccountSizeFromStorage();
             if (this.startupBehavior === 'manual') {
@@ -651,7 +647,7 @@ class GammaLedger {
             this.bindEvents();
             this.initializeGeminiControls();
             this.initializeOpenRouterControls();
-            this.initializeJevControls();
+            this.refreshJevStatus();
             this.initializeAIProviderControls();
             this.initializeAccountSizeControls();
             this.initializeAIChat();
@@ -1548,25 +1544,28 @@ class GammaLedger {
 
     initializeOpenRouterControls() { return openRouterIntegrationModule.initializeOpenRouterControls.call(this); }
 
-    async loadJevConfigFromStorage() { return jevModule.loadJevConfigFromStorage.call(this); }
-
-    initializeJevControls() { return jevModule.initializeJevControls.call(this); }
+    refreshJevStatus() { return jevModule.refreshJevStatus.call(this); }
 
     /** Typed-decision engine for AI Read / thesis drift / digest order (spec D3); null = none allowed. */
     getDecisionProvider(): DecisionProvider | null { return resolveDecisionProvider(this); }
 
     getDecisionEngine(): DecisionEngine | null { return currentDecisionEngine(this); }
 
-    onJevUnreachable() { jevModule.refreshJevStatus.call(this); }
+    isAIDecisionAvailable(): boolean { return this.getDecisionEngine() !== null; }
 
-    /** Re-renders every passive AI view after consent, keys or reachability change. */
+    onJevUnreachable() { this.refreshJevStatus(); }
+
+    /**
+     * Repaints the AI surfaces that consent unlocks, without rebuilding the grids (a rebuild would
+     * collapse the panel the user just asked from). Open panels pick the verdict up on next expand.
+     */
     refreshAIDecisionViews() {
-        jevModule.refreshJevStatus.call(this);
-        this.aiReadCache.clear();
-        this.driftCache.clear();
-        this.attentionUrgencyCache.clear();
-        this.updateDashboard();
-        if (this.currentView === 'watchlist') this.renderWatchlistView();
+        this.refreshJevStatus();
+        this.renderAttentionDigest();
+        const showAsk = this.isAIConfigured();
+        for (const api of [this.activePositionsGridApi, this.tradesGridApi, this.watchlistGridApi] as Array<{ setColumnsVisible?(keys: string[], visible: boolean): void; isDestroyed?(): boolean } | null>) {
+            if (api && !api.isDestroyed?.()) api.setColumnsVisible?.(['askCoach'], showAsk);
+        }
     }
 
     updateOpenRouterStatus(message, variant = 'neutral', autoClearMs = 0) { return openRouterIntegrationModule.updateOpenRouterStatus.call(this, message, variant, autoClearMs); }
@@ -1714,7 +1713,11 @@ class GammaLedger {
 
     promptAICoachConsent(nextAction = null, requirement = undefined) { return aiCoachConsentModule.promptAICoachConsent.call(this, nextAction, requirement); }
 
-    acceptAICoachConsent() { return aiCoachConsentModule.acceptAICoachConsent.call(this); }
+    acceptAICoachConsent() {
+        aiCoachConsentModule.acceptAICoachConsent.call(this);
+        // Consent v2 unlocks the passive AI views (verdict pill, drift, digest order): repaint them.
+        this.refreshAIDecisionViews();
+    }
 
     cancelAICoachConsent() { return aiCoachConsentModule.cancelAICoachConsent.call(this); }
 

@@ -2977,8 +2977,12 @@ select.form-control {
 .pdp-company-name { font-weight: var(--font-weight-bold); font-size: var(--font-size-base); color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pdp-industry-badge { font-size: 10px; color: var(--color-text-secondary); background: var(--color-border); border-radius: var(--radius-sm); padding: 1px 6px; white-space: nowrap; flex-shrink: 0; }
 .pdp-header-scores { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; flex-wrap: wrap; }
-.pdp-header-ai, .pdp-header-actions { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; }
+.pdp-header-ai { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.pdp-header-actions { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; }
 .pdp-header-ai:empty, .pdp-header-actions:empty { display: none; }
+.pdp-score-pill--pending { animation: pdp-ai-pending 1.2s ease-in-out infinite; }
+@keyframes pdp-ai-pending { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .pdp-score-pill--pending { animation: none; } }
 .ai-ask-row-btn { border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-primary); border-radius: var(--radius-sm); font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); padding: 1px 6px; line-height: 1.6; cursor: pointer; white-space: nowrap; }
 .ai-ask-row-btn:hover:not(:disabled) { border-color: var(--color-primary); }
 .ai-ask-row-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
@@ -5379,17 +5383,6 @@ tr:hover {
   font-weight: var(--font-weight-semibold);
   color: var(--color-warning);
   background: rgba(var(--color-warning-rgb), var(--status-bg-opacity));
-}
-
-.ai-decision-engine {
-  margin: var(--space-16) 0;
-  padding-top: var(--space-12);
-  border-top: 1px solid var(--color-border);
-}
-
-.ai-decision-engine__title {
-  font-size: var(--font-size-sm);
-  margin: 0 0 var(--space-4);
 }
 
 .ai-provider-fields[hidden] {

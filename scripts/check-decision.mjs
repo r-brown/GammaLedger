@@ -34,29 +34,43 @@ const JEV_OK = {
     usage: { input_tokens: 1000, output_tokens: 3 }
 }
 
-test('JEV request: endpoint, Bearer key, body {state, questions, model}', async () => {
+test('JEV via OpenRouter: Decisions endpoint, OpenRouter key and attribution headers, body {model, state, questions}', async () => {
     const { createJevProvider } = await load('/src/integrations/decision/jev.ts')
-    await withFetch(() => jsonResponse(200, JEV_OK), async (calls) => {
-        const result = await createJevProvider({ jev: { apiKey: ' ts-key ' } }).decide({ state: { ticker: 'VEEV' }, questions: Q })
-        assert.equal(calls[0].url, 'https://api.typesafe.ai/v1/systemone')
-        assert.equal(calls[0].init.headers.Authorization, 'Bearer ts-key')
-        assert.deepEqual(JSON.parse(calls[0].init.body), { state: { ticker: 'VEEV' }, questions: Q, model: 'jev-latest' })
+    await withFetch(() => jsonResponse(200, { id: 'gen-1', provider: 'TypeSafe', ...JEV_OK, usage: { input_tokens: 1000, output_tokens: 3, cost: 0.00005 } }), async (calls) => {
+        const result = await createJevProvider({ openRouter: { apiKey: ' sk-or-key ' } }).decide({ state: { ticker: 'VEEV' }, questions: Q })
+        assert.equal(calls[0].url, 'https://openrouter.ai/api/alpha/decisions')
+        assert.equal(calls[0].init.headers.Authorization, 'Bearer sk-or-key')
+        assert.equal(calls[0].init.headers['X-Title'], 'GammaLedger')
+        assert.deepEqual(JSON.parse(calls[0].init.body), { model: 'typesafe/jev-1.13', state: { ticker: 'VEEV' }, questions: Q })
         assert.equal(result.engine, 'jev')
         assert.equal(result.calibrated, true)
         assert.equal(result.answers.read.choice, 'bullish')
+        assert.equal(result.answers.read.confidence, 0.62)
         assert.equal(result.answers.drift.noul, 0.81)
+        assert.equal(result.usage.costUsd, 0.00005)              // OpenRouter's own cost wins
+    })
+    // Answers without a "type" tag, a bare noul number, no score confidence, no usage cost
+    const bare = { model: 'typesafe/jev-1.13-20260917', answers: { read: { choice: 'neutral', probabilities: { neutral: 0.6 } }, urgency: { score: 1.4 }, drift: 0.3 }, usage: { input_tokens: 1000 } }
+    await withFetch(() => jsonResponse(200, bare), async () => {
+        const result = await createJevProvider({ openRouter: { apiKey: 'k' } }).decide({ state: {}, questions: Q })
+        assert.deepEqual(result.answers.read, { type: 'choice', choice: 'neutral', probabilities: { neutral: 0.6 }, confidence: null })
+        assert.deepEqual(result.answers.urgency, { type: 'score', score: 1.4, probabilities: {}, confidence: null })
+        assert.deepEqual(result.answers.drift, { type: 'noul', noul: 0.3 })
+        assert.equal(result.model, 'typesafe/jev-1.13-20260917')
         assert.equal(result.usage.costUsd, 1000 * 0.042 / 1e6)
     })
 })
 
-test('JEV errors: 401 auth, 429 rate_limit, missing answer and bad JSON are bad_response, no key is missing_key', async () => {
+test('JEV errors: 401 auth, 404 model_unavailable, 429 rate_limit, bad answers are bad_response, no OpenRouter key is missing_key', async () => {
     const { createJevProvider } = await load('/src/integrations/decision/jev.ts')
-    const jev = createJevProvider({ jev: { apiKey: 'k' } })
+    const jev = createJevProvider({ openRouter: { apiKey: 'k' } })
     await withFetch(() => jsonResponse(401, { error: { message: 'bad key' } }), () => rejectsKind(jev.decide({ state: {}, questions: Q }), 'auth'))
+    await withFetch(() => jsonResponse(404, { error: { message: 'no such route' } }), () => rejectsKind(jev.decide({ state: {}, questions: Q }), 'model_unavailable'))
     await withFetch(() => jsonResponse(429, { message: 'slow down' }), () => rejectsKind(jev.decide({ state: {}, questions: Q }), 'rate_limit'))
     await withFetch(() => jsonResponse(200, { ...JEV_OK, answers: { read: JEV_OK.answers.read } }), () => rejectsKind(jev.decide({ state: {}, questions: Q }), 'bad_response'))
-    await withFetch(() => jsonResponse(200, { model: 'x', answers: { read: { type: 'choice', choice: 1 } } }), () => rejectsKind(jev.decide({ state: {}, questions: Q }), 'bad_response'))
-    await rejectsKind(createJevProvider({ jev: { apiKey: '' } }).decide({ state: {}, questions: Q }), 'missing_key')
+    await withFetch(() => jsonResponse(200, { model: 'x', answers: { ...JEV_OK.answers, read: { choice: 'moon' } } }), () => rejectsKind(jev.decide({ state: {}, questions: Q }), 'bad_response'))
+    await withFetch(() => jsonResponse(200, { model: 'x', answers: { ...JEV_OK.answers, drift: { noul: 1.4 } } }), () => rejectsKind(jev.decide({ state: {}, questions: Q }), 'bad_response'))
+    await rejectsKind(createJevProvider({ openRouter: { apiKey: '' } }).decide({ state: {}, questions: Q }), 'missing_key')
 })
 
 test('LLM adapter: schema per question type, uncalibrated answers', async () => {
@@ -86,34 +100,46 @@ test('LLM adapter rejects an out-of-set choice as bad_response', async () => {
     assert.throws(() => parseAdapterAnswers(Q, '{"read":{"choice":"moon"},"urgency":{"level":0},"drift":{"answer":false}}'), (e) => e.kind === 'bad_response')
 })
 
-test('resolveDecisionEngine: consent v2 required; JEV only with jev consent and reachable', async () => {
+test('resolveDecisionEngine: consent v2 and a configured model required; JEV whenever OpenRouter is active and reachable', async () => {
     const { resolveDecisionEngine } = await load('/src/integrations/decision/registry.ts')
-    const v2 = { at: 't', provider: 'openrouter', version: 2, decision: 'jev' }
-    const base = { consent: v2, activeLlm: 'openrouter', llmConfigured: true, jevConfigured: true, jevReachable: true }
+    const v2 = { at: 't', provider: 'openrouter', version: 2 }
+    const base = { consent: v2, activeLlm: 'openrouter', llmConfigured: true, jevReachable: true }
     assert.equal(resolveDecisionEngine(base), 'jev')
     assert.equal(resolveDecisionEngine({ ...base, jevReachable: false }), 'llm')
-    assert.equal(resolveDecisionEngine({ ...base, consent: { ...v2, decision: null } }), 'llm')
-    assert.equal(resolveDecisionEngine({ ...base, jevConfigured: false, llmConfigured: false }), null)
+    assert.equal(resolveDecisionEngine({ ...base, activeLlm: 'gemini', consent: { ...v2, provider: 'gemini' } }), 'llm')
+    assert.equal(resolveDecisionEngine({ ...base, llmConfigured: false }), null)
     assert.equal(resolveDecisionEngine({ ...base, consent: { at: 't', provider: 'openrouter' } }), null)   // v1
+    assert.equal(resolveDecisionEngine({ ...base, consent: { ...v2, provider: 'gemini' } }), null)        // consent for another provider
     assert.equal(resolveDecisionEngine({ ...base, consent: null }), null)
 })
 
-test('decideWithFallback: a JEV network failure marks it unreachable and answers via the LLM adapter', async () => {
+const fakeLlm = (onComplete) => ({
+    id: 'openrouter', displayName: 'OpenRouter', isConfigured: () => true, activeModel: () => 'm', modelLabel: (m) => m,
+    capabilities: () => ({ vision: true, structuredOutput: true, maxOutputTokens: null }), prepare: async () => {},
+    complete: async () => onComplete()
+})
+const decisionCtx = (llm) => ({
+    aiProvider: { active: 'openrouter' }, openRouter: { apiKey: 'k' }, jev: { reachable: true },
+    getActiveLLMProvider: () => llm, getAICoachConsent: () => ({ at: 't', provider: 'openrouter', version: 2 })
+})
+
+test('decideWithFallback: JEV unavailable (network or missing route) marks it unreachable and answers via the LLM adapter', async () => {
     const { decideWithFallback } = await load('/src/integrations/decision/registry.ts')
-    const llm = {
-        id: 'openrouter', displayName: 'OpenRouter', isConfigured: () => true, activeModel: () => 'm', modelLabel: (m) => m,
-        capabilities: () => ({ vision: true, structuredOutput: true, maxOutputTokens: null }), prepare: async () => {},
-        complete: async () => ({ text: '{"drift":{"answer":false}}', provider: 'openrouter', model: 'm', usage: null })
+    const llm = fakeLlm(() => ({ text: '{"drift":{"answer":false}}', provider: 'openrouter', model: 'm', usage: null }))
+    for (const failure of [() => { throw new TypeError('Failed to fetch') }, () => jsonResponse(404, { error: 'not found' })]) {
+        const ctx = decisionCtx(llm)
+        let notified = 0
+        ctx.onJevUnreachable = () => { notified += 1 }
+        await withFetch(failure, async () => {
+            const result = await decideWithFallback(ctx, { state: {}, questions: { drift: Q.drift } })
+            assert.equal(result.engine, 'llm')
+            assert.equal(ctx.jev.reachable, false)
+            assert.equal(notified, 1)
+        })
     }
-    const ctx = {
-        aiProvider: { active: 'openrouter' }, jev: { apiKey: 'k', reachable: true },
-        getActiveLLMProvider: () => llm, getAICoachConsent: () => ({ at: 't', provider: 'openrouter', version: 2, decision: 'jev' })
-    }
-    await withFetch(() => { throw new TypeError('Failed to fetch') }, async () => {
-        const result = await decideWithFallback(ctx, { state: {}, questions: { drift: Q.drift } })
-        assert.equal(result.engine, 'llm')
-        assert.equal(ctx.jev.reachable, false)
-    })
+    const authCtx = decisionCtx(llm)
+    await withFetch(() => jsonResponse(401, { error: 'bad key' }), () => rejectsKind(decideWithFallback(authCtx, { state: {}, questions: { drift: Q.drift } }), 'auth'))
+    assert.equal(authCtx.jev.reachable, true)   // the same key would fail the LLM too: no fallback
 })
 
 test('confidenceBand follows TypeSafe thresholds', async () => {
@@ -125,14 +151,6 @@ test('confidenceBand follows TypeSafe thresholds', async () => {
     assert.equal(confidenceBand(null), null)
 })
 
-test('JevConfigSchema: encrypted payload or plaintext fallback, version 1, strict', async () => {
-    const { parseJevConfig } = await load('/src/integrations/jev.ts')
-    assert.deepEqual(parseJevConfig(JSON.stringify({ version: 1, payload: { iv: 'a', ct: 'b' } })), { version: 1, payload: { iv: 'a', ct: 'b' } })
-    assert.deepEqual(parseJevConfig(JSON.stringify({ version: 1, apiKey: 'k' })), { version: 1, apiKey: 'k' })
-    assert.equal(parseJevConfig(JSON.stringify({ version: 1, apiKey: 'k', extra: 1 })), null)
-    assert.equal(parseJevConfig('not json'), null)
-    assert.equal(parseJevConfig(null), null)
-})
 
 test('AI Read: state excludes position/watchlist; JEV below 0.5 confidence reads "mixed"', async () => {
     const { buildAIReadState, toAIReadView, AI_READ_QUESTIONS, aiReadCacheKey } = await load('/src/ai/ai-read.ts')
@@ -209,17 +227,10 @@ test('urgency: one score question per item (max 10), pre-computed reasons only, 
 test('decideWithFallback jevOnly: never calls the LLM for the digest order', async () => {
     const { decideWithFallback } = await load('/src/integrations/decision/registry.ts')
     let llmCalls = 0
-    const llm = {
-        id: 'openrouter', displayName: 'OpenRouter', isConfigured: () => true, activeModel: () => 'm', modelLabel: (m) => m,
-        capabilities: () => ({ vision: true, structuredOutput: true, maxOutputTokens: null }), prepare: async () => {},
-        complete: async () => { llmCalls += 1; return { text: '{}', provider: 'openrouter', model: 'm', usage: null } }
-    }
-    const ctx = (apiKey) => ({
-        aiProvider: { active: 'openrouter' }, jev: { apiKey, reachable: true },
-        getActiveLLMProvider: () => llm, getAICoachConsent: () => ({ at: 't', provider: 'openrouter', version: 2, decision: 'jev' })
-    })
-    assert.equal(await decideWithFallback(ctx(''), { state: {}, questions: { a: { type: 'noul', instructions: 'x' } } }, { jevOnly: true }), null)
-    const jevCtx = ctx('k')
+    const llm = fakeLlm(() => { llmCalls += 1; return { text: '{}', provider: 'openrouter', model: 'm', usage: null } })
+    const gemini = { ...decisionCtx(llm), aiProvider: { active: 'gemini' }, getAICoachConsent: () => ({ at: 't', provider: 'gemini', version: 2 }) }
+    assert.equal(await decideWithFallback(gemini, { state: {}, questions: { a: { type: 'noul', instructions: 'x' } } }, { jevOnly: true }), null)
+    const jevCtx = decisionCtx(llm)
     await withFetch(() => { throw new TypeError('Failed to fetch') }, async () => {
         assert.equal(await decideWithFallback(jevCtx, { state: {}, questions: { a: { type: 'noul', instructions: 'x' } } }, { jevOnly: true }), null)
     })

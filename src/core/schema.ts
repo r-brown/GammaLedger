@@ -218,10 +218,11 @@ export const AIProviderSelectionSchema = z.object({
 export const AICoachConsentSchema = z.object({
     at: z.string().min(1),
     provider: z.enum(AI_PROVIDER_IDS),
-    /** 2 = also covers position/watchlist research data (Ask Coach, AI Read, thesis drift). */
-    version: z.literal(2).optional(),
-    /** 'jev' when the user also agreed to send decision data to JEV (TypeSafe AI). */
-    decision: z.literal('jev').nullable().optional()
+    /**
+     * 2 = also covers position/watchlist research data (Ask Coach, AI verdict, thesis drift) and,
+     * with OpenRouter, typed decisions answered by JEV (TypeSafe AI) through OpenRouter.
+     */
+    version: z.literal(2).optional()
 }).strict();
 
 export type AICoachConsentRecord = z.infer<typeof AICoachConsentSchema>;
@@ -241,15 +242,6 @@ export const OpenRouterConfigSchema = z.object({
 }).strict();
 
 export type OpenRouterConfig = z.infer<typeof OpenRouterConfigSchema>;
-
-/** Optional JEV (TypeSafe AI) decision-engine key: encrypted payload, or a plaintext fallback. */
-export const JevConfigSchema = z.object({
-    version: z.literal(1),
-    payload: EncryptedSecretSchema.optional(),
-    apiKey: z.string().optional()
-}).strict();
-
-export type JevConfig = z.infer<typeof JevConfigSchema>;
 
 /** Optional account size in USD used by the AI Coach to express risk as % of account. */
 export const AccountSizeSchema = z.number().finite().positive().max(1e10);

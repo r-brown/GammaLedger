@@ -21,6 +21,8 @@ export interface PanelAIHost {
   isAIConfigured?(): boolean
   askCoachAboutTicker?(request: AskCoachRequest): void | Promise<void>
   requestAIRead?(ticker: string): Promise<AIReadView | null>
+  /** True when consent and a configured engine allow typed decisions (G2). */
+  isAIDecisionAvailable?(): boolean
 }
 
 export interface PositionDetailPanelContext extends PanelAIHost {
@@ -388,13 +390,14 @@ export function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = 
   identity.appendChild(tickerSpan)
   const scores = el('div', 'pdp-header-scores')
   scores.dataset.role = 'scores'
-  const aiRead = el('div', 'pdp-header-ai')
+  // The AI verdict sits in the score row, next to Risk / Own?; renderScorePills keeps it in place.
+  const aiRead = el('span', 'pdp-header-ai')
   aiRead.dataset.role = 'ai-read'
+  scores.appendChild(aiRead)
   const actions = el('div', 'pdp-header-actions')
   actions.dataset.role = 'ai-actions'
   header.appendChild(identity)
   header.appendChild(scores)
-  header.appendChild(aiRead)
   header.appendChild(actions)
 
   const fundCol = el('div', 'pdp-fund-col')
@@ -484,10 +487,10 @@ export function renderAskCoachButton(panelEl: HTMLElement, context: PositionDeta
 // ---------------------------------------------------------------------------
 
 const AI_READ_STYLE: Record<AIReadView['display'], { emoji: string; label: string; cls: string }> = {
-  bullish: { emoji: '🟢', label: 'AI Read', cls: 'pdp-score-pill pdp-score-pill--bull' },
-  neutral: { emoji: '🟡', label: 'AI Read', cls: 'pdp-score-pill pdp-score-pill--neut' },
-  bearish: { emoji: '🔴', label: 'AI Read', cls: 'pdp-score-pill pdp-score-pill--bear' },
-  mixed: { emoji: '🟡', label: 'AI Read: mixed', cls: 'pdp-score-pill pdp-score-pill--neut' }
+  bullish: { emoji: '🟢', label: 'AI: Favorable', cls: 'pdp-score-pill pdp-score-pill--bull' },
+  neutral: { emoji: '🟡', label: 'AI: Neutral', cls: 'pdp-score-pill pdp-score-pill--neut' },
+  bearish: { emoji: '🔴', label: 'AI: Unfavorable', cls: 'pdp-score-pill pdp-score-pill--bear' },
+  mixed: { emoji: '🟡', label: 'AI: Mixed', cls: 'pdp-score-pill pdp-score-pill--neut' }
 }
 
 function renderAIReadPill(slot: HTMLElement, view: AIReadView, context: PositionDetailPanelContext, request: AskCoachRequest): void {
@@ -502,36 +505,45 @@ function renderAIReadPill(slot: HTMLElement, view: AIReadView, context: Position
     : 'Single-model judgment (uncalibrated)'
   attachScorePillTooltip(
     pill,
-    'AI Read',
-    'A judgment on how the four scores, momentum and the news/insider/analyst signals add up for selling premium over the next 30–45 days. Advisory only.',
+    'AI verdict',
+    'An instant judgment on how the four scores, momentum and the news/insider/analyst signals add up for selling puts or covered calls over the next 30–45 days. Advisory only.',
     [
-      { label: 'Bullish / Neutral / Bearish', value: `${pct(view.probabilities.bullish)} / ${pct(view.probabilities.neutral)} / ${pct(view.probabilities.bearish)}` },
+      { label: 'Favorable / Neutral / Unfavorable', value: `${pct(view.probabilities.bullish)} / ${pct(view.probabilities.neutral)} / ${pct(view.probabilities.bearish)}` },
       { label: 'Trust', value: trust },
-      { label: 'Engine', value: `${view.engine === 'jev' ? 'JEV' : 'AI provider'} · ${view.model}` },
+      { label: 'Engine', value: `${view.engine === 'jev' ? 'JEV (TypeSafe AI) via OpenRouter' : 'Your AI model'} · ${view.model}` },
       { label: 'Facts sent', value: 'Price, 4 scores, momentum, analyst/insider/earnings counts, 3 headlines' }
     ],
     [
-      { label: '🟡 AI Read: mixed', value: 'JEV\'s confidence is below 50%: no clear read' },
+      { label: '🟡 AI: Mixed', value: 'JEV\'s confidence is below 50%: no clear verdict' },
       { label: 'As of', value: view.asOf }
     ]
   )
   if (context.askCoachAboutTicker && context.isAIConfigured?.()) {
     const why = el('button', 'pdp-ai-why') as HTMLButtonElement
     why.type = 'button'
-    why.appendChild(txt('Ask Coach why'))
-    why.title = 'Ask the AI Coach to explain this read'
+    why.appendChild(txt('Why?'))
+    why.title = 'Ask the AI Coach to explain this verdict'
     why.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); context.askCoachAboutTicker?.(request) })
     slot.appendChild(why)
   }
 }
 
-/** Fetches (or reuses) the AI Read and paints it; renders nothing without consent + engine (G2). */
+/**
+ * AI verdict next to Risk / Own? (28). A placeholder shows at once when a decision engine is
+ * available (JEV via OpenRouter first); nothing at all without consent + a configured engine (G2).
+ */
 export function renderAIRead(panelEl: HTMLElement, context: PositionDetailPanelContext, request: AskCoachRequest): void {
   const slot = panelEl.querySelector<HTMLElement>('[data-role="ai-read"]')
-  if (!slot || !context.requestAIRead) return
+  if (!slot || !context.requestAIRead || !context.isAIDecisionAvailable?.()) return
+  const placeholder = el('span', 'pdp-score-pill pdp-score-pill--neut pdp-score-pill--ai pdp-score-pill--pending')
+  placeholder.appendChild(txt('✨ AI …'))
+  placeholder.title = 'Getting an AI verdict…'
+  slot.textContent = ''
+  slot.appendChild(placeholder)
   void context.requestAIRead(request.ticker).then((view) => {
-    if (view && slot.isConnected) renderAIReadPill(slot, view, context, request)
-  })
+    if (view) renderAIReadPill(slot, view, context, request)
+    else slot.textContent = ''
+  }, () => { slot.textContent = '' })
 }
 
 // ---------------------------------------------------------------------------
@@ -1175,10 +1187,14 @@ function buildMomentumDots(metrics: StockMetrics): HTMLElement {
 }
 
 function renderScorePills(scoresEl: HTMLElement, metrics: StockMetrics): void {
+  const aiSlot = scoresEl.querySelector<HTMLElement>(':scope > [data-role="ai-read"]')
   scoresEl.textContent = ''
 
   // 1. Momentum Traffic Light — individual colored period dots
   scoresEl.appendChild(buildMomentumDots(metrics))
+
+  // AI verdict first among the pills, right before Risk (the same element, so a pending read survives)
+  if (aiSlot) scoresEl.appendChild(aiSlot)
 
   // 2. Pre-trade Risk Score
   const risk = computePreTradeRiskScore(metrics)

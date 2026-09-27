@@ -1,5 +1,5 @@
 // src/integrations/decision/registry.ts — which engine answers typed decisions (spec D3), with the
-// JEV → LLM fallback for browsers JEV can't be reached from (R4).
+// JEV → LLM fallback when JEV can't answer this session (R4).
 
 import type { AIProviderId } from '@core/config'
 import type { AICoachConsentRecord } from '@core/schema'
@@ -13,19 +13,19 @@ export interface DecisionResolutionInput {
     consent: AICoachConsentRecord | null
     activeLlm: AIProviderId
     llmConfigured: boolean
-    jevConfigured: boolean
     jevReachable: boolean
 }
 
+/** Spec D3, with JEV served by OpenRouter: JEV whenever OpenRouter is the active, configured provider. */
 export function resolveDecisionEngine(input: DecisionResolutionInput): DecisionEngine | null {
-    if (!consentSatisfies(input.consent, input.activeLlm, { minVersion: 2 })) return null
-    if (input.jevConfigured && input.jevReachable && input.consent?.decision === 'jev') return 'jev'
-    return input.llmConfigured ? 'llm' : null
+    if (!input.llmConfigured || !consentSatisfies(input.consent, input.activeLlm, { minVersion: 2 })) return null
+    return input.activeLlm === 'openrouter' && input.jevReachable ? 'jev' : 'llm'
 }
 
 export interface DecisionContext {
     aiProvider: { active: AIProviderId }
-    jev: { apiKey: string | null; reachable: boolean }
+    openRouter: { apiKey: string | null }
+    jev: { reachable: boolean }
     getActiveLLMProvider(): LLMProvider
     getAICoachConsent(): AICoachConsentRecord | null
     /** Called once JEV has been marked unreachable, so the settings status can say why. */
@@ -37,7 +37,6 @@ export function currentDecisionEngine(ctx: DecisionContext): DecisionEngine | nu
         consent: ctx.getAICoachConsent(),
         activeLlm: ctx.aiProvider.active,
         llmConfigured: ctx.getActiveLLMProvider().isConfigured(),
-        jevConfigured: Boolean(ctx.jev.apiKey?.trim()),
         jevReachable: ctx.jev.reachable
     })
 }
@@ -50,8 +49,15 @@ export function getDecisionProvider(ctx: DecisionContext): DecisionProvider | nu
 }
 
 /**
- * Decides with the current engine; a JEV network/CORS failure disables JEV for the session and
- * retries once on the LLM. With `jevOnly`, nothing but JEV is ever called (the digest order).
+ * JEV failures that the same OpenRouter key can still work around: the route or model is missing
+ * (the Decisions API is alpha), the network/CORS failed, or the reply didn't parse. Auth, credits
+ * and rate limits would fail the LLM call too, so those are thrown as they are.
+ */
+const JEV_UNAVAILABLE: ReadonlySet<string> = new Set(['network', 'timeout', 'http', 'model_unavailable', 'bad_response'])
+
+/**
+ * Decides with the current engine; when JEV is unavailable it is disabled for the session and the
+ * question is retried once on the LLM. With `jevOnly`, nothing but JEV is ever called (digest order).
  */
 export async function decideWithFallback<K extends string>(
     ctx: DecisionContext,
@@ -63,7 +69,8 @@ export async function decideWithFallback<K extends string>(
     try {
         return await provider.decide(request)
     } catch (error) {
-        if (provider.id !== 'jev' || !(error instanceof LLMError) || error.kind !== 'network') throw error
+        if (provider.id !== 'jev' || !(error instanceof LLMError) || !JEV_UNAVAILABLE.has(error.kind)) throw error
+        console.warn('JEV is unavailable this session; typed decisions fall back to the active model:', error)
         ctx.jev.reachable = false
         ctx.onJevUnreachable?.()
         if (options.jevOnly) return null

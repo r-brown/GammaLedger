@@ -108,7 +108,8 @@ export async function checkWatchlistDrift(this: DriftHost, mode: 'auto' | 'manua
             if (!state) return
             this.driftCache.set(key, 'loading')
             try {
-                const result = await decideWithFallback(this, { state, questions: DRIFT_QUESTIONS })
+                // Automatic runs are JEV-only: a JEV failure mid-run must not turn into one LLM call per entry.
+                const result = await decideWithFallback(this, { state, questions: DRIFT_QUESTIONS }, { jevOnly: mode === 'auto' })
                 if (result) { this.driftCache.set(key, toDriftView(result, asOf)); checked += 1 }
                 else this.driftCache.delete(key)
             } catch (error) {

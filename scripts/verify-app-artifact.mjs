@@ -30,7 +30,7 @@ if (mode !== 'local' && mode !== 'pages') {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 // Browser-side AI provider origins; each must be in the pages build CSP connect-src.
-const REQUIRED_CONNECT_ORIGINS = ['https://generativelanguage.googleapis.com', 'https://openrouter.ai', 'https://api.typesafe.ai']
+const REQUIRED_CONNECT_ORIGINS = ['https://generativelanguage.googleapis.com', 'https://openrouter.ai']
 
 let failures = 0
 

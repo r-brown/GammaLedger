@@ -4,10 +4,8 @@ import type { AIProviderId } from './config.js'
 import type { AICoachConsentRecord } from './schema.js'
 
 export interface ConsentRequirement {
-    /** 1 = portfolio chat (legacy records qualify); 2 = research data too. */
+    /** 1 = portfolio chat (legacy records qualify); 2 = research data and typed decisions too. */
     minVersion?: 1 | 2
-    /** Also require consent to send decision data to JEV. */
-    decision?: 'jev'
 }
 
 export function consentSatisfies(
@@ -16,6 +14,5 @@ export function consentSatisfies(
     requirement: ConsentRequirement = {}
 ): boolean {
     if (!record || record.provider !== activeProvider) return false
-    if ((record.version ?? 1) < (requirement.minVersion ?? 1)) return false
-    return requirement.decision ? record.decision === requirement.decision : true
+    return (record.version ?? 1) >= (requirement.minVersion ?? 1)
 }
