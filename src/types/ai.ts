@@ -39,3 +39,57 @@ export interface Message {
   /** Creation time as epoch milliseconds. */
   timestamp: number
 }
+
+// ---------------------------------------------------------------------------
+// AI view types shared with strict UI modules (src/ui never imports src/ai)
+// ---------------------------------------------------------------------------
+
+export type ConfidenceBand = 'high' | 'medium' | 'low'
+
+export interface DecisionTrust {
+  engine: 'jev' | 'llm'
+  /** True only for JEV; LLM self-reports are not calibrated. */
+  calibrated: boolean
+  confidence: number | null
+  band: ConfidenceBand | null
+  model: string
+}
+
+export interface AIReadView extends DecisionTrust {
+  grade: 'bullish' | 'neutral' | 'bearish'
+  /** 'mixed' when JEV's confidence is below 0.5, whatever the top choice. */
+  display: 'bullish' | 'neutral' | 'bearish' | 'mixed'
+  probabilities: Record<string, number>
+  asOf: string
+}
+
+export interface DriftView extends DecisionTrust {
+  drifted: boolean
+  probability: number
+  asOf: string
+}
+
+export type AttentionReason = 'breached' | 'near-strike' | 'gamma-tested' | 'earnings' | 'uncovered-shares' | 'wide-spread'
+
+export interface AttentionItem {
+  key: string
+  ticker: string
+  label: string
+  reasons: AttentionReason[]
+  severity: number
+  dte: number | null
+  /** JEV urgency level 0–2 when ordered by JEV, else null. */
+  urgency: number | null
+}
+
+export interface AskCoachRequest {
+  ticker: string
+  trade?: Record<string, unknown> | null
+  watchlistEntry?: import('./watchlist').WatchlistEntry | null
+}
+
+export interface GroundingResult {
+  checked: number
+  matched: number
+  unmatched: Array<{ raw: string; sentence: string }>
+}

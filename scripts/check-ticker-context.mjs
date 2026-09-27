@@ -60,6 +60,99 @@ test('daysBetweenIso counts calendar days', async () => {
     assert.equal(daysBetweenIso('2026-09-27', '2026-09-27'), 0)
 })
 
+const NOW = new Date('2026-09-27T15:00:00Z')
+const SIGNALS = {
+    recommendation: { period: '2026-09-01', strongBuy: 3, buy: 7, hold: 5, sell: 1, strongSell: 0 },
+    news: [1, 2, 3, 4].map(i => ({ headline: `Headline ${i} ${'x'.repeat(150)}`, datetime: 0, url: '', source: '', summary: 'long body' })),
+    insiderTransactions: [
+        { transactionType: 'Sell', transactionCode: 'S', isDerivative: false, name: 'A', share: 10, value: 1, filingDate: '2026-09-01' },
+        { transactionType: 'Sell', transactionCode: 'S', isDerivative: false, name: 'B', share: 10, value: 1, filingDate: '2026-08-15' },
+        { transactionType: 'Buy', transactionCode: 'P', isDerivative: false, name: 'C', share: 10, value: 1, filingDate: '2026-02-01' },
+        { transactionType: 'Buy', transactionCode: 'A', isDerivative: false, name: 'D', share: 10, value: 1, filingDate: '2026-09-10' }
+    ]
+}
+const SURPRISES = [
+    { period: '2026-06-30', quarter: 2, year: 2026, actual: 1, estimate: 0.9, surprisePercent: 11 },
+    { period: '2026-03-31', quarter: 1, year: 2026, actual: 1, estimate: 1.1, surprisePercent: -9 },
+    { period: '2025-12-31', quarter: 4, year: 2025, actual: 1, estimate: 0.9, surprisePercent: 4 },
+    { period: '2025-09-30', quarter: 3, year: 2025, actual: 1, estimate: 0.9, surprisePercent: 2 },
+    { period: '2025-06-30', quarter: 2, year: 2025, actual: 1, estimate: 0.9, surprisePercent: 9 }
+]
+const TRADE = {
+    id: 'o1', ticker: 'VEEV', strategy: 'Cash-Secured Put', status: 'Open', dte: 20, displayStrike: 'P210', expirationDate: '2026-10-16',
+    cashFlow: 620, capitalAtRisk: 14305, marketPriceSnapshot: 200,
+    legs: [{ type: 'PUT', strike: 210, expirationDate: '2026-10-16', quantity: 1, orderType: 'STO' }]
+}
+const ENTRY = { ticker: 'VEEV', rating: 4, notes: '  Wait for a pullback under $190 before selling puts.  ', targetPrice: 190, targetDirection: 'down', tags: ['wheel'], addedDate: '2026-06-01' }
+const baseInput = (over = {}) => ({
+    ticker: 'VEEV', now: NOW, prices: { schwab: null, finnhub: 214.3, snapshot: 200 }, previousClose: 212,
+    metrics: METRICS, signals: SIGNALS, earningsSurprises: SURPRISES, upcomingEarningsDate: '2026-10-09',
+    trade: null, tradeClosed: false, tradeQuote: null, watchlistEntry: null, aiRead: null, ...over
+})
+
+test('buildTickerContext: price source, momentum, scores and pre-counted signals', async () => {
+    const { buildTickerContext } = await load('/src/ai/ticker-context.ts')
+    const ctx = buildTickerContext(baseInput())
+    assert.equal(ctx.asOf, '2026-09-27')
+    assert.equal(ctx.price, 214.3)
+    assert.equal(ctx.priceSource, 'finnhub')
+    assert.deepEqual(ctx.momentum, { d5Pct: -6.2, w13Pct: 4.1, w52Pct: -20 })
+    assert.equal(ctx.scores.risk.grade, 'red')
+    assert.equal(ctx.scores.valuation.detail, 'Fwd P/E 12×')
+    assert.deepEqual(ctx.signals.analyst, { buy: 10, hold: 5, sell: 1 })
+    assert.equal(ctx.signals.insiderNet90d, 'selling')          // 2 open-market sales in 90 days; the P buy is older, the A grant ignored
+    assert.equal(ctx.signals.earningsBeatsLast4, 3)             // latest four quarters: +11, -9, +4, +2
+    assert.equal(ctx.signals.headlines.length, 3)
+    assert.ok(ctx.signals.headlines.every(h => h.length <= 120))
+    assert.equal(ctx.position, null)
+    assert.equal(ctx.watchlist, null)
+})
+
+test('buildTickerContext: position facts with the Schwab quote and earnings inside its life', async () => {
+    const { buildTickerContext } = await load('/src/ai/ticker-context.ts')
+    const quote = { netMark: 6.85, liquidationMark: -7.1, marketValue: -685, unrealizedPL: -65, legs: [{ bid: 6.6, ask: 7.1, quantity: 1, multiplier: 100 }], capturedAt: '2026-09-27T14:50:00Z' }
+    const ctx = buildTickerContext(baseInput({ trade: TRADE, tradeQuote: quote }))
+    assert.deepEqual(ctx.position, {
+        pos: 'VEEV CSP P210 2026-10-16', status: 'open', dte: 20, strikes: 'P210', cash: 620, capitalAtRisk: 14305,
+        toStrikePct: 2, earningsInLife: { date: '2026-10-09', daysAway: 12 },
+        quote: { mark: 6.85, liquidationMark: -7.1, unrealizedPL: -65, spreadPct: 7.3, quoteAgeMin: 10 }
+    })
+    const closed = buildTickerContext(baseInput({ trade: { ...TRADE, status: 'Closed' }, tradeClosed: true }))
+    assert.equal(closed.position.status, 'closed')
+    assert.equal(closed.position.quote, null)
+})
+
+test('buildTickerContext: watchlist facts are pre-computed (days, target distance, met/crossed)', async () => {
+    const { buildTickerContext } = await load('/src/ai/ticker-context.ts')
+    const ctx = buildTickerContext(baseInput({ watchlistEntry: ENTRY, prices: { finnhub: 188 }, previousClose: 192 }))
+    assert.deepEqual(ctx.watchlist, {
+        rating: 4, thesis: 'Wait for a pullback under $190 before selling puts.', tags: ['wheel'], daysSinceAdded: 118,
+        targetPrice: 190, targetDirection: 'down', priceVsTargetPct: -1.1, targetMet: true, targetCrossedToday: true
+    })
+})
+
+test('tickerContextJson is compact, drops nulls and carries no trade IDs', async () => {
+    const { buildTickerContext, tickerContextJson } = await load('/src/ai/ticker-context.ts')
+    const json = tickerContextJson(buildTickerContext(baseInput({ trade: TRADE, metrics: null })))
+    assert.ok(!json.includes('\n') && !json.includes('  '))
+    assert.ok(!json.includes('"scores"'))
+    assert.ok(!json.includes('"o1"'))
+})
+
+test('Ask Coach questions: open, closed and watchlist variants with a short display label', async () => {
+    const t = await load('/src/ai/ticker-context.ts')
+    const open = t.buildPositionAskQuestion(t.buildTickerContext(baseInput({ trade: TRADE })))
+    assert.equal(open.display, 'Ask about VEEV CSP P210 2026-10-16')
+    assert.ok(open.request.startsWith('Analyze this position. Say whether to hold, roll or close it, and why.'))
+    assert.ok(open.request.includes('"pos":"VEEV CSP P210 2026-10-16"'))
+    const closed = t.buildPositionAskQuestion(t.buildTickerContext(baseInput({ trade: { ...TRADE, status: 'Closed' }, tradeClosed: true })))
+    assert.ok(closed.request.startsWith('Review this closed trade:'))
+    const wl = t.buildWatchlistAskQuestion(t.buildTickerContext(baseInput({ watchlistEntry: ENTRY })))
+    assert.equal(wl.display, 'Ask about VEEV (watchlist)')
+    assert.ok(wl.request.startsWith('Is VEEV a candidate to open a position on'))
+    assert.ok(wl.request.includes('"thesis":"Wait for a pullback under $190 before selling puts."'))
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0
