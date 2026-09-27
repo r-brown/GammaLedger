@@ -33,9 +33,23 @@ import { EXTERNAL_ANALYTICS_STORAGE_KEY, DEFAULT_EXTERNAL_ANALYTICS_URL } from '
 
 export const EXTERNAL_ANALYTICS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
 
+/** The URL when it is an absolute http(s) URL, else null — never a javascript:/data: link. */
+export function safeExternalUrl(value: unknown): string | null {
+    const text = String(value ?? '').trim();
+    if (!text) return null;
+    try {
+        const url = new URL(text);
+        return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+    } catch {
+        return null;
+    }
+}
+
 export function generateTickerLink(ticker: unknown): string {
     const safeTicker = String(ticker ?? '').trim().toUpperCase();
-    let baseUrl = safeLocalStorage.getItem(EXTERNAL_ANALYTICS_STORAGE_KEY) || DEFAULT_EXTERNAL_ANALYTICS_URL;
+    const stored = safeLocalStorage.getItem(EXTERNAL_ANALYTICS_STORAGE_KEY);
+    // A stored link that is not http(s) (typo, or javascript:) falls back to the default.
+    const baseUrl = stored && safeExternalUrl(stored.replace('{ticker}', 'X')) ? stored : DEFAULT_EXTERNAL_ANALYTICS_URL;
     if (!safeTicker) {
         return baseUrl.replace('{ticker}', '');
     }

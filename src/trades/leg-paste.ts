@@ -381,7 +381,8 @@ function parseIbkrBlocks(lines: string[]): RawFill[] {
 
     const fees = line.match(IBKR_FEES_RE)
     if (fees) {
-      current.fees = Number(fees[1])
+      // IBKR prints commissions as negative numbers; a fee is always a cost here.
+      current.fees = Math.abs(Number(fees[1]))
     }
   }
   if (current) fills.push(current)

@@ -4,9 +4,11 @@
 
 import { showNotification } from './notifications.js'
 import { createGrid, type ColDef, type GridApi, type GridOptions, type ICellRendererParams, type IRowNode } from './tables/ag-grid.js'
-import { buildPanelSkeleton, computePreTradeRiskScore, triggerDataFetch, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
+import { buildPanelSkeleton, computePreTradeRiskScore, createAskCoachButton, renderAIRead, triggerDataFetch, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
 import { createTickerElement } from '@utils/dom'
+import { targetStatus } from '../calculations/market-facts.js'
 import type { WatchlistEntry } from '../types/watchlist.js'
+import type { DriftView } from '../types/ai.js'
 import type { EarningsCalendarEntry, NormalizedQuote, StockMetrics } from '../types/integrations.js'
 
 type WatchlistRow = Record<string, unknown>
@@ -18,6 +20,9 @@ export interface WatchlistContext extends PositionDetailPanelContext {
   trades: Record<string, unknown>[]
   currentView: string
   currentDate: Date
+  getDriftMode?(): 'auto' | 'manual' | null
+  checkWatchlistDrift?(mode: 'auto' | 'manual'): Promise<number>
+  getWatchlistDrift?(ticker: string): DriftView | null
   currentFileName: string | null
   earningsMap: Map<string, EarningsCalendarEntry>
   dividendMap: Map<string, import('../types/integrations.js').DividendCalendarEntry>
@@ -154,6 +159,23 @@ export function renderWatchlistView(this: WatchlistContext): void {
         renderWatchlistView.call(this)
     })
     bar.appendChild(refreshBtn)
+
+    // Without JEV a thesis check is one LLM call per entry, so it only runs on request (G2: hidden without AI).
+    if (this.getDriftMode?.() === 'manual' && this.watchlist.some(entry => entry.notes?.trim())) {
+        const check = document.createElement('button')
+        check.type = 'button'
+        check.className = 'btn btn--sm btn--secondary watchlist-check-theses'
+        check.textContent = 'Check theses'
+        check.title = 'Ask your AI provider whether each thesis still fits today\'s data'
+        check.addEventListener('click', () => {
+            check.disabled = true
+            void this.checkWatchlistDrift?.('manual').finally(() => {
+                check.disabled = false
+                refreshTargetAlertRows.call(this)
+            })
+        })
+        bar.appendChild(check)
+    }
 
     root.appendChild(bar)
 
@@ -315,20 +337,16 @@ const NO_TARGET_ALERT: TargetAlertState = { met: false, crossedToday: false }
 function evaluateTargetAlert(context: WatchlistContext, row: WatchlistRow | undefined): TargetAlertState {
     const targetPrice = Number(row?.targetPrice)
     if (row?.targetPrice == null || !Number.isFinite(targetPrice)) return NO_TARGET_ALERT
-
     const quote = readCachedQuote(context, String(row?.ticker ?? ''))
     const price = Number(quote?.price)
-    if (!Number.isFinite(price)) return NO_TARGET_ALERT
-
-    const direction = row?.targetDirection === 'down' ? 'down' : 'up'
-    const met = direction === 'up' ? price >= targetPrice : price <= targetPrice
-    if (!met) return NO_TARGET_ALERT
-
     const prevClose = Number(quote?.previousClose)
-    const crossedToday = Number.isFinite(prevClose) && (
-        direction === 'up' ? prevClose < targetPrice : prevClose > targetPrice
+    const status = targetStatus(
+        Number.isFinite(price) ? price : null,
+        Number.isFinite(prevClose) ? prevClose : null,
+        targetPrice,
+        row?.targetDirection === 'down' ? 'down' : 'up'
     )
-    return { met, crossedToday }
+    return status?.met ? { met: true, crossedToday: status.crossedToday } : NO_TARGET_ALERT
 }
 
 /**
@@ -370,6 +388,12 @@ function primeTargetAlertQuotes(this: WatchlistContext): void {
     }))).then(() => {
         if (this.currentView !== 'watchlist') return
         refreshTargetAlertRows.call(this)
+        // Thesis drift runs on its own only with JEV (cheap); every entry has a price by now.
+        if (this.getDriftMode?.() === 'auto') {
+            void this.checkWatchlistDrift?.('auto').then((checked) => {
+                if (checked > 0 && this.currentView === 'watchlist') refreshTargetAlertRows.call(this)
+            })
+        }
     })
 }
 
@@ -476,13 +500,19 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             titleWrap.appendChild(savedIndicator)
             
             header.appendChild(titleWrap)
-            header.appendChild(renderStars.call(context, ticker, entry.rating))
+            const headerActions = document.createElement('div')
+            headerActions.className = 'watchlist-notes-actions'
+            // Detail-card Ask Coach (01a) sits with the thesis and watch price it sends.
+            const askCoach = createAskCoachButton(context, { ticker, watchlistEntry: entry }, 'card')
+            if (askCoach) headerActions.appendChild(askCoach)
+            headerActions.appendChild(renderStars.call(context, ticker, entry.rating))
+            header.appendChild(headerActions)
             card.appendChild(header)
 
             const targetWrap = document.createElement('div')
             targetWrap.style.marginBottom = '8px'
             const targetLabel = document.createElement('label')
-            targetLabel.textContent = 'Target: '
+            targetLabel.textContent = 'Watch price: '
             targetLabel.style.fontSize = '13px'
             targetLabel.style.marginRight = '8px'
             targetLabel.style.color = 'var(--color-text-secondary)'
@@ -513,7 +543,7 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             targetDirectionBtn.style.marginLeft = '8px'
             targetDirectionBtn.style.padding = '2px 8px'
             targetDirectionBtn.style.fontSize = '1.2em'
-            targetDirectionBtn.title = 'Toggle target direction (above or below)'
+            targetDirectionBtn.title = 'Toggle what you are waiting for: the price dropping to this level (e.g. to sell a put) or rising to it'
             
             // Read the direction back off the persisted entry on every click
             // rather than tracking it in a closure variable — an inline grid
@@ -527,7 +557,7 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
                 targetDirectionBtn.textContent = direction === 'up' ? '🔼' : '🔽'
                 targetDirectionBtn.setAttribute(
                     'aria-label',
-                    direction === 'up' ? 'Alert when price rises to or above target' : 'Alert when price drops to or below target'
+                    direction === 'up' ? 'Waiting for the price to rise to or above the watch price' : 'Waiting for the price to drop to or below the watch price'
                 )
             }
             paintDirection(readDirection())
@@ -576,6 +606,7 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             const panel = buildPanelSkeleton(ticker, { threeCol: true })
             this.container.appendChild(panel)
             triggerDataFetch(context, ticker, panel, null, true)
+            renderAIRead(panel, context, { ticker, watchlistEntry: entry })
 
             this.ro = new ResizeObserver((entries) => {
                 const height = entries[0]?.contentRect.height ?? this.container.offsetHeight
@@ -605,12 +636,29 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 })
         },
         {
+            // Ask Coach straight from the row (01/01a); the column is hidden without an AI provider (G2).
+            colId: 'askCoach',
+            headerName: '',
+            headerTooltip: 'Ask the AI Coach about this ticker',
+            width: 64,
+            minWidth: 64,
+            maxWidth: 64,
+            pinned: 'left',
+            sortable: false,
+            filter: false,
+            resizable: false,
+            hide: !context.isAIConfigured?.(),
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => (params.data
+                ? createAskCoachButton(context, { ticker: String(params.data.ticker ?? ''), watchlistEntry: context.watchlist.find(e => e.ticker === String(params.data?.ticker ?? '')) ?? null }, 'row') ?? ''
+                : '')
+        },
+        {
             colId: 'quote', headerName: 'Current Price', width: 140, sortable: false,
             cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
                 quoteCell.call(context, String(params.data?.ticker ?? ''))
         },
         {
-            colId: 'targetPrice', field: 'targetPrice', headerName: 'Target', width: 100, sortable: true,
+            colId: 'targetPrice', field: 'targetPrice', headerName: 'Watch price', headerTooltip: 'The price you are waiting for before acting (▼ drop to it, ▲ rise to it)', width: 110, sortable: true,
             editable: true,
             valueSetter: (params) => {
                 if (params.data && params.newValue !== params.oldValue) {
@@ -639,7 +687,9 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 const dirEl = document.createElement('span')
                 dirEl.className = `watchlist-target-dir ${isDown ? 'is-down' : 'is-up'}`
                 dirEl.textContent = isDown ? '▼' : '▲'
-                dirEl.setAttribute('aria-label', isDown ? 'Alert when price drops to or below target' : 'Alert when price rises to or above target')
+                const dirLabel = isDown ? 'Waiting for the price to drop to or below this level' : 'Waiting for the price to rise to or above this level'
+                dirEl.setAttribute('aria-label', dirLabel)
+                dirEl.title = dirLabel
                 wrap.append(priceEl, dirEl)
                 return wrap
             },
@@ -670,7 +720,23 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 return false
             },
             valueFormatter: params => String(params.value ?? '').trim(),
-            tooltipValueGetter: params => String(params.value ?? '') || null
+            tooltipValueGetter: params => String(params.value ?? '') || null,
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
+                const wrap = document.createElement('span')
+                const drift = context.getWatchlistDrift?.(String(params.data?.ticker ?? ''))
+                if (drift?.drifted) {
+                    const marker = document.createElement('span')
+                    marker.className = 'watchlist-drift-marker'
+                    marker.textContent = '⚑ Thesis drift'
+                    const trust = drift.calibrated && drift.band
+                        ? `${drift.band} confidence, calibrated by JEV`
+                        : 'single-model judgment (uncalibrated)'
+                    marker.title = `Your thesis may no longer fit today's data (${Math.round(drift.probability * 100)}%, ${trust}). Expand the row and use Ask Coach to discuss it.`
+                    wrap.appendChild(marker)
+                }
+                wrap.appendChild(document.createTextNode(String(params.value ?? '').trim()))
+                return wrap
+            }
         },
         {
             colId: 'earnings', headerName: 'Earnings', width: 110, sortable: true,

@@ -174,8 +174,11 @@ export function normalizeWatchlist(raw: unknown): WatchlistEntry[] {
             rating: Number.isInteger(ratingNumber) && ratingNumber >= 1 && ratingNumber <= 5 ? ratingNumber : null,
             notes: typeof record.notes === 'string' ? record.notes : '',
             addedDate: typeof record.addedDate === 'string' ? record.addedDate : '',
-            targetPrice: typeof record.targetPrice === 'number' ? record.targetPrice : null,
-            targetDirection: record.targetDirection === 'up' || record.targetDirection === 'down' ? record.targetDirection : undefined
+            targetPrice: typeof record.targetPrice === 'number' && Number.isFinite(record.targetPrice) && record.targetPrice > 0 ? record.targetPrice : null,
+            targetDirection: record.targetDirection === 'up' || record.targetDirection === 'down' ? record.targetDirection : undefined,
+            ...(Array.isArray(record.tags)
+                ? { tags: record.tags.filter((tag): tag is string => typeof tag === 'string' && tag.trim() !== '').map(tag => tag.trim()) }
+                : {})
         });
     }
     return entries;

@@ -217,8 +217,15 @@ export const AIProviderSelectionSchema = z.object({
 
 export const AICoachConsentSchema = z.object({
     at: z.string().min(1),
-    provider: z.enum(AI_PROVIDER_IDS)
+    provider: z.enum(AI_PROVIDER_IDS),
+    /**
+     * 2 = also covers position/watchlist research data (Ask Coach, AI verdict, thesis drift) and,
+     * with OpenRouter, typed decisions answered by JEV (TypeSafe AI) through OpenRouter.
+     */
+    version: z.literal(2).optional()
 }).strict();
+
+export type AICoachConsentRecord = z.infer<typeof AICoachConsentSchema>;
 
 export const EncryptedSecretSchema = z.object({
     iv: z.string().min(1),

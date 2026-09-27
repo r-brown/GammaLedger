@@ -490,3 +490,9 @@ export function extractGeminiError(response: GeminiApiResponse, httpStatus: numb
   if (!httpStatus || httpStatus < 400) return null
   return `HTTP ${httpStatus}`
 }
+
+/** JEV (TypeSafe AI via OpenRouter) session state (this.jev on GammaLedger). */
+export interface JevState {
+  /** False after JEV failed to answer this session; typed decisions then use the LLM adapter. */
+  reachable: boolean
+}

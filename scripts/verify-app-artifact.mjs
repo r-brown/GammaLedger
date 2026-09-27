@@ -30,7 +30,7 @@ if (mode !== 'local' && mode !== 'pages') {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 // Browser-side AI provider origins; each must be in the pages build CSP connect-src.
-const REQUIRED_CONNECT_ORIGINS = ['https://generativelanguage.googleapis.com', 'https://openrouter.ai']
+const REQUIRED_CONNECT_ORIGINS = ['https://finnhub.io', 'https://api.schwabapi.com', 'https://generativelanguage.googleapis.com', 'https://openrouter.ai']
 
 let failures = 0
 
@@ -159,7 +159,7 @@ function verifyPages() {
     fail('assets/ contains no CSS files')
   }
 
-  // CSP must allow every AI provider origin, or production requests are silently blocked
+  // CSP must allow every market-data and AI provider origin, or production requests are silently blocked
   const cspMatch = html.match(/<meta[^>]+http-equiv="Content-Security-Policy"[^>]+content="([^"]+)"/i)
   if (!cspMatch) {
     fail('index.html has no Content-Security-Policy meta tag')

@@ -306,6 +306,48 @@ test('gatherCoachContext prices: Schwab quote first, then Finnhub cache, then th
     assert.deepEqual(byTicker, { AAA: 110, BBB: 105, CCC: 120, DDD: null })
 })
 
+const VEEV_QUOTE = { mark: 6.85, liquidationMark: -7.1, unrealizedPL: -65.12, spreadPct: 12.4, quoteAgeMin: 3 }
+
+test('buildCoachContext: open positions carry the Schwab trade quote when one is cached', async () => {
+    const { buildCoachContext } = await load('/src/ai/coach-context.ts')
+    const ctx = buildCoachContext(sampleInput({ quoteOf: (t) => (t.ticker === 'VEEV' ? VEEV_QUOTE : null) }))
+    const veev = ctx.open.find(p => p.ticker === 'VEEV')
+    assert.deepEqual(veev.quote, VEEV_QUOTE)
+    assert.ok(!('quote' in ctx.open.find(p => p.ticker === 'TSLA')))
+    assert.ok(ctx.notes.includes('Option quotes: 1 of 4 open positions have a Schwab quote (bid/ask/mark; no Greeks or IV).'))
+    assert.ok(ctx.notes.includes('No IV or Greeks are available.'))
+    assert.ok(!ctx.notes.includes('No live option prices, IV or Greeks are available.'))
+    assert.ok(ctx.notes.includes('1 position(s) have a bid/ask spread above 10% of their value: costly to exit.'))
+})
+
+test('buildCoachContext: held shares use the live price before the stored snapshot', async () => {
+    const { buildCoachContext } = await load('/src/ai/coach-context.ts')
+    const live = buildCoachContext(sampleInput({ priceOf: (ticker, trade) => (ticker === 'CMCSA' ? 25 : Number(trade?.marketPriceSnapshot) || null) }))
+    assert.equal(live.stock[0].price, 25)
+    const fallback = buildCoachContext(sampleInput({ priceOf: (_ticker, trade) => Number(trade?.marketPriceSnapshot) || null }))
+    assert.equal(fallback.stock[0].price, 23.03)
+})
+
+test('gatherCoachContext attaches tradeQuoteCache quotes by getSchwabTradeQuoteKey', async () => {
+    const { gatherCoachContext } = await load('/src/ai/coach-context.ts')
+    const { host, closed } = mcpHost()
+    const leg = { type: 'PUT', strike: 100, expirationDate: '2026-12-18', quantity: 1, orderType: 'STO' }
+    const openTrade = { id: 'q1', ticker: 'AAA', strategy: 'Cash-Secured Put', status: 'Open', dte: 30, expirationDate: '2026-12-18', capitalAtRisk: 1000, legs: [leg] }
+    const capturedAt = new Date(Date.now() - 5 * 60_000).toISOString()
+    Object.assign(host, {
+        accountSize: null, earningsMap: new Map(), getCachedQuote: () => null,
+        getSchwabTradeQuoteKey: (t) => `key-${t.id}`,
+        schwab: {
+            quoteCache: new Map(),
+            tradeQuoteCache: new Map([['key-q1', { netMark: 1.2, liquidationMark: -1.3, marketValue: -120, unrealizedPL: 30, legs: [{ bid: 1.1, ask: 1.3, quantity: 1, multiplier: 100 }], capturedAt }]])
+        },
+        calculateAdvancedStats: () => ({ closedTradesList: [closed], openTradesList: [openTrade], assignmentStats: { assignments: [] }, collateralAtRisk: 1000 })
+    })
+    const quote = JSON.parse(gatherCoachContext.call(host)).open[0].quote
+    assert.deepEqual({ ...quote, quoteAgeMin: undefined }, { mark: 1.2, liquidationMark: -1.3, unrealizedPL: 30, spreadPct: 16.7, quoteAgeMin: undefined })
+    assert.ok(quote.quoteAgeMin >= 4 && quote.quoteAgeMin <= 6)
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

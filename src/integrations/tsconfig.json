@@ -10,6 +10,7 @@
   "include": [
     "./*.ts",
     "./llm/*.ts",
+    "./decision/*.ts",
     "../types/**/*.ts"
   ],
   "exclude": [

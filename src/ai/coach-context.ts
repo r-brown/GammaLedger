@@ -2,6 +2,15 @@
 // buildCoachContext is pure (structural inputs only) so it can be checked in Node;
 // gatherCoachContext is the this-typed adapter GammaLedger delegates to.
 
+import {
+    daysBetweenIso,
+    resolveTickerPrice,
+    tradeQuoteFacts,
+    WIDE_SPREAD_PCT,
+    type TradeQuoteFacts,
+    type TradeQuoteLike
+} from '../calculations/market-facts.js'
+
 type AnyRecord = Record<string, any>
 
 export type CoachContext = Record<string, unknown>
@@ -26,6 +35,8 @@ export interface CoachContextInput {
     earnings: ReadonlyMap<string, { date?: string }>
     priceOf: (ticker: string, trade?: AnyRecord) => number | null
     realizedPL: (trade: AnyRecord) => number
+    /** Schwab trade quote facts for an open position, when one is cached (G1). */
+    quoteOf?: (trade: AnyRecord) => TradeQuoteFacts | null
 }
 
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
@@ -48,7 +59,7 @@ const STRATEGY_CODES: Record<string, string> = {
     'Put Credit Spread': 'PCS', 'Call Credit Spread': 'CCS'
 }
 
-function positionLabel(trade: AnyRecord, withExpiry = true): string {
+export function positionLabel(trade: AnyRecord, withExpiry = true): string {
     const strategy = STRATEGY_CODES[String(trade.strategy)] ?? String(trade.strategy ?? '')
     const strikes = trade.displayStrike ?? trade.strikePrice
     return [trade.ticker, strategy, strikes, withExpiry ? trade.expirationDate : null]
@@ -56,10 +67,6 @@ function positionLabel(trade: AnyRecord, withExpiry = true): string {
         .join(' ')
 }
 
-function daysBetween(fromIso: string, toIso: string): number {
-    const parse = (s: string) => Date.parse(`${s}T00:00:00Z`)
-    return Math.round((parse(toIso) - parse(fromIso)) / 86_400_000)
-}
 
 /**
  * How far (%) the underlying can move against the position before touching the nearest short
@@ -116,7 +123,7 @@ function dteBucket(dte: unknown): string {
 }
 
 export function buildCoachContext(input: CoachContextInput): CoachContext {
-    const { asOf, accountSize, stats, pl, closedTrades, openTrades, heldInventory, earnings, priceOf, realizedPL } = input
+    const { asOf, accountSize, stats, pl, closedTrades, openTrades, heldInventory, earnings, priceOf, realizedPL, quoteOf } = input
     const hasAccount = isNum(accountSize) && accountSize > 0
     const pctOfAccount = (dollars: unknown) => (hasAccount && isNum(Number(dollars)) ? r1((Number(dollars) / (accountSize as number)) * 100) : null)
 
@@ -219,17 +226,24 @@ export function buildCoachContext(input: CoachContextInput): CoachContext {
     // ── open positions
     let missingPrice = 0
     let anyPrice = false
+    let quoted = 0
+    let wideSpreads = 0
     const open = openTrades.map(t => {
         const ticker = String(t.ticker)
         const capital = Number(t.capitalAtRisk)
         const unlimited = capital === Number.POSITIVE_INFINITY || t.riskIsUnlimited === true
         const price = priceOf(ticker, t)
+        const quote = quoteOf ? quoteOf(t) : null
+        if (quote) {
+            quoted += 1
+            if (quote.spreadPct !== null && quote.spreadPct > WIDE_SPREAD_PCT) wideSpreads += 1
+        }
         const hasShort = Array.isArray(t.legs) && t.legs.some((l: AnyRecord) => String(l?.orderType).toUpperCase() === 'STO')
         if (price === null) { if (hasShort) missingPrice += 1 } else { anyPrice = true }
         const earning = earnings.get(ticker)
         const expiry = String(t.expirationDate ?? '')
         const earningsInLife = earning?.date && earning.date >= asOf && (!expiry || earning.date <= expiry)
-            ? { date: earning.date, daysAway: daysBetween(asOf, earning.date) }
+            ? { date: earning.date, daysAway: daysBetweenIso(asOf, earning.date) }
             : null
         const note = String(t.notes ?? '').trim()
         return clean({
@@ -245,6 +259,7 @@ export function buildCoachContext(input: CoachContextInput): CoachContext {
             capitalPctOfCollateral: !unlimited && collateral > 0 && capital > 0 ? r1((capital / collateral) * 100) : null,
             price: price === null ? null : r2(price),
             toStrikePct: shortLegDistancePct(t.legs, asOf, price),
+            quote,
             earnings: earningsInLife,
             rolled: t.rolledForward ? true : null,
             note: note ? (note.length > 160 ? `${note.slice(0, 157)}...` : note) : null
@@ -253,9 +268,9 @@ export function buildCoachContext(input: CoachContextInput): CoachContext {
 
     // ── held stock (assigned wheel / PMCC inventory)
     const stock = heldInventory.map(({ trade, shares, effectiveCostBasis, premiumCollected, coveredCallCount, activeShortCallDetails }) => {
-        const price = isNum(Number(trade.marketPriceSnapshot)) && Number(trade.marketPriceSnapshot) > 0
-            ? Number(trade.marketPriceSnapshot)
-            : priceOf(String(trade.ticker), trade)
+        // Live quote first; the stored snapshot is only the fallback (G1).
+        const snapshot = Number(trade.marketPriceSnapshot)
+        const price = priceOf(String(trade.ticker), trade) ?? (isNum(snapshot) && snapshot > 0 ? snapshot : null)
         const coverage = ['covered', 'partial', 'uncovered'].includes(String(trade.wheelCoverage)) ? String(trade.wheelCoverage) : null
         const shortCalls = (activeShortCallDetails ?? []).map(d => clean({ strike: r2(d.strike), exp: d.expiration, contracts: d.contracts }))
         const nearestCall = (activeShortCallDetails ?? []).map(d => Number(d.strike)).filter(isNum).sort((a, b) => a - b)[0]
@@ -286,7 +301,14 @@ export function buildCoachContext(input: CoachContextInput): CoachContext {
     }))
 
     // ── notes on data limits
-    const notes = ['No live option prices, IV or Greeks are available.']
+    const notes: string[] = []
+    if (quoted > 0) {
+        notes.push('No IV or Greeks are available.')
+        notes.push(`Option quotes: ${quoted} of ${openTrades.length} open positions have a Schwab quote (bid/ask/mark; no Greeks or IV).`)
+        if (wideSpreads > 0) notes.push(`${wideSpreads} position(s) have a bid/ask spread above ${WIDE_SPREAD_PCT}% of their value: costly to exit.`)
+    } else {
+        notes.push('No live option prices, IV or Greeks are available.')
+    }
     if (anyPrice) notes.push('Underlying prices are cached snapshots and may be stale.')
     if (missingPrice > 0) notes.push(`${missingPrice} open position(s) have no underlying price, so distance to strike is unknown.`)
     if (!hasAccount) notes.push('Account size not set: sizing advice is relative to collateral only.')
@@ -351,12 +373,13 @@ export interface CoachHost {
     currentDate: Date | unknown
     accountSize?: number | null
     earningsMap?: ReadonlyMap<string, { date?: string }>
-    schwab?: { quoteCache?: ReadonlyMap<string, { price: number }> }
+    schwab?: { quoteCache?: ReadonlyMap<string, { price: number }>; tradeQuoteCache?: ReadonlyMap<string, TradeQuoteLike> }
     calculateAdvancedStats(): AnyRecord
     getClosedTradesInRange(range: string): AnyRecord[]
     calculateRealizedPL(trade: AnyRecord): number
     isClosedStatus(status: unknown): boolean
     getCachedQuote?(ticker: string): { value?: { price?: number } } | null
+    getSchwabTradeQuoteKey?(trade: AnyRecord): string
 }
 
 export function gatherCoachContext(this: CoachHost): string {
@@ -368,13 +391,16 @@ export function gatherCoachContext(this: CoachHost): string {
         const windowPL = (range: string) => this.getClosedTradesInRange(range).reduce((sum, t) => sum + realized(t), 0)
         const priceOf = (ticker: string, trade?: AnyRecord): number | null => {
             const key = String(ticker).trim().toUpperCase()
-            const candidates = [
-                this.schwab?.quoteCache?.get(key)?.price,
-                this.getCachedQuote?.(key)?.value?.price,
-                trade?.marketPriceSnapshot
-            ]
-            const found = candidates.map(Number).find(n => Number.isFinite(n) && n > 0)
-            return found === undefined ? null : found
+            return resolveTickerPrice({
+                schwab: this.schwab?.quoteCache?.get(key)?.price,
+                finnhub: this.getCachedQuote?.(key)?.value?.price,
+                snapshot: trade?.marketPriceSnapshot
+            })?.value ?? null
+        }
+        const nowMs = Date.now()
+        const quoteOf = (trade: AnyRecord): TradeQuoteFacts | null => {
+            const key = this.getSchwabTradeQuoteKey?.(trade)
+            return key ? tradeQuoteFacts(this.schwab?.tradeQuoteCache?.get(key), nowMs) : null
         }
         const closedTrades = (stats.closedTradesList ?? []).filter((t: AnyRecord) => this.isClosedStatus(t.status))
         const context = buildCoachContext({
@@ -393,7 +419,8 @@ export function gatherCoachContext(this: CoachHost): string {
                 })),
             earnings: this.earningsMap ?? new Map(),
             priceOf,
-            realizedPL: realized
+            realizedPL: realized,
+            quoteOf
         })
         return JSON.stringify(context)
     } catch (error) {

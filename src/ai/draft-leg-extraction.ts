@@ -2,6 +2,7 @@
 // model, the extraction prompt, and a lenient Zod parse of whatever comes back.
 
 import { z } from 'zod'
+import { parseJsonLenient } from '../integrations/llm/json.js'
 
 export const DRAFT_LEG_SCHEMA_NAME = 'draft_leg_extraction'
 
@@ -241,29 +242,19 @@ export interface DraftLegExtraction {
     warnings: string[]
 }
 
-function parseJsonLenient(content: string): unknown {
-    const trimmed = (content || '').trim()
-    if (!trimmed) {
+function parseDraftLegJson(content: string): unknown {
+    if (!(content || '').trim()) {
         throw new Error('Empty draft-leg extraction response.')
     }
     try {
-        return JSON.parse(trimmed)
+        return parseJsonLenient(content)
     } catch {
-        const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim()
-        if (fenced) {
-            return JSON.parse(fenced)
-        }
-        const start = trimmed.indexOf('{')
-        const end = trimmed.lastIndexOf('}')
-        if (start !== -1 && end > start) {
-            return JSON.parse(trimmed.slice(start, end + 1))
-        }
         throw new Error('Draft-leg extraction response was not valid JSON.')
     }
 }
 
 export function parseDraftLegExtraction(content: string): DraftLegExtraction {
-    const envelope = ExtractionEnvelopeSchema.safeParse(parseJsonLenient(content))
+    const envelope = ExtractionEnvelopeSchema.safeParse(parseDraftLegJson(content))
     if (!envelope.success) {
         throw new Error('The AI response did not match the draft-leg extraction shape.')
     }

@@ -6,6 +6,7 @@ import type { EnrichedTrade } from '@types-gl/trade'
 import type { NormalizedLeg } from '@types-gl/leg'
 import type { LegSummary } from '@types-gl/leg-summary'
 import type { LegRealizationSummary } from './leg-realization.js'
+import { calendarDaysUntil } from '../utils/dates.js'
 
 /**
  * Minimum GammaLedger context surface required by P&L calculations.
@@ -264,21 +265,14 @@ export function calculateDTE(
         }
     }
 
-    if (!expDate) {
+    if (!expDate || this.isClosedStatus(trade.status)) {
         return 0;
     }
 
-    if (this.isClosedStatus(trade.status)) {
-        return 0;
-    }
-
-    const diffTime = expDate.getTime() - this.currentDate.getTime();
-    if (!Number.isFinite(diffTime)) {
-        return 0;
-    }
-
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, diffDays);
+    // Calendar days, not rounded-up hours: a UTC-midnight expiry read 0 DTE from 8 PM ET the
+    // evening before, and still 1 DTE after midnight on expiration day in Europe.
+    const days = calendarDaysUntil(expDate, this.currentDate);
+    return days === null ? 0 : Math.max(0, days);
 }
 
 /** Days between a trade's entry date and its exit date (or today if still open). */

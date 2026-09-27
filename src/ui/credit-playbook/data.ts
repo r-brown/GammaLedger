@@ -2,6 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import type { NormalizedLeg } from '@types-gl/leg'
+import { calendarDaysUntil } from '@utils/dates'
 
 type TradeRecord = Record<string, unknown>
 
@@ -247,7 +248,7 @@ function buildCreditStrategyAggregate(
     const currentExpiration = currentCall?.expiration || currentPair?.expirationDate || null;
     const currentExpirationDate = getPairDate(currentExpiration);
     const dte = currentExpirationDate
-        ? Math.max(0, Math.ceil((currentExpirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)))
+        ? Math.max(0, calendarDaysUntil(currentExpirationDate, now) ?? 0)
         : null;
 
     const entryDates = normalizedChildPairs

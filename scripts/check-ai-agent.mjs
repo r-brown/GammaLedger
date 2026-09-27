@@ -124,7 +124,7 @@ test('generateResponse returns text, usage and answering model', async () => {
     const usage = { inputTokens: 10, outputTokens: 4, costUsd: 0.001 }
     const { provider } = fakeProvider({ complete: async () => ({ text: 'All good', provider: 'openrouter', model: 'vendor/model-b', usage }) })
     const reply = await agentWith(AIInsightsAgent, provider).generateResponse('How am I doing?', {})
-    assert.deepEqual(reply, { text: 'All good', usage, model: 'vendor/model-b', provider: 'openrouter' })
+    assert.deepEqual(reply, { text: 'All good', usage, model: 'vendor/model-b', provider: 'openrouter', snapshotJson: SNAPSHOT })
 })
 
 test('generateResponse answers locally when the provider is not configured', async () => {
@@ -279,7 +279,7 @@ test('request prompts carry their layout; free-form does not reuse the health te
 
 test('system prompt states the honesty, formatting and field-reading rules', async () => {
     const { COACH_SYSTEM_PROMPT: p } = await load('/src/ai/coach-prompts.ts')
-    for (const needle of ['Never invent', 'realized P&L', 'toStrikePct', 'payoffRatio', 'breakevenWinRatePct', 'edgePts', '█', '░', '▁▂▃▄▅▆▇█', 'fenced code block', 'not financial advice']) assert.ok(p.includes(needle), needle)
+    for (const needle of ['Never invent', 'realized P&L', 'toStrikePct', 'payoffRatio', 'breakevenWinRatePct', 'edgePts', '█', '░', '▁▂▃▄▅▆▇█', 'fenced code block', 'not financial advice', 'quote.unrealizedPL']) assert.ok(p.includes(needle), needle)
     assert.ok(!/live (prices|IV) (are|is) available/i.test(p))
 })
 
@@ -295,6 +295,87 @@ test('agent.buildChatRequest uses the coach layout and the user output cap', asy
     assert.equal(request.maxOutputTokens, 8192)
     const health = agent.buildChatRequest('Portfolio health', { promptType: 'portfolio_health' })
     assert.ok(health.messages.at(-1).content[0].text.includes('The numbers that matter'))
+    const scan = agent.buildChatRequest('WATCHLIST FACTS:\n{"entries":[{"ticker":"VEEV"}]}', { promptType: 'watchlist_scan' })
+    const last = scan.messages.at(-1).content[0].text
+    assert.ok(last.startsWith('Task: watchlist scan'))
+    assert.ok(last.endsWith('{"entries":[{"ticker":"VEEV"}]}'))
+})
+
+test('generateResponse: a user stop before any text says "Stopped." and never falls back to the local snapshot', async () => {
+    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
+    const { LLMError } = await load('/src/integrations/llm/types.ts')
+    const { provider, calls } = fakeProvider({ stream: async () => { throw new LLMError('aborted', 'Request cancelled') } })
+    const controller = new AbortController()
+    const reply = await agentWith(AIInsightsAgent, provider).generateResponse('hi', { onDelta: () => {}, signal: controller.signal })
+    assert.equal(reply.text, 'Stopped.')
+    assert.equal(reply.stopped, true)
+    assert.equal(calls.find(c => c.type === 'stream').request.signal, controller.signal)
+})
+test('generateResponse: a stop mid-stream keeps the partial text', async () => {
+    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
+    const { LLMError } = await load('/src/integrations/llm/types.ts')
+    const { provider } = fakeProvider({ stream: async (_r, onDelta) => { onDelta('Half an answer'); throw new LLMError('aborted', 'Request cancelled') } })
+    const reply = await agentWith(AIInsightsAgent, provider).generateResponse('hi', { onDelta: () => {} })
+    assert.equal(reply.text, 'Half an answer\n\n_(Stopped.)_')
+})
+test('generateResponse returns the snapshot string the request was built from', async () => {
+    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
+    const { provider } = fakeProvider({ complete: async () => ({ text: 'ok', provider: 'openrouter', model: 'm', usage: null }) })
+    const reply = await agentWith(AIInsightsAgent, provider).generateResponse('hi', { promptType: 'risk_check' })
+    assert.equal(reply.snapshotJson, SNAPSHOT)
+})
+
+test('consent v2: records carry a version; requirements gate on it', async () => {
+    const { parseAICoachConsent } = await load('/src/ui/modals/ai-coach-consent.ts')
+    const { consentSatisfies } = await load('/src/core/consent.ts')
+    const v1 = parseAICoachConsent('2026-09-01T00:00:00Z')
+    const v2 = parseAICoachConsent(JSON.stringify({ at: '2026-09-27T00:00:00Z', provider: 'openrouter', version: 2 }))
+    assert.equal(consentSatisfies(v1, 'gemini'), true)
+    assert.equal(consentSatisfies(v1, 'gemini', { minVersion: 2 }), false)
+    assert.equal(consentSatisfies(v2, 'openrouter', { minVersion: 2 }), true)
+    assert.equal(consentSatisfies(v2, 'gemini', { minVersion: 2 }), false)
+    assert.equal(consentSatisfies(null, 'openrouter'), false)
+    assert.equal(parseAICoachConsent(JSON.stringify({ at: 'x', provider: 'openrouter', version: 3 })), null)
+    assert.equal(parseAICoachConsent(JSON.stringify({ at: 'x', provider: 'openrouter', version: 2, extra: 1 })), null)
+})
+
+test('buildCoachMessages sends requestText for history turns that carry one', async () => {
+    const { buildCoachMessages } = await load('/src/ai/coach-prompts.ts')
+    const messages = buildCoachMessages({
+        snapshotJson: SNAPSHOT,
+        history: [
+            { sender: 'user', text: 'Ask about VEEV (watchlist)', requestText: 'Is VEEV a candidate… {"ticker":"VEEV"}' },
+            { sender: 'ai', text: 'Maybe.' }
+        ],
+        question: 'Which strike?',
+        promptType: 'chat'
+    })
+    const firstHistory = messages[3]
+    assert.equal(firstHistory.role, 'user')
+    assert.equal(firstHistory.content[0].text, 'Is VEEV a candidate… {"ticker":"VEEV"}')
+})
+
+test('splitChartBlocks: valid chart fences become chart segments; invalid ones stay code', async () => {
+    const { splitChartBlocks } = await load('/src/ai/chart-blocks.ts')
+    const good = '```chart\n{"type":"bar","title":"Capital by ticker","labels":["VEEV","TSLA"],"values":[48.7,-3]}\n```'
+    const bad = '```chart\n{"type":"pie","title":"x","labels":["a"],"values":[1]}\n```'
+    const segments = splitChartBlocks(`Intro\n${good}\nMiddle\n${bad}\nEnd`)
+    assert.deepEqual(segments.map(s => s.kind), ['md', 'chart', 'md'])
+    assert.equal(segments[1].spec.title, 'Capital by ticker')
+    assert.ok(segments[2].text.includes('```\n{"type":"pie"'))
+    assert.deepEqual(splitChartBlocks('no charts here'), [{ kind: 'md', text: 'no charts here' }])
+    assert.equal(splitChartBlocks('```chart\n{"type":"bar","title":"t","labels":["a","b"],"values":[1]}\n```')[0].kind, 'md')   // length mismatch
+})
+test('buildChartOption colors negative bars and uses theme colors', async () => {
+    const { buildChartOption } = await load('/src/ai/chart-blocks.ts')
+    const colors = { text: '#111', grid: '#eee', positive: '#0a0', negative: '#a00', line: '#00a' }
+    const option = buildChartOption({ type: 'bar', title: 'P&L', labels: ['Jan', 'Feb'], values: [5, -2] }, colors)
+    assert.deepEqual(option.series[0].data.map(d => d.itemStyle.color), ['#0a0', '#a00'])
+    assert.equal(buildChartOption({ type: 'line', title: 'P&L', labels: ['Jan'], values: [5] }, colors).series[0].type, 'line')
+})
+test('system prompt documents chart blocks', async () => {
+    const { COACH_SYSTEM_PROMPT } = await load('/src/ai/coach-prompts.ts')
+    assert.ok(COACH_SYSTEM_PROMPT.includes('language "chart"'))
 })
 
 // ── run ──────────────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import type {
 import type { EnrichedTrade } from './trade'
 import type { Stats } from './stats'
 import type { FilterState, QuoteEntry, PositionHighlightConfig, CreditPlaybookEntry } from './ui'
-import type { FinnhubState, GeminiState, OpenRouterState, StockMetrics, SignalsData, CompanyProfile, EarningsSurprise, EarningsCalendarEntry } from './integrations'
+import type { FinnhubState, GeminiState, JevState, OpenRouterState, StockMetrics, SignalsData, CompanyProfile, EarningsSurprise, EarningsCalendarEntry } from './integrations'
 import type { Message } from './ai'
 import type { ImportLogEntry, ImportSummary } from './imports'
 
@@ -103,6 +103,8 @@ export interface AppState {
   aiChatPendingRequest: Promise<unknown> | null
   aiChatOpen: boolean
   aiChatStreamFrame: number | null
+  aiChatAbortController: AbortController | null
+  aiChatCharts: Array<{ dispose(): void }>
   accountSize: number | null
 
   // ---- Quotes ----
@@ -117,6 +119,10 @@ export interface AppState {
   gemini: GeminiState
   aiProvider: { active: import('../core/config').AIProviderId; maxOutputTokens: number }
   openRouter: OpenRouterState
+  jev: JevState
+  aiReadCache: Map<string, import('./ai').AIReadView | 'loading' | 'error'>
+  driftCache: Map<string, import('./ai').DriftView | 'loading' | 'error'>
+  aiReadPromiseMap: Map<string, Promise<import('./ai').AIReadView | null>>
 
   // ---- Finnhub enrichment caches ----
   /** ticker → earliest upcoming earnings entry within any open position's expiration window. Populated once on init(). */

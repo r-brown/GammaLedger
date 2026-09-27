@@ -11,6 +11,7 @@ import {
 } from './ag-grid.js'
 import {
   buildRowsWithDetail,
+  createAskCoachButton,
   createPositionDetailPanelRenderer,
   type PositionDetailPanelContext
 } from './position-detail-panel.js'
@@ -236,6 +237,23 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
             pinned: 'left',
             cellRenderer: (params: ICellRendererParams<TradeRecord>) => this.createTickerElement(params.value),
             filter: 'agTextColumnFilter'
+        },
+        {
+            // Ask Coach straight from the row (01/01a); the column is hidden without an AI provider (G2).
+            colId: 'askCoach',
+            headerName: '',
+            headerTooltip: 'Ask the AI Coach about this trade',
+            width: 64,
+            minWidth: 64,
+            maxWidth: 64,
+            pinned: 'left',
+            sortable: false,
+            filter: false,
+            resizable: false,
+            hide: !this.isAIConfigured?.(),
+            cellRenderer: (params: ICellRendererParams<TradeRecord>) => (params.data
+                ? createAskCoachButton(this, { ticker: String(params.data.ticker ?? ''), trade: params.data }, 'row') ?? ''
+                : '')
         },
         {
             colId: 'strategy',
@@ -606,6 +624,7 @@ export function renderTradesTable(this: TradesTableContext, trades: TradeRecord[
         this.tradesGridApi.updateGridOptions({
             rowData: buildRowsWithDetail(tradesToRender, this.expandedTradeId)
         });
+        this.tradesGridApi.setColumnsVisible(['askCoach'], Boolean(this.isAIConfigured?.()));
         applyGridSortState.call(this);
     }
 

@@ -54,10 +54,9 @@ import { AIInsightsAgent } from './ai/insights-agent.js';
 import { gatherCoachContext } from './ai/coach-context.js';
 import { getActiveLLMProvider as resolveActiveLLMProvider } from './integrations/llm/registry.js';
 import type { LLMProvider, LLMProviderId } from './integrations/llm/types.js';
-import type { OpenRouterState } from './types/integrations.js';
+import type { JevState, OpenRouterState } from './types/integrations.js';
 import * as legsModule from './trades/legs.js';
 import * as pnlModule from './calculations/pnl.js';
-import * as daysHeldModule from './calculations/daysheld.js';
 import * as legRealizationModule from './calculations/leg-realization.js';
 import * as positionsModule from './trades/positions.js';
 import * as wheelModule from './trades/wheel.js';
@@ -71,6 +70,9 @@ import * as schwabModule from './integrations/schwab.js';
 import * as geminiIntegrationModule from './integrations/gemini.js';
 import * as aiProviderModule from './integrations/ai-provider.js';
 import * as openRouterIntegrationModule from './integrations/openrouter.js';
+import * as jevModule from './integrations/jev.js';
+import { currentDecisionEngine, getDecisionProvider as resolveDecisionProvider } from './integrations/decision/registry.js';
+import type { DecisionEngine, DecisionProvider } from './integrations/decision/types.js';
 import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
 import * as accountSizeModule from './settings/account-size.js';
@@ -128,6 +130,11 @@ import type { ThemePreference } from './ui/theme.js';
 import * as commandPaletteModule from './ui/command-palette.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
 import * as watchlistModule from './ui/watchlist.js';
+import * as askCoachModule from './ai/ask-coach.js';
+import * as watchlistScanModule from './ai/watchlist-scan.js';
+import * as settingsPageModule from './ui/settings-page.js';
+import * as aiReadModule from './ai/ai-read.js';
+import * as driftModule from './ai/watchlist-drift.js';
 
 
 class GammaLedger {
@@ -143,6 +150,8 @@ class GammaLedger {
     declare hasUnsavedChanges: boolean
     declare supportsFileSystemAccess: boolean
     declare startupBehavior: StartupBehavior
+    /** Settings section shown in the rail; kept for the session only. */
+    declare settingsSection: string | null
     declare currentEditingId: string | null
     declare currentEditingTrade: Record<string, unknown> | null
     declare importControlsInitialized: boolean
@@ -172,11 +181,17 @@ class GammaLedger {
     declare aiAgent: AIInsightsAgent | null
     declare aiProvider: { active: LLMProviderId; maxOutputTokens: number }
     declare openRouter: OpenRouterState
+    declare jev: JevState
+    declare aiReadCache: Map<string, import('./types/ai.js').AIReadView | 'loading' | 'error'>
+    declare driftCache: Map<string, import('./types/ai.js').DriftView | 'loading' | 'error'>
+    declare aiReadPromiseMap: Map<string, Promise<import('./types/ai.js').AIReadView | null>>
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
     declare aiChatOpen: boolean
     declare aiChatStreamFrame: number | null
+    declare aiChatAbortController: AbortController | null
+    declare aiChatCharts: Array<{ dispose(): void }>
     declare accountSize: number | null
     declare aiDraftImport: Record<string, unknown> | null
     declare activeQuoteEntries: Map<string, unknown>
@@ -241,6 +256,7 @@ class GammaLedger {
         this.hasUnsavedChanges = false;
         this.supportsFileSystemAccess = 'showOpenFilePicker' in window;
         this.startupBehavior = 'cache';
+        this.settingsSection = null;
         this.currentEditingId = null;
         this.currentEditingTrade = null;
         this.importControlsInitialized = false;
@@ -358,12 +374,19 @@ class GammaLedger {
             elements: {}
         };
 
+        this.jev = { reachable: true };
+        this.aiReadCache = new Map();
+        this.aiReadPromiseMap = new Map();
+        this.driftCache = new Map();
+
         this.aiAgent = new AIInsightsAgent(this as unknown as ConstructorParameters<typeof AIInsightsAgent>[0]);
         this.aiChatMessages = [];
         this.aiChatSessionId = Date.now();
         this.aiChatPendingRequest = false;
         this.aiChatOpen = false;
         this.aiChatStreamFrame = null;
+        this.aiChatAbortController = null;
+        this.aiChatCharts = [];
         this.accountSize = null;
         this.aiDraftImport = null;
 
@@ -604,9 +627,9 @@ class GammaLedger {
                 this.currentFileName = 'Unsaved Database';
                 this.hasUnsavedChanges = false;
                 this.updateUnsavedIndicator();
-            } else {
-                await this.loadFromStorage();
             }
+            // True whenever a database is stored, even an empty or unreadable one.
+            const hadStoredDatabase = this.startupBehavior !== 'manual' && await this.loadFromStorage();
             await this.loadFinnhubConfigFromStorage();
             await this.loadGeminiConfigFromStorage();
             await this.loadOpenRouterConfigFromStorage();
@@ -614,7 +637,8 @@ class GammaLedger {
             this.loadAccountSizeFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.updateFileNameDisplay();
-            } else if (!this.trades || this.trades.length === 0) {
+            } else if (!hadStoredDatabase) {
+                // First run only: the sample would overwrite a stored (even empty "New Database") copy.
                 await this.loadDefaultDatabase();
             } else {
                 this.updateFileNameDisplay();
@@ -623,6 +647,7 @@ class GammaLedger {
             this.bindEvents();
             this.initializeGeminiControls();
             this.initializeOpenRouterControls();
+            this.refreshJevStatus();
             this.initializeAIProviderControls();
             this.initializeAccountSizeControls();
             this.initializeAIChat();
@@ -658,6 +683,7 @@ class GammaLedger {
             this.initializeDefaultFeeControls();
             this.initializeExternalAnalyticsControls();
             this.initializeStartupBehaviorControls();
+            this.initializeSettingsPage();
             this.initializeAnnouncementBanner();
             this.setupSampleDataBannerActions();
             this.initializeDisclaimerBanner();
@@ -1210,11 +1236,19 @@ class GammaLedger {
                 this.handleAIChatSubmit();
             });
         }
+        document.getElementById('ai-chat-stop')?.addEventListener('click', () => this.stopAIChatRequest());
 
         document.querySelectorAll('.ai-chat__quick-btn').forEach(button => {
             button.addEventListener('click', () => {
                 const prompt = button.getAttribute('data-ai-prompt');
                 const promptType = button.getAttribute('data-ai-prompt-type') || null;
+                if (promptType === 'watchlist_scan') {
+                    if (this.aiChatPendingRequest || button.getAttribute('aria-busy') === 'true') return;
+                    // Missing prices and scores are fetched first (a few seconds at most).
+                    button.setAttribute('aria-busy', 'true');
+                    void this.askCoachWatchlistScan().finally(() => button.removeAttribute('aria-busy'));
+                    return;
+                }
                 if (prompt) {
                     this.handleAIQuickPrompt(prompt, { promptType });
                 }
@@ -1232,6 +1266,7 @@ class GammaLedger {
 
                 event.preventDefault();
                 this.showView('settings');
+                this.openSettingsSection('ai');
                 this.toggleAIChat(false);
 
                 const keyField = document.getElementById(this.aiProvider.active === 'openrouter' ? 'openrouter-api-key' : 'gemini-api-key');
@@ -1290,7 +1325,7 @@ class GammaLedger {
 
     async handleAIChatSubmit() { return aiChatModule.handleAIChatSubmit.call(this); }
 
-    async handleAIQuickPrompt(prompt: string, options: { promptType?: string | null; [key: string]: unknown } = {}) { return aiChatModule.handleAIQuickPrompt.call(this, prompt, options); }
+    async handleAIQuickPrompt(prompt: string, options: { promptType?: string | null; displayText?: string | null; consent?: import('./core/consent.js').ConsentRequirement } = {}) { return aiChatModule.handleAIQuickPrompt.call(this, prompt, options); }
 
     async handleAIChatImageFile(file: File) { return aiChatModule.handleAIChatImageFile.call(this, file); }
 
@@ -1308,6 +1343,33 @@ class GammaLedger {
     updateAIChatStreamingMessage(id, text) { return aiChatModule.updateAIChatStreamingMessage.call(this, id, text); }
 
     renderAIChatMessages() { return aiChatModule.renderAIChatMessages.call(this); }
+
+    stopAIChatRequest() { return aiChatModule.stopAIChatRequest.call(this); }
+
+    isAIConfigured(): boolean { return askCoachModule.isAIConfigured.call(this); }
+
+    askCoachAboutTicker(request) { return askCoachModule.askCoachAboutTicker.call(this, request); }
+    askCoachWatchlistScan() { return watchlistScanModule.askCoachWatchlistScan.call(this); }
+
+    initializeSettingsPage() { return settingsPageModule.initializeSettingsPage.call(this); }
+
+    openSettingsSection(sectionId: string) { return settingsPageModule.openSettingsSection.call(this, sectionId); }
+
+    refreshSettingsStatus() { return settingsPageModule.refreshSettingsStatus.call(this); }
+
+    hasSchwabVault(): boolean { return Boolean(safeLocalStorage.getItem(APP_CONFIG.STORAGE.SCHWAB_VAULT)); }
+
+    requestAIRead(ticker: string) { return aiReadModule.requestAIRead.call(this, ticker); }
+
+    getCachedAIRead(ticker: string) { return aiReadModule.getCachedAIRead.call(this, ticker); }
+
+    getDriftMode() { return driftModule.getDriftMode.call(this); }
+
+    checkWatchlistDrift(mode: 'auto' | 'manual') { return driftModule.checkWatchlistDrift.call(this, mode); }
+
+    getWatchlistDrift(ticker: string) { return driftModule.getWatchlistDrift.call(this, ticker); }
+
+    updateAIChatComposer() { return aiChatModule.updateAIChatComposer.call(this); }
 
     renderMarkdownToHTML(markdown = '') { return dom.renderMarkdownToHTML(markdown); }
 
@@ -1500,6 +1562,29 @@ class GammaLedger {
 
     initializeOpenRouterControls() { return openRouterIntegrationModule.initializeOpenRouterControls.call(this); }
 
+    refreshJevStatus() { return jevModule.refreshJevStatus.call(this); }
+
+    /** Typed-decision engine for AI Read / thesis drift (spec D3); null = none allowed. */
+    getDecisionProvider(): DecisionProvider | null { return resolveDecisionProvider(this); }
+
+    getDecisionEngine(): DecisionEngine | null { return currentDecisionEngine(this); }
+
+    isAIDecisionAvailable(): boolean { return this.getDecisionEngine() !== null; }
+
+    onJevUnreachable() { this.refreshJevStatus(); }
+
+    /**
+     * Repaints the AI surfaces that consent unlocks, without rebuilding the grids (a rebuild would
+     * collapse the panel the user just asked from). Open panels pick the verdict up on next expand.
+     */
+    refreshAIDecisionViews() {
+        this.refreshJevStatus();
+        const showAsk = this.isAIConfigured();
+        for (const api of [this.activePositionsGridApi, this.tradesGridApi, this.watchlistGridApi] as Array<{ setColumnsVisible?(keys: string[], visible: boolean): void; isDestroyed?(): boolean } | null>) {
+            if (api && !api.isDestroyed?.()) api.setColumnsVisible?.(['askCoach'], showAsk);
+        }
+    }
+
     updateOpenRouterStatus(message, variant = 'neutral', autoClearMs = 0) { return openRouterIntegrationModule.updateOpenRouterStatus.call(this, message, variant, autoClearMs); }
 
     async ensureOpenRouterModels() { return openRouterIntegrationModule.ensureOpenRouterModels.call(this); }
@@ -1643,13 +1728,17 @@ class GammaLedger {
 
     hideAICoachConsent(options = {}) { return aiCoachConsentModule.hideAICoachConsent.call(this, options); }
 
-    promptAICoachConsent(nextAction = null) { return aiCoachConsentModule.promptAICoachConsent.call(this, nextAction); }
+    promptAICoachConsent(nextAction = null, requirement = undefined) { return aiCoachConsentModule.promptAICoachConsent.call(this, nextAction, requirement); }
 
-    acceptAICoachConsent() { return aiCoachConsentModule.acceptAICoachConsent.call(this); }
+    acceptAICoachConsent() {
+        aiCoachConsentModule.acceptAICoachConsent.call(this);
+        // Consent v2 unlocks the passive AI views (verdict pill, thesis drift): repaint them.
+        this.refreshAIDecisionViews();
+    }
 
     cancelAICoachConsent() { return aiCoachConsentModule.cancelAICoachConsent.call(this); }
 
-    hasAICoachConsent() { return aiCoachConsentModule.hasAICoachConsent.call(this); }
+    hasAICoachConsent(requirement = undefined) { return aiCoachConsentModule.hasAICoachConsent.call(this, requirement); }
 
     getAIChatDisplayName() { return aiProviderModule.getAIChatDisplayName.call(this); }
 

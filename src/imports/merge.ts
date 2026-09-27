@@ -1,6 +1,8 @@
 // src/imports/merge.js — Wave 7: Trade merge logic.
 // Uses the .call(this, …) delegation pattern.
 
+import { parseCalendarDate } from '@utils/dates';
+
 type AnyRecord = Record<string, any>
 
 export function countMergeableTickerGroups(this: any) {
@@ -136,8 +138,8 @@ export function refreshImportMergeList(this: any) {
         const isChecked = this.importMergeSelection.has(trade.id);
         const legs: AnyRecord[] = Array.isArray(trade.legs) ? trade.legs : [];
         const rawDate = trade.openedDate || trade.entryDate || '';
-        const parsedDate = rawDate ? new Date(rawDate) : null;
-        const dateLabel = parsedDate && !Number.isNaN(parsedDate.getTime()) ? dateFormatter.format(parsedDate) : '—';
+        const parsedDate = parseCalendarDate(rawDate);
+        const dateLabel = parsedDate ? dateFormatter.format(parsedDate) : '—';
         const source = importSourceLabel(trade);
         const strategy = (trade.strategy || '') as string;
         const cardClasses = ['import-merge-card'];
@@ -450,7 +452,7 @@ export function mergeSelectedTradesFromList(this: any) {
     const totalLegs = tradesToMerge.reduce((acc: number, trade: AnyRecord) => acc + ((trade.legs || []).length || 0), 0);
     const statuses = Array.from(new Set(tradesToMerge.map((trade: AnyRecord) => this.getDisplayStatus(trade)))).filter(Boolean);
     const entryDates = tradesToMerge
-        .map((trade: AnyRecord) => this.parseDateValue(trade.openedDate || trade.entryDate))
+        .map((trade: AnyRecord) => parseCalendarDate(trade.openedDate || trade.entryDate))
         .filter((date: unknown): date is Date => date instanceof Date && !Number.isNaN(date.getTime()))
         .sort((a: Date, b: Date) => a.getTime() - b.getTime());
 const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });

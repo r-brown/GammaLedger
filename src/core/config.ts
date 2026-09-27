@@ -33,6 +33,15 @@ export const OPENROUTER_APP_URL = 'https://gammaledger.com'
 export const OPENROUTER_APP_TITLE = 'GammaLedger'
 export const OPENROUTER_MAX_FALLBACK_MODELS = 2
 
+// JEV (TypeSafe AI) typed decisions (AI verdict, thesis drift), served by OpenRouter's
+// Decisions API with the user's OpenRouter key — no separate key.
+export const OPENROUTER_DECISIONS_ENDPOINT = 'https://openrouter.ai/api/alpha/decisions'
+/** Pinned; move to a newer JEV release deliberately (spec Open Risks: keep the schema strict). */
+export const JEV_OPENROUTER_MODEL = 'typesafe/jev-1.13'
+/** JEV answers in well under a second; a short budget keeps a stuck call from holding a panel. */
+export const JEV_REQUEST_TIMEOUT_MS = 15_000
+export const JEV_INPUT_USD_PER_MILLION = 0.042
+
 // ---------------------------------------------------------------------------
 // Config shape type
 // ---------------------------------------------------------------------------
@@ -52,6 +61,7 @@ interface AppConfigShape {
         readonly SIDEBAR_COLLAPSED: string
         readonly THEME: string
         readonly LOCAL_DATABASE: string
+        readonly LOCAL_DATABASE_RECOVERY: string
         readonly DEFAULT_FEE_PER_CONTRACT: string
         readonly FINNHUB_RATE_LIMIT: string
         readonly FINNHUB_CONFIG: string
@@ -101,6 +111,8 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         SIDEBAR_COLLAPSED: 'GammaLedgerSidebarCollapsed',
         THEME: 'GammaLedgerTheme',
         LOCAL_DATABASE: 'GammaLedgerLocalDatabase',
+        /** Last cached database that failed to load, kept instead of being overwritten. */
+        LOCAL_DATABASE_RECOVERY: 'GammaLedgerLocalDatabaseRecovery',
         DEFAULT_FEE_PER_CONTRACT: 'GammaLedgerDefaultFeePerContract',
         FINNHUB_RATE_LIMIT: 'GammaLedgerFinnhubRateLimit',
         FINNHUB_CONFIG: 'GammaLedgerFinnhubConfig',

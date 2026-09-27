@@ -276,7 +276,8 @@ export function calculateLegCashFlow(
     const quantity = Math.abs(Number(leg.quantity) || 0);
     if (!quantity) return -(Number(leg.fees) || 0);
     const multiplier = this.getLegMultiplier(leg);
-    let premium = Number(leg.premium) || 0;
+    // The action carries the sign; a negative price (legacy file or import) must not flip a sale into a debit.
+    let premium = Math.abs(Number(leg.premium) || 0);
     const legType = this.normalizeLegType(leg.type);
     if (legType === 'STOCK' && premium === 0) {
         premium = Number(leg.strike) || 0;

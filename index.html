@@ -96,6 +96,8 @@
                     <li>Your API key and portfolio remain saved locally; requests are transmitted securely to your configured
                         AI endpoint.</li>
                     <li data-ai-consent-routing hidden>Prompts are routed through OpenRouter to the host of the model you picked.</li>
+                    <li>When you use Ask Coach, the AI verdict or thesis checks, research data is sent too: current price, option quotes, fundamentals scores and your watchlist notes.</li>
+                    <li data-ai-consent-jev hidden>Quick typed decisions (AI verdict, thesis checks) are answered by JEV from TypeSafe AI, through OpenRouter with your OpenRouter key.</li>
                     <li>You can revoke access any time by clearing the AI key in Settings.</li>
                 </ul>
             </div>
@@ -764,242 +766,305 @@
                 </section>
             </div>
 
-            <!-- Settings View -->
+            <!-- Settings View: sections are declared here; the rail, search and status badges are built by src/ui/settings-page.ts -->
             <div class="view settings-view">
-                <section class="settings-section">
-                    <header class="settings-section__header">
-                        <h2>Integration Settings</h2>
-                        <p>Manage live data connections and other preferences that stay on this device.</p>
-                    </header>
-                    <div class="settings-card" id="schwab-controls">
-                        <div class="settings-card__header">
-                            <h3>Charles Schwab Market Data</h3>
-                            <p class="settings-card__subtitle">Current underlying, call, put, and multi-leg spread prices. Credentials and tokens are encrypted in this browser.</p>
+                <div class="settings-layout">
+                    <nav class="settings-rail" aria-label="Settings sections">
+                        <div class="settings-search">
+                            <input type="search" id="settings-search" class="form-control" placeholder="Search settings…" aria-label="Search settings" autocomplete="off" spellcheck="false">
                         </div>
-                        <div class="settings-card__body">
-                            <div id="schwab-setup" class="schwab-form-grid">
-                                <label class="form-label" for="schwab-client-id">Client ID</label>
-                                <input id="schwab-client-id" class="form-control" type="text" autocomplete="off">
-                                <label class="form-label" for="schwab-client-secret">Client secret</label>
-                                <input id="schwab-client-secret" class="form-control" type="password" autocomplete="new-password">
-                                <label class="form-label" for="schwab-callback-url">Registered callback URL</label>
-                                <input id="schwab-callback-url" class="form-control" type="url" autocomplete="off">
-                                <label class="form-label" for="schwab-passphrase">Vault passphrase</label>
-                                <input id="schwab-passphrase" class="form-control" type="password" minlength="12" autocomplete="new-password">
-                                <label class="form-label" for="schwab-passphrase-confirm">Confirm passphrase</label>
-                                <input id="schwab-passphrase-confirm" class="form-control" type="password" minlength="12" autocomplete="new-password">
-                                <button class="btn btn--sm btn--primary" id="schwab-save-vault" type="button">Create encrypted vault</button>
-                            </div>
-                            <div id="schwab-actions" hidden>
-                                <div class="settings-input-row">
-                                    <input id="schwab-unlock-passphrase" class="form-control" type="password" placeholder="Vault passphrase" autocomplete="current-password">
-                                    <button class="btn btn--sm btn--primary" id="schwab-unlock" type="button">Unlock</button>
-                                    <button class="btn btn--sm btn--secondary" id="schwab-lock" type="button">Lock Schwab</button>
-                                </div>
-                                <div class="settings-divider"></div>
-                                <div class="settings-input-row">
-                                    <button class="btn btn--sm btn--primary" id="schwab-authorize" type="button">1. Authorize Schwab</button>
-                                    <input id="schwab-callback-paste" class="form-control" type="url" placeholder="2. Paste the full callback URL" autocomplete="off">
-                                    <button class="btn btn--sm btn--secondary" id="schwab-complete-auth" type="button">3. Complete authorization</button>
-                                </div>
-                                <div class="settings-divider"></div>
-                                <label class="schwab-toggle" for="schwab-auto-refresh">
-                                    <input id="schwab-auto-refresh" type="checkbox">
-                                    <span>Automatically refresh every five minutes during regular US market hours</span>
-                                </label>
-                                <div class="settings-input-row">
-                                    <button class="btn btn--sm btn--primary" id="schwab-refresh" type="button">Refresh current prices</button>
-                                    <button class="btn btn--sm btn--secondary" id="schwab-reset" type="button">Reset Schwab connection</button>
-                                </div>
-                            </div>
-                            <p class="settings-help-text">Current quotes never replace recorded fill prices. Greeks and historical reconstruction are not included in Phase 1.</p>
-                            <div class="schwab-status" id="schwab-status" role="status">Not configured</div>
-                        </div>
-                    </div>
-                    <div class="settings-card" id="finnhub-controls">
-                        <div class="settings-card__header">
-                            <h3>Finnhub API Key</h3>
-                            <p class="settings-card__subtitle">We encrypt your key locally before storing it in this browser.</p>
-                        </div>
-                        <div class="settings-card__body">
-                            <label for="finnhub-api-key" class="form-label">API Key</label>
-                            <div class="settings-input-row">
-                                <input type="password" id="finnhub-api-key" class="form-control finnhub-input" placeholder="Paste API key" autocomplete="off">
-                                <button class="btn btn--sm btn--primary" id="finnhub-save">Save Key</button>
-                            </div>
-                            <p class="settings-help-text">The key never leaves your machine. Clearing browser storage will remove it.</p>
-                            <div class="finnhub-status" id="finnhub-status" role="status">Not set</div>
-                            
-                            <div class="settings-divider"></div>
-                            
-                            <label for="finnhub-rate-limit" class="form-label">Rate Limit (requests per minute)</label>
-                            <div class="settings-input-row">
-                                <input type="number" id="finnhub-rate-limit" class="form-control" placeholder="60" min="1" max="300" step="1" autocomplete="off">
-                                <button class="btn btn--sm btn--primary" id="finnhub-rate-save">Save</button>
-                                <button class="btn btn--sm btn--secondary" id="finnhub-rate-reset">Reset</button>
-                            </div>
-                            <p class="settings-help-text">Free Finnhub accounts are limited to 60 requests/minute. Adjust if you have a paid plan.</p>
-                            <div class="finnhub-rate-status" id="finnhub-rate-status" role="status">Default: 60/min</div>
-                        </div>
-                    </div>
-                    <div class="settings-card" id="ai-provider-controls">
-                        <div class="settings-card__header">
-                            <h3>AI Provider</h3>
-                            <p class="settings-card__subtitle">Connect an AI provider to enable AI Coach insights and screenshot import. Keys stay on this device.</p>
-                        </div>
-                        <div class="settings-card__body">
-                            <div class="ai-provider-switch" role="radiogroup" aria-label="AI provider">
-                                <button type="button" class="ai-provider-switch__option" role="radio" aria-checked="false" data-ai-provider="openrouter">OpenRouter</button>
-                                <button type="button" class="ai-provider-switch__option" role="radio" aria-checked="false" data-ai-provider="gemini">Gemini</button>
-                            </div>
+                        <div class="settings-rail__list" id="settings-rail" role="tablist" aria-orientation="vertical"></div>
+                        <p class="settings-rail__note">All settings stay in this browser. Keys and credentials are encrypted before they are stored.</p>
+                    </nav>
 
-                            <div id="openrouter-controls" class="ai-provider-fields" data-ai-provider-fields="openrouter" hidden>
-                                <label for="openrouter-api-key" class="form-label">API Key</label>
-                                <div class="settings-input-row">
-                                    <input type="password" id="openrouter-api-key" class="form-control" placeholder="sk-or-…" autocomplete="off">
-                                    <button class="btn btn--sm btn--primary" id="openrouter-save">Save Key</button>
-                                    <button class="btn btn--sm btn--secondary" id="openrouter-clear">Clear</button>
+                    <div class="settings-content">
+                        <p class="settings-search-empty" id="settings-search-empty" role="status" hidden></p>
+
+                        <section class="settings-panel" id="settings-panel-market-data" data-settings-section="market-data" data-settings-label="Market data" data-settings-icon="📈">
+                            <header class="settings-panel__header">
+                                <h2>Market data</h2>
+                                <p>Live prices for your positions, the watchlist and research data.</p>
+                            </header>
+
+                            <div class="settings-card" id="schwab-controls" data-settings-card="schwab" data-settings-keywords="schwab broker quotes prices option spread oauth vault passphrase authorize refresh">
+                                <div class="settings-card__header">
+                                    <div class="settings-card__heading">
+                                        <h3>Charles Schwab</h3>
+                                        <p class="settings-card__subtitle">Current underlying, call, put and multi-leg spread prices. Credentials and tokens are encrypted in this browser.</p>
+                                    </div>
+                                    <span class="settings-badge" data-settings-badge hidden></span>
                                 </div>
-                                <div class="ai-key-status" id="openrouter-status" role="status">Not set</div>
-                                <p class="settings-help-text">Create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>. One key works with models from Anthropic, OpenAI, Google and others.</p>
-                                <div class="form-group">
-                                    <label for="openrouter-model" class="form-label">Model</label>
-                                    <div class="settings-input-row">
-                                        <div class="ai-model-picker">
-                                            <input type="text" id="openrouter-model" class="form-control" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="openrouter-model-list" placeholder="google/gemini-3.8-flash" autocomplete="off" spellcheck="false">
-                                            <ul id="openrouter-model-list" class="ai-model-picker__list" role="listbox" aria-label="OpenRouter models" hidden></ul>
+                                <div class="settings-card__body">
+                                    <div id="schwab-setup" class="schwab-form-grid">
+                                        <label class="form-label" for="schwab-client-id">Client ID</label>
+                                        <input id="schwab-client-id" class="form-control" type="text" autocomplete="off">
+                                        <label class="form-label" for="schwab-client-secret">Client secret</label>
+                                        <input id="schwab-client-secret" class="form-control" type="password" autocomplete="new-password">
+                                        <label class="form-label" for="schwab-callback-url">Registered callback URL</label>
+                                        <input id="schwab-callback-url" class="form-control" type="url" autocomplete="off">
+                                        <label class="form-label" for="schwab-passphrase">Vault passphrase</label>
+                                        <input id="schwab-passphrase" class="form-control" type="password" minlength="12" autocomplete="new-password">
+                                        <label class="form-label" for="schwab-passphrase-confirm">Confirm passphrase</label>
+                                        <input id="schwab-passphrase-confirm" class="form-control" type="password" minlength="12" autocomplete="new-password">
+                                        <button class="btn btn--sm btn--primary" id="schwab-save-vault" type="button">Create encrypted vault</button>
+                                    </div>
+                                    <div id="schwab-actions" class="settings-stack" hidden>
+                                        <div class="settings-field">
+                                            <span class="form-label">Vault</span>
+                                            <div class="settings-input-row">
+                                                <input id="schwab-unlock-passphrase" class="form-control" type="password" placeholder="Vault passphrase" aria-label="Vault passphrase" autocomplete="current-password">
+                                                <button class="btn btn--sm btn--primary" id="schwab-unlock" type="button">Unlock</button>
+                                                <button class="btn btn--sm btn--secondary" id="schwab-lock" type="button">Lock</button>
+                                            </div>
                                         </div>
-                                        <button class="btn btn--sm btn--primary" id="openrouter-model-save">Use Model</button>
+                                        <div class="settings-field">
+                                            <span class="form-label">Authorization</span>
+                                            <ol class="settings-steps">
+                                                <li><button class="btn btn--sm btn--primary" id="schwab-authorize" type="button">Authorize Schwab</button><span class="settings-help-text">Opens Schwab in a new tab.</span></li>
+                                                <li><input id="schwab-callback-paste" class="form-control" type="url" placeholder="Paste the full callback URL" aria-label="Callback URL from Schwab" autocomplete="off"></li>
+                                                <li><button class="btn btn--sm btn--secondary" id="schwab-complete-auth" type="button">Complete authorization</button></li>
+                                            </ol>
+                                        </div>
+                                        <div class="settings-field">
+                                            <span class="form-label">Prices</span>
+                                            <label class="settings-toggle" for="schwab-auto-refresh">
+                                                <input id="schwab-auto-refresh" type="checkbox">
+                                                <span>Refresh automatically every five minutes during regular US market hours</span>
+                                            </label>
+                                            <div class="settings-input-row settings-input-row--start">
+                                                <button class="btn btn--sm btn--primary" id="schwab-refresh" type="button">Refresh current prices</button>
+                                                <button class="btn btn--sm btn--secondary" id="schwab-reset" type="button">Reset connection</button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p class="settings-help-text" id="openrouter-model-info"></p>
+                                    <p class="settings-help-text">Current quotes never replace recorded fill prices. Greeks and historical reconstruction are not included yet.</p>
+                                    <div class="schwab-status" id="schwab-status" role="status">Not configured</div>
                                 </div>
-                                <label class="settings-toggle" for="openrouter-data-collection">
-                                    <input id="openrouter-data-collection" type="checkbox" checked>
-                                    <span>Only use providers that don't train on my data</span>
-                                </label>
                             </div>
 
-                            <div id="gemini-controls" class="ai-provider-fields" data-ai-provider-fields="gemini" hidden>
-                                <label for="gemini-api-key" class="form-label">API Key</label>
-                                <div class="settings-input-row">
-                                    <input type="password" id="gemini-api-key" class="form-control" placeholder="Paste API key" autocomplete="off">
-                                    <button class="btn btn--sm btn--primary" id="gemini-save">Save Key</button>
-                                    <button class="btn btn--sm btn--secondary" id="gemini-clear">Clear</button>
+                            <div class="settings-card" id="finnhub-controls" data-settings-card="finnhub" data-settings-keywords="finnhub api key quotes earnings metrics news rate limit requests per minute">
+                                <div class="settings-card__header">
+                                    <div class="settings-card__heading">
+                                        <h3>Finnhub</h3>
+                                        <p class="settings-card__subtitle">Quotes, earnings dates, fundamentals and news. The key is encrypted before it is stored in this browser.</p>
+                                    </div>
+                                    <span class="settings-badge" data-settings-badge hidden></span>
                                 </div>
-                                <div class="ai-key-status" id="gemini-status" role="status">Not set</div>
-                                <div class="form-group">
-                                    <label for="gemini-model" class="form-label">Model</label>
-                                    <select id="gemini-model" class="form-control"></select>
+                                <div class="settings-card__body">
+                                    <div class="settings-field">
+                                        <label for="finnhub-api-key" class="form-label">API key</label>
+                                        <div class="settings-input-row">
+                                            <input type="password" id="finnhub-api-key" class="form-control finnhub-input" placeholder="Paste API key" autocomplete="off">
+                                            <button class="btn btn--sm btn--primary" id="finnhub-save">Save key</button>
+                                        </div>
+                                        <p class="settings-help-text">The key never leaves your machine. Clearing browser storage removes it.</p>
+                                        <div class="finnhub-status" id="finnhub-status" role="status">Not set</div>
+                                    </div>
+                                    <div class="settings-field">
+                                        <label for="finnhub-rate-limit" class="form-label">Rate limit (requests per minute)</label>
+                                        <div class="settings-input-row">
+                                            <input type="number" id="finnhub-rate-limit" class="form-control form-control--narrow" placeholder="60" min="1" max="300" step="1" autocomplete="off" data-autosave="finnhub-rate-save">
+                                            <button class="btn btn--sm btn--primary" id="finnhub-rate-save" hidden>Save</button>
+                                            <button class="btn btn--sm btn--secondary" id="finnhub-rate-reset">Reset to 60</button>
+                                        </div>
+                                        <p class="settings-help-text">Free Finnhub accounts are limited to 60 requests per minute. Raise it only on a paid plan.</p>
+                                        <div class="finnhub-rate-status" id="finnhub-rate-status" role="status">Default: 60/min</div>
+                                    </div>
                                 </div>
-                                <p class="settings-help-text">Use Google AI Studio or any compatible service exposing the Gemini generateContent API.</p>
+                            </div>
+                        </section>
+
+                        <section class="settings-panel" id="settings-panel-ai" data-settings-section="ai" data-settings-label="AI" data-settings-icon="🤖" hidden>
+                            <header class="settings-panel__header">
+                                <h2>AI</h2>
+                                <p>The AI Coach, AI verdicts, thesis checks and screenshot import. Keys stay on this device.</p>
+                            </header>
+
+                            <div class="settings-card" id="ai-provider-controls" data-settings-card="ai-provider" data-settings-keywords="ai coach provider openrouter gemini api key model llm jev typesafe verdict fallback tokens training privacy">
+                                <div class="settings-card__header">
+                                    <div class="settings-card__heading">
+                                        <h3>AI provider</h3>
+                                        <p class="settings-card__subtitle">Pick a provider, paste its key and choose a model.</p>
+                                    </div>
+                                    <span class="settings-badge" data-settings-badge hidden></span>
+                                </div>
+                                <div class="settings-card__body">
+                                    <div class="ai-provider-switch" role="radiogroup" aria-label="AI provider">
+                                        <button type="button" class="ai-provider-switch__option" role="radio" aria-checked="false" data-ai-provider="openrouter">OpenRouter</button>
+                                        <button type="button" class="ai-provider-switch__option" role="radio" aria-checked="false" data-ai-provider="gemini">Gemini</button>
+                                    </div>
+
+                                    <div id="openrouter-controls" class="ai-provider-fields" data-ai-provider-fields="openrouter" hidden>
+                                        <div class="settings-field">
+                                            <label for="openrouter-api-key" class="form-label">API key</label>
+                                            <div class="settings-input-row">
+                                                <input type="password" id="openrouter-api-key" class="form-control" placeholder="sk-or-…" autocomplete="off">
+                                                <button class="btn btn--sm btn--primary" id="openrouter-save">Save key</button>
+                                                <button class="btn btn--sm btn--secondary" id="openrouter-clear">Clear</button>
+                                            </div>
+                                            <div class="ai-key-status" id="openrouter-status" role="status">Not set</div>
+                                            <p class="settings-help-text">Create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>. One key works with models from Anthropic, OpenAI, Google and others.</p>
+                                        </div>
+                                        <div class="settings-field">
+                                            <label for="openrouter-model" class="form-label">Model</label>
+                                            <div class="settings-input-row">
+                                                <div class="ai-model-picker">
+                                                    <input type="text" id="openrouter-model" class="form-control" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="openrouter-model-list" placeholder="google/gemini-3.8-flash" autocomplete="off" spellcheck="false">
+                                                    <ul id="openrouter-model-list" class="ai-model-picker__list" role="listbox" aria-label="OpenRouter models" hidden></ul>
+                                                </div>
+                                                <button class="btn btn--sm btn--primary" id="openrouter-model-save">Use model</button>
+                                            </div>
+                                            <p class="settings-help-text" id="openrouter-model-info"></p>
+                                        </div>
+                                        <label class="settings-toggle" for="openrouter-data-collection">
+                                            <input id="openrouter-data-collection" type="checkbox" checked>
+                                            <span>Only use providers that don't train on my data</span>
+                                        </label>
+                                        <p class="settings-help-text" id="jev-status" role="status">AI verdicts and thesis checks use JEV (TypeSafe AI) through this key: fast, calibrated and nearly free. No extra key needed.</p>
+                                    </div>
+
+                                    <div id="gemini-controls" class="ai-provider-fields" data-ai-provider-fields="gemini" hidden>
+                                        <div class="settings-field">
+                                            <label for="gemini-api-key" class="form-label">API key</label>
+                                            <div class="settings-input-row">
+                                                <input type="password" id="gemini-api-key" class="form-control" placeholder="Paste API key" autocomplete="off">
+                                                <button class="btn btn--sm btn--primary" id="gemini-save">Save key</button>
+                                                <button class="btn btn--sm btn--secondary" id="gemini-clear">Clear</button>
+                                            </div>
+                                            <div class="ai-key-status" id="gemini-status" role="status">Not set</div>
+                                        </div>
+                                        <div class="settings-field">
+                                            <label for="gemini-model" class="form-label">Model</label>
+                                            <select id="gemini-model" class="form-control"></select>
+                                            <p class="settings-help-text">Use Google AI Studio or any compatible service exposing the Gemini generateContent API.</p>
+                                        </div>
+                                    </div>
+
+                                    <details class="ai-provider-advanced">
+                                        <summary>Advanced</summary>
+                                        <div class="ai-provider-fields settings-field" data-ai-provider-fields="openrouter" hidden>
+                                            <label for="openrouter-fallback-models" class="form-label">Fallback models</label>
+                                            <div class="settings-input-row">
+                                                <input type="text" id="openrouter-fallback-models" class="form-control" placeholder="anthropic/claude-sonnet-5, openai/gpt-6-luna" autocomplete="off" spellcheck="false" data-autosave="openrouter-fallback-save">
+                                                <button class="btn btn--sm btn--primary" id="openrouter-fallback-save" hidden>Save</button>
+                                            </div>
+                                            <p class="settings-help-text" id="openrouter-fallback-note" role="status">Up to two model IDs, comma-separated. OpenRouter tries them in order if the main model is down or rate-limited.</p>
+                                        </div>
+                                        <div class="settings-field">
+                                            <label for="gemini-max-tokens" class="form-label">Max output tokens</label>
+                                            <div class="settings-input-row">
+                                                <input type="number" id="gemini-max-tokens" class="form-control form-control--narrow" placeholder="65536" min="1024" max="1000000" step="1024" autocomplete="off" data-autosave="gemini-tokens-save">
+                                                <button class="btn btn--sm btn--primary" id="gemini-tokens-save" hidden>Save</button>
+                                                <button class="btn btn--sm btn--secondary" id="gemini-tokens-reset">Reset to default</button>
+                                            </div>
+                                            <p class="settings-help-text" id="gemini-tokens-status" role="status">Maximum tokens for AI responses, for either provider. Default: 65,536.</p>
+                                        </div>
+                                    </details>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="settings-panel" id="settings-panel-trading" data-settings-section="trading" data-settings-label="Trading" data-settings-icon="💼" hidden>
+                            <header class="settings-panel__header">
+                                <h2>Trading</h2>
+                                <p>Defaults for entering trades and sizing risk.</p>
+                            </header>
+
+                            <div class="settings-card" id="default-fees-controls" data-settings-card="default-fee" data-settings-keywords="fee commission per contract default trade entry legs">
+                                <div class="settings-card__header">
+                                    <div class="settings-card__heading">
+                                        <h3>Default fee per contract</h3>
+                                        <p class="settings-card__subtitle">Applied automatically when you add trade legs.</p>
+                                    </div>
+                                    <span class="settings-badge" data-settings-badge hidden></span>
+                                </div>
+                                <div class="settings-card__body">
+                                    <div class="settings-field">
+                                        <label for="default-fee-per-contract" class="form-label">Fee per contract (USD)</label>
+                                        <div class="settings-input-row">
+                                            <input type="number" id="default-fee-per-contract" class="form-control form-control--narrow" placeholder="e.g. 0.65" step="0.01" min="0" autocomplete="off" data-autosave="default-fee-save">
+                                            <button class="btn btn--sm btn--primary" id="default-fee-save" hidden>Save</button>
+                                            <button class="btn btn--sm btn--secondary" id="default-fee-clear">Clear</button>
+                                        </div>
+                                        <p class="settings-help-text">The fee your broker charges per contract, for example $0.65. It is multiplied by the quantity of each new leg.</p>
+                                        <div class="default-fee-status" id="default-fee-status" role="status">Not set</div>
+                                    </div>
+                                </div>
                             </div>
 
-                            <details class="ai-provider-advanced">
-                                <summary>Advanced</summary>
-                                <div class="ai-provider-fields" data-ai-provider-fields="openrouter" hidden>
-                                    <label for="openrouter-fallback-models" class="form-label">Fallback models</label>
-                                    <div class="settings-input-row">
-                                        <input type="text" id="openrouter-fallback-models" class="form-control" placeholder="anthropic/claude-sonnet-5, openai/gpt-6-luna" autocomplete="off" spellcheck="false">
-                                        <button class="btn btn--sm btn--primary" id="openrouter-fallback-save">Save</button>
+                            <div class="settings-card" id="account-size-controls" data-settings-card="account-size" data-settings-keywords="account size balance capital risk percent ai coach">
+                                <div class="settings-card__header">
+                                    <div class="settings-card__heading">
+                                        <h3>Account size <span class="settings-optional">optional</span></h3>
+                                        <p class="settings-card__subtitle">Lets the AI Coach express risk as a percentage of your account.</p>
                                     </div>
-                                    <p class="settings-help-text" id="openrouter-fallback-note" role="status">Up to two model IDs, comma-separated. OpenRouter tries them in order if the main model is down or rate-limited.</p>
+                                    <span class="settings-badge" data-settings-badge hidden></span>
                                 </div>
-                                <label for="gemini-max-tokens" class="form-label">Max Output Tokens</label>
-                                <div class="settings-input-row">
-                                    <input type="number" id="gemini-max-tokens" class="form-control" placeholder="65536" min="1024" max="1000000" step="1024" autocomplete="off">
-                                    <button class="btn btn--sm btn--primary" id="gemini-tokens-save">Save</button>
-                                    <button class="btn btn--sm btn--secondary" id="gemini-tokens-reset">Reset</button>
+                                <div class="settings-card__body">
+                                    <div class="settings-field">
+                                        <label for="account-size-input" class="form-label">Account size (USD)</label>
+                                        <div class="settings-input-row">
+                                            <input type="text" inputmode="decimal" id="account-size-input" class="form-control form-control--narrow" placeholder="60000" autocomplete="off" data-autosave="account-size-save" data-autosave-clear="account-size-clear">
+                                            <button class="btn btn--sm btn--primary" id="account-size-save" hidden>Save</button>
+                                            <button class="btn btn--sm btn--secondary" id="account-size-clear">Clear</button>
+                                        </div>
+                                        <p class="settings-help-text" id="account-size-note" role="status">Stays on this device. It is sent to your AI provider only as part of AI Coach questions.</p>
+                                    </div>
                                 </div>
-                                <p class="settings-help-text" id="gemini-tokens-status" role="status">Maximum tokens for AI responses, for either provider. Default: 65,536.</p>
-                            </details>
-                        </div>
-                    </div>
-                    <div class="settings-card" id="account-size-controls">
-                        <div class="settings-card__header">
-                            <h3>Account Size (optional)</h3>
-                            <p class="settings-card__subtitle">Lets the AI Coach express risk as a percentage of your account.</p>
-                        </div>
-                        <div class="settings-card__body">
-                            <label for="account-size-input" class="form-label">Account size (USD)</label>
-                            <div class="settings-input-row">
-                                <input type="text" inputmode="decimal" id="account-size-input" class="form-control" placeholder="60000" autocomplete="off">
-                                <button class="btn btn--sm btn--primary" id="account-size-save">Save</button>
-                                <button class="btn btn--sm btn--secondary" id="account-size-clear">Clear</button>
                             </div>
-                            <p class="settings-help-text" id="account-size-note" role="status">Stays on this device. It is sent to your AI provider only as part of AI Coach questions.</p>
-                        </div>
-                    </div>
-            </section>
-            <br>
-            <section class="settings-section">
-                    <header class="settings-section__header">
-                        <h2>Trade Entry Defaults</h2>
-                        <p>Set default values to speed up manual trade entry.</p>
-                    </header>
-                    <div class="settings-card" id="default-fees-controls">
-                        <div class="settings-card__header">
-                            <h3>Default Fee Per Contract</h3>
-                            <p class="settings-card__subtitle">Automatically apply this fee when adding new trade legs.</p>
-                        </div>
-                        <div class="settings-card__body">
-                            <label for="default-fee-per-contract" class="form-label">Fee Per Contract</label>
-                            <div class="settings-input-row">
-                                <input type="number" id="default-fee-per-contract" class="form-control" placeholder="e.g. 0.65" step="0.01" min="0" autocomplete="off">
-                                <button class="btn btn--sm btn--primary" id="default-fee-save">Save</button>
-                                <button class="btn btn--sm btn--secondary" id="default-fee-clear">Clear</button>
+                        </section>
+
+                        <section class="settings-panel" id="settings-panel-app" data-settings-section="app" data-settings-label="App &amp; data" data-settings-icon="🗂️" hidden>
+                            <header class="settings-panel__header">
+                                <h2>App &amp; data</h2>
+                                <p>How GammaLedger opens and where ticker links go.</p>
+                            </header>
+
+                            <div class="settings-card" id="startup-behavior-controls" data-settings-card="startup" data-settings-keywords="startup open load database cache blank synced drive dropbox">
+                                <div class="settings-card__header">
+                                    <div class="settings-card__heading">
+                                        <h3>On open</h3>
+                                        <p class="settings-card__subtitle">Auto-load this browser's cached copy, or always start blank.</p>
+                                    </div>
+                                    <span class="settings-badge" data-settings-badge hidden></span>
+                                </div>
+                                <div class="settings-card__body">
+                                    <div class="settings-field">
+                                        <label for="startup-behavior-select" class="form-label">Startup behavior</label>
+                                        <select id="startup-behavior-select" class="form-control">
+                                            <option value="cache">Load from this browser's cache automatically</option>
+                                            <option value="manual">Always start blank (require manual Load)</option>
+                                        </select>
+                                        <p class="settings-help-text">If your database file lives in a synced folder (Google Drive, Dropbox, etc.) and you open GammaLedger from several computers, "Always start blank" prevents viewing, or saving over, a stale cached copy. Use Load Database each time to pick up the latest synced file.</p>
+                                        <div class="default-fee-status" id="startup-behavior-status" role="status"></div>
+                                    </div>
+                                </div>
                             </div>
-                            <p class="settings-help-text">Enter the fee charged per contract (e.g., $0,65). This will be multiplied by the quantity when adding new legs.</p>
-                            <div class="default-fee-status" id="default-fee-status" role="status">Not set</div>
-                        </div>
-                    </div>
-                </section>
-            <br>
-            <section class="settings-section">
-                    <header class="settings-section__header">
-                        <h2>External Analytics</h2>
-                        <p>Configure the external link opened when clicking on a ticker.</p>
-                    </header>
-                    <div class="settings-card" id="external-analytics-controls">
-                        <div class="settings-card__header">
-                            <h3>Analytics Base URL</h3>
-                            <p class="settings-card__subtitle">Set the URL to open. Use {ticker} as a placeholder.</p>
-                        </div>
-                        <div class="settings-card__body">
-                            <label for="external-analytics-url" class="form-label">Base URL</label>
-                            <div class="settings-input-row">
-                                <input type="text" id="external-analytics-url" class="form-control" placeholder="https://finance.yahoo.com/quote/{ticker}" autocomplete="off">
-                                <button class="btn btn--sm btn--primary" id="external-analytics-save">Save</button>
-                                <button class="btn btn--sm btn--secondary" id="external-analytics-clear">Reset Default</button>
+
+                            <div class="settings-card" id="external-analytics-controls" data-settings-card="analytics-link" data-settings-keywords="external analytics link url ticker research yahoo investing">
+                                <div class="settings-card__header">
+                                    <div class="settings-card__heading">
+                                        <h3>Ticker research link</h3>
+                                        <p class="settings-card__subtitle">The page opened when you click a ticker's link icon.</p>
+                                    </div>
+                                    <span class="settings-badge" data-settings-badge hidden></span>
+                                </div>
+                                <div class="settings-card__body">
+                                    <div class="settings-field">
+                                        <label for="external-analytics-url" class="form-label">URL</label>
+                                        <div class="settings-input-row">
+                                            <input type="text" id="external-analytics-url" class="form-control" placeholder="https://finance.yahoo.com/quote/{ticker}" autocomplete="off" data-autosave="external-analytics-save">
+                                            <button class="btn btn--sm btn--primary" id="external-analytics-save" hidden>Save</button>
+                                            <button class="btn btn--sm btn--secondary" id="external-analytics-clear">Reset to default</button>
+                                        </div>
+                                        <p class="settings-help-text">Use {ticker} where the symbol goes. Default: https://www.investing.com/search/?q={ticker}</p>
+                                        <div class="default-fee-status" id="external-analytics-status" role="status"></div>
+                                    </div>
+                                </div>
                             </div>
-                            <p class="settings-help-text">Default: https://www.investing.com/search/?q={ticker}. The {ticker} placeholder will be replaced with the actual ticker symbol.</p>
-                            <div class="default-fee-status" id="external-analytics-status" role="status"></div>
-                        </div>
+                        </section>
                     </div>
-                </section>
-            <br>
-            <section class="settings-section">
-                    <header class="settings-section__header">
-                        <h2>Database Startup Behavior</h2>
-                        <p>Control what GammaLedger loads when you open the app.</p>
-                    </header>
-                    <div class="settings-card" id="startup-behavior-controls">
-                        <div class="settings-card__header">
-                            <h3>On Open</h3>
-                            <p class="settings-card__subtitle">Choose whether to auto-load this browser's cached copy or always start blank.</p>
-                        </div>
-                        <div class="settings-card__body">
-                            <label for="startup-behavior-select" class="form-label">Startup Behavior</label>
-                            <div class="settings-input-row">
-                                <select id="startup-behavior-select" class="form-control">
-                                    <option value="cache">Load from this browser's cache automatically</option>
-                                    <option value="manual">Always start blank (require manual Load)</option>
-                                </select>
-                            </div>
-                            <p class="settings-help-text">If your database file lives in a synced folder (Google Drive, Dropbox, etc.) and you open GammaLedger from multiple computers, "Always start blank" prevents accidentally viewing — or saving over — a stale cached copy. Use Load Database each time to pick up the latest synced file.</p>
-                            <div class="default-fee-status" id="startup-behavior-status" role="status"></div>
-                        </div>
-                    </div>
-                </section>
+                </div>
             </div>
         </main>
     </div>
@@ -1031,6 +1096,7 @@
                 <input type="text" id="ai-chat-input" class="ai-chat__input" placeholder="Ask about your portfolio..." autocomplete="off" required>
                 <button type="button" class="btn btn--secondary ai-chat__attach" id="ai-chat-attach-image">Trade Screenshot</button>
                 <button type="submit" class="btn btn--primary ai-chat__send">Send</button>
+                <button type="button" class="btn btn--secondary ai-chat__stop" id="ai-chat-stop" hidden>Stop</button>
             </form>
             <div class="ai-chat__quick" id="ai-chat-quick">
                 <span class="ai-chat__quick-label">Quick prompts:</span>
@@ -1038,6 +1104,7 @@
                     <button type="button" class="ai-chat__quick-btn" data-ai-prompt="Portfolio health" data-ai-prompt-type="portfolio_health">Portfolio health</button>
                     <button type="button" class="ai-chat__quick-btn" data-ai-prompt="Risk check" data-ai-prompt-type="risk_check">Risk check</button>
                     <button type="button" class="ai-chat__quick-btn" data-ai-prompt="Strategy ideas" data-ai-prompt-type="strategy_ideas">Strategy ideas</button>
+                    <button type="button" class="ai-chat__quick-btn" data-ai-prompt="Watchlist scan" data-ai-prompt-type="watchlist_scan" title="Rank your watchlist: which tickers are at or near their watch price, or need a closer look now">Watchlist scan</button>
                 </div>
             </div>
         </div>

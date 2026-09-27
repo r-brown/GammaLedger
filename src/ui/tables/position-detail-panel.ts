@@ -1,11 +1,32 @@
 import type { StockMetrics, SignalsData, CompanyProfile, EarningsSurprise, CachedQuoteEntry } from '../../types/integrations.js'
 import { renderTradeBreakdownColumn, type BreakdownTrade } from './trade-breakdown-column.js'
+import { safeExternalUrl } from '@utils/dom'
+import type { AIReadView, AskCoachRequest } from '../../types/ai.js'
+import {
+  computePreTradeRiskScore,
+  computeAssignmentConvictionScore,
+  computeBalanceSheetScore,
+  computeValuationScore,
+  type HealthGrade,
+  type ValuationGrade
+} from '../../calculations/stock-scores.js'
+
+export { computePreTradeRiskScore }
 
 // ---------------------------------------------------------------------------
 // Context interface — structural typing over GammaLedger instance
 // ---------------------------------------------------------------------------
 
-export interface PositionDetailPanelContext {
+/** AI members GammaLedger provides; optional so non-AI contexts still type-check. */
+export interface PanelAIHost {
+  isAIConfigured?(): boolean
+  askCoachAboutTicker?(request: AskCoachRequest): void | Promise<void>
+  requestAIRead?(ticker: string): Promise<AIReadView | null>
+  /** True when consent and a configured engine allow typed decisions (G2). */
+  isAIDecisionAvailable?(): boolean
+}
+
+export interface PositionDetailPanelContext extends PanelAIHost {
   metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
   signalsCache: Map<string, SignalsData | 'loading' | 'error'>
   profileCache: Map<string, CompanyProfile | 'loading' | 'error'>
@@ -115,110 +136,6 @@ function buildSparklineSVG(dataPoints: number[]): SVGSVGElement {
   polyline.setAttribute('stroke-linejoin', 'round')
   svg.appendChild(polyline)
   return svg
-}
-
-// ---------------------------------------------------------------------------
-// Score computation — pure functions, no DOM access
-// ---------------------------------------------------------------------------
-
-type RiskTrafficLight = 'green' | 'yellow' | 'red'
-type ConvictionGrade = 'safe' | 'caution' | 'avoid'
-type HealthGrade = 'healthy' | 'ok' | 'weak'
-type ValuationGrade = 'cheap' | 'fair' | 'expensive'
-
-/** Pre-trade Risk Score: combines beta + realized vol + short-term momentum into 🔴/🟡/🟢. */
-export function computePreTradeRiskScore(m: StockMetrics): { grade: RiskTrafficLight; detail: string } {
-  const beta = m.beta ?? 0
-  const hv30 = m.vol3MonthStd ?? 0
-  const r5d = m.return5Day ?? 0
-  const r52w = m.return52Week ?? 0
-  const detail = [
-    m.beta !== null ? `β${m.beta.toFixed(1)}` : null,
-    m.vol3MonthStd !== null ? `HV${m.vol3MonthStd.toFixed(0)}%` : null,
-    m.return5Day !== null ? `5D ${fmtPct(m.return5Day, true)}` : null,
-  ].filter(Boolean).join(' · ')
-  if (beta > 1.5 || hv30 > 50 || (r5d < -5 && r52w < -15)) return { grade: 'red', detail }
-  if (beta > 1.2 || hv30 > 30 || r5d < -3) return { grade: 'yellow', detail }
-  return { grade: 'green', detail }
-}
-
-/**
- * Assignment Conviction Score (Wheel): "Would I want to own this at this strike?"
- * Combines forwardPE + pfcfTTM + currentRatio + debtToEquity + roeTTM → Safe/Caution/Avoid.
- */
-function computeAssignmentConvictionScore(m: StockMetrics): { grade: ConvictionGrade; detail: string } {
-  let score = 0
-  let count = 0
-  if (m.forwardPE !== null && m.forwardPE > 0) {
-    score += m.forwardPE < 15 ? 25 : m.forwardPE < 25 ? 15 : 5
-    count++
-  }
-  if (m.pfcfTTM !== null && m.pfcfTTM > 0) {
-    score += m.pfcfTTM < 15 ? 25 : m.pfcfTTM < 25 ? 15 : 5
-    count++
-  }
-  if (m.currentRatio !== null) {
-    score += m.currentRatio >= 2 ? 25 : m.currentRatio >= 1.5 ? 20 : m.currentRatio >= 1 ? 10 : 0
-    count++
-  }
-  if (m.debtToEquity !== null) {
-    score += m.debtToEquity < 0.5 ? 25 : m.debtToEquity < 1 ? 18 : m.debtToEquity < 2 ? 10 : 2
-    count++
-  }
-  if (m.roeTTM !== null) {
-    score += m.roeTTM > 20 ? 25 : m.roeTTM > 10 ? 18 : m.roeTTM > 0 ? 10 : 0
-    count++
-  }
-  const detail = [
-    m.forwardPE !== null ? `P/E ${m.forwardPE.toFixed(0)}×` : null,
-    m.currentRatio !== null ? `CR ${m.currentRatio.toFixed(1)}` : null,
-    m.roeTTM !== null ? `ROE ${m.roeTTM.toFixed(0)}%` : null,
-  ].filter(Boolean).join(' · ')
-  if (count === 0) return { grade: 'caution', detail: '—' }
-  const normalized = score / count
-  if (normalized >= 18) return { grade: 'safe', detail }
-  if (normalized >= 11) return { grade: 'caution', detail }
-  return { grade: 'avoid', detail }
-}
-
-function computeBalanceSheetScore(m: StockMetrics): { grade: HealthGrade; detail: string } {
-  const cr = m.currentRatio
-  const de = m.debtToEquity
-  const ic = m.interestCoverage
-  if (cr === null && de === null) return { grade: 'ok', detail: '—' }
-  const weak = (cr !== null && cr < 1.0) || (de !== null && de > 2.0)
-  const healthy = (cr === null || cr >= 1.5) && (de === null || de < 0.5) && (ic === null || ic > 5)
-  const detail = [
-    cr !== null ? `CR ${cr.toFixed(1)}` : null,
-    de !== null ? `D/E ${de.toFixed(1)}` : null,
-    ic !== null ? `IC ${ic.toFixed(0)}×` : null,
-  ].filter(Boolean).join(' · ')
-  if (weak) return { grade: 'weak', detail }
-  if (healthy) return { grade: 'healthy', detail }
-  return { grade: 'ok', detail }
-}
-
-function computeValuationScore(m: StockMetrics): { grade: ValuationGrade; detail: string } {
-  const series = m.peAnnualSeries
-  const currentPE = m.peTTM
-  if (series.length >= 4 && currentPE !== null && currentPE > 0) {
-    const vals = series.map(s => s.v).filter(v => v > 0).sort((a, b) => a - b)
-    if (vals.length >= 4) {
-      const rank = vals.filter(v => v <= currentPE).length
-      const pct = rank / vals.length
-      const pctLabel = `${Math.round(pct * 100)}th %ile`
-      const detail = `PE ${currentPE.toFixed(0)}× · ${pctLabel}`
-      if (pct <= 0.25) return { grade: 'cheap', detail }
-      if (pct >= 0.75) return { grade: 'expensive', detail }
-      return { grade: 'fair', detail }
-    }
-  }
-  const fpe = m.forwardPE
-  if (fpe === null || fpe <= 0) return { grade: 'fair', detail: '—' }
-  const detail = `Fwd P/E ${fpe.toFixed(0)}×`
-  if (fpe < 13) return { grade: 'cheap', detail }
-  if (fpe > 25) return { grade: 'expensive', detail }
-  return { grade: 'fair', detail }
 }
 
 // ---------------------------------------------------------------------------
@@ -474,8 +391,15 @@ export function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = 
   identity.appendChild(tickerSpan)
   const scores = el('div', 'pdp-header-scores')
   scores.dataset.role = 'scores'
+  // The AI verdict sits in the score row, next to Risk / Own?; renderScorePills keeps it in place.
+  const aiRead = el('span', 'pdp-header-ai')
+  aiRead.dataset.role = 'ai-read'
+  scores.appendChild(aiRead)
+  const actions = el('div', 'pdp-header-actions')
+  actions.dataset.role = 'ai-actions'
   header.appendChild(identity)
   header.appendChild(scores)
+  header.appendChild(actions)
 
   const fundCol = el('div', 'pdp-fund-col')
   const fundCard = el('div', 'pdp-card')
@@ -517,6 +441,110 @@ export function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = 
   }
 
   return panel
+}
+
+// ---------------------------------------------------------------------------
+// AI header controls (Ask Coach 01/01a)
+// ---------------------------------------------------------------------------
+
+/**
+ * Ask Coach control (01/01a): 'row' is the compact grid-row button, 'card' the detail-card one.
+ * Null without a configured AI provider (G2). The host loads missing research data itself, so the
+ * button only shows a busy state while that happens.
+ */
+export function createAskCoachButton(context: PanelAIHost, request: AskCoachRequest, variant: 'row' | 'card'): HTMLButtonElement | null {
+  if (!context.askCoachAboutTicker || !context.isAIConfigured?.()) return null
+  const button = el('button', variant === 'row' ? 'ai-ask-row-btn' : 'btn btn--sm btn--secondary pdp-ask-coach') as HTMLButtonElement
+  button.type = 'button'
+  button.appendChild(txt(variant === 'row' ? '✨ AI' : '✨ Ask Coach'))
+  const label = `Ask the AI Coach about ${request.ticker.toUpperCase()}`
+  button.title = label
+  button.setAttribute('aria-label', label)
+  button.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (button.disabled) return
+    button.disabled = true
+    button.setAttribute('aria-busy', 'true')
+    button.title = 'Loading data…'
+    void Promise.resolve(context.askCoachAboutTicker?.(request)).finally(() => {
+      button.disabled = false
+      button.removeAttribute('aria-busy')
+      button.title = label
+    })
+  })
+  return button
+}
+
+/** Detail-card Ask Coach button in the panel header. */
+export function renderAskCoachButton(panelEl: HTMLElement, context: PositionDetailPanelContext, request: AskCoachRequest): void {
+  const slot = panelEl.querySelector<HTMLElement>('[data-role="ai-actions"]')
+  const button = slot ? createAskCoachButton(context, request, 'card') : null
+  if (slot && button) slot.appendChild(button)
+}
+
+// ---------------------------------------------------------------------------
+// AI Read pill (28) with its trust line (04)
+// ---------------------------------------------------------------------------
+
+const AI_READ_STYLE: Record<AIReadView['display'], { emoji: string; label: string; cls: string }> = {
+  bullish: { emoji: '🟢', label: 'AI: Favorable', cls: 'pdp-score-pill pdp-score-pill--bull' },
+  neutral: { emoji: '🟡', label: 'AI: Neutral', cls: 'pdp-score-pill pdp-score-pill--neut' },
+  bearish: { emoji: '🔴', label: 'AI: Unfavorable', cls: 'pdp-score-pill pdp-score-pill--bear' },
+  mixed: { emoji: '🟡', label: 'AI: Mixed', cls: 'pdp-score-pill pdp-score-pill--neut' }
+}
+
+function renderAIReadPill(slot: HTMLElement, view: AIReadView, context: PositionDetailPanelContext, request: AskCoachRequest): void {
+  slot.textContent = ''
+  const style = AI_READ_STYLE[view.display]
+  const pill = el('span', `${style.cls} pdp-score-pill--ai`)
+  pill.appendChild(txt(`${style.emoji} ${style.label}`))
+  slot.appendChild(pill)
+  const pct = (p: number | undefined) => `${Math.round((p ?? 0) * 100)}%`
+  const trust = view.calibrated && view.confidence !== null
+    ? `${view.band} confidence (${pct(view.confidence)}), calibrated by JEV`
+    : 'Single-model judgment (uncalibrated)'
+  attachScorePillTooltip(
+    pill,
+    'AI verdict',
+    'An instant judgment on how the four scores, momentum and the news/insider/analyst signals add up for selling puts or covered calls over the next 30–45 days. Advisory only.',
+    [
+      { label: 'Favorable / Neutral / Unfavorable', value: `${pct(view.probabilities.bullish)} / ${pct(view.probabilities.neutral)} / ${pct(view.probabilities.bearish)}` },
+      { label: 'Trust', value: trust },
+      { label: 'Engine', value: `${view.engine === 'jev' ? 'JEV (TypeSafe AI) via OpenRouter' : 'Your AI model'} · ${view.model}` },
+      { label: 'Facts sent', value: 'Price, 4 scores, momentum, analyst/insider/earnings counts, 3 headlines' }
+    ],
+    [
+      { label: '🟡 AI: Mixed', value: 'JEV\'s confidence is below 50%: no clear verdict' },
+      { label: 'As of', value: view.asOf }
+    ]
+  )
+  if (context.askCoachAboutTicker && context.isAIConfigured?.()) {
+    const why = el('button', 'pdp-ai-why') as HTMLButtonElement
+    why.type = 'button'
+    why.appendChild(txt('Why?'))
+    why.title = 'Ask the AI Coach to explain this verdict'
+    why.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); context.askCoachAboutTicker?.(request) })
+    slot.appendChild(why)
+  }
+}
+
+/**
+ * AI verdict next to Risk / Own? (28). A placeholder shows at once when a decision engine is
+ * available (JEV via OpenRouter first); nothing at all without consent + a configured engine (G2).
+ */
+export function renderAIRead(panelEl: HTMLElement, context: PositionDetailPanelContext, request: AskCoachRequest): void {
+  const slot = panelEl.querySelector<HTMLElement>('[data-role="ai-read"]')
+  if (!slot || !context.requestAIRead || !context.isAIDecisionAvailable?.()) return
+  const placeholder = el('span', 'pdp-score-pill pdp-score-pill--neut pdp-score-pill--ai pdp-score-pill--pending')
+  placeholder.appendChild(txt('✨ AI …'))
+  placeholder.title = 'Getting an AI verdict…'
+  slot.textContent = ''
+  slot.appendChild(placeholder)
+  void context.requestAIRead(request.ticker).then((view) => {
+    if (view) renderAIReadPill(slot, view, context, request)
+    else slot.textContent = ''
+  }, () => { slot.textContent = '' })
 }
 
 // ---------------------------------------------------------------------------
@@ -786,10 +814,11 @@ function renderSignalsColumn(
   if (news3.length > 0) {
     for (const item of news3) {
       // Entire card is a link when URL is available
-      const card = item.url
+      const href = safeExternalUrl(item.url)
+      const card = href
         ? (() => {
             const a = document.createElement('a')
-            a.href = item.url
+            a.href = href
             a.target = '_blank'
             a.rel = 'noopener noreferrer'
             a.className = 'pdp-news-card'
@@ -963,10 +992,11 @@ function renderNewsColumn(container: HTMLElement, signals: SignalsData): void {
   const newsItems = signals.news.slice(0, 5)
   if (newsItems.length > 0) {
     for (const item of newsItems) {
-      const card = item.url
+      const href = safeExternalUrl(item.url)
+      const card = href
         ? (() => {
             const a = document.createElement('a')
-            a.href = item.url
+            a.href = href
             a.target = '_blank'
             a.rel = 'noopener noreferrer'
             a.className = 'pdp-news-card'
@@ -1160,10 +1190,14 @@ function buildMomentumDots(metrics: StockMetrics): HTMLElement {
 }
 
 function renderScorePills(scoresEl: HTMLElement, metrics: StockMetrics): void {
+  const aiSlot = scoresEl.querySelector<HTMLElement>(':scope > [data-role="ai-read"]')
   scoresEl.textContent = ''
 
   // 1. Momentum Traffic Light — individual colored period dots
   scoresEl.appendChild(buildMomentumDots(metrics))
+
+  // AI verdict first among the pills, right before Risk (the same element, so a pending read survives)
+  if (aiSlot) scoresEl.appendChild(aiSlot)
 
   // 2. Pre-trade Risk Score
   const risk = computePreTradeRiskScore(metrics)
@@ -1294,12 +1328,19 @@ export function triggerDataFetch(
   const cachedPrice = Number(context.getCachedQuote?.(ticker)?.value?.price)
   const livePrice = Number.isFinite(cachedPrice) ? cachedPrice : null
 
-  function reRenderSignals(signals: SignalsData): void {
-    if (!sigCard?.isConnected) return
+  function renderSignals(signals: SignalsData): void {
+    if (!sigCard) return
     const earned = context.earningsCache.get(ticker)
     const earnings = (earned && earned !== 'loading' && earned !== 'error') ? earned : null
     renderSignalsColumn(sigCard, signals, livePrice, earnings, { skipNews: threeCol, skipInsiders: threeCol })
-    if (threeCol && newsCard?.isConnected) renderNewsColumn(newsCard, signals)
+    if (threeCol && newsCard) renderNewsColumn(newsCard, signals)
+  }
+
+  // Async results only paint panels that are still on screen. The synchronous cached path below
+  // calls renderSignals directly: the grid attaches the panel only after init returns, so it is
+  // not connected yet (which used to leave cached signals stuck on "Loading…").
+  function reRenderSignals(signals: SignalsData): void {
+    if (sigCard?.isConnected) renderSignals(signals)
   }
 
   // ── Fundamentals (metrics) ────────────────────────────────
@@ -1337,7 +1378,7 @@ export function triggerDataFetch(
   // ── Signals ───────────────────────────────────────────────
   const cachedSignals = context.signalsCache.get(ticker)
   if (cachedSignals && cachedSignals !== 'loading' && cachedSignals !== 'error') {
-    if (sigCard) reRenderSignals(cachedSignals)
+    renderSignals(cachedSignals)
   } else if (cachedSignals === 'loading') {
     context.signalsPromiseMap.get(ticker)?.then(data => {
       if (sigCard?.isConnected && data) reRenderSignals(data)
@@ -1436,6 +1477,8 @@ export function createPositionDetailPanelRenderer(
         ? trade.activeStrikePrice
         : (typeof trade.strikePrice === 'number' ? trade.strikePrice : null)
       triggerDataFetch(context, ticker, this.container, activeStrike, threeCol)
+      renderAskCoachButton(this.container, context, { ticker, trade })
+      renderAIRead(this.container, context, { ticker, trade })
 
       if (tradeBreakdown) {
         const tbCard = this.container.querySelector('[data-role="trade-breakdown"]') as HTMLElement | null
