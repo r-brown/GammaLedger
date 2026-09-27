@@ -149,6 +149,23 @@ test('AI Read: state excludes position/watchlist; JEV below 0.5 confidence reads
     assert.equal(aiReadCacheKey('veev', '2026-09-27', 'jev'), 'VEEV|2026-09-27|jev')
 })
 
+test('drift: state only for a non-empty thesis; hash changes with the notes; 0.7 threshold', async () => {
+    const d = await load('/src/ai/watchlist-drift.ts')
+    const ctx = (thesis) => ({ ticker: 'VEEV', asOf: '2026-09-27', price: 214, scores: null, signals: null, momentum: null, position: null, aiRead: null, watchlist: thesis === null ? null : { thesis, targetMet: false, priceVsTargetPct: 12.6, daysSinceAdded: 118 } })
+    assert.equal(d.buildDriftState(ctx('   ')), null)
+    assert.equal(d.buildDriftState(ctx(null)), null)
+    assert.deepEqual(Object.keys(d.buildDriftState(ctx('Wait for a pullback'))).sort(), ['asOf', 'price', 'ticker', 'watchlist'])
+    assert.notEqual(d.notesHash('a'), d.notesHash('b'))
+    assert.equal(d.notesHash('a'), d.notesHash('a'))
+    assert.equal(d.driftCacheKey('veev', 'a', '2026-09-27'), `VEEV|${d.notesHash('a')}|2026-09-27`)
+    const res = (noul, engine = 'jev') => ({ engine, calibrated: engine === 'jev', model: 'm', usage: {}, answers: { drift: { type: 'noul', noul } } })
+    assert.equal(d.toDriftView(res(0.81), '2026-09-27').drifted, true)
+    assert.equal(d.toDriftView(res(0.69), '2026-09-27').drifted, false)
+    assert.equal(d.toDriftView(res(0.81), '2026-09-27').band, 'medium')   // |0.81 − 0.5| × 2 = 0.62
+    assert.equal(d.toDriftView(res(1, 'llm'), '2026-09-27').band, null)
+    assert.equal(d.DRIFT_QUESTIONS.drift.type, 'noul')
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

@@ -8,6 +8,7 @@ import { buildPanelSkeleton, computePreTradeRiskScore, renderAIRead, renderAskCo
 import { createTickerElement } from '@utils/dom'
 import { targetStatus } from '../calculations/market-facts.js'
 import type { WatchlistEntry } from '../types/watchlist.js'
+import type { DriftView } from '../types/ai.js'
 import type { EarningsCalendarEntry, NormalizedQuote, StockMetrics } from '../types/integrations.js'
 
 type WatchlistRow = Record<string, unknown>
@@ -19,6 +20,9 @@ export interface WatchlistContext extends PositionDetailPanelContext {
   trades: Record<string, unknown>[]
   currentView: string
   currentDate: Date
+  getDriftMode?(): 'auto' | 'manual' | null
+  checkWatchlistDrift?(mode: 'auto' | 'manual'): Promise<number>
+  getWatchlistDrift?(ticker: string): DriftView | null
   currentFileName: string | null
   earningsMap: Map<string, EarningsCalendarEntry>
   dividendMap: Map<string, import('../types/integrations.js').DividendCalendarEntry>
@@ -155,6 +159,23 @@ export function renderWatchlistView(this: WatchlistContext): void {
         renderWatchlistView.call(this)
     })
     bar.appendChild(refreshBtn)
+
+    // Without JEV a thesis check is one LLM call per entry, so it only runs on request (G2: hidden without AI).
+    if (this.getDriftMode?.() === 'manual' && this.watchlist.some(entry => entry.notes?.trim())) {
+        const check = document.createElement('button')
+        check.type = 'button'
+        check.className = 'btn btn--sm btn--secondary watchlist-check-theses'
+        check.textContent = 'Check theses'
+        check.title = 'Ask your AI provider whether each thesis still fits today\'s data'
+        check.addEventListener('click', () => {
+            check.disabled = true
+            void this.checkWatchlistDrift?.('manual').finally(() => {
+                check.disabled = false
+                refreshTargetAlertRows.call(this)
+            })
+        })
+        bar.appendChild(check)
+    }
 
     root.appendChild(bar)
 
@@ -367,6 +388,12 @@ function primeTargetAlertQuotes(this: WatchlistContext): void {
     }))).then(() => {
         if (this.currentView !== 'watchlist') return
         refreshTargetAlertRows.call(this)
+        // Thesis drift runs on its own only with JEV (cheap); every entry has a price by now.
+        if (this.getDriftMode?.() === 'auto') {
+            void this.checkWatchlistDrift?.('auto').then((checked) => {
+                if (checked > 0 && this.currentView === 'watchlist') refreshTargetAlertRows.call(this)
+            })
+        }
     })
 }
 
@@ -669,7 +696,23 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
                 return false
             },
             valueFormatter: params => String(params.value ?? '').trim(),
-            tooltipValueGetter: params => String(params.value ?? '') || null
+            tooltipValueGetter: params => String(params.value ?? '') || null,
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
+                const wrap = document.createElement('span')
+                const drift = context.getWatchlistDrift?.(String(params.data?.ticker ?? ''))
+                if (drift?.drifted) {
+                    const marker = document.createElement('span')
+                    marker.className = 'watchlist-drift-marker'
+                    marker.textContent = '⚑ Thesis drift'
+                    const trust = drift.calibrated && drift.band
+                        ? `${drift.band} confidence, calibrated by JEV`
+                        : 'single-model judgment (uncalibrated)'
+                    marker.title = `Your thesis may no longer fit today's data (${Math.round(drift.probability * 100)}%, ${trust}). Expand the row and use Ask Coach to discuss it.`
+                    wrap.appendChild(marker)
+                }
+                wrap.appendChild(document.createTextNode(String(params.value ?? '').trim()))
+                return wrap
+            }
         },
         {
             colId: 'earnings', headerName: 'Earnings', width: 110, sortable: true,

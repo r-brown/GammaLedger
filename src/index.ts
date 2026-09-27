@@ -133,6 +133,7 @@ import { initDashboardTabs } from './ui/dashboard/tabs.js';
 import * as watchlistModule from './ui/watchlist.js';
 import * as askCoachModule from './ai/ask-coach.js';
 import * as aiReadModule from './ai/ai-read.js';
+import * as driftModule from './ai/watchlist-drift.js';
 
 
 class GammaLedger {
@@ -179,6 +180,7 @@ class GammaLedger {
     declare openRouter: OpenRouterState
     declare jev: JevState
     declare aiReadCache: Map<string, import('./types/ai.js').AIReadView | 'loading' | 'error'>
+    declare driftCache: Map<string, import('./types/ai.js').DriftView | 'loading' | 'error'>
     declare aiReadPromiseMap: Map<string, Promise<import('./types/ai.js').AIReadView | null>>
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
@@ -371,6 +373,7 @@ class GammaLedger {
         this.jev = { apiKey: null, encryptionKey: null, reachable: true, statusTimeoutId: null, elements: {} };
         this.aiReadCache = new Map();
         this.aiReadPromiseMap = new Map();
+        this.driftCache = new Map();
 
         this.aiAgent = new AIInsightsAgent(this as unknown as ConstructorParameters<typeof AIInsightsAgent>[0]);
         this.aiChatMessages = [];
@@ -1341,6 +1344,12 @@ class GammaLedger {
 
     getCachedAIRead(ticker: string) { return aiReadModule.getCachedAIRead.call(this, ticker); }
 
+    getDriftMode() { return driftModule.getDriftMode.call(this); }
+
+    checkWatchlistDrift(mode: 'auto' | 'manual') { return driftModule.checkWatchlistDrift.call(this, mode); }
+
+    getWatchlistDrift(ticker: string) { return driftModule.getWatchlistDrift.call(this, ticker); }
+
     updateAIChatComposer() { return aiChatModule.updateAIChatComposer.call(this); }
 
     renderMarkdownToHTML(markdown = '') { return dom.renderMarkdownToHTML(markdown); }
@@ -1549,6 +1558,7 @@ class GammaLedger {
     refreshAIDecisionViews() {
         jevModule.refreshJevStatus.call(this);
         this.aiReadCache.clear();
+        this.driftCache.clear();
         this.updateDashboard();
         if (this.currentView === 'watchlist') this.renderWatchlistView();
     }

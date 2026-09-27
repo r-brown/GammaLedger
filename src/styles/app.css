@@ -5365,6 +5365,17 @@ tr:hover {
   color: var(--color-error);
 }
 
+.watchlist-drift-marker {
+  display: inline-block;
+  margin-right: var(--space-6);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-warning);
+  background: rgba(var(--color-warning-rgb), var(--status-bg-opacity));
+}
+
 .ai-decision-engine {
   margin: var(--space-16) 0;
   padding-top: var(--space-12);

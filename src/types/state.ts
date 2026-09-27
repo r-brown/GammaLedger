@@ -121,6 +121,7 @@ export interface AppState {
   openRouter: OpenRouterState
   jev: JevState
   aiReadCache: Map<string, import('./ai').AIReadView | 'loading' | 'error'>
+  driftCache: Map<string, import('./ai').DriftView | 'loading' | 'error'>
   aiReadPromiseMap: Map<string, Promise<import('./ai').AIReadView | null>>
 
   // ---- Finnhub enrichment caches ----
