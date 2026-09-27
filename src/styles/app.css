@@ -2977,6 +2977,8 @@ select.form-control {
 .pdp-company-name { font-weight: var(--font-weight-bold); font-size: var(--font-size-base); color: var(--color-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pdp-industry-badge { font-size: 10px; color: var(--color-text-secondary); background: var(--color-border); border-radius: var(--radius-sm); padding: 1px 6px; white-space: nowrap; flex-shrink: 0; }
 .pdp-header-scores { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; flex-wrap: wrap; }
+.pdp-header-ai, .pdp-header-actions { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; }
+.pdp-header-ai:empty, .pdp-header-actions:empty { display: none; }
 .pdp-score-pill { font-size: 10px; font-weight: var(--font-weight-semibold); padding: 2px 8px; border-radius: 10px; white-space: nowrap; cursor: default; }
 .pdp-score-pill--bull { background: #dcfce7; color: #15803d; }
 .pdp-score-pill--neut { background: var(--color-border); color: var(--color-text-secondary); }

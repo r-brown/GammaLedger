@@ -128,6 +128,7 @@ import type { ThemePreference } from './ui/theme.js';
 import * as commandPaletteModule from './ui/command-palette.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
 import * as watchlistModule from './ui/watchlist.js';
+import * as askCoachModule from './ai/ask-coach.js';
 
 
 class GammaLedger {
@@ -1293,7 +1294,7 @@ class GammaLedger {
 
     async handleAIChatSubmit() { return aiChatModule.handleAIChatSubmit.call(this); }
 
-    async handleAIQuickPrompt(prompt: string, options: { promptType?: string | null; [key: string]: unknown } = {}) { return aiChatModule.handleAIQuickPrompt.call(this, prompt, options); }
+    async handleAIQuickPrompt(prompt: string, options: { promptType?: string | null; displayText?: string | null; consent?: import('./core/consent.js').ConsentRequirement } = {}) { return aiChatModule.handleAIQuickPrompt.call(this, prompt, options); }
 
     async handleAIChatImageFile(file: File) { return aiChatModule.handleAIChatImageFile.call(this, file); }
 
@@ -1313,6 +1314,10 @@ class GammaLedger {
     renderAIChatMessages() { return aiChatModule.renderAIChatMessages.call(this); }
 
     stopAIChatRequest() { return aiChatModule.stopAIChatRequest.call(this); }
+
+    isAIConfigured(): boolean { return askCoachModule.isAIConfigured.call(this); }
+
+    askCoachAboutTicker(request) { return askCoachModule.askCoachAboutTicker.call(this, request); }
 
     updateAIChatComposer() { return aiChatModule.updateAIChatComposer.call(this); }
 

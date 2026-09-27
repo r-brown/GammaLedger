@@ -7,6 +7,7 @@ import { describeLLMError, type LLMProvider, type LLMUsage } from '../integratio
 import { formatGroundingBadge, formatReplyUsage, summarizeSessionUsage } from './usage-format.js'
 import { groundAnswer } from './grounding.js'
 import type { GroundingResult } from '../types/ai.js'
+import type { ConsentRequirement } from '../core/consent.js'
 
 interface ChatMessage {
     id: string
@@ -19,6 +20,8 @@ interface ChatMessage {
     model?: string | null
     /** Numeric grounding of a canned-prompt answer (roadmap 10/04). */
     trust?: GroundingResult | null
+    /** Full question sent to the model when the bubble shows a short label; history resends it. */
+    requestText?: string | null
 }
 
 interface AIAgent {
@@ -30,6 +33,13 @@ interface AIAgent {
         data: string
         metadata?: Record<string, unknown>
     }): Promise<DraftLegExtraction>
+}
+
+interface AIQuickPromptOptions {
+    promptType?: string | null
+    /** Short label shown in the user bubble instead of the (long) prompt. */
+    displayText?: string | null
+    consent?: ConsentRequirement
 }
 
 interface AIChatContext {
@@ -47,10 +57,10 @@ interface AIChatContext {
     renderAIChatMessages(): void
     appendAIChatMessage(sender: string, text: string, options?: Record<string, unknown>): string | null
     calculateAdvancedStats(): Record<string, unknown>
-    hasAICoachConsent(): boolean
-    promptAICoachConsent(callback: () => void): void
+    hasAICoachConsent(requirement?: ConsentRequirement): boolean
+    promptAICoachConsent(nextAction?: (() => void) | null, requirement?: ConsentRequirement): boolean
     handleAIChatSubmit(): Promise<void>
-    handleAIQuickPrompt(prompt: string, options?: { promptType?: string | null; [key: string]: unknown }): Promise<void>
+    handleAIQuickPrompt(prompt: string, options?: AIQuickPromptOptions): Promise<void>
     toggleAIChat(forceOpen?: boolean | null): void
     getAIChatDisplayName(): string
     getActiveLLMProvider(): LLMProvider
@@ -1075,14 +1085,14 @@ export async function handleAIChatSubmit(this: AIChatContext): Promise<void> {
 export async function handleAIQuickPrompt(
     this: AIChatContext,
     prompt: string,
-    options: { promptType?: string | null; [key: string]: unknown } = {}
+    options: AIQuickPromptOptions = {}
 ): Promise<void> {
     if (this.aiChatPendingRequest || !prompt) {
         return;
     }
 
-    if (!this.hasAICoachConsent()) {
-        this.promptAICoachConsent(() => this.handleAIQuickPrompt(prompt, options));
+    if (!this.hasAICoachConsent(options.consent)) {
+        this.promptAICoachConsent(() => this.handleAIQuickPrompt(prompt, options), options.consent);
         return;
     }
 
@@ -1093,7 +1103,8 @@ export async function handleAIQuickPrompt(
         input.value = '';
     }
 
-    this.appendAIChatMessage('user', prompt);
+    const display = options.displayText?.trim();
+    this.appendAIChatMessage('user', display || prompt, { requestText: display ? prompt : null });
 
     await runAIChatRequest.call(this, prompt, options.promptType || null);
 }
@@ -1102,7 +1113,7 @@ export function appendAIChatMessage(
     this: AIChatContext,
     sender: string,
     text: string,
-    options: { suppressRender?: boolean; replaceId?: string | null; id?: string | null; pending?: boolean; usage?: LLMUsage | null; model?: string | null; trust?: GroundingResult | null } = {}
+    options: { suppressRender?: boolean; replaceId?: string | null; id?: string | null; pending?: boolean; usage?: LLMUsage | null; model?: string | null; trust?: GroundingResult | null; requestText?: string | null } = {}
 ): string | null {
     const normalizedSender = sender === 'ai' ? 'ai' : 'user';
     const {
@@ -1112,7 +1123,8 @@ export function appendAIChatMessage(
         pending = false,
         usage = null,
         model = null,
-        trust = null
+        trust = null,
+        requestText = null
     } = options || {};
 
     if (!replaceId && (typeof text !== 'string' || text.length === 0)) {
@@ -1154,7 +1166,8 @@ export function appendAIChatMessage(
         streaming: false,
         usage,
         model,
-        trust
+        trust,
+        requestText
     };
 
     this.aiChatMessages = [...this.aiChatMessages, entry].slice(-200);

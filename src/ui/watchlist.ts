@@ -4,7 +4,7 @@
 
 import { showNotification } from './notifications.js'
 import { createGrid, type ColDef, type GridApi, type GridOptions, type ICellRendererParams, type IRowNode } from './tables/ag-grid.js'
-import { buildPanelSkeleton, computePreTradeRiskScore, triggerDataFetch, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
+import { buildPanelSkeleton, computePreTradeRiskScore, renderAskCoachButton, triggerDataFetch, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
 import { createTickerElement } from '@utils/dom'
 import { targetStatus } from '../calculations/market-facts.js'
 import type { WatchlistEntry } from '../types/watchlist.js'
@@ -573,6 +573,7 @@ function createWatchlistDetailRenderer(context: WatchlistContext) {
             const panel = buildPanelSkeleton(ticker, { threeCol: true })
             this.container.appendChild(panel)
             triggerDataFetch(context, ticker, panel, null, true)
+            renderAskCoachButton(panel, context, { ticker, watchlistEntry: entry })
 
             this.ro = new ResizeObserver((entries) => {
                 const height = entries[0]?.contentRect.height ?? this.container.offsetHeight

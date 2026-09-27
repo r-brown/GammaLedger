@@ -337,6 +337,22 @@ test('consent v2: records carry version/decision; requirements gate on them', as
     assert.equal(parseAICoachConsent(JSON.stringify({ at: 'x', provider: 'openrouter', version: 3 })), null)
 })
 
+test('buildCoachMessages sends requestText for history turns that carry one', async () => {
+    const { buildCoachMessages } = await load('/src/ai/coach-prompts.ts')
+    const messages = buildCoachMessages({
+        snapshotJson: SNAPSHOT,
+        history: [
+            { sender: 'user', text: 'Ask about VEEV (watchlist)', requestText: 'Is VEEV a candidate… {"ticker":"VEEV"}' },
+            { sender: 'ai', text: 'Maybe.' }
+        ],
+        question: 'Which strike?',
+        promptType: 'chat'
+    })
+    const firstHistory = messages[3]
+    assert.equal(firstHistory.role, 'user')
+    assert.equal(firstHistory.content[0].text, 'Is VEEV a candidate… {"ticker":"VEEV"}')
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

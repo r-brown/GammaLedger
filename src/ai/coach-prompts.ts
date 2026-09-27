@@ -94,9 +94,14 @@ export function buildCoachRequestPrompt(type: CoachPromptType, question: string)
 interface CoachHistoryEntry {
     sender?: string
     text?: string
+    /** What was actually sent when the bubble shows a short label (Ask Coach). */
+    requestText?: string | null
     pending?: boolean
     [key: string]: unknown
 }
+
+const bodyOf = (entry: CoachHistoryEntry): string =>
+    (typeof entry.requestText === 'string' && entry.requestText.trim() ? entry.requestText : entry.text ?? '')
 
 const text = (value: string, cache = false): LLMMessage['content'] =>
     [cache ? { type: 'text', text: value, cache: true } : { type: 'text', text: value }]
@@ -108,7 +113,7 @@ export function buildCoachMessages(input: {
     promptType: CoachPromptType
 }): LLMMessage[] {
     const usable = (Array.isArray(input.history) ? input.history : [])
-        .filter(entry => entry && !entry.pending && typeof entry.text === 'string' && entry.text.trim().length > 0)
+        .filter(entry => entry && !entry.pending && bodyOf(entry).trim().length > 0)
         .slice(-8)
     // The ack is already an assistant turn, so history must open with a user turn; this also drops
     // the chat's local greeting ("Hi! I'm your local AI coach…"), which is not part of the dialogue.
@@ -116,7 +121,7 @@ export function buildCoachMessages(input: {
     const history = (firstUser === -1 ? [] : usable.slice(firstUser))
         .map((entry): LLMMessage => ({
             role: entry.sender === 'ai' ? 'assistant' : 'user',
-            content: text((entry.text as string).trim())
+            content: text(bodyOf(entry).trim())
         }))
 
     return [

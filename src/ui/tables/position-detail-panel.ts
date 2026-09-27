@@ -1,5 +1,6 @@
 import type { StockMetrics, SignalsData, CompanyProfile, EarningsSurprise, CachedQuoteEntry } from '../../types/integrations.js'
 import { renderTradeBreakdownColumn, type BreakdownTrade } from './trade-breakdown-column.js'
+import type { AIReadView, AskCoachRequest } from '../../types/ai.js'
 import {
   computePreTradeRiskScore,
   computeAssignmentConvictionScore,
@@ -15,7 +16,14 @@ export { computePreTradeRiskScore }
 // Context interface — structural typing over GammaLedger instance
 // ---------------------------------------------------------------------------
 
-export interface PositionDetailPanelContext {
+/** AI members GammaLedger provides; optional so non-AI contexts still type-check. */
+export interface PanelAIHost {
+  isAIConfigured?(): boolean
+  askCoachAboutTicker?(request: AskCoachRequest): void
+  requestAIRead?(ticker: string): Promise<AIReadView | null>
+}
+
+export interface PositionDetailPanelContext extends PanelAIHost {
   metricsCache: Map<string, StockMetrics | 'loading' | 'error'>
   signalsCache: Map<string, SignalsData | 'loading' | 'error'>
   profileCache: Map<string, CompanyProfile | 'loading' | 'error'>
@@ -380,8 +388,14 @@ export function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = 
   identity.appendChild(tickerSpan)
   const scores = el('div', 'pdp-header-scores')
   scores.dataset.role = 'scores'
+  const aiRead = el('div', 'pdp-header-ai')
+  aiRead.dataset.role = 'ai-read'
+  const actions = el('div', 'pdp-header-actions')
+  actions.dataset.role = 'ai-actions'
   header.appendChild(identity)
   header.appendChild(scores)
+  header.appendChild(aiRead)
+  header.appendChild(actions)
 
   const fundCol = el('div', 'pdp-fund-col')
   const fundCard = el('div', 'pdp-card')
@@ -423,6 +437,34 @@ export function buildPanelSkeleton(ticker: string, opts: PanelSkeletonOptions = 
   }
 
   return panel
+}
+
+// ---------------------------------------------------------------------------
+// AI header controls (Ask Coach 01/01a)
+// ---------------------------------------------------------------------------
+
+/** "Ask Coach" button. Hidden without a configured AI provider (G2); disabled until metrics load. */
+export function renderAskCoachButton(panelEl: HTMLElement, context: PositionDetailPanelContext, request: AskCoachRequest): void {
+  const slot = panelEl.querySelector<HTMLElement>('[data-role="ai-actions"]')
+  if (!slot || !context.askCoachAboutTicker || !context.isAIConfigured?.()) return
+  const button = el('button', 'btn btn--sm btn--secondary pdp-ask-coach') as HTMLButtonElement
+  button.type = 'button'
+  button.appendChild(txt('Ask Coach'))
+  const key = request.ticker.toUpperCase()
+  const ready = () => {
+    const metrics = context.metricsCache.get(key)
+    // An 'error' state enables the button too: the question then simply omits the scores.
+    button.disabled = !metrics || metrics === 'loading'
+    button.title = button.disabled ? 'Loading data…' : 'Ask the AI Coach about this'
+  }
+  ready()
+  context.metricsPromiseMap.get(key)?.then(ready, ready)
+  button.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    context.askCoachAboutTicker?.(request)
+  })
+  slot.appendChild(button)
 }
 
 // ---------------------------------------------------------------------------
@@ -1342,6 +1384,7 @@ export function createPositionDetailPanelRenderer(
         ? trade.activeStrikePrice
         : (typeof trade.strikePrice === 'number' ? trade.strikePrice : null)
       triggerDataFetch(context, ticker, this.container, activeStrike, threeCol)
+      renderAskCoachButton(this.container, context, { ticker, trade })
 
       if (tradeBreakdown) {
         const tbCard = this.container.querySelector('[data-role="trade-breakdown"]') as HTMLElement | null
