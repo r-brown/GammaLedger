@@ -6,6 +6,7 @@ import { showNotification } from './notifications.js'
 import { createGrid, type ColDef, type GridApi, type GridOptions, type ICellRendererParams, type IRowNode } from './tables/ag-grid.js'
 import { buildPanelSkeleton, computePreTradeRiskScore, triggerDataFetch, type PositionDetailPanelContext } from './tables/position-detail-panel.js'
 import { createTickerElement } from '@utils/dom'
+import { targetStatus } from '../calculations/market-facts.js'
 import type { WatchlistEntry } from '../types/watchlist.js'
 import type { EarningsCalendarEntry, NormalizedQuote, StockMetrics } from '../types/integrations.js'
 
@@ -315,20 +316,16 @@ const NO_TARGET_ALERT: TargetAlertState = { met: false, crossedToday: false }
 function evaluateTargetAlert(context: WatchlistContext, row: WatchlistRow | undefined): TargetAlertState {
     const targetPrice = Number(row?.targetPrice)
     if (row?.targetPrice == null || !Number.isFinite(targetPrice)) return NO_TARGET_ALERT
-
     const quote = readCachedQuote(context, String(row?.ticker ?? ''))
     const price = Number(quote?.price)
-    if (!Number.isFinite(price)) return NO_TARGET_ALERT
-
-    const direction = row?.targetDirection === 'down' ? 'down' : 'up'
-    const met = direction === 'up' ? price >= targetPrice : price <= targetPrice
-    if (!met) return NO_TARGET_ALERT
-
     const prevClose = Number(quote?.previousClose)
-    const crossedToday = Number.isFinite(prevClose) && (
-        direction === 'up' ? prevClose < targetPrice : prevClose > targetPrice
+    const status = targetStatus(
+        Number.isFinite(price) ? price : null,
+        Number.isFinite(prevClose) ? prevClose : null,
+        targetPrice,
+        row?.targetDirection === 'down' ? 'down' : 'up'
     )
-    return { met, crossedToday }
+    return status?.met ? { met: true, crossedToday: status.crossedToday } : NO_TARGET_ALERT
 }
 
 /**

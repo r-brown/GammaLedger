@@ -2,6 +2,8 @@
 // buildCoachContext is pure (structural inputs only) so it can be checked in Node;
 // gatherCoachContext is the this-typed adapter GammaLedger delegates to.
 
+import { daysBetweenIso } from '../calculations/market-facts.js'
+
 type AnyRecord = Record<string, any>
 
 export type CoachContext = Record<string, unknown>
@@ -56,10 +58,6 @@ function positionLabel(trade: AnyRecord, withExpiry = true): string {
         .join(' ')
 }
 
-function daysBetween(fromIso: string, toIso: string): number {
-    const parse = (s: string) => Date.parse(`${s}T00:00:00Z`)
-    return Math.round((parse(toIso) - parse(fromIso)) / 86_400_000)
-}
 
 /**
  * How far (%) the underlying can move against the position before touching the nearest short
@@ -229,7 +227,7 @@ export function buildCoachContext(input: CoachContextInput): CoachContext {
         const earning = earnings.get(ticker)
         const expiry = String(t.expirationDate ?? '')
         const earningsInLife = earning?.date && earning.date >= asOf && (!expiry || earning.date <= expiry)
-            ? { date: earning.date, daysAway: daysBetween(asOf, earning.date) }
+            ? { date: earning.date, daysAway: daysBetweenIso(asOf, earning.date) }
             : null
         const note = String(t.notes ?? '').trim()
         return clean({
