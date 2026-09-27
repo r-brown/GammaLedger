@@ -28,6 +28,8 @@ export interface DecisionContext {
     jev: { apiKey: string | null; reachable: boolean }
     getActiveLLMProvider(): LLMProvider
     getAICoachConsent(): AICoachConsentRecord | null
+    /** Called once JEV has been marked unreachable, so the settings status can say why. */
+    onJevUnreachable?(): void
 }
 
 export function currentDecisionEngine(ctx: DecisionContext): DecisionEngine | null {
@@ -56,6 +58,7 @@ export async function decideWithFallback<K extends string>(ctx: DecisionContext,
     } catch (error) {
         if (provider.id !== 'jev' || !(error instanceof LLMError) || error.kind !== 'network') throw error
         ctx.jev.reachable = false
+        ctx.onJevUnreachable?.()
         const fallback = getDecisionProvider(ctx)
         return fallback ? fallback.decide(request) : null
     }

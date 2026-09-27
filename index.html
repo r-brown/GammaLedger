@@ -896,6 +896,18 @@
                                 <p class="settings-help-text">Use Google AI Studio or any compatible service exposing the Gemini generateContent API.</p>
                             </div>
 
+                            <div class="ai-decision-engine" id="jev-controls">
+                                <h4 class="ai-decision-engine__title">Decision engine (optional): JEV</h4>
+                                <p class="settings-help-text">JEV by TypeSafe AI makes AI Read, thesis-drift checks and digest ordering faster and cheaper, with calibrated confidence. Without it, your AI provider answers the same questions.</p>
+                                <label for="jev-api-key" class="form-label">JEV API key</label>
+                                <div class="settings-input-row">
+                                    <input type="password" id="jev-api-key" class="form-control" placeholder="Paste JEV key" autocomplete="off">
+                                    <button class="btn btn--sm btn--primary" id="jev-save">Save Key</button>
+                                    <button class="btn btn--sm btn--secondary" id="jev-clear">Clear</button>
+                                </div>
+                                <div class="ai-key-status" id="jev-status" role="status">Not set</div>
+                            </div>
+
                             <details class="ai-provider-advanced">
                                 <summary>Advanced</summary>
                                 <div class="ai-provider-fields" data-ai-provider-fields="openrouter" hidden>

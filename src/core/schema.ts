@@ -242,6 +242,15 @@ export const OpenRouterConfigSchema = z.object({
 
 export type OpenRouterConfig = z.infer<typeof OpenRouterConfigSchema>;
 
+/** Optional JEV (TypeSafe AI) decision-engine key: encrypted payload, or a plaintext fallback. */
+export const JevConfigSchema = z.object({
+    version: z.literal(1),
+    payload: EncryptedSecretSchema.optional(),
+    apiKey: z.string().optional()
+}).strict();
+
+export type JevConfig = z.infer<typeof JevConfigSchema>;
+
 /** Optional account size in USD used by the AI Coach to express risk as % of account. */
 export const AccountSizeSchema = z.number().finite().positive().max(1e10);
 

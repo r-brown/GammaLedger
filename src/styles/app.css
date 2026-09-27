@@ -5362,6 +5362,17 @@ tr:hover {
   color: var(--color-error);
 }
 
+.ai-decision-engine {
+  margin: var(--space-16) 0;
+  padding-top: var(--space-12);
+  border-top: 1px solid var(--color-border);
+}
+
+.ai-decision-engine__title {
+  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-4);
+}
+
 .ai-provider-fields[hidden] {
   display: none;
 }

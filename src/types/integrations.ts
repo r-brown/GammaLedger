@@ -490,3 +490,13 @@ export function extractGeminiError(response: GeminiApiResponse, httpStatus: numb
   if (!httpStatus || httpStatus < 400) return null
   return `HTTP ${httpStatus}`
 }
+
+/** JEV (TypeSafe AI) settings state (this.jev on GammaLedger). */
+export interface JevState {
+  apiKey: string | null
+  encryptionKey: CryptoKey | null
+  /** False after a network/CORS failure this session; typed decisions then use the LLM adapter. */
+  reachable: boolean
+  statusTimeoutId: ReturnType<typeof setTimeout> | null
+  elements: { keyInput?: HTMLInputElement | null; saveButton?: HTMLElement | null; clearButton?: HTMLElement | null; status?: HTMLElement | null }
+}

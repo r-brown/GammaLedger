@@ -54,7 +54,7 @@ import { AIInsightsAgent } from './ai/insights-agent.js';
 import { gatherCoachContext } from './ai/coach-context.js';
 import { getActiveLLMProvider as resolveActiveLLMProvider } from './integrations/llm/registry.js';
 import type { LLMProvider, LLMProviderId } from './integrations/llm/types.js';
-import type { OpenRouterState } from './types/integrations.js';
+import type { JevState, OpenRouterState } from './types/integrations.js';
 import * as legsModule from './trades/legs.js';
 import * as pnlModule from './calculations/pnl.js';
 import * as daysHeldModule from './calculations/daysheld.js';
@@ -71,6 +71,9 @@ import * as schwabModule from './integrations/schwab.js';
 import * as geminiIntegrationModule from './integrations/gemini.js';
 import * as aiProviderModule from './integrations/ai-provider.js';
 import * as openRouterIntegrationModule from './integrations/openrouter.js';
+import * as jevModule from './integrations/jev.js';
+import { currentDecisionEngine, getDecisionProvider as resolveDecisionProvider } from './integrations/decision/registry.js';
+import type { DecisionEngine, DecisionProvider } from './integrations/decision/types.js';
 import * as mcpModule from './integrations/mcp.js';
 import * as defaultFeeModule from './settings/default-fee.js';
 import * as accountSizeModule from './settings/account-size.js';
@@ -173,6 +176,7 @@ class GammaLedger {
     declare aiAgent: AIInsightsAgent | null
     declare aiProvider: { active: LLMProviderId; maxOutputTokens: number }
     declare openRouter: OpenRouterState
+    declare jev: JevState
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
@@ -360,6 +364,8 @@ class GammaLedger {
             pendingStatus: null,
             elements: {}
         };
+
+        this.jev = { apiKey: null, encryptionKey: null, reachable: true, statusTimeoutId: null, elements: {} };
 
         this.aiAgent = new AIInsightsAgent(this as unknown as ConstructorParameters<typeof AIInsightsAgent>[0]);
         this.aiChatMessages = [];
@@ -563,6 +569,9 @@ class GammaLedger {
         if (this.openRouter?.statusTimeoutId) {
             clearTimeout(this.openRouter.statusTimeoutId);
         }
+        if (this.jev?.statusTimeoutId) {
+            clearTimeout(this.jev.statusTimeoutId);
+        }
         if (this.finnhub?.statusTimeoutId) {
             clearTimeout(this.finnhub.statusTimeoutId);
         }
@@ -615,6 +624,7 @@ class GammaLedger {
             await this.loadFinnhubConfigFromStorage();
             await this.loadGeminiConfigFromStorage();
             await this.loadOpenRouterConfigFromStorage();
+            await this.loadJevConfigFromStorage();
             this.loadActiveAIProvider();
             this.loadAccountSizeFromStorage();
             if (this.startupBehavior === 'manual') {
@@ -628,6 +638,7 @@ class GammaLedger {
             this.bindEvents();
             this.initializeGeminiControls();
             this.initializeOpenRouterControls();
+            this.initializeJevControls();
             this.initializeAIProviderControls();
             this.initializeAccountSizeControls();
             this.initializeAIChat();
@@ -1513,6 +1524,24 @@ class GammaLedger {
     async loadOpenRouterConfigFromStorage() { return openRouterIntegrationModule.loadOpenRouterConfigFromStorage.call(this); }
 
     initializeOpenRouterControls() { return openRouterIntegrationModule.initializeOpenRouterControls.call(this); }
+
+    async loadJevConfigFromStorage() { return jevModule.loadJevConfigFromStorage.call(this); }
+
+    initializeJevControls() { return jevModule.initializeJevControls.call(this); }
+
+    /** Typed-decision engine for AI Read / thesis drift / digest order (spec D3); null = none allowed. */
+    getDecisionProvider(): DecisionProvider | null { return resolveDecisionProvider(this); }
+
+    getDecisionEngine(): DecisionEngine | null { return currentDecisionEngine(this); }
+
+    onJevUnreachable() { jevModule.refreshJevStatus.call(this); }
+
+    /** Re-renders every passive AI view after consent, keys or reachability change. */
+    refreshAIDecisionViews() {
+        jevModule.refreshJevStatus.call(this);
+        this.updateDashboard();
+        if (this.currentView === 'watchlist') this.renderWatchlistView();
+    }
 
     updateOpenRouterStatus(message, variant = 'neutral', autoClearMs = 0) { return openRouterIntegrationModule.updateOpenRouterStatus.call(this, message, variant, autoClearMs); }
 

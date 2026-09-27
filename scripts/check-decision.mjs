@@ -125,6 +125,15 @@ test('confidenceBand follows TypeSafe thresholds', async () => {
     assert.equal(confidenceBand(null), null)
 })
 
+test('JevConfigSchema: encrypted payload or plaintext fallback, version 1, strict', async () => {
+    const { parseJevConfig } = await load('/src/integrations/jev.ts')
+    assert.deepEqual(parseJevConfig(JSON.stringify({ version: 1, payload: { iv: 'a', ct: 'b' } })), { version: 1, payload: { iv: 'a', ct: 'b' } })
+    assert.deepEqual(parseJevConfig(JSON.stringify({ version: 1, apiKey: 'k' })), { version: 1, apiKey: 'k' })
+    assert.equal(parseJevConfig(JSON.stringify({ version: 1, apiKey: 'k', extra: 1 })), null)
+    assert.equal(parseJevConfig('not json'), null)
+    assert.equal(parseJevConfig(null), null)
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0
