@@ -1650,13 +1650,13 @@ class GammaLedger {
 
     hideAICoachConsent(options = {}) { return aiCoachConsentModule.hideAICoachConsent.call(this, options); }
 
-    promptAICoachConsent(nextAction = null) { return aiCoachConsentModule.promptAICoachConsent.call(this, nextAction); }
+    promptAICoachConsent(nextAction = null, requirement = undefined) { return aiCoachConsentModule.promptAICoachConsent.call(this, nextAction, requirement); }
 
     acceptAICoachConsent() { return aiCoachConsentModule.acceptAICoachConsent.call(this); }
 
     cancelAICoachConsent() { return aiCoachConsentModule.cancelAICoachConsent.call(this); }
 
-    hasAICoachConsent() { return aiCoachConsentModule.hasAICoachConsent.call(this); }
+    hasAICoachConsent(requirement = undefined) { return aiCoachConsentModule.hasAICoachConsent.call(this, requirement); }
 
     getAIChatDisplayName() { return aiProviderModule.getAIChatDisplayName.call(this); }
 

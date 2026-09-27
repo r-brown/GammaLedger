@@ -321,6 +321,22 @@ test('generateResponse returns the snapshot string the request was built from', 
     assert.equal(reply.snapshotJson, SNAPSHOT)
 })
 
+test('consent v2: records carry version/decision; requirements gate on them', async () => {
+    const { parseAICoachConsent } = await load('/src/ui/modals/ai-coach-consent.ts')
+    const { consentSatisfies } = await load('/src/core/consent.ts')
+    const v1 = parseAICoachConsent('2026-09-01T00:00:00Z')
+    const v2 = parseAICoachConsent(JSON.stringify({ at: '2026-09-27T00:00:00Z', provider: 'openrouter', version: 2, decision: null }))
+    const v2jev = parseAICoachConsent(JSON.stringify({ at: '2026-09-27T00:00:00Z', provider: 'openrouter', version: 2, decision: 'jev' }))
+    assert.equal(consentSatisfies(v1, 'gemini'), true)
+    assert.equal(consentSatisfies(v1, 'gemini', { minVersion: 2 }), false)
+    assert.equal(consentSatisfies(v2, 'openrouter', { minVersion: 2 }), true)
+    assert.equal(consentSatisfies(v2, 'gemini', { minVersion: 2 }), false)
+    assert.equal(consentSatisfies(v2, 'openrouter', { minVersion: 2, decision: 'jev' }), false)
+    assert.equal(consentSatisfies(v2jev, 'openrouter', { minVersion: 2, decision: 'jev' }), true)
+    assert.equal(consentSatisfies(null, 'openrouter'), false)
+    assert.equal(parseAICoachConsent(JSON.stringify({ at: 'x', provider: 'openrouter', version: 3 })), null)
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

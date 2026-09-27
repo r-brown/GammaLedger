@@ -2,7 +2,8 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { AI_COACH_CONSENT_STORAGE_KEY, type AIProviderId } from '@core/config'
-import { AICoachConsentSchema } from '@core/schema'
+import { AICoachConsentSchema, type AICoachConsentRecord } from '@core/schema'
+import { consentSatisfies, type ConsentRequirement } from '@core/consent'
 import { safeLocalStorage } from '@core/storage'
 
 export interface AICoachConsentState {
@@ -18,10 +19,7 @@ export interface AICoachConsentState {
   isVisible: boolean
 }
 
-export interface AICoachConsentRecord {
-  at: string
-  provider: AIProviderId
-}
+export type { AICoachConsentRecord }
 
 interface AICoachConsentContext {
   aiCoachConsent: AICoachConsentState
@@ -30,12 +28,13 @@ interface AICoachConsentContext {
   hideAICoachConsent(opts?: { immediate?: boolean }): void
   acceptAICoachConsent(): void
   cancelAICoachConsent(): void
-  hasAICoachConsent(): boolean
+  hasAICoachConsent(requirement?: ConsentRequirement): boolean
   getAICoachConsent(): AICoachConsentRecord | null
   setAICoachConsent(value: AICoachConsentRecord | null): void
   aiProvider: { active: AIProviderId }
   getActiveLLMProvider(): { displayName: string }
   updateAIChatHeader(): void
+  jev?: { apiKey: string | null }
 }
 
 const HIDE_FADE_MS = 220
@@ -105,6 +104,7 @@ export function showAICoachConsent(this: AICoachConsentContext): void {
     const providerName = this.getActiveLLMProvider().displayName
     element.querySelectorAll<HTMLElement>('[data-ai-consent-provider]').forEach((node) => { node.textContent = providerName })
     element.querySelectorAll<HTMLElement>('[data-ai-consent-routing]').forEach((node) => { node.hidden = this.aiProvider.active !== 'openrouter' })
+    element.querySelectorAll<HTMLElement>('[data-ai-consent-jev]').forEach((node) => { node.hidden = !this.jev?.apiKey?.trim() })
 
     if (!element.open) element.showModal()
     requestAnimationFrame(() => {
@@ -135,12 +135,16 @@ export function hideAICoachConsent(this: AICoachConsentContext, { immediate = fa
     }, HIDE_FADE_MS)
 }
 
-export function promptAICoachConsent(this: AICoachConsentContext, nextAction: (() => void) | null = null): boolean {
+export function promptAICoachConsent(
+    this: AICoachConsentContext,
+    nextAction: (() => void) | null = null,
+    requirement: ConsentRequirement = {}
+): boolean {
     if (!this.aiCoachConsent.element) {
         this.initializeAICoachConsent()
     }
 
-    if (this.hasAICoachConsent()) {
+    if (this.hasAICoachConsent(requirement)) {
         if (typeof nextAction === 'function') {
             try { nextAction() } catch (error) { console.error('AI Coach consent follow-up failed:', error) }
         }
@@ -153,7 +157,13 @@ export function promptAICoachConsent(this: AICoachConsentContext, nextAction: ((
 }
 
 export function acceptAICoachConsent(this: AICoachConsentContext): void {
-    this.setAICoachConsent({ at: new Date().toISOString(), provider: this.aiProvider.active })
+    // v2 covers research data; JEV is named (and agreed to) only when its key is saved (spec D5).
+    this.setAICoachConsent({
+        at: new Date().toISOString(),
+        provider: this.aiProvider.active,
+        version: 2,
+        decision: this.jev?.apiKey?.trim() ? 'jev' : null
+    })
     const followUp = this.aiCoachConsent.pendingAction
     this.aiCoachConsent.pendingAction = null
     this.hideAICoachConsent()
@@ -171,9 +181,8 @@ export function cancelAICoachConsent(this: AICoachConsentContext): void {
 }
 
 /** Consent is per provider: switching provider sends data to a different party. */
-export function hasAICoachConsent(this: AICoachConsentContext): boolean {
-    const record = this.getAICoachConsent()
-    return Boolean(record && record.provider === this.aiProvider.active)
+export function hasAICoachConsent(this: AICoachConsentContext, requirement: ConsentRequirement = {}): boolean {
+    return consentSatisfies(this.getAICoachConsent(), this.aiProvider.active, requirement)
 }
 
 export function parseAICoachConsent(raw: string | null): AICoachConsentRecord | null {

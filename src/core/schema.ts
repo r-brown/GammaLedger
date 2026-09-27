@@ -217,8 +217,14 @@ export const AIProviderSelectionSchema = z.object({
 
 export const AICoachConsentSchema = z.object({
     at: z.string().min(1),
-    provider: z.enum(AI_PROVIDER_IDS)
+    provider: z.enum(AI_PROVIDER_IDS),
+    /** 2 = also covers position/watchlist research data (Ask Coach, AI Read, thesis drift). */
+    version: z.literal(2).optional(),
+    /** 'jev' when the user also agreed to send decision data to JEV (TypeSafe AI). */
+    decision: z.literal('jev').nullable().optional()
 }).strict();
+
+export type AICoachConsentRecord = z.infer<typeof AICoachConsentSchema>;
 
 export const EncryptedSecretSchema = z.object({
     iv: z.string().min(1),
