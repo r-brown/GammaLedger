@@ -33,6 +33,13 @@ export const OPENROUTER_APP_URL = 'https://gammaledger.com'
 export const OPENROUTER_APP_TITLE = 'GammaLedger'
 export const OPENROUTER_MAX_FALLBACK_MODELS = 2
 
+// JEV (TypeSafe AI) — optional typed-decision engine (AI Read, thesis drift, digest order).
+export const JEV_ENDPOINT = 'https://api.typesafe.ai/v1/systemone'
+export const JEV_DEFAULT_MODEL = 'jev-latest'
+/** JEV answers in 70–500 ms; a short budget keeps a stuck call from holding a panel. */
+export const JEV_REQUEST_TIMEOUT_MS = 15_000
+export const JEV_INPUT_USD_PER_MILLION = 0.042
+
 // ---------------------------------------------------------------------------
 // Config shape type
 // ---------------------------------------------------------------------------
@@ -68,6 +75,8 @@ interface AppConfigShape {
         readonly AI_PROVIDER: string
         readonly OPENROUTER_CONFIG: string
         readonly OPENROUTER_SECRET: string
+        readonly JEV_CONFIG: string
+        readonly JEV_SECRET: string
         readonly ACCOUNT_SIZE: string
         readonly LEGACY_KEYS: readonly string[]
     }
@@ -117,6 +126,8 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         AI_PROVIDER: 'GammaLedgerAIProvider',
         OPENROUTER_CONFIG: 'GammaLedgerOpenRouterConfig',
         OPENROUTER_SECRET: 'GammaLedgerOpenRouterSecret',
+        JEV_CONFIG: 'GammaLedgerJevConfig',
+        JEV_SECRET: 'GammaLedgerJevSecret',
         ACCOUNT_SIZE: 'GammaLedgerAccountSize',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
@@ -153,6 +164,8 @@ export const GEMINI_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.GEMINI_SECRE
 export const AI_PROVIDER_STORAGE_KEY: string = APP_CONFIG.STORAGE.AI_PROVIDER;
 export const OPENROUTER_STORAGE_KEY: string = APP_CONFIG.STORAGE.OPENROUTER_CONFIG;
 export const OPENROUTER_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.OPENROUTER_SECRET;
+export const JEV_STORAGE_KEY: string = APP_CONFIG.STORAGE.JEV_CONFIG;
+export const JEV_SECRET_STORAGE_KEY: string = APP_CONFIG.STORAGE.JEV_SECRET;
 export const ACCOUNT_SIZE_STORAGE_KEY: string = APP_CONFIG.STORAGE.ACCOUNT_SIZE;
 export const DISCLAIMER_STORAGE_KEY: string = APP_CONFIG.STORAGE.DISCLAIMER;
 export const AI_COACH_CONSENT_STORAGE_KEY: string = APP_CONFIG.STORAGE.AI_COACH_CONSENT;
