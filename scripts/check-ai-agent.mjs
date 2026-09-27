@@ -295,6 +295,10 @@ test('agent.buildChatRequest uses the coach layout and the user output cap', asy
     assert.equal(request.maxOutputTokens, 8192)
     const health = agent.buildChatRequest('Portfolio health', { promptType: 'portfolio_health' })
     assert.ok(health.messages.at(-1).content[0].text.includes('The numbers that matter'))
+    const scan = agent.buildChatRequest('WATCHLIST FACTS:\n{"entries":[{"ticker":"VEEV"}]}', { promptType: 'watchlist_scan' })
+    const last = scan.messages.at(-1).content[0].text
+    assert.ok(last.startsWith('Task: watchlist scan'))
+    assert.ok(last.endsWith('{"entries":[{"ticker":"VEEV"}]}'))
 })
 
 test('generateResponse: a user stop before any text says "Stopped." and never falls back to the local snapshot', async () => {

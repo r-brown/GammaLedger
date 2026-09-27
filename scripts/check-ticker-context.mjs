@@ -160,6 +160,54 @@ test('Ask Coach questions: open, closed and watchlist variants with a short disp
     assert.ok(wl.request.includes('"thesis":"Wait for a pullback under $190 before selling puts."'))
 })
 
+const scanInput = (t, entry, over = {}) => ({
+    ctx: t.buildTickerContext(baseInput({ ticker: entry.ticker, watchlistEntry: entry, ...over.ctx })),
+    earningsDate: null, drift: null, openPositions: 0, ...over.scan
+})
+
+test('watchlist scan: app-computed flags, rough order, cap and summary counts', async () => {
+    const t = await load('/src/ai/ticker-context.ts')
+    const scan = await load('/src/ai/watchlist-scan.ts')
+    const far = { ...ENTRY, ticker: 'FAR', rating: 5 }                                  // 214.3 vs 190 down: waiting
+    const hit = { ...ENTRY, ticker: 'HIT', rating: 2 }                                  // 188 ≤ 190: reached today (prev 212)
+    const near = { ...ENTRY, ticker: 'NEAR', rating: null, notes: '', targetPrice: 210 } // 214.3 is +2% above 210
+    const bare = { ticker: 'BARE', rating: null, notes: '', addedDate: '2026-01-02' }
+    const facts = scan.buildWatchlistScanFacts([
+        scanInput(t, far, { scan: { earningsDate: '2026-10-05', drift: { drifted: true, probability: 0.812 }, openPositions: 2 } }),
+        scanInput(t, hit, { ctx: { prices: { finnhub: 188 } } }),
+        scanInput(t, near),
+        scanInput(t, bare, { ctx: { prices: {}, metrics: null, signals: null } })
+    ], '2026-09-27')
+    assert.deepEqual(facts.entries.map(e => e.ticker), ['HIT', 'NEAR', 'FAR', 'BARE'])
+    const [h, n, f, b] = facts.entries
+    assert.deepEqual(h.flags, ['watch price reached today'])
+    assert.equal(h.watchPrice.waitingFor, 'price at or below level')
+    assert.deepEqual(n.flags, ['within 2% of watch price', 'no thesis'])
+    assert.deepEqual(f.flags, ['thesis may no longer fit', 'earnings in 8d', 'already 2 open positions'])
+    assert.deepEqual(f.thesisDrift, { flagged: true, probability: 0.81 })
+    assert.deepEqual(f.nextEarnings, { date: '2026-10-05', daysAway: 8 })
+    assert.deepEqual(f.scores, { risk: 'red', own: 'safe', balanceSheet: 'healthy', valuation: 'cheap' })
+    assert.deepEqual(b.flags, ['no watch price set', 'no current price', 'no thesis'])
+    assert.equal(b.price, undefined)
+    assert.deepEqual(facts.summary, { watched: 4, sent: 4, omitted: 0, watchPriceReached: 1, nearWatchPrice: 1, earningsWithin14d: 1, thesisDriftFlagged: 1, noPrice: 1 })
+    const json = scan.watchlistScanJson(facts)
+    assert.ok(!json.includes('null'))
+
+    const many = Array.from({ length: scan.MAX_SCAN_ENTRIES + 3 }, (_, i) => scanInput(t, { ...ENTRY, ticker: `T${i}` }))
+    const capped = scan.buildWatchlistScanFacts(many, '2026-09-27')
+    assert.equal(capped.entries.length, scan.MAX_SCAN_ENTRIES)
+    assert.equal(capped.summary.omitted, 3)
+})
+
+test('watchlist scan prompt: canned layout wraps the facts; the agent keeps its prompt type', async () => {
+    const p = await load('/src/ai/coach-prompts.ts')
+    const prompt = p.buildCoachRequestPrompt('watchlist_scan', 'WATCHLIST FACTS (compact JSON computed by GammaLedger):\n{"entries":[]}')
+    assert.ok(prompt.startsWith('Task: watchlist scan'))
+    assert.ok(prompt.includes('### Look at these first'))
+    assert.ok(prompt.includes('entry trigger, not a bullish or bearish view'))
+    assert.ok(prompt.endsWith('{"entries":[]}'))
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

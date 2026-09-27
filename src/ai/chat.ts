@@ -42,6 +42,8 @@ interface AIQuickPromptOptions {
     /** Short label shown in the user bubble instead of the (long) prompt. */
     displayText?: string | null
     consent?: ConsentRequirement
+    /** Extra facts sent with the request that the answer's numbers may also come from. */
+    groundingJson?: string | null
 }
 
 interface AIChatContext {
@@ -133,7 +135,7 @@ interface SanitizedDraftRow {
 }
 
 /** Canned prompts whose answers are checked against the snapshot they were built from. */
-const GROUNDED_PROMPTS = new Set(['portfolio_health', 'risk_check', 'strategy_ideas']);
+const GROUNDED_PROMPTS = new Set(['portfolio_health', 'risk_check', 'strategy_ideas', 'watchlist_scan']);
 
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024;
 const MAX_SCREENSHOT_DIMENSION = 1600;
@@ -1032,7 +1034,7 @@ export function toggleAIChat(this: AIChatContext, forceOpen: boolean | null = nu
 }
 
 /** Shared by typed questions and quick prompts: placeholder → streamed reply → final render. */
-async function runAIChatRequest(this: AIChatContext, query: string, promptType: string | null): Promise<void> {
+async function runAIChatRequest(this: AIChatContext, query: string, promptType: string | null, groundingJson: string | null = null): Promise<void> {
     const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
     // The question being asked is sent as the final request turn, so it is not part of the history.
     const historySnapshot = this.aiChatMessages
@@ -1062,7 +1064,7 @@ async function runAIChatRequest(this: AIChatContext, query: string, promptType: 
             return;
         }
         const trust = promptType && GROUNDED_PROMPTS.has(promptType) && reply.snapshotJson && !reply.stopped
-            ? groundAnswer(reply.text, reply.snapshotJson)
+            ? groundAnswer(reply.text, groundingJson ? `[${reply.snapshotJson},${groundingJson}]` : reply.snapshotJson)
             : null;
         this.appendAIChatMessage('ai', reply.text, { replaceId: placeholderId, pending: false, usage: reply.usage, model: reply.model, trust });
     } catch (error) {
@@ -1152,7 +1154,7 @@ export async function handleAIQuickPrompt(
     const display = options.displayText?.trim();
     this.appendAIChatMessage('user', display || prompt, { requestText: display ? prompt : null });
 
-    await runAIChatRequest.call(this, prompt, options.promptType || null);
+    await runAIChatRequest.call(this, prompt, options.promptType || null, options.groundingJson ?? null);
 }
 
 export function appendAIChatMessage(

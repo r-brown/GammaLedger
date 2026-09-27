@@ -3443,7 +3443,7 @@ select.form-control {
 }
 
 .ai-chat__panel {
-  width: 400px;
+  width: 460px;
   max-width: calc(100vw - var(--space-32));
   background-color: var(--color-surface);
   border: 1px solid var(--color-card-border);
@@ -3457,7 +3457,7 @@ select.form-control {
   position: relative;
   min-width: 300px;
   min-height: 400px;
-  height: 500px;
+  height: 600px;
   max-height: calc(100vh - var(--space-32));
 }
 
@@ -3790,6 +3790,8 @@ select.form-control {
 
 .ai-chat__input {
   flex: 1;
+  /* Lets the input shrink below its intrinsic width so Send stays inside the panel. */
+  min-width: 0;
   border: 1px solid var(--color-card-border);
   border-radius: var(--radius-base);
   padding: var(--space-12) var(--space-16);
@@ -3860,6 +3862,11 @@ select.form-control {
   background-color: rgba(var(--color-brand-purple-rgb), 0.16);
   color: var(--color-brand-purple-fg);
   transform: translateY(-1px);
+}
+
+.ai-chat__quick-btn[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.6;
 }
 
 .ai-chat__quick-btn:focus-visible {

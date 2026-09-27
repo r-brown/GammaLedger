@@ -3,7 +3,7 @@
 
 import type { LLMMessage } from '../integrations/llm/types.js'
 
-export type CoachPromptType = 'portfolio_health' | 'risk_check' | 'strategy_ideas' | 'chat'
+export type CoachPromptType = 'portfolio_health' | 'risk_check' | 'strategy_ideas' | 'watchlist_scan' | 'chat'
 
 export const COACH_SYSTEM_PROMPT = `You are a senior options trader and risk manager with 15+ years on a premium-selling desk, reviewing a fellow retail trader's book. Talk like a colleague across the desk: direct, plain, first person, no filler, no lecturing.
 
@@ -77,6 +77,26 @@ Answer in exactly this order:
 
 Keep prose under 300 words outside tables.`
 
+const WATCHLIST_SCAN = `Task: watchlist scan — which watched tickers need a close look now, most actionable first.
+
+How to read the WATCHLIST FACTS below:
+- watchPrice is the trader's entry trigger, not a bullish or bearish view. "price at or below level" means waiting for a pullback to that level, usually to then sell a cash-secured put or a bull put spread; "price at or above level" means waiting for the price to rise to it. reached says the price is there now, reachedToday that it got there today, priceVsLevelPct how far away it is.
+- flags, summary counts, day counts and scores are computed by the app: use them, do not recompute or recount them. entries are in the app's rough order; re-order them by your judgement.
+- aiVerdict and thesisDrift come from a separate model; treat them as one input, not a conclusion. rating is the trader's own 1–5 conviction.
+- openPositions means the trader already has exposure to that ticker (check the snapshot before suggesting more).
+- Actionable means: at or near the watch price with the thesis intact, or something that changes the plan (thesis drift, earnings before a new position would expire, a score turning red or "avoid").
+
+Answer in exactly this order:
+1. **Verdict:** one or two sentences — how many tickers deserve a look now and the single most actionable one.
+2. ### Look at these first
+   A table (# | Ticker | Why now | Next step), at most 6 rows, most actionable first. "Why now" cites the facts (watch price reached or its distance in %, earnings date, drift, scores, rating). "Next step" is one concrete action: for example check IV rank and sell a CSP near the watch price, wait until after earnings, re-read the thesis, move the watch price. If nothing is actionable, say so in one line instead of a table.
+3. ### Keep waiting
+   One short line naming the tickers that are still far from their watch price with nothing new, grouped rather than one line each.
+4. ### Watchlist hygiene
+   Up to three bullets: entries with no watch price, no thesis or no rating; long-held entries that never came close; tickers with no current price (the data could not be checked); omitted entries if summary.omitted is above 0.
+
+Do not invent prices, IV, dates or news. Keep prose under 250 words outside the table.`
+
 function chatPrompt(question: string): string {
     return `Question: ${question}
 
@@ -88,6 +108,7 @@ export function buildCoachRequestPrompt(type: CoachPromptType, question: string)
         case 'portfolio_health': return PORTFOLIO_HEALTH
         case 'risk_check': return RISK_CHECK
         case 'strategy_ideas': return STRATEGY_IDEAS
+        case 'watchlist_scan': return `${WATCHLIST_SCAN}\n\n${question}`
         default: return chatPrompt(question)
     }
 }

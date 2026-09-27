@@ -214,6 +214,7 @@ export class AIInsightsAgent {
         const promptType: CoachPromptType = options.promptType === 'portfolio_health'
             || options.promptType === 'risk_check'
             || options.promptType === 'strategy_ideas'
+            || options.promptType === 'watchlist_scan'
             ? options.promptType
             : 'chat';
         const snapshotJson = this.app.buildCoachContext();

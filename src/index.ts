@@ -132,6 +132,7 @@ import * as commandPaletteModule from './ui/command-palette.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
 import * as watchlistModule from './ui/watchlist.js';
 import * as askCoachModule from './ai/ask-coach.js';
+import * as watchlistScanModule from './ai/watchlist-scan.js';
 import * as aiReadModule from './ai/ai-read.js';
 import * as driftModule from './ai/watchlist-drift.js';
 import * as attentionDigestModule from './ai/attention.js';
@@ -1241,6 +1242,13 @@ class GammaLedger {
             button.addEventListener('click', () => {
                 const prompt = button.getAttribute('data-ai-prompt');
                 const promptType = button.getAttribute('data-ai-prompt-type') || null;
+                if (promptType === 'watchlist_scan') {
+                    if (this.aiChatPendingRequest || button.getAttribute('aria-busy') === 'true') return;
+                    // Missing prices and scores are fetched first (a few seconds at most).
+                    button.setAttribute('aria-busy', 'true');
+                    void this.askCoachWatchlistScan().finally(() => button.removeAttribute('aria-busy'));
+                    return;
+                }
                 if (prompt) {
                     this.handleAIQuickPrompt(prompt, { promptType });
                 }
@@ -1340,6 +1348,7 @@ class GammaLedger {
     isAIConfigured(): boolean { return askCoachModule.isAIConfigured.call(this); }
 
     askCoachAboutTicker(request) { return askCoachModule.askCoachAboutTicker.call(this, request); }
+    askCoachWatchlistScan() { return watchlistScanModule.askCoachWatchlistScan.call(this); }
 
     requestAIRead(ticker: string) { return aiReadModule.requestAIRead.call(this, ticker); }
 
