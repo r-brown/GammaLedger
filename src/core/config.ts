@@ -33,7 +33,7 @@ export const OPENROUTER_APP_URL = 'https://gammaledger.com'
 export const OPENROUTER_APP_TITLE = 'GammaLedger'
 export const OPENROUTER_MAX_FALLBACK_MODELS = 2
 
-// JEV (TypeSafe AI) typed decisions (AI verdict, thesis drift, digest order), served by OpenRouter's
+// JEV (TypeSafe AI) typed decisions (AI verdict, thesis drift), served by OpenRouter's
 // Decisions API with the user's OpenRouter key — no separate key.
 export const OPENROUTER_DECISIONS_ENDPOINT = 'https://openrouter.ai/api/alpha/decisions'
 /** Pinned; move to a newer JEV release deliberately (spec Open Risks: keep the schema strict). */

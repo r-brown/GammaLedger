@@ -97,7 +97,7 @@
                         AI endpoint.</li>
                     <li data-ai-consent-routing hidden>Prompts are routed through OpenRouter to the host of the model you picked.</li>
                     <li>When you use Ask Coach, the AI verdict or thesis checks, research data is sent too: current price, option quotes, fundamentals scores and your watchlist notes.</li>
-                    <li data-ai-consent-jev hidden>Quick typed decisions (AI verdict, thesis checks, digest order) are answered by JEV from TypeSafe AI, through OpenRouter with your OpenRouter key.</li>
+                    <li data-ai-consent-jev hidden>Quick typed decisions (AI verdict, thesis checks) are answered by JEV from TypeSafe AI, through OpenRouter with your OpenRouter key.</li>
                     <li>You can revoke access any time by clearing the AI key in Settings.</li>
                 </ul>
             </div>
@@ -220,7 +220,6 @@
             <!-- Enhanced Dashboard View with Integrated Analytics -->
             <div class="view dashboard-view active">
                 <section id="grouped-metrics" class="metric-grid" aria-label="Portfolio metrics"></section>
-                <section id="attention-digest" class="attention-digest" aria-label="Positions that need a look" hidden></section>
 
                 <section class="card dashboard-performance-trend">
                     <div class="card-header">
@@ -880,7 +879,7 @@
                                     <input id="openrouter-data-collection" type="checkbox" checked>
                                     <span>Only use providers that don't train on my data</span>
                                 </label>
-                                <p class="settings-help-text" id="jev-status" role="status">AI verdicts, thesis checks and digest order use JEV (TypeSafe AI) through this key: fast, calibrated and nearly free. No extra key needed.</p>
+                                <p class="settings-help-text" id="jev-status" role="status">AI verdicts and thesis checks use JEV (TypeSafe AI) through this key: fast, calibrated and nearly free. No extra key needed.</p>
                             </div>
 
                             <div id="gemini-controls" class="ai-provider-fields" data-ai-provider-fields="gemini" hidden>

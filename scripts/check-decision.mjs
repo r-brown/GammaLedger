@@ -185,46 +185,7 @@ test('drift: state only for a non-empty thesis; hash changes with the notes; 0.7
     assert.ok(d.DRIFT_QUESTIONS.drift.instructions.includes('not a bullish or bearish view'))
 })
 
-const RULE = (tradeId, severity, reasons, dte) => ({ tradeId, ticker: tradeId.split('-')[0], strategy: 'Cash-Secured Put', severity, dte, reasons })
-const DIGEST_TRADES = [
-    { tradeId: 'VEEV-1', ticker: 'VEEV', label: 'VEEV CSP P210 2026-10-16', dte: 20, rule: RULE('VEEV-1', 2, ['spot within 2% of short 210P'], 20), earningsInLife: { date: '2026-10-09', daysAway: 12 }, spreadPct: 7 },
-    { tradeId: 'TSLA-1', ticker: 'TSLA', label: 'TSLA BCS C300/310 2026-10-30', dte: 34, rule: RULE('TSLA-1', 3, ['short 300C ITM by $4.10'], 34), earningsInLife: null, spreadPct: 14 },
-    { tradeId: 'NVDA-1', ticker: 'NVDA', label: 'NVDA Long Call C150 2026-12-18', dte: 83, rule: null, earningsInLife: null, spreadPct: null },
-    { tradeId: 'XYZ-1', ticker: 'XYZ', label: 'XYZ CSP P50 2026-10-01', dte: 4, rule: RULE('XYZ-1', 2, ['expires in 4d'], 4), earningsInLife: null, spreadPct: null },
-    { tradeId: 'AMD-1', ticker: 'AMD', label: 'AMD CSP P140 2026-11-20', dte: 54, rule: null, earningsInLife: { date: '2026-10-01', daysAway: 4 }, spreadPct: null }
-]
-const DIGEST_STOCK = [{ ticker: 'CMCSA', coverage: 'uncovered' }, { ticker: 'KO', coverage: 'covered' }]
-
-test('selectAttentionItems: the table rules plus earnings, wide spread and uncovered shares, by severity then DTE', async () => {
-    const { selectAttentionItems } = await load('/src/ai/attention.ts')
-    const items = selectAttentionItems(DIGEST_TRADES, DIGEST_STOCK)
-    assert.deepEqual(items.map(i => [i.ticker, i.severity, i.reasons.map(r => r.kind)]), [
-        ['TSLA', 3, ['rule', 'wide-spread']],
-        ['XYZ', 2, ['rule']],                       // equal severity: nearer expiry first
-        ['VEEV', 2, ['rule', 'earnings']],          // earnings 12 days out adds a reason, not severity
-        ['AMD', 2, ['earnings']],                   // earnings in 4 days lifts it to "look today"
-        ['CMCSA', 1, ['uncovered-shares']]
-    ])
-    assert.equal(items[0].reasons[0].text, 'short 300C ITM by $4.10')   // the table dot's own wording
-    assert.ok(items.every(i => i.urgency === null))
-    assert.deepEqual(selectAttentionItems([], []), [])
-})
-
-test('urgency: one score question per item (max 10), pre-computed reasons only, ordering by JEV score', async () => {
-    const { selectAttentionItems, buildUrgencyRequest, orderByUrgency } = await load('/src/ai/attention.ts')
-    const items = selectAttentionItems(DIGEST_TRADES, DIGEST_STOCK)
-    const request = buildUrgencyRequest(items)
-    assert.deepEqual(Object.keys(request.questions), ['item_0', 'item_1', 'item_2', 'item_3', 'item_4'])
-    assert.deepEqual(request.questions.item_0.criteria, ['Fine for now', 'Watch this week', 'Act before expiry'])
-    assert.deepEqual(request.state.items[0], { position: 'TSLA BCS C300/310 2026-10-30', reasons: ['short 300C ITM by $4.10', 'bid/ask 14% of value: costly to exit'], dte: 34 })
-    const many = Array.from({ length: 14 }, (_, i) => ({ ...items[0], key: `k${i}` }))
-    assert.equal(Object.keys(buildUrgencyRequest(many).questions).length, 10)
-    const score = (s) => ({ type: 'score', score: s, confidence: 0.9, probabilities: {} })
-    const result = { engine: 'jev', calibrated: true, model: 'm', usage: {}, answers: { item_0: score(0.4), item_1: score(1.9), item_2: score(1.1), item_3: score(1.1), item_4: score(0.2) } }
-    assert.deepEqual(orderByUrgency(items, result).map(i => [i.ticker, i.urgency]), [['XYZ', 1.9], ['VEEV', 1.1], ['AMD', 1.1], ['TSLA', 0.4], ['CMCSA', 0.2]])
-})
-
-test('decideWithFallback jevOnly: never calls the LLM for the digest order', async () => {
+test('decideWithFallback jevOnly: never calls the LLM (automatic thesis checks)', async () => {
     const { decideWithFallback } = await load('/src/integrations/decision/registry.ts')
     let llmCalls = 0
     const llm = fakeLlm(() => { llmCalls += 1; return { text: '{}', provider: 'openrouter', model: 'm', usage: null } })

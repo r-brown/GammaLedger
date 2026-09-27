@@ -7136,20 +7136,39 @@ button.mtm-chip:hover, button.mtm-chip:focus-visible { filter: brightness(0.96);
 .position-status-dot--critical { background: var(--color-risk-critical); }
 .position-status-dot--warning { background: var(--color-risk-high); }
 .position-status-dot--notice { background: var(--color-risk-caution); }
+.position-status-dot:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.position-status-dot--mini { width: 8px; height: 8px; margin-top: 5px; flex-shrink: 0; cursor: inherit; }
 
-/* Dashboard — "Needs a look" attention digest (same severity colors as the dot) */
-.attention-digest { margin: var(--space-16) 0; padding: var(--space-12) var(--space-16); border: 1px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-surface); }
-.attention-digest[hidden] { display: none; }
-.attention-digest__title { margin: 0 0 var(--space-8); font-size: var(--font-size-md); }
-.attention-digest__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-6); }
-.attention-digest__item { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-6); font-size: var(--font-size-sm); }
-.attention-digest__dot { width: 8px; height: 8px; border-radius: var(--radius-full); flex-shrink: 0; }
-.attention-digest__item--act .attention-digest__dot { background: var(--color-risk-critical); }
-.attention-digest__item--look .attention-digest__dot { background: var(--color-risk-high); }
-.attention-digest__item--glance .attention-digest__dot { background: var(--color-risk-caution); }
-.attention-digest__label { font-variant-numeric: tabular-nums; }
-.attention-digest__reason { font-size: var(--font-size-xs); color: var(--color-text-secondary); background: var(--color-border); border-radius: var(--radius-sm); padding: 1px 6px; }
-.attention-digest__urgency { margin-left: auto; font-size: var(--font-size-xs); color: var(--color-text-secondary); }
+/* Status-dot popup: each finding with its reason and a suggested next step */
+.attention-popup {
+  position: fixed;
+  z-index: 9000;
+  width: max-content;
+  min-width: 260px;
+  max-width: 360px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 3px 10px rgba(0, 0, 0, 0.08);
+  padding: 12px 14px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+.attention-popup.is-visible { opacity: 1; }
+.attention-popup__header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-12); margin-bottom: var(--space-8); padding-bottom: var(--space-8); border-bottom: 1px solid var(--color-border); }
+.attention-popup__title { font-weight: var(--font-weight-bold); }
+.attention-popup__title--3 { color: var(--color-risk-critical); }
+.attention-popup__title--2 { color: var(--color-risk-high); }
+.attention-popup__title--1 { color: var(--color-text); }
+.attention-popup__position { font-size: var(--font-size-xs); color: var(--color-text-secondary); white-space: nowrap; }
+.attention-popup__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-10); }
+.attention-popup__finding { display: flex; gap: var(--space-8); align-items: flex-start; }
+.attention-popup__reason { font-weight: var(--font-weight-semibold); line-height: 1.35; }
+.attention-popup__action { color: var(--color-text-secondary); line-height: 1.4; margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .attention-popup { transition: none; } }
+
 
 /* ── Watchlist view ───────────────────────────────────────────── */
 .watchlist-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }

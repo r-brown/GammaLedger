@@ -208,6 +208,37 @@ test('watchlist scan prompt: canned layout wraps the facts; the agent keeps its 
     assert.ok(prompt.endsWith('{"entries":[]}'))
 })
 
+const ROW = (over = {}) => ({
+    tradeId: 'T1', ticker: 'VEEV', strategy: 'Cash-Secured Put', dte: 19, shortStrike: 210, flavor: 'put', spot: 214.3,
+    isShortPremium: true, netCredit: 620, unrealizedPL: 100, earnings: null, spreadPct: null, uncoveredShares: false, ...over
+})
+
+test('attention rules: every finding carries a reason and a next step; worst first; dot takes the worst', async () => {
+    const { evaluateAttention } = await load('/src/calculations/attention.ts')
+    const [item] = evaluateAttention([ROW({ spot: 200, earnings: { date: '2026-10-09', daysAway: 12 }, spreadPct: 14 })])
+    assert.equal(item.severity, 3)
+    assert.deepEqual(item.findings.map(f => [f.severity, f.reason]), [
+        [3, 'short 210P ITM by $10.00'],
+        [1, 'past the 21-DTE management point (19 DTE)'],
+        [1, 'earnings 2026-10-09 (in 12d), before expiry'],
+        [1, "bid/ask 14% of the position's value"]
+    ])
+    assert.ok(item.findings.every(f => f.action.length > 20))
+    assert.match(item.findings[0].action, /roll down and out for a net credit/)
+    assert.deepEqual(item.reasons, item.findings.map(f => f.reason))
+})
+
+test('attention rules: earnings inside 7 days is "look today"; after expiry or past it is ignored; uncovered shares', async () => {
+    const { evaluateAttention } = await load('/src/calculations/attention.ts')
+    const calm = { dte: 40, unrealizedPL: 0 }
+    assert.equal(evaluateAttention([ROW({ ...calm, earnings: { date: '2026-10-01', daysAway: 4 } })])[0].severity, 2)
+    assert.deepEqual(evaluateAttention([ROW({ ...calm, earnings: { date: '2026-12-01', daysAway: 65 } })]), [])
+    assert.deepEqual(evaluateAttention([ROW({ ...calm, spreadPct: 9 })]), [])
+    const [shares] = evaluateAttention([ROW({ ...calm, shortStrike: null, isShortPremium: false, uncoveredShares: true })])
+    assert.deepEqual(shares.findings.map(f => [f.severity, f.reason]), [[1, 'shares without a covered call']])
+    assert.match(shares.findings[0].action, /covered call/)
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

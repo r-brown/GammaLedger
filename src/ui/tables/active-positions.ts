@@ -60,18 +60,114 @@ const SEVERITY_DOT_CLASS: Record<number, string> = {
     1: 'position-status-dot--notice'
 }
 
+const SEVERITY_LABEL: Record<number, string> = {
+    3: 'Act now',
+    2: 'Look today',
+    1: 'Worth a glance'
+}
+
+function buildAttentionPopup(item: AttentionItem, trade: TradeRecord): HTMLElement {
+    const popup = document.createElement('div');
+    popup.className = 'attention-popup';
+    popup.setAttribute('role', 'tooltip');
+
+    const header = document.createElement('div');
+    header.className = 'attention-popup__header';
+    const title = document.createElement('span');
+    title.className = `attention-popup__title attention-popup__title--${item.severity}`;
+    title.textContent = SEVERITY_LABEL[item.severity];
+    header.appendChild(title);
+    const position = document.createElement('span');
+    position.className = 'attention-popup__position';
+    const dte = item.dte !== null ? ` · ${item.dte} DTE` : '';
+    position.textContent = `${item.ticker}${trade.strategy ? ` ${String(trade.strategy)}` : ''}${dte}`;
+    header.appendChild(position);
+    popup.appendChild(header);
+
+    const list = document.createElement('ul');
+    list.className = 'attention-popup__list';
+    for (const finding of item.findings) {
+        const li = document.createElement('li');
+        li.className = 'attention-popup__finding';
+        const dot = document.createElement('span');
+        dot.className = `position-status-dot position-status-dot--mini ${SEVERITY_DOT_CLASS[finding.severity]}`;
+        dot.setAttribute('aria-hidden', 'true');
+        const body = document.createElement('div');
+        const reason = document.createElement('div');
+        reason.className = 'attention-popup__reason';
+        reason.textContent = finding.reason;
+        const action = document.createElement('div');
+        action.className = 'attention-popup__action';
+        action.textContent = finding.action;
+        body.append(reason, action);
+        li.append(dot, body);
+        list.appendChild(li);
+    }
+    popup.appendChild(list);
+    return popup;
+}
+
+/** Hover/focus popup appended to <body> (grid cells clip overflow); created on show, removed on hide. */
+function attachHoverPopup(anchor: HTMLElement, build: () => HTMLElement): void {
+    let popup: HTMLElement | null = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    const cancelHide = () => { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; } };
+    const remove = () => { popup?.remove(); popup = null; };
+    const place = (el: HTMLElement) => {
+        const r = anchor.getBoundingClientRect();
+        let top = r.bottom + 8;
+        if (top + el.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - el.offsetHeight - 8);
+        const left = Math.max(8, Math.min(r.left - 8, window.innerWidth - el.offsetWidth - 8));
+        el.style.top = `${top}px`;
+        el.style.left = `${left}px`;
+    };
+    // Follows the dot while the page scrolls; a grid re-render can drop the dot without a
+    // mouseleave, so the popup goes with it.
+    const track = () => {
+        if (!popup) return;
+        if (!anchor.isConnected) { remove(); return; }
+        place(popup);
+        requestAnimationFrame(track);
+    };
+    const show = () => {
+        cancelHide();
+        if (popup || !anchor.isConnected) return;
+        document.querySelectorAll('.attention-popup').forEach(el => el.remove());
+        popup = build();
+        document.body.appendChild(popup);
+        place(popup);
+        popup.classList.add('is-visible');
+        popup.addEventListener('mouseenter', cancelHide);
+        popup.addEventListener('mouseleave', hide);
+        requestAnimationFrame(track);
+    };
+    function hide(): void {
+        cancelHide();
+        hideTimer = setTimeout(remove, 120);
+    }
+    anchor.addEventListener('mouseenter', show);
+    anchor.addEventListener('mouseleave', hide);
+    anchor.addEventListener('focus', show);
+    anchor.addEventListener('blur', hide);
+    anchor.addEventListener('keydown', (event) => { if (event.key === 'Escape') remove(); });
+}
+
 function createAttentionCell(
     attentionMap: Map<string, AttentionItem>,
     params: ICellRendererParams<TradeRecord>
 ): HTMLElement {
     const cell = document.createElement('div');
     cell.className = 'position-status-cell';
-    const tradeId = params.data ? String(params.data.id ?? '') : '';
+    const trade = params.data;
+    const tradeId = trade ? String(trade.id ?? '') : '';
     const item = tradeId ? attentionMap.get(tradeId) : undefined;
-    if (item) {
+    if (item && trade) {
         const dot = document.createElement('span');
         dot.className = `position-status-dot ${SEVERITY_DOT_CLASS[item.severity]}`;
-        dot.title = item.reasons.join(' · ');
+        dot.tabIndex = 0;
+        dot.setAttribute('role', 'img');
+        dot.setAttribute('aria-label', `${SEVERITY_LABEL[item.severity]}: ${item.reasons.join('; ')}`);
+        attachHoverPopup(dot, () => buildAttentionPopup(item, trade));
         cell.appendChild(dot);
     }
     return cell;
@@ -306,7 +402,7 @@ function buildActivePositionsColumnDefs(
         {
             colId: 'attention',
             headerName: '',
-            headerTooltip: 'Needs attention today — hover a dot for details',
+            headerTooltip: 'Needs attention: hover a dot for the findings and suggested next steps',
             width: 25,
             // The grid's defaultColDef sets minWidth: 90 for every column;
             // without this override that floor wins and `width` above is

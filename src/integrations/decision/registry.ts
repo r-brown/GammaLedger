@@ -57,7 +57,7 @@ const JEV_UNAVAILABLE: ReadonlySet<string> = new Set(['network', 'timeout', 'htt
 
 /**
  * Decides with the current engine; when JEV is unavailable it is disabled for the session and the
- * question is retried once on the LLM. With `jevOnly`, nothing but JEV is ever called (digest order).
+ * question is retried once on the LLM. With `jevOnly`, nothing but JEV is ever called (automatic thesis checks).
  */
 export async function decideWithFallback<K extends string>(
     ctx: DecisionContext,

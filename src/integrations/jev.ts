@@ -15,7 +15,7 @@ export function refreshJevStatus(this: JevStatusContext): void {
     if (!status) return
     const reachable = this.jev.reachable
     status.textContent = reachable
-        ? 'AI verdicts, thesis checks and digest order use JEV (TypeSafe AI) through this key: fast, calibrated and nearly free. No extra key needed.'
+        ? 'AI verdicts and thesis checks use JEV (TypeSafe AI) through this key: fast, calibrated and nearly free. No extra key needed.'
         : 'JEV couldn\'t answer this session, so AI verdicts and thesis checks use your OpenRouter model instead (uncalibrated). Reload to try JEV again.'
     status.classList.toggle('is-error', !reachable)
 }
