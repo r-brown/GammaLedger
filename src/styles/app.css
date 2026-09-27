@@ -3608,6 +3608,11 @@ select.form-control {
   display: none;
 }
 
+.ai-chat__stop[hidden],
+.ai-chat__send[hidden] {
+  display: none;
+}
+
 .ai-chat__bubble p {
   margin: 0 0 var(--space-8);
 }

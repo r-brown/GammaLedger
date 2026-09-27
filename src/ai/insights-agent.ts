@@ -43,6 +43,7 @@ export interface AIGenerateOptions {
     history?: ChatMessage[]
     promptType?: string | null
     onDelta?: LLMDeltaHandler
+    signal?: AbortSignal
 }
 
 export interface AIReply {
@@ -50,6 +51,10 @@ export interface AIReply {
     usage: LLMUsage | null
     model: string | null
     provider: LLMProviderId | null
+    /** The exact snapshot the request carried; the grounding check reads this, never a rebuilt one. */
+    snapshotJson: string | null
+    /** True when the user pressed Stop. */
+    stopped?: boolean
 }
 
 interface DraftLegImageInput {
@@ -58,7 +63,7 @@ interface DraftLegImageInput {
     metadata?: Record<string, unknown>
 }
 
-const localReply = (text: string): AIReply => ({ text, usage: null, model: null, provider: null });
+const localReply = (text: string): AIReply => ({ text, usage: null, model: null, provider: null, snapshotJson: null });
 
 export class AIInsightsAgent {
     app: AIAppInterface
@@ -118,7 +123,7 @@ export class AIInsightsAgent {
         let streamed = '';
         try {
             await provider.prepare();
-            const request = this.buildChatRequest(prompt, options);
+            const { request, snapshotJson } = this.buildChatRequestWithSnapshot(prompt, options);
             const onDelta = options.onDelta;
             const response: LLMResponse = onDelta
                 ? await provider.stream(request, (text) => {
@@ -127,14 +132,19 @@ export class AIInsightsAgent {
                 })
                 : await provider.complete(request);
             if (response.text) {
-                return { text: response.text, usage: response.usage, model: response.model, provider: response.provider };
+                return { text: response.text, usage: response.usage, model: response.model, provider: response.provider, snapshotJson };
             }
             throw new LLMError('bad_response', 'empty reply');
         } catch (error) {
+            // A user Stop is not a failure: keep what streamed, never fall back to the local snapshot.
+            if (error instanceof LLMError && error.kind === 'aborted') {
+                const partial = streamed.trim();
+                return { text: partial ? `${partial}\n\n_(Stopped.)_` : 'Stopped.', usage: null, model: null, provider: provider.id, snapshotJson: null, stopped: true };
+            }
             console.warn(`${provider.displayName} request failed:`, error);
             const reason = describeLLMError(error, provider.displayName);
             if (streamed.trim()) {
-                return { text: `${streamed.trim()}\n\n_(Response interrupted: ${reason})_`, usage: null, model: null, provider: provider.id };
+                return { text: `${streamed.trim()}\n\n_(Response interrupted: ${reason})_`, usage: null, model: null, provider: provider.id, snapshotJson: null };
             }
             const fallback = this.fallback.generateResponse(query);
             if (fallback) {
@@ -200,21 +210,25 @@ export class AIInsightsAgent {
         return request;
     }
 
-    buildChatRequest(question: string, options: AIGenerateOptions = {}): LLMRequest {
+    buildChatRequestWithSnapshot(question: string, options: AIGenerateOptions = {}): { request: LLMRequest; snapshotJson: string } {
         const promptType: CoachPromptType = options.promptType === 'portfolio_health'
             || options.promptType === 'risk_check'
             || options.promptType === 'strategy_ideas'
             ? options.promptType
             : 'chat';
+        const snapshotJson = this.app.buildCoachContext();
         return {
-            messages: buildCoachMessages({
-                snapshotJson: this.app.buildCoachContext(),
-                history: options.history || [],
-                question,
-                promptType
-            }),
-            maxOutputTokens: this.maxOutputTokens(),
-            temperature: Number(DEFAULT_GEMINI_TEMPERATURE.toFixed(2))
+            snapshotJson,
+            request: {
+                messages: buildCoachMessages({ snapshotJson, history: options.history || [], question, promptType }),
+                maxOutputTokens: this.maxOutputTokens(),
+                temperature: Number(DEFAULT_GEMINI_TEMPERATURE.toFixed(2)),
+                signal: options.signal
+            }
         };
+    }
+
+    buildChatRequest(question: string, options: AIGenerateOptions = {}): LLMRequest {
+        return this.buildChatRequestWithSnapshot(question, options).request;
     }
 }

@@ -103,6 +103,7 @@ export interface AppState {
   aiChatPendingRequest: Promise<unknown> | null
   aiChatOpen: boolean
   aiChatStreamFrame: number | null
+  aiChatAbortController: AbortController | null
   accountSize: number | null
 
   // ---- Quotes ----

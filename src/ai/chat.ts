@@ -33,6 +33,8 @@ interface AIChatContext {
     aiChatMessages: ChatMessage[]
     aiChatSessionId: number | null
     aiChatPendingRequest: boolean | Promise<unknown> | null
+    aiChatAbortController: AbortController | null
+    updateAIChatComposer(): void
     aiChatOpen: boolean
     aiChatStreamFrame: number | null
     updateAIChatStreamingMessage(id: string, text: string): void
@@ -123,7 +125,7 @@ const SUPPORTED_SCREENSHOT_TYPES = new Set([
 ]);
 
 function normalizeAIReply(reply: AIReply | string): AIReply {
-    return typeof reply === 'string' ? { text: reply, usage: null, model: null, provider: null } : reply;
+    return typeof reply === 'string' ? { text: reply, usage: null, model: null, provider: null, snapshotJson: null } : reply;
 }
 
 function dataUrlToBase64(dataUrl: string): string {
@@ -923,6 +925,7 @@ export function initializeAIChat(this: AIChatContext): void {
         openTrades: (snapshot as { openTradesList?: unknown[] }).openTradesList
     });
 
+    this.aiChatAbortController?.abort();
     this.aiChatSessionId = Date.now();
     this.aiChatMessages = [];
     this.aiChatPendingRequest = false;
@@ -977,7 +980,10 @@ async function runAIChatRequest(this: AIChatContext, query: string, promptType: 
     const sessionId = this.aiChatSessionId;
     const isCurrentSession = () => this.aiChatSessionId === sessionId;
 
+    const controller = new AbortController();
+    this.aiChatAbortController = controller;
     this.aiChatPendingRequest = true;
+    this.updateAIChatComposer();
 
     try {
         const onDelta = (text: string) => {
@@ -986,7 +992,7 @@ async function runAIChatRequest(this: AIChatContext, query: string, promptType: 
             }
         };
         const reply = this.aiAgent
-            ? normalizeAIReply(await this.aiAgent.generateResponse(query, { history: historySnapshot, promptType, onDelta }))
+            ? normalizeAIReply(await this.aiAgent.generateResponse(query, { history: historySnapshot, promptType, onDelta, signal: controller.signal }))
             : normalizeAIReply('AI assistant is unavailable at the moment.');
         // A provider switch or key change mid-reply starts a new session; drop the late answer.
         if (!isCurrentSession()) {
@@ -1001,10 +1007,28 @@ async function runAIChatRequest(this: AIChatContext, query: string, promptType: 
         const fallback = `Sorry, I could not reach ${providerName} right now.`;
         this.appendAIChatMessage('ai', `${fallback} ${describeLLMError(error, providerName)}`, { replaceId: placeholderId, pending: false });
     } finally {
+        if (this.aiChatAbortController === controller) {
+            this.aiChatAbortController = null;
+        }
         this.aiChatPendingRequest = false;
+        this.updateAIChatComposer();
         const input = document.getElementById('ai-chat-input') as HTMLInputElement | null;
         input?.focus();
     }
+}
+
+/** Aborts the in-flight AI Coach request; the agent turns it into "Stopped.". */
+export function stopAIChatRequest(this: AIChatContext): void {
+    this.aiChatAbortController?.abort();
+}
+
+/** Swaps Send for Stop while a reply is in flight. */
+export function updateAIChatComposer(this: AIChatContext): void {
+    const stop = document.getElementById('ai-chat-stop');
+    const send = document.querySelector<HTMLElement>('#ai-chat-form .ai-chat__send');
+    const pending = Boolean(this.aiChatPendingRequest) && this.aiChatAbortController !== null;
+    if (stop) stop.hidden = !pending;
+    if (send) send.hidden = pending;
 }
 
 export async function handleAIChatSubmit(this: AIChatContext): Promise<void> {

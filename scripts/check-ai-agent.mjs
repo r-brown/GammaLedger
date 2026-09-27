@@ -124,7 +124,7 @@ test('generateResponse returns text, usage and answering model', async () => {
     const usage = { inputTokens: 10, outputTokens: 4, costUsd: 0.001 }
     const { provider } = fakeProvider({ complete: async () => ({ text: 'All good', provider: 'openrouter', model: 'vendor/model-b', usage }) })
     const reply = await agentWith(AIInsightsAgent, provider).generateResponse('How am I doing?', {})
-    assert.deepEqual(reply, { text: 'All good', usage, model: 'vendor/model-b', provider: 'openrouter' })
+    assert.deepEqual(reply, { text: 'All good', usage, model: 'vendor/model-b', provider: 'openrouter', snapshotJson: SNAPSHOT })
 })
 
 test('generateResponse answers locally when the provider is not configured', async () => {
@@ -295,6 +295,30 @@ test('agent.buildChatRequest uses the coach layout and the user output cap', asy
     assert.equal(request.maxOutputTokens, 8192)
     const health = agent.buildChatRequest('Portfolio health', { promptType: 'portfolio_health' })
     assert.ok(health.messages.at(-1).content[0].text.includes('The numbers that matter'))
+})
+
+test('generateResponse: a user stop before any text says "Stopped." and never falls back to the local snapshot', async () => {
+    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
+    const { LLMError } = await load('/src/integrations/llm/types.ts')
+    const { provider, calls } = fakeProvider({ stream: async () => { throw new LLMError('aborted', 'Request cancelled') } })
+    const controller = new AbortController()
+    const reply = await agentWith(AIInsightsAgent, provider).generateResponse('hi', { onDelta: () => {}, signal: controller.signal })
+    assert.equal(reply.text, 'Stopped.')
+    assert.equal(reply.stopped, true)
+    assert.equal(calls.find(c => c.type === 'stream').request.signal, controller.signal)
+})
+test('generateResponse: a stop mid-stream keeps the partial text', async () => {
+    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
+    const { LLMError } = await load('/src/integrations/llm/types.ts')
+    const { provider } = fakeProvider({ stream: async (_r, onDelta) => { onDelta('Half an answer'); throw new LLMError('aborted', 'Request cancelled') } })
+    const reply = await agentWith(AIInsightsAgent, provider).generateResponse('hi', { onDelta: () => {} })
+    assert.equal(reply.text, 'Half an answer\n\n_(Stopped.)_')
+})
+test('generateResponse returns the snapshot string the request was built from', async () => {
+    const { AIInsightsAgent } = await load('/src/ai/insights-agent.ts')
+    const { provider } = fakeProvider({ complete: async () => ({ text: 'ok', provider: 'openrouter', model: 'm', usage: null }) })
+    const reply = await agentWith(AIInsightsAgent, provider).generateResponse('hi', { promptType: 'risk_check' })
+    assert.equal(reply.snapshotJson, SNAPSHOT)
 })
 
 // ── run ──────────────────────────────────────────────────────────────────────

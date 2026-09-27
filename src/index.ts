@@ -177,6 +177,7 @@ class GammaLedger {
     declare aiChatPendingRequest: boolean
     declare aiChatOpen: boolean
     declare aiChatStreamFrame: number | null
+    declare aiChatAbortController: AbortController | null
     declare accountSize: number | null
     declare aiDraftImport: Record<string, unknown> | null
     declare activeQuoteEntries: Map<string, unknown>
@@ -364,6 +365,7 @@ class GammaLedger {
         this.aiChatPendingRequest = false;
         this.aiChatOpen = false;
         this.aiChatStreamFrame = null;
+        this.aiChatAbortController = null;
         this.accountSize = null;
         this.aiDraftImport = null;
 
@@ -1210,6 +1212,7 @@ class GammaLedger {
                 this.handleAIChatSubmit();
             });
         }
+        document.getElementById('ai-chat-stop')?.addEventListener('click', () => this.stopAIChatRequest());
 
         document.querySelectorAll('.ai-chat__quick-btn').forEach(button => {
             button.addEventListener('click', () => {
@@ -1308,6 +1311,10 @@ class GammaLedger {
     updateAIChatStreamingMessage(id, text) { return aiChatModule.updateAIChatStreamingMessage.call(this, id, text); }
 
     renderAIChatMessages() { return aiChatModule.renderAIChatMessages.call(this); }
+
+    stopAIChatRequest() { return aiChatModule.stopAIChatRequest.call(this); }
+
+    updateAIChatComposer() { return aiChatModule.updateAIChatComposer.call(this); }
 
     renderMarkdownToHTML(markdown = '') { return dom.renderMarkdownToHTML(markdown); }
 
