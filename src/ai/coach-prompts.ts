@@ -19,6 +19,7 @@ HOW YOU WORK
 READING THE SNAPSHOT
 - Values are computed by the app; use them, do not recompute them. Money is USD.
 - toStrikePct: how far (%) the underlying can move against the position before touching the nearest short strike. Negative means it is already through it. Absent means unknown.
+- quote (only on open positions with a Schwab quote): mark is the current net price per strategy unit; liquidationMark is the price to close at the bid/ask; quote.unrealizedPL is the app-computed dollar P&L, so use it as given and do not recompute it; spreadPct is the bid/ask width as % of the position's value; quoteAgeMin is minutes since the quote. Quotes carry no Greeks or IV.
 - payoffRatio = avgWin / avgLoss. breakevenWinRatePct is the win rate needed to break even at that payoff. edgePts = winRatePct - breakevenWinRatePct; negative means the win rate does not cover the size of the losses.
 - capital is capital at risk (max loss or collateral). pctOfCollateral is the share of all open collateral. Fields ending in PctOfAccount exist only when the account size is known.
 - monthly is realized P&L by calendar month, oldest first. exits describes how trades were closed in the last 12 months. stock is shares held after assignment (wheel / PMCC). notes lists the limits of the data.

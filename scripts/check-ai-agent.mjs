@@ -279,7 +279,7 @@ test('request prompts carry their layout; free-form does not reuse the health te
 
 test('system prompt states the honesty, formatting and field-reading rules', async () => {
     const { COACH_SYSTEM_PROMPT: p } = await load('/src/ai/coach-prompts.ts')
-    for (const needle of ['Never invent', 'realized P&L', 'toStrikePct', 'payoffRatio', 'breakevenWinRatePct', 'edgePts', '█', '░', '▁▂▃▄▅▆▇█', 'fenced code block', 'not financial advice']) assert.ok(p.includes(needle), needle)
+    for (const needle of ['Never invent', 'realized P&L', 'toStrikePct', 'payoffRatio', 'breakevenWinRatePct', 'edgePts', '█', '░', '▁▂▃▄▅▆▇█', 'fenced code block', 'not financial advice', 'quote.unrealizedPL']) assert.ok(p.includes(needle), needle)
     assert.ok(!/live (prices|IV) (are|is) available/i.test(p))
 })
 
