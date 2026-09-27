@@ -132,6 +132,7 @@ import * as commandPaletteModule from './ui/command-palette.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
 import * as watchlistModule from './ui/watchlist.js';
 import * as askCoachModule from './ai/ask-coach.js';
+import * as aiReadModule from './ai/ai-read.js';
 
 
 class GammaLedger {
@@ -177,6 +178,8 @@ class GammaLedger {
     declare aiProvider: { active: LLMProviderId; maxOutputTokens: number }
     declare openRouter: OpenRouterState
     declare jev: JevState
+    declare aiReadCache: Map<string, import('./types/ai.js').AIReadView | 'loading' | 'error'>
+    declare aiReadPromiseMap: Map<string, Promise<import('./types/ai.js').AIReadView | null>>
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
@@ -366,6 +369,8 @@ class GammaLedger {
         };
 
         this.jev = { apiKey: null, encryptionKey: null, reachable: true, statusTimeoutId: null, elements: {} };
+        this.aiReadCache = new Map();
+        this.aiReadPromiseMap = new Map();
 
         this.aiAgent = new AIInsightsAgent(this as unknown as ConstructorParameters<typeof AIInsightsAgent>[0]);
         this.aiChatMessages = [];
@@ -1332,6 +1337,10 @@ class GammaLedger {
 
     askCoachAboutTicker(request) { return askCoachModule.askCoachAboutTicker.call(this, request); }
 
+    requestAIRead(ticker: string) { return aiReadModule.requestAIRead.call(this, ticker); }
+
+    getCachedAIRead(ticker: string) { return aiReadModule.getCachedAIRead.call(this, ticker); }
+
     updateAIChatComposer() { return aiChatModule.updateAIChatComposer.call(this); }
 
     renderMarkdownToHTML(markdown = '') { return dom.renderMarkdownToHTML(markdown); }
@@ -1539,6 +1548,7 @@ class GammaLedger {
     /** Re-renders every passive AI view after consent, keys or reachability change. */
     refreshAIDecisionViews() {
         jevModule.refreshJevStatus.call(this);
+        this.aiReadCache.clear();
         this.updateDashboard();
         if (this.currentView === 'watchlist') this.renderWatchlistView();
     }

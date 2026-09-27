@@ -468,6 +468,61 @@ export function renderAskCoachButton(panelEl: HTMLElement, context: PositionDeta
 }
 
 // ---------------------------------------------------------------------------
+// AI Read pill (28) with its trust line (04)
+// ---------------------------------------------------------------------------
+
+const AI_READ_STYLE: Record<AIReadView['display'], { emoji: string; label: string; cls: string }> = {
+  bullish: { emoji: '🟢', label: 'AI Read', cls: 'pdp-score-pill pdp-score-pill--bull' },
+  neutral: { emoji: '🟡', label: 'AI Read', cls: 'pdp-score-pill pdp-score-pill--neut' },
+  bearish: { emoji: '🔴', label: 'AI Read', cls: 'pdp-score-pill pdp-score-pill--bear' },
+  mixed: { emoji: '🟡', label: 'AI Read: mixed', cls: 'pdp-score-pill pdp-score-pill--neut' }
+}
+
+function renderAIReadPill(slot: HTMLElement, view: AIReadView, context: PositionDetailPanelContext, request: AskCoachRequest): void {
+  slot.textContent = ''
+  const style = AI_READ_STYLE[view.display]
+  const pill = el('span', `${style.cls} pdp-score-pill--ai`)
+  pill.appendChild(txt(`${style.emoji} ${style.label}`))
+  slot.appendChild(pill)
+  const pct = (p: number | undefined) => `${Math.round((p ?? 0) * 100)}%`
+  const trust = view.calibrated && view.confidence !== null
+    ? `${view.band} confidence (${pct(view.confidence)}), calibrated by JEV`
+    : 'Single-model judgment (uncalibrated)'
+  attachScorePillTooltip(
+    pill,
+    'AI Read',
+    'A judgment on how the four scores, momentum and the news/insider/analyst signals add up for selling premium over the next 30–45 days. Advisory only.',
+    [
+      { label: 'Bullish / Neutral / Bearish', value: `${pct(view.probabilities.bullish)} / ${pct(view.probabilities.neutral)} / ${pct(view.probabilities.bearish)}` },
+      { label: 'Trust', value: trust },
+      { label: 'Engine', value: `${view.engine === 'jev' ? 'JEV' : 'AI provider'} · ${view.model}` },
+      { label: 'Facts sent', value: 'Price, 4 scores, momentum, analyst/insider/earnings counts, 3 headlines' }
+    ],
+    [
+      { label: '🟡 AI Read: mixed', value: 'JEV\'s confidence is below 50%: no clear read' },
+      { label: 'As of', value: view.asOf }
+    ]
+  )
+  if (context.askCoachAboutTicker && context.isAIConfigured?.()) {
+    const why = el('button', 'pdp-ai-why') as HTMLButtonElement
+    why.type = 'button'
+    why.appendChild(txt('Ask Coach why'))
+    why.title = 'Ask the AI Coach to explain this read'
+    why.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); context.askCoachAboutTicker?.(request) })
+    slot.appendChild(why)
+  }
+}
+
+/** Fetches (or reuses) the AI Read and paints it; renders nothing without consent + engine (G2). */
+export function renderAIRead(panelEl: HTMLElement, context: PositionDetailPanelContext, request: AskCoachRequest): void {
+  const slot = panelEl.querySelector<HTMLElement>('[data-role="ai-read"]')
+  if (!slot || !context.requestAIRead) return
+  void context.requestAIRead(request.ticker).then((view) => {
+    if (view && slot.isConnected) renderAIReadPill(slot, view, context, request)
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Column renderers
 // ---------------------------------------------------------------------------
 
@@ -1385,6 +1440,7 @@ export function createPositionDetailPanelRenderer(
         : (typeof trade.strikePrice === 'number' ? trade.strikePrice : null)
       triggerDataFetch(context, ticker, this.container, activeStrike, threeCol)
       renderAskCoachButton(this.container, context, { ticker, trade })
+      renderAIRead(this.container, context, { ticker, trade })
 
       if (tradeBreakdown) {
         const tbCard = this.container.querySelector('[data-role="trade-breakdown"]') as HTMLElement | null

@@ -2979,6 +2979,9 @@ select.form-control {
 .pdp-header-scores { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; flex-wrap: wrap; }
 .pdp-header-ai, .pdp-header-actions { display: flex; align-items: center; gap: var(--space-6); flex-shrink: 0; }
 .pdp-header-ai:empty, .pdp-header-actions:empty { display: none; }
+.pdp-ai-why { border: 0; background: none; color: var(--color-primary); font-size: var(--font-size-xs); cursor: pointer; padding: 0 var(--space-4); }
+.pdp-ai-why:hover { text-decoration: underline; }
+.pdp-ai-why:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 .pdp-score-pill { font-size: 10px; font-weight: var(--font-weight-semibold); padding: 2px 8px; border-radius: 10px; white-space: nowrap; cursor: default; }
 .pdp-score-pill--bull { background: #dcfce7; color: #15803d; }
 .pdp-score-pill--neut { background: var(--color-border); color: var(--color-text-secondary); }

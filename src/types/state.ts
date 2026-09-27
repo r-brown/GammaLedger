@@ -120,6 +120,8 @@ export interface AppState {
   aiProvider: { active: import('../core/config').AIProviderId; maxOutputTokens: number }
   openRouter: OpenRouterState
   jev: JevState
+  aiReadCache: Map<string, import('./ai').AIReadView | 'loading' | 'error'>
+  aiReadPromiseMap: Map<string, Promise<import('./ai').AIReadView | null>>
 
   // ---- Finnhub enrichment caches ----
   /** ticker → earliest upcoming earnings entry within any open position's expiration window. Populated once on init(). */

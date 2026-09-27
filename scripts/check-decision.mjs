@@ -134,6 +134,21 @@ test('JevConfigSchema: encrypted payload or plaintext fallback, version 1, stric
     assert.equal(parseJevConfig(null), null)
 })
 
+test('AI Read: state excludes position/watchlist; JEV below 0.5 confidence reads "mixed"', async () => {
+    const { buildAIReadState, toAIReadView, AI_READ_QUESTIONS, aiReadCacheKey } = await load('/src/ai/ai-read.ts')
+    assert.deepEqual(Object.keys(AI_READ_QUESTIONS.read.criteria), ['bullish', 'neutral', 'bearish'])
+    const state = buildAIReadState({ ticker: 'VEEV', asOf: '2026-09-27', price: 214, priceSource: 'finnhub', momentum: { d5Pct: 1, w13Pct: 2, w52Pct: 3 }, scores: { risk: { grade: 'green', detail: 'x' } }, signals: { headlines: ['h'] }, position: { pos: 'p' }, watchlist: { thesis: 't' }, aiRead: null })
+    assert.deepEqual(Object.keys(state).sort(), ['asOf', 'momentum', 'price', 'scores', 'signals', 'ticker'])
+    const jev = (confidence) => ({ engine: 'jev', calibrated: true, model: 'jev-1', usage: {}, answers: { read: { type: 'choice', choice: 'bullish', confidence, probabilities: { bullish: 0.45, neutral: 0.35, bearish: 0.2 } } } })
+    assert.equal(toAIReadView(jev(0.3), '2026-09-27').display, 'mixed')
+    assert.equal(toAIReadView(jev(0.3), '2026-09-27').band, 'low')
+    const clear = toAIReadView(jev(0.93), '2026-09-27')
+    assert.deepEqual({ grade: clear.grade, display: clear.display, band: clear.band }, { grade: 'bullish', display: 'bullish', band: 'high' })
+    const llm = toAIReadView({ ...jev(null), engine: 'llm', calibrated: false }, '2026-09-27')
+    assert.deepEqual({ display: llm.display, band: llm.band, confidence: llm.confidence }, { display: 'bullish', band: null, confidence: null })
+    assert.equal(aiReadCacheKey('veev', '2026-09-27', 'jev'), 'VEEV|2026-09-27|jev')
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0
