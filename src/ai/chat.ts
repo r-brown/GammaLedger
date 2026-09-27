@@ -4,7 +4,9 @@
 import type { DraftLegExtraction } from './draft-leg-extraction.js'
 import type { AIReply } from './insights-agent.js'
 import { describeLLMError, type LLMProvider, type LLMUsage } from '../integrations/llm/types.js'
-import { formatReplyUsage, summarizeSessionUsage } from './usage-format.js'
+import { formatGroundingBadge, formatReplyUsage, summarizeSessionUsage } from './usage-format.js'
+import { groundAnswer } from './grounding.js'
+import type { GroundingResult } from '../types/ai.js'
 
 interface ChatMessage {
     id: string
@@ -15,6 +17,8 @@ interface ChatMessage {
     streaming?: boolean
     usage?: LLMUsage | null
     model?: string | null
+    /** Numeric grounding of a canned-prompt answer (roadmap 10/04). */
+    trust?: GroundingResult | null
 }
 
 interface AIAgent {
@@ -113,6 +117,9 @@ interface SanitizedDraftRow {
     warnings: string[]
     rawText: string
 }
+
+/** Canned prompts whose answers are checked against the snapshot they were built from. */
+const GROUNDED_PROMPTS = new Set(['portfolio_health', 'risk_check', 'strategy_ideas']);
 
 const MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024;
 const MAX_SCREENSHOT_DIMENSION = 1600;
@@ -998,7 +1005,10 @@ async function runAIChatRequest(this: AIChatContext, query: string, promptType: 
         if (!isCurrentSession()) {
             return;
         }
-        this.appendAIChatMessage('ai', reply.text, { replaceId: placeholderId, pending: false, usage: reply.usage, model: reply.model });
+        const trust = promptType && GROUNDED_PROMPTS.has(promptType) && reply.snapshotJson && !reply.stopped
+            ? groundAnswer(reply.text, reply.snapshotJson)
+            : null;
+        this.appendAIChatMessage('ai', reply.text, { replaceId: placeholderId, pending: false, usage: reply.usage, model: reply.model, trust });
     } catch (error) {
         if (!isCurrentSession()) {
             return;
@@ -1092,7 +1102,7 @@ export function appendAIChatMessage(
     this: AIChatContext,
     sender: string,
     text: string,
-    options: { suppressRender?: boolean; replaceId?: string | null; id?: string | null; pending?: boolean; usage?: LLMUsage | null; model?: string | null } = {}
+    options: { suppressRender?: boolean; replaceId?: string | null; id?: string | null; pending?: boolean; usage?: LLMUsage | null; model?: string | null; trust?: GroundingResult | null } = {}
 ): string | null {
     const normalizedSender = sender === 'ai' ? 'ai' : 'user';
     const {
@@ -1101,7 +1111,8 @@ export function appendAIChatMessage(
         id = null,
         pending = false,
         usage = null,
-        model = null
+        model = null,
+        trust = null
     } = options || {};
 
     if (!replaceId && (typeof text !== 'string' || text.length === 0)) {
@@ -1122,7 +1133,8 @@ export function appendAIChatMessage(
                 pending: Boolean(pending),
                 streaming: false,
                 usage,
-                model
+                model,
+                trust
             };
 
             if (!suppressRender) {
@@ -1141,7 +1153,8 @@ export function appendAIChatMessage(
         pending: Boolean(pending),
         streaming: false,
         usage,
-        model
+        model,
+        trust
     };
 
     this.aiChatMessages = [...this.aiChatMessages, entry].slice(-200);
@@ -1230,6 +1243,15 @@ export function renderAIChatMessages(this: AIChatContext): void {
                 footer.className = 'ai-chat__usage';
                 footer.textContent = usageLine;
                 item.appendChild(footer);
+            }
+            if (message.trust && message.trust.checked > 0) {
+                const badge = document.createElement('div');
+                badge.className = 'ai-chat__trust';
+                badge.textContent = formatGroundingBadge(message.trust);
+                if (message.trust.unmatched.length) {
+                    badge.title = `Not found in your data (may be derived, not wrong):\n${message.trust.unmatched.map(u => `${u.raw}: ${u.sentence}`).join('\n')}`;
+                }
+                item.appendChild(badge);
             }
         }
 

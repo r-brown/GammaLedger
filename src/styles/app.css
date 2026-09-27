@@ -3608,6 +3608,12 @@ select.form-control {
   display: none;
 }
 
+.ai-chat__trust {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .ai-chat__stop[hidden],
 .ai-chat__send[hidden] {
   display: none;

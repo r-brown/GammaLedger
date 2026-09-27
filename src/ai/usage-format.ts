@@ -4,6 +4,13 @@ import type { LLMUsage } from '../integrations/llm/types.js';
 
 const integer = new Intl.NumberFormat('en-US');
 
+/** "Numbers checked: 14/15 in your data · 1 not found" */
+export function formatGroundingBadge(result: { checked: number; matched: number }): string {
+    const base = `Numbers checked: ${result.matched}/${result.checked} in your data`;
+    const missing = result.checked - result.matched;
+    return missing > 0 ? `${base} · ${missing} not found` : base;
+}
+
 export function formatUsd(cost: number): string {
     if (cost === 0) {
         return '$0.00';
