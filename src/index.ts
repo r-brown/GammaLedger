@@ -57,7 +57,6 @@ import type { LLMProvider, LLMProviderId } from './integrations/llm/types.js';
 import type { JevState, OpenRouterState } from './types/integrations.js';
 import * as legsModule from './trades/legs.js';
 import * as pnlModule from './calculations/pnl.js';
-import * as daysHeldModule from './calculations/daysheld.js';
 import * as legRealizationModule from './calculations/leg-realization.js';
 import * as positionsModule from './trades/positions.js';
 import * as wheelModule from './trades/wheel.js';
@@ -628,9 +627,9 @@ class GammaLedger {
                 this.currentFileName = 'Unsaved Database';
                 this.hasUnsavedChanges = false;
                 this.updateUnsavedIndicator();
-            } else {
-                await this.loadFromStorage();
             }
+            // True whenever a database is stored, even an empty or unreadable one.
+            const hadStoredDatabase = this.startupBehavior !== 'manual' && await this.loadFromStorage();
             await this.loadFinnhubConfigFromStorage();
             await this.loadGeminiConfigFromStorage();
             await this.loadOpenRouterConfigFromStorage();
@@ -638,7 +637,8 @@ class GammaLedger {
             this.loadAccountSizeFromStorage();
             if (this.startupBehavior === 'manual') {
                 this.updateFileNameDisplay();
-            } else if (!this.trades || this.trades.length === 0) {
+            } else if (!hadStoredDatabase) {
+                // First run only: the sample would overwrite a stored (even empty "New Database") copy.
                 await this.loadDefaultDatabase();
             } else {
                 this.updateFileNameDisplay();

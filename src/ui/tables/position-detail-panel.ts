@@ -1,5 +1,6 @@
 import type { StockMetrics, SignalsData, CompanyProfile, EarningsSurprise, CachedQuoteEntry } from '../../types/integrations.js'
 import { renderTradeBreakdownColumn, type BreakdownTrade } from './trade-breakdown-column.js'
+import { safeExternalUrl } from '@utils/dom'
 import type { AIReadView, AskCoachRequest } from '../../types/ai.js'
 import {
   computePreTradeRiskScore,
@@ -813,10 +814,11 @@ function renderSignalsColumn(
   if (news3.length > 0) {
     for (const item of news3) {
       // Entire card is a link when URL is available
-      const card = item.url
+      const href = safeExternalUrl(item.url)
+      const card = href
         ? (() => {
             const a = document.createElement('a')
-            a.href = item.url
+            a.href = href
             a.target = '_blank'
             a.rel = 'noopener noreferrer'
             a.className = 'pdp-news-card'
@@ -990,10 +992,11 @@ function renderNewsColumn(container: HTMLElement, signals: SignalsData): void {
   const newsItems = signals.news.slice(0, 5)
   if (newsItems.length > 0) {
     for (const item of newsItems) {
-      const card = item.url
+      const href = safeExternalUrl(item.url)
+      const card = href
         ? (() => {
             const a = document.createElement('a')
-            a.href = item.url
+            a.href = href
             a.target = '_blank'
             a.rel = 'noopener noreferrer'
             a.className = 'pdp-news-card'

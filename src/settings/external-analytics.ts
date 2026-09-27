@@ -3,6 +3,7 @@
 
 import { EXTERNAL_ANALYTICS_STORAGE_KEY, DEFAULT_EXTERNAL_ANALYTICS_URL } from '../core/config.js';
 import { safeLocalStorage } from '@core/storage'
+import { safeExternalUrl } from '../utils/dom.js';
 
 interface ExternalAnalyticsContext {
     externalAnalyticsUrl: string;
@@ -36,7 +37,9 @@ export function initializeExternalAnalyticsControls(this: ExternalAnalyticsConte
         event.preventDefault();
         const value = (input?.value || '').trim();
 
-        if (value) {
+        if (value && !safeExternalUrl(value.replace('{ticker}', 'X'))) {
+            this.updateExternalAnalyticsStatus(status, 'Enter a full http:// or https:// address, for example https://finance.yahoo.com/quote/{ticker}', 'error');
+        } else if (value) {
             this.externalAnalyticsUrl = value;
             this.saveExternalAnalyticsToStorage();
             this.updateExternalAnalyticsStatus(status, `External analytics URL saved`, 'success');

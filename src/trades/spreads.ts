@@ -1,6 +1,8 @@
 // src/trades/spreads.ts — Wave 3: Credit Playbook spread extraction helpers.
 // Uses the .call(this, …) delegation pattern.
 
+import { calendarDaysUntil, isPastExpiryCutoff } from '@utils/dates'
+
 interface SpreadPair {
     tradeId: string
     ticker: string
@@ -159,14 +161,15 @@ export function extractRolledSpread(
         : (uniqueStrikes.length === 1 ? String(uniqueStrikes[0]) : '—');
 
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
-    const hasExpired = expirationDate && expirationDate < now;
+    // Still open on expiration day until the close, as in the trade status (legs.ts).
+    const hasExpired = isPastExpiryCutoff(expirationDate, now);
     const hasOpenLegs = openingLegs.length > 0;
     const hasCloseLegs = closingLegs.length > 0;
     const isRollingNow = hasOpenLegs && hasCloseLegs && !isTradeClosed;
     const isOpen = hasOpenLegs && !hasExpired && !isTradeClosed;
 
     const dte = isOpen && expirationDate && !isRollingNow
-        ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
+        ? Math.max(0, calendarDaysUntil(expirationDate, now) ?? 0) : null;
 
     const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 
@@ -263,12 +266,13 @@ export function extractSingleSpread(
     const displayQuantity = netOpenQuantity > 0 ? netOpenQuantity : openingQuantity;
 
     const expirationDate = this.parseDateValue(expiration);
-    const hasExpired = expirationDate && expirationDate < now;
+    // Still open on expiration day until the close, as in the trade status (legs.ts).
+    const hasExpired = isPastExpiryCutoff(expirationDate, now);
     // A partially closed spread is still active while any contracts remain open.
     const isOpen = netOpenQuantity > 0 && !hasExpired && !isTradeClosed;
 
     const dte = isOpen && expirationDate
-        ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
+        ? Math.max(0, calendarDaysUntil(expirationDate, now) ?? 0) : null;
 
     const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 
@@ -446,7 +450,8 @@ export function extractRolledPositionAcrossStrikes(
         ? currentStrike
         : Number(allLegs[0]?.strike);
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
-    const hasExpired = expirationDate && expirationDate < now;
+    // Still open on expiration day until the close, as in the trade status (legs.ts).
+    const hasExpired = isPastExpiryCutoff(expirationDate, now);
     const hasOpenLegs = allLegs.some(leg => this.getLegSide(leg) === 'OPEN');
     const hasCloseLegs = allLegs.some(leg => this.getLegSide(leg) === 'CLOSE');
     const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0 && !isTradeClosed;
@@ -460,7 +465,7 @@ export function extractRolledPositionAcrossStrikes(
 
     const absoluteQuantity = Math.abs(netQuantity);
     const dte = isOpen && expirationDate && !isRolling
-        ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
+        ? Math.max(0, calendarDaysUntil(expirationDate, now) ?? 0) : null;
 
     const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 
@@ -538,7 +543,8 @@ export function extractRolledPosition(
     });
 
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
-    const hasExpired = expirationDate && expirationDate < now;
+    // Still open on expiration day until the close, as in the trade status (legs.ts).
+    const hasExpired = isPastExpiryCutoff(expirationDate, now);
     const hasOpenLegs = sortedLegs.some(leg => this.getLegSide(leg) === 'OPEN');
     const hasCloseLegs = sortedLegs.some(leg => this.getLegSide(leg) === 'CLOSE');
     const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0 && !isTradeClosed;
@@ -552,7 +558,7 @@ export function extractRolledPosition(
 
     const absoluteQuantity = Math.abs(netQuantity);
     const dte = isOpen && expirationDate && !isRolling
-        ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
+        ? Math.max(0, calendarDaysUntil(expirationDate, now) ?? 0) : null;
 
     const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 
@@ -633,7 +639,8 @@ export function extractSingleLegPair(
     });
 
     const expirationDate = this.parseDateValue(expiration);
-    const hasExpired = expirationDate && expirationDate < now;
+    // Still open on expiration day until the close, as in the trade status (legs.ts).
+    const hasExpired = isPastExpiryCutoff(expirationDate, now);
     // A partially closed single-leg position is still active while contracts remain.
     const isOpen = netQuantity !== 0 && !hasExpired && !isTradeClosed;
 
@@ -645,7 +652,7 @@ export function extractSingleLegPair(
 
     const absoluteQuantity = Math.abs(netQuantity);
     const dte = isOpen && expirationDate
-        ? Math.ceil((expirationDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)) : null;
+        ? Math.max(0, calendarDaysUntil(expirationDate, now) ?? 0) : null;
 
     const effectiveExitDate = exitDate || (hasExpired ? expirationDate : null) || tradeClosedAt;
 

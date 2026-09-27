@@ -419,11 +419,11 @@ export function filterCreditPlaybookEntries(this: CreditPlaybookRenderContext, e
             }
 
             if (horizonFilter === 'ytd') {
-                if (openedAt.getFullYear() !== now.getFullYear()) {
+                if (openedAt.getUTCFullYear() !== now.getFullYear()) {
                     return false;
                 }
             } else if (horizonFilter === 'mtd') {
-                if (openedAt.getFullYear() !== now.getFullYear() || openedAt.getMonth() !== now.getMonth()) {
+                if (openedAt.getUTCFullYear() !== now.getFullYear() || openedAt.getUTCMonth() !== now.getMonth()) {
                     return false;
                 }
             } else {
@@ -476,11 +476,11 @@ export function filterCreditPlaybookLegPairs(this: CreditPlaybookRenderContext, 
             }
 
             if (horizonFilter === 'ytd') {
-                if (entryDate.getFullYear() !== now.getFullYear()) {
+                if (entryDate.getUTCFullYear() !== now.getFullYear()) {
                     return false;
                 }
             } else if (horizonFilter === 'mtd') {
-                if (entryDate.getFullYear() !== now.getFullYear() || entryDate.getMonth() !== now.getMonth()) {
+                if (entryDate.getUTCFullYear() !== now.getFullYear() || entryDate.getUTCMonth() !== now.getMonth()) {
                     return false;
                 }
             } else {

@@ -6,7 +6,8 @@ import {
     LEGACY_STORAGE_KEYS,
     RUNTIME_TRADE_FIELDS,
     RUNTIME_LEG_FIELDS,
-    CURRENT_STORAGE_VERSION
+    CURRENT_STORAGE_VERSION,
+    APP_CONFIG
 } from '@core/config'
 import { parseStorageSchema, normalizeWatchlist } from '@core/migration'
 import { safeLocalStorage } from '@core/storage'
@@ -386,7 +387,9 @@ export async function loadDatabase(this: PersistContext): Promise<void> {
     } catch (error) {
         if ((error as { name?: string })?.name !== 'AbortError') {
             console.error('Load error:', error);
-            this.showNotification('Failed to open file. Please try again.', 'error');
+            // Our own messages ("… not a valid GammaLedger JSON file", "Invalid database import: …") say what to fix.
+            const detail = error instanceof Error && error.message ? error.message : '';
+            this.showNotification(detail ? `Could not open the file. ${detail}` : 'Failed to open file. Please try again.', 'error');
         }
     }
 
@@ -436,7 +439,8 @@ export function loadWithFileInput(this: PersistContext): void {
                     this.processLoadedData(data, { fileName: file.name, source: 'file-open' });
                     this.showNotification(`Loaded ${this.trades.length} trades successfully!`, 'success');
                 } catch (error) {
-                    this.showNotification('Invalid JSON file', 'error');
+                    const detail = error instanceof SyntaxError || !(error instanceof Error) ? '' : ` ${error.message}`;
+                    this.showNotification(`"${file.name}" is not a valid GammaLedger database.${detail}`, 'error');
                 }
                 fileInput.value = '';
             };
@@ -654,9 +658,13 @@ export function saveToStorage(this: PersistContext, metadata: Record<string, unk
     }
 }
 
+/**
+ * Loads this browser's cached database. Resolves true whenever a stored database exists, even
+ * with no trades or when it could not be read, so startup never replaces it with sample data.
+ */
 export async function loadFromStorage(this: PersistContext): Promise<boolean> {
+    const stored = safeLocalStorage.getItem(LOCAL_STORAGE_KEY);
     try {
-        const stored = safeLocalStorage.getItem(LOCAL_STORAGE_KEY);
         if (stored) {
             const raw = JSON.parse(stored);
             const hasPrimaryTrades = Array.isArray(raw)
@@ -736,6 +744,20 @@ export async function loadFromStorage(this: PersistContext): Promise<boolean> {
         }
     } catch (e) {
         console.warn('Failed to load from localStorage:', e);
+        if (stored) {
+            // Keep the unreadable copy: the next save would otherwise overwrite the only copy of it.
+            const kept = safeLocalStorage.setItem(APP_CONFIG.STORAGE.LOCAL_DATABASE_RECOVERY, stored);
+            this.trades = [];
+            this.currentFileName = 'Unsaved Database';
+            this.updateFileNameDisplay();
+            this.updateDashboard();
+            const reason = e instanceof Error && e.message ? ` (${e.message})` : '';
+            this.showNotification(
+                `Your saved database could not be opened${reason}. ${kept ? 'A copy was kept in this browser. ' : ''}Use Load Database to open your database file.`,
+                'error'
+            );
+            return true;
+        }
     }
 
     return false;
