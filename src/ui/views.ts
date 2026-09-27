@@ -44,6 +44,7 @@ interface ViewsContext {
   normalizeUnderlyingType(value: unknown, opts: { fallback: string }): string
   showView(viewName: string): void
   renderWatchlistView(): void
+  refreshSettingsStatus?(): void
 }
 
 export function showView(this: ViewsContext, viewName: string): void {
@@ -131,6 +132,7 @@ export function showView(this: ViewsContext, viewName: string): void {
             if (lastStatus && finnhubElements?.status) {
                 this.updateFinnhubStatus(lastStatus.message as string, lastStatus.variant, 0);
             }
+            this.refreshSettingsStatus?.();
             break;
         }
     }

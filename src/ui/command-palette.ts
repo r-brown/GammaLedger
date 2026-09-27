@@ -16,6 +16,25 @@ interface PaletteContext {
   openTradesFilteredByTicker(ticker: unknown): void
   updateTickerPreview(ticker: string): void
   setThemePreference(pref: ThemePreference): void
+  openSettingsSection?(sectionId: string): void
+}
+
+/** One entry per settings section, read from the page so new sections show up on their own. */
+function settingsSectionCommands(this: PaletteContext): PaletteCommand[] {
+    return Array.from(document.querySelectorAll<HTMLElement>('.settings-panel[data-settings-section]')).map((panel) => {
+        const id = panel.dataset.settingsSection ?? ''
+        const keywords = Array.from(panel.querySelectorAll<HTMLElement>('[data-settings-keywords]'))
+            .map(card => card.dataset.settingsKeywords ?? '').join(' ')
+        return {
+            label: `Settings: ${panel.dataset.settingsLabel ?? id}`,
+            hint: '',
+            keywords: `preferences configure ${keywords}`,
+            run: () => {
+                this.showView('settings')
+                this.openSettingsSection?.(id)
+            }
+        }
+    })
 }
 
 interface PaletteCommand {
@@ -50,6 +69,7 @@ function buildCommands(this: PaletteContext, query: string): PaletteCommand[] {
         { label: 'Add New Trade', hint: 'n', keywords: 'nav create new', run: () => this.showView('add-trade') },
         { label: 'Go to Import', hint: 'g i', keywords: 'nav csv ofx broker', run: () => this.showView('import') },
         { label: 'Go to Settings', hint: 'g s', keywords: 'nav preferences api keys', run: () => this.showView('settings') },
+        ...settingsSectionCommands.call(this),
         { label: 'Save Database', hint: '', keywords: 'file persist', run: () => { void this.saveDatabase() } },
         { label: 'Load Database', hint: '', keywords: 'file open', run: () => { void this.loadDatabase() } },
         { label: 'New Database', hint: '', keywords: 'file fresh blank', run: () => this.newDatabase() },

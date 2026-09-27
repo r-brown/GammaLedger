@@ -23,6 +23,7 @@
     "check:ticker-context": "node scripts/check-ticker-context.mjs",
     "check:grounding": "node scripts/check-grounding.mjs",
     "check:decision": "node scripts/check-decision.mjs",
+    "check:settings-page": "node scripts/check-settings-page.mjs",
     "typecheck": "tsc --noEmit && npm run typecheck:strict",
     "typecheck:strict": "npm run typecheck:strict:calculations && npm run typecheck:strict:core && npm run typecheck:strict:trades && npm run typecheck:strict:utils && npm run typecheck:strict:ui && npm run typecheck:strict:imports && npm run typecheck:strict:integrations",
     "typecheck:strict:calculations": "tsc -p src/calculations/tsconfig.json",

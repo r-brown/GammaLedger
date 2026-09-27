@@ -133,6 +133,7 @@ import { initDashboardTabs } from './ui/dashboard/tabs.js';
 import * as watchlistModule from './ui/watchlist.js';
 import * as askCoachModule from './ai/ask-coach.js';
 import * as watchlistScanModule from './ai/watchlist-scan.js';
+import * as settingsPageModule from './ui/settings-page.js';
 import * as aiReadModule from './ai/ai-read.js';
 import * as driftModule from './ai/watchlist-drift.js';
 
@@ -150,6 +151,8 @@ class GammaLedger {
     declare hasUnsavedChanges: boolean
     declare supportsFileSystemAccess: boolean
     declare startupBehavior: StartupBehavior
+    /** Settings section shown in the rail; kept for the session only. */
+    declare settingsSection: string | null
     declare currentEditingId: string | null
     declare currentEditingTrade: Record<string, unknown> | null
     declare importControlsInitialized: boolean
@@ -254,6 +257,7 @@ class GammaLedger {
         this.hasUnsavedChanges = false;
         this.supportsFileSystemAccess = 'showOpenFilePicker' in window;
         this.startupBehavior = 'cache';
+        this.settingsSection = null;
         this.currentEditingId = null;
         this.currentEditingTrade = null;
         this.importControlsInitialized = false;
@@ -679,6 +683,7 @@ class GammaLedger {
             this.initializeDefaultFeeControls();
             this.initializeExternalAnalyticsControls();
             this.initializeStartupBehaviorControls();
+            this.initializeSettingsPage();
             this.initializeAnnouncementBanner();
             this.setupSampleDataBannerActions();
             this.initializeDisclaimerBanner();
@@ -1261,6 +1266,7 @@ class GammaLedger {
 
                 event.preventDefault();
                 this.showView('settings');
+                this.openSettingsSection('ai');
                 this.toggleAIChat(false);
 
                 const keyField = document.getElementById(this.aiProvider.active === 'openrouter' ? 'openrouter-api-key' : 'gemini-api-key');
@@ -1344,6 +1350,14 @@ class GammaLedger {
 
     askCoachAboutTicker(request) { return askCoachModule.askCoachAboutTicker.call(this, request); }
     askCoachWatchlistScan() { return watchlistScanModule.askCoachWatchlistScan.call(this); }
+
+    initializeSettingsPage() { return settingsPageModule.initializeSettingsPage.call(this); }
+
+    openSettingsSection(sectionId: string) { return settingsPageModule.openSettingsSection.call(this, sectionId); }
+
+    refreshSettingsStatus() { return settingsPageModule.refreshSettingsStatus.call(this); }
+
+    hasSchwabVault(): boolean { return Boolean(safeLocalStorage.getItem(APP_CONFIG.STORAGE.SCHWAB_VAULT)); }
 
     requestAIRead(ticker: string) { return aiReadModule.requestAIRead.call(this, ticker); }
 
