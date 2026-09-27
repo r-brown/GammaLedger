@@ -104,6 +104,7 @@ export interface AppState {
   aiChatOpen: boolean
   aiChatStreamFrame: number | null
   aiChatAbortController: AbortController | null
+  aiChatCharts: Array<{ dispose(): void }>
   accountSize: number | null
 
   // ---- Quotes ----

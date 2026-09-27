@@ -353,6 +353,29 @@ test('buildCoachMessages sends requestText for history turns that carry one', as
     assert.equal(firstHistory.content[0].text, 'Is VEEV a candidate… {"ticker":"VEEV"}')
 })
 
+test('splitChartBlocks: valid chart fences become chart segments; invalid ones stay code', async () => {
+    const { splitChartBlocks } = await load('/src/ai/chart-blocks.ts')
+    const good = '```chart\n{"type":"bar","title":"Capital by ticker","labels":["VEEV","TSLA"],"values":[48.7,-3]}\n```'
+    const bad = '```chart\n{"type":"pie","title":"x","labels":["a"],"values":[1]}\n```'
+    const segments = splitChartBlocks(`Intro\n${good}\nMiddle\n${bad}\nEnd`)
+    assert.deepEqual(segments.map(s => s.kind), ['md', 'chart', 'md'])
+    assert.equal(segments[1].spec.title, 'Capital by ticker')
+    assert.ok(segments[2].text.includes('```\n{"type":"pie"'))
+    assert.deepEqual(splitChartBlocks('no charts here'), [{ kind: 'md', text: 'no charts here' }])
+    assert.equal(splitChartBlocks('```chart\n{"type":"bar","title":"t","labels":["a","b"],"values":[1]}\n```')[0].kind, 'md')   // length mismatch
+})
+test('buildChartOption colors negative bars and uses theme colors', async () => {
+    const { buildChartOption } = await load('/src/ai/chart-blocks.ts')
+    const colors = { text: '#111', grid: '#eee', positive: '#0a0', negative: '#a00', line: '#00a' }
+    const option = buildChartOption({ type: 'bar', title: 'P&L', labels: ['Jan', 'Feb'], values: [5, -2] }, colors)
+    assert.deepEqual(option.series[0].data.map(d => d.itemStyle.color), ['#0a0', '#a00'])
+    assert.equal(buildChartOption({ type: 'line', title: 'P&L', labels: ['Jan'], values: [5] }, colors).series[0].type, 'line')
+})
+test('system prompt documents chart blocks', async () => {
+    const { COACH_SYSTEM_PROMPT } = await load('/src/ai/coach-prompts.ts')
+    assert.ok(COACH_SYSTEM_PROMPT.includes('language "chart"'))
+})
+
 // ── run ──────────────────────────────────────────────────────────────────────
 
 let failed = 0

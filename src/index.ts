@@ -179,6 +179,7 @@ class GammaLedger {
     declare aiChatOpen: boolean
     declare aiChatStreamFrame: number | null
     declare aiChatAbortController: AbortController | null
+    declare aiChatCharts: Array<{ dispose(): void }>
     declare accountSize: number | null
     declare aiDraftImport: Record<string, unknown> | null
     declare activeQuoteEntries: Map<string, unknown>
@@ -367,6 +368,7 @@ class GammaLedger {
         this.aiChatOpen = false;
         this.aiChatStreamFrame = null;
         this.aiChatAbortController = null;
+        this.aiChatCharts = [];
         this.accountSize = null;
         this.aiDraftImport = null;
 

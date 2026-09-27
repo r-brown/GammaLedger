@@ -49,11 +49,12 @@ export function splitChartBlocks(markdown: string): ChatSegment[] {
 
 export interface ChartColors { text: string; grid: string; positive: string; negative: string; line: string }
 
+/** The chart's title is rendered as an HTML caption by the chat (no ECharts title component is registered). */
 export function buildChartOption(spec: ChartSpec, colors: ChartColors): Record<string, any> {
     return {
         animation: false,
-        title: { text: spec.title, left: 0, textStyle: { fontSize: 12, fontWeight: 600, color: colors.text } },
-        grid: { left: 8, right: 8, top: 32, bottom: 8, containLabel: true },
+        aria: { enabled: true },
+        grid: { left: 8, right: 8, top: 12, bottom: 8, containLabel: true },
         tooltip: { trigger: 'axis' },
         xAxis: {
             type: 'category',

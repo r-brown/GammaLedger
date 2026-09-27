@@ -6,6 +6,8 @@ import type { AIReply } from './insights-agent.js'
 import { describeLLMError, type LLMProvider, type LLMUsage } from '../integrations/llm/types.js'
 import { formatGroundingBadge, formatReplyUsage, summarizeSessionUsage } from './usage-format.js'
 import { groundAnswer } from './grounding.js'
+import { buildChartOption, splitChartBlocks, type ChartColors, type ChartSpec } from './chart-blocks.js'
+import { disposeChartInstance, renderEChart } from '../ui/charts/echarts.js'
 import type { GroundingResult } from '../types/ai.js'
 import type { ConsentRequirement } from '../core/consent.js'
 
@@ -51,6 +53,8 @@ interface AIChatContext {
     updateAIChatComposer(): void
     aiChatOpen: boolean
     aiChatStreamFrame: number | null
+    /** ECharts instances painted into the history; disposed before every re-render. */
+    aiChatCharts: Array<{ dispose(): void }>
     updateAIChatStreamingMessage(id: string, text: string): void
     aiDraftImport: AIDraftImportState | null
     trades: Record<string, unknown>[]
@@ -143,6 +147,48 @@ const SUPPORTED_SCREENSHOT_TYPES = new Set([
 
 function normalizeAIReply(reply: AIReply | string): AIReply {
     return typeof reply === 'string' ? { text: reply, usage: null, model: null, provider: null, snapshotJson: null } : reply;
+}
+
+function readChartColors(): ChartColors {
+    const css = getComputedStyle(document.documentElement);
+    const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
+    return {
+        text: v('--color-text-secondary', '#6b7280'),
+        grid: v('--color-border', '#e5e7eb'),
+        positive: v('--color-success', '#16a34a'),
+        negative: v('--color-error', '#dc2626'),
+        line: v('--color-primary', '#2563eb')
+    };
+}
+
+/** Markdown with ```chart blocks → markdown parts plus chart holders (charts drawn after insertion). */
+function paintAIBubble(this: AIChatContext, bubble: HTMLElement, text: string, pending: Array<{ el: HTMLElement; spec: ChartSpec }>): void {
+    const segments = splitChartBlocks(text);
+    if (!segments.some(segment => segment.kind === 'chart')) {
+        bubble.innerHTML = this.renderMarkdownToHTML(text);
+        return;
+    }
+    for (const segment of segments) {
+        if (segment.kind === 'md') {
+            const part = document.createElement('div');
+            part.innerHTML = this.renderMarkdownToHTML(segment.text);
+            bubble.appendChild(part);
+            continue;
+        }
+        const figure = document.createElement('figure');
+        figure.className = 'ai-chat__figure';
+        const caption = document.createElement('figcaption');
+        caption.className = 'ai-chat__chart-title';
+        caption.textContent = segment.spec.title;
+        const holder = document.createElement('div');
+        holder.className = 'ai-chat__chart';
+        holder.setAttribute('role', 'img');
+        holder.setAttribute('aria-label', segment.spec.title);
+        figure.appendChild(caption);
+        figure.appendChild(holder);
+        bubble.appendChild(figure);
+        pending.push({ el: holder, spec: segment.spec });
+    }
 }
 
 function dataUrlToBase64(dataUrl: string): string {
@@ -1216,6 +1262,9 @@ export function renderAIChatMessages(this: AIChatContext): void {
         return;
     }
 
+    this.aiChatCharts.forEach(chart => disposeChartInstance(chart));
+    this.aiChatCharts = [];
+    const pendingCharts: Array<{ el: HTMLElement; spec: ChartSpec }> = [];
     history.innerHTML = '';
 
     this.aiChatMessages.forEach(message => {
@@ -1243,7 +1292,12 @@ export function renderAIChatMessages(this: AIChatContext): void {
             bubble.setAttribute('data-pending', 'true');
         }
         if (message.sender === 'ai') {
-            bubble.innerHTML = this.renderMarkdownToHTML(message.text);
+            // Charts only on the final paint: a half-streamed JSON block can't render.
+            if (message.pending || message.streaming) {
+                bubble.innerHTML = this.renderMarkdownToHTML(message.text);
+            } else {
+                paintAIBubble.call(this, bubble, message.text, pendingCharts);
+            }
         } else {
             bubble.textContent = message.text;
         }
@@ -1276,6 +1330,11 @@ export function renderAIChatMessages(this: AIChatContext): void {
         const summary = summarizeSessionUsage(this.aiChatMessages);
         sessionUsage.textContent = summary;
         sessionUsage.hidden = !summary;
+    }
+
+    if (pendingCharts.length) {
+        const colors = readChartColors();
+        pendingCharts.forEach(({ el, spec }) => this.aiChatCharts.push(renderEChart(el, null, buildChartOption(spec, colors))));
     }
 
     history.scrollTop = history.scrollHeight;

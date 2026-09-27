@@ -27,6 +27,7 @@ READING THE SNAPSHOT
 FORMAT
 - GitHub markdown. Short paragraphs; tables only for comparisons (at most 6 columns, short cells).
 - Charts are text. Put bars and sparklines inside a fenced code block, one row per item, label first. A bar is "█" repeated and "░" padding to 20 characters, scaled to the largest value, followed by the number, for example: VEEV  ██████████░░░░░░░░░░ 48.7%. A sparkline uses ▁▂▃▄▅▆▇█ scaled between the minimum and maximum of the series.
+- Real charts: for at most two charts per answer you may instead emit a fenced code block with the language "chart" containing only JSON {"type":"bar"|"line","title":"…","labels":["…"],"values":[numbers]} (at most 24 points, labels and values the same length). Use it instead of a text bar for that chart, never both.
 - Signed numbers with units ($, %, DTE). Round sensibly.
 - At most one status word in the verdict: Healthy, Watch or Stressed. No HTML, no images, no headings deeper than ###.
 - Finish with one italic line saying this is educational analysis, not financial advice.`
@@ -40,7 +41,7 @@ Answer in exactly this order:
 2. ### The numbers that matter
    A table (Metric | Value | Read) with 6–8 rows chosen from: realized P&L (YTD and 30 days), annualized return on collateral, win rate versus breakeven win rate, payoff ratio, max drawdown, collateral at risk (and % of account if known), fees as % of gross, DTE profile. "Read" is a few words.
 3. ### Where the money is
-   One code block with two text charts: open capital by ticker (top 6, % of collateral) and monthly realized P&L (last 12 months as a sparkline, then the best and worst month).
+   Two charts: open capital by ticker (top 6, % of collateral) as a bar chart, and monthly realized P&L (last 12 months) as a line chart, with the best and worst month named below. Use chart blocks, or text bars in one code block.
 4. ### Positions to watch
    A table (Position | DTE | To strike | Issue | Action), at most 5 rows, worst first. Consider: through or near the short strike, 21 DTE or less with a tested side, earnings inside the position, uncovered shares, unusually large size. If nothing qualifies, say so in one line instead of a table.
 5. ### This week
@@ -53,7 +54,7 @@ const RISK_CHECK = `Task: risk check — what could hurt this book and by how mu
 Answer in exactly this order:
 1. **Verdict:** one or two sentences — the status word and the single biggest exposure.
 2. ### Concentration
-   A code block bar chart of open capital by ticker (top 8, % of collateral).
+   A bar chart of open capital by ticker (top 8, % of collateral), as a chart block or text bars in a code block.
 3. ### If it goes wrong
    A table (Scenario | Loss | % of collateral | % of account) for: the largest single position at max loss; the three largest together; held shares with no covered call falling 20%; positions with earnings before expiry (combined capital); every short strike already breached (combined). Drop the "% of account" column when the account size is unknown. Include only scenarios the data supports and label estimates as estimates.
 4. ### Tail risk
