@@ -1,7 +1,7 @@
 {
   "name": "GammaLedger",
-  "version": "2.11.1",
-  "commit": "3f18821fbb93fe96b485d73a9e4140be8322ae33",
+  "version": "2.11.2",
+  "commit": "1991bbf4652276b3947cddad368db000ac628ab8",
   "ref": "main",
-  "builtAt": "2026-09-27T20:02:17Z"
+  "builtAt": "2026-09-29T05:15:46Z"
 }
