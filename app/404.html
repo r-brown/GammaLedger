@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://static2.finnhub.io; connect-src 'self' https://finnhub.io https://api.schwabapi.com https://generativelanguage.googleapis.com https://openrouter.ai; object-src 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https://*.finnhub.io; connect-src 'self' https://finnhub.io https://api.schwabapi.com https://generativelanguage.googleapis.com https://openrouter.ai; object-src 'none'; base-uri 'self'; form-action 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GammaLedger – Analyze, Track & Visualize Your Options Portfolio Securely</title>
     <!-- Security Headers (Content-Security-Policy is injected at build time — see injectCsp in vite.config.ts) -->
@@ -45,11 +45,12 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/app/gammaledger-logo-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/app/gammaledger-logo-32x32.png">
     <link rel="icon" type="image/png" sizes="64x64" href="/app/gammaledger-logo-64x64.png">
-  <script type="module" crossorigin src="/app/assets/index-DPj8ASYi.js"></script>
-  <link rel="stylesheet" crossorigin href="/app/assets/index-DoMg4mg2.css">
+  <script type="module" crossorigin src="/app/assets/index-BtA_7d-B.js"></script>
+  <link rel="stylesheet" crossorigin href="/app/assets/index-QWFh5OF6.css">
 </head>
 
 <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <!-- Announcement banner — rendered by src/ui/announcement.ts -->
     <div id="announcement-banner"></div>
 
@@ -110,8 +111,9 @@
         </div>
     </dialog>
     <div class="app-container">
+        <div class="mobile-nav-scrim" id="mobile-nav-scrim" aria-hidden="true"></div>
         <!-- Sidebar Navigation -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="app-sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-brand">
                     <img class="sidebar-brand__logo" src="/app/gammaledger-logo-32x32.png" alt="GammaLedger logo">
@@ -121,31 +123,31 @@
             </div>
             <nav class="sidebar-nav">
                 <button class="nav-item active" data-view="dashboard">
-                    <span class="nav-icon">📊</span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
                     <span class="nav-label">Dashboard</span>
                 </button>
                 <button class="nav-item" data-view="watchlist">
-                    <span class="nav-icon">👀</span>
-                    <span class="nav-label">Watchlist (beta)</span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                    <span class="nav-label">Watchlist</span>
                 </button>
                 <button class="nav-item" data-view="trades-list">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h6"/></svg></span>
                     <span class="nav-label">All Trades</span>
                 </button>
                 <button class="nav-item" data-view="credit-playbook">
-                    <span class="nav-icon">💳</span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg></span>
                     <span class="nav-label">Credit Playbook</span>
                 </button>
                 <button class="nav-item" data-view="add-trade">
-                    <span class="nav-icon">➕</span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
                     <span class="nav-label">Add Trade</span>
                 </button>
                 <button class="nav-item" data-view="import">
-                    <span class="nav-icon">⬆️</span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg></span>
                     <span class="nav-label">Import</span>
                 </button>
                 <button class="nav-item" data-view="settings">
-                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></span>
                     <span class="nav-label">Settings</span>
                 </button>
             </nav>
@@ -163,10 +165,13 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" id="main-content" tabindex="-1">
             <!-- Header -->
             <header class="app-header">
                 <div class="header-left">
+                    <button type="button" class="mobile-nav-toggle" id="mobile-nav-toggle" aria-controls="app-sidebar" aria-expanded="false" aria-label="Open navigation">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                    </button>
                     <h1 id="page-title">Options Trading Dashboard</h1>
                     <div id="market-status" class="market-status market-status--loading">
                         <span class="market-status__dot"></span>
@@ -211,7 +216,7 @@
             <!-- Browser Compatibility Notice -->
             <div id="compatibility-notice" class="compatibility-notice hidden">
                 <div class="notice-content">
-                    <h4>⚠️ Limited File System Support</h4>
+                    <h2 class="notice-title">Limited file system support</h2>
                     <p>Your browser doesn't fully support the File System Access API. You can still export/import data
                         using download/upload methods.</p>
                     <button class="btn btn--sm btn--secondary" id="dismiss-fs-notice"
@@ -221,6 +226,8 @@
 
             <!-- Enhanced Dashboard View with Integrated Analytics -->
             <div class="view dashboard-view active">
+                <section id="headline-strip" class="headline-strip" aria-label="Headline numbers"></section>
+                <section id="inventory-strip" class="card expiry-strip" aria-label="Assigned share inventory" hidden></section>
                 <section id="grouped-metrics" class="metric-grid" aria-label="Portfolio metrics"></section>
 
                 <section class="card dashboard-performance-trend">
@@ -235,6 +242,10 @@
                             <button type="button" class="chart-range__button" data-range="1Y">1Y</button>
                             <button type="button" class="chart-range__button" data-range="ALL">All</button>
                         </div>
+                        <select id="cumulative-pl-select" class="chart-range-select" aria-label="Performance trend time range">
+                            <option value="7D">7D</option><option value="MTD">MTD</option><option value="1M">1M</option>
+                            <option value="3M">3M</option><option value="YTD">YTD</option><option value="1Y">1Y</option><option value="ALL">All</option>
+                        </select>
                         <div class="chart-range" id="chart-granularity-controls" role="group" aria-label="Chart granularity">
                             <button type="button" class="chart-range__button" data-granularity="day">Day</button>
                             <button type="button" class="chart-range__button" data-granularity="week">Week</button>
@@ -255,6 +266,13 @@
                     </div>
                     <div class="gl-tabs__panel is-active" role="tabpanel" data-tab-panel="tables-active">
                         <div class="active-positions">
+                            <div id="quotes-off-strip" class="quotes-off-strip" role="status" hidden>
+                                <span>Live quotes off. Add a Finnhub API key to see prices and marks.</span>
+                                <span class="quotes-off-strip__actions">
+                                    <button type="button" class="btn btn--sm btn--secondary" id="quotes-off-settings">Open settings</button>
+                                    <button type="button" class="btn btn--sm btn--secondary" id="quotes-off-dismiss" aria-label="Dismiss live quotes notice">Dismiss</button>
+                                </span>
+                            </div>
                             <div class="table-container dashboard-grid-container">
                                 <div id="active-positions-table" class="dashboard-ag-grid ag-theme-quartz" aria-label="Active positions"></div>
                             </div>
@@ -320,6 +338,7 @@
                             <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
                                 <div id="monteCarloChart" class="echarts-chart" role="img" aria-label="Monte Carlo projection chart"></div>
                             </div>
+                            <details class="chart-data-table" id="monteCarloTable"></details>
                             <p class="chart-subtext" id="monteCarloSummary">Need more closed trades to run projections.</p>
                         </div>
                     </div>
@@ -351,6 +370,7 @@
                             <div class="chart-responsive-wrapper chart-responsive-wrapper--medium">
                                 <div id="strategyChart" class="echarts-chart" role="img" aria-label="Strategy performance chart"></div>
                             </div>
+                            <details class="chart-data-table" id="strategyTable"></details>
                         </div>
                     </div>
                     <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-winrate" hidden>
@@ -359,6 +379,7 @@
                             <div class="chart-responsive-wrapper chart-responsive-wrapper--tall">
                                 <div id="winRateChart" class="echarts-chart" role="img" aria-label="Win rate by strategy chart"></div>
                             </div>
+                            <details class="chart-data-table" id="winRateTable"></details>
                         </div>
                     </div>
                     <div class="gl-tabs__panel" role="tabpanel" data-tab-panel="analytics-fees" hidden>
@@ -367,6 +388,7 @@
                             <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
                                 <div id="commissionImpactChart" class="echarts-chart" role="img" aria-label="Commission impact chart"></div>
                             </div>
+                            <details class="chart-data-table" id="commissionTable"></details>
                             <p class="chart-subtext" id="commissionImpactSummary">No closed trades yet.</p>
                         </div>
                     </div>
@@ -376,6 +398,7 @@
                             <div class="chart-responsive-wrapper chart-responsive-wrapper--short">
                                 <div id="timeInTradeChart" class="echarts-chart" role="img" aria-label="Average time in trade chart"></div>
                             </div>
+                            <details class="chart-data-table" id="timeInTradeTable"></details>
                         </div>
                     </div>
                 </section>
@@ -412,23 +435,21 @@
                                     <input type="search" id="strategy-search" class="form-control strategy-search" placeholder="Type to filter strategies…" aria-label="Filter strategies" autocomplete="off">
                                     <select id="strategy" name="strategy" class="form-control" required>
                                         <option value="">Select Strategy</option>
-                                        <optgroup label="⭐ Favorites">
-                                            <option value="Bull Put Spread">⭐ Bull Put Spread</option>
-                                            <option value="Cash-Secured Put">⭐ Cash-Secured Put</option>
-                                            <option value="Covered Call">⭐ Covered Call</option>
-                                            <option value="Poor Man's Covered Call">⭐ Poor Man's Covered Call</option>
-                                            <option value="Wheel">⭐ Wheel</option>
-                                        </optgroup>
+                                        <optgroup id="strategy-last-used" label="Last used" hidden></optgroup>
                                         <optgroup label="Income &amp; covered">
+                                            <option value="Cash-Secured Put">Cash-Secured Put</option>
                                             <option value="Collar">Collar</option>
+                                            <option value="Covered Call">Covered Call</option>
                                             <option value="Covered Put">Covered Put</option>
                                             <option value="Covered Short Straddle">Covered Short Straddle</option>
                                             <option value="Covered Short Strangle">Covered Short Strangle</option>
                                             <option value="Jade Lizard">Jade Lizard</option>
+                                            <option value="Poor Man's Covered Call">Poor Man's Covered Call</option>
                                             <option value="Protective Put">Protective Put</option>
                                             <option value="Reverse Jade Lizard">Reverse Jade Lizard</option>
                                             <option value="Short Call">Short Call</option>
                                             <option value="Short Put">Short Put</option>
+                                            <option value="Wheel">Wheel</option>
                                         </optgroup>
                                         <optgroup label="Vertical spreads &amp; ladders">
                                             <option value="Bear Call Ladder">Bear Call Ladder</option>
@@ -439,6 +460,7 @@
                                             <option value="Bull Call Ladder">Bull Call Ladder</option>
                                             <option value="Bull Call Spread">Bull Call Spread</option>
                                             <option value="Bull Put Ladder">Bull Put Ladder</option>
+                                            <option value="Bull Put Spread">Bull Put Spread</option>
                                         </optgroup>
                                         <optgroup label="Calendars &amp; diagonals">
                                             <option value="Calendar Call Spread">Calendar Call Spread</option>
@@ -490,7 +512,7 @@
                                             <option value="Synthetic Short Stock">Synthetic Short Stock</option>
                                         </optgroup>
                                     </select>
-                                    <p class="form-help-text">Picking a ⭐ strategy pre-fills its opening legs.</p>
+                                    <p class="form-help-text">Picking a strategy pre-fills its opening legs.</p>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label" for="tradeStatus">Trade Status</label>
@@ -1080,7 +1102,7 @@
 
     <div class="ai-chat" id="ai-chat">
         <button type="button" class="ai-chat__toggle" id="ai-chat-toggle" aria-controls="ai-chat-panel" aria-expanded="false">
-            🤖 AI Coach
+            <span aria-hidden="true">AI</span><span class="ai-chat__toggle-text" aria-hidden="true">&nbsp;Coach</span><span class="sr-only">AI Coach</span>
         </button>
             <div class="ai-chat__panel hidden" id="ai-chat-panel" aria-hidden="true">
             <div class="ai-chat__resize-handle" id="ai-chat-resize-handle" role="presentation" aria-hidden="true"></div>
