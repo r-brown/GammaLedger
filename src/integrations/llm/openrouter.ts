@@ -4,8 +4,7 @@ import { z } from 'zod'
 import {
     DEFAULT_OPENROUTER_MODEL,
     LLM_REQUEST_TIMEOUT_MS,
-    OPENROUTER_APP_TITLE,
-    OPENROUTER_APP_URL,
+    OPENROUTER_ATTRIBUTION_HEADERS,
     OPENROUTER_CHAT_ENDPOINT
 } from '@core/config'
 import { finiteOrNull, readJson, runWithTimeout } from './http.js'
@@ -219,8 +218,7 @@ export function createOpenRouterProvider(ctx: OpenRouterProviderContext): LLMPro
         headers: {
             Authorization: `Bearer ${key}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': OPENROUTER_APP_URL,
-            'X-Title': OPENROUTER_APP_TITLE
+            ...OPENROUTER_ATTRIBUTION_HEADERS
         },
         body: JSON.stringify(body),
         signal

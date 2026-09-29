@@ -7,8 +7,7 @@ import {
     JEV_INPUT_USD_PER_MILLION,
     JEV_OPENROUTER_MODEL,
     JEV_REQUEST_TIMEOUT_MS,
-    OPENROUTER_APP_TITLE,
-    OPENROUTER_APP_URL,
+    OPENROUTER_ATTRIBUTION_HEADERS,
     OPENROUTER_DECISIONS_ENDPOINT
 } from '@core/config'
 import { readJson, runWithTimeout } from '../llm/http.js'
@@ -101,8 +100,7 @@ export function createJevProvider(ctx: JevProviderContext): DecisionProvider {
                         Authorization: `Bearer ${key}`,
                         'Content-Type': 'application/json',
                         Accept: 'application/json',
-                        'HTTP-Referer': OPENROUTER_APP_URL,
-                        'X-Title': OPENROUTER_APP_TITLE
+                        ...OPENROUTER_ATTRIBUTION_HEADERS
                     },
                     body: JSON.stringify(buildJevBody(request)),
                     signal

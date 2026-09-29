@@ -31,6 +31,15 @@ export const OPENROUTER_MODELS_ENDPOINT = 'https://openrouter.ai/api/v1/models'
 /** Sent as HTTP-Referer / X-Title so OpenRouter attributes traffic to the app. */
 export const OPENROUTER_APP_URL = 'https://gammaledger.com'
 export const OPENROUTER_APP_TITLE = 'GammaLedger'
+/** Marketplace categories (lowercase, hyphenated, max two per request). */
+export const OPENROUTER_APP_CATEGORIES = 'personal-agent'
+/** OpenRouter app-attribution headers (X-Title kept for backwards compatibility). */
+export const OPENROUTER_ATTRIBUTION_HEADERS: Readonly<Record<string, string>> = {
+    'HTTP-Referer': OPENROUTER_APP_URL,
+    'X-OpenRouter-Title': OPENROUTER_APP_TITLE,
+    'X-Title': OPENROUTER_APP_TITLE,
+    'X-OpenRouter-Categories': OPENROUTER_APP_CATEGORIES
+}
 export const OPENROUTER_MAX_FALLBACK_MODELS = 2
 
 // JEV (TypeSafe AI) typed decisions (AI verdict, thesis drift), served by OpenRouter's
