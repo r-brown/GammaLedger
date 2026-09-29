@@ -21,6 +21,8 @@ interface DashboardContext {
   setAssignedPositionsStatusFilter(status: string): void
   syncAssignedPositionsStatusFilter(): void
   calculateAdvancedStats(): Stats
+  renderHeadlineStrip(stats: Stats): void
+  renderInventoryStrip(stats: Stats): void
   renderGroupedMetrics(stats: Stats): void
   renderConcentration(stats: Stats): void
 }
@@ -35,6 +37,8 @@ export function updateDashboard(this: DashboardContext): void {
         this.aiAgent.updateContext({ stats, openTrades: openTradesList })
     }
 
+    this.renderHeadlineStrip(stats)
+    this.renderInventoryStrip(stats)
     this.renderGroupedMetrics(stats)
     this.renderConcentration(stats)
 
@@ -84,6 +88,22 @@ export function initializeAssignedPositionsStatusFilter(this: DashboardContext):
 
     controls.dataset.initialized = 'true';
     this.syncAssignedPositionsStatusFilter();
+    initializeQuotesOffStrip();
+}
+
+function initializeQuotesOffStrip(): void {
+    const strip = document.getElementById('quotes-off-strip');
+    if (!strip || strip.dataset.bound === 'true') {
+        return;
+    }
+    strip.dataset.bound = 'true';
+    document.getElementById('quotes-off-dismiss')?.addEventListener('click', () => {
+        strip.dataset.dismissed = 'true';
+        strip.hidden = true;
+    });
+    document.getElementById('quotes-off-settings')?.addEventListener('click', () => {
+        document.querySelector<HTMLElement>('[data-view="settings"]')?.click();
+    });
 }
 
 export function setAssignedPositionsStatusFilter(this: DashboardContext, status: string): void {

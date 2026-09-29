@@ -97,6 +97,7 @@ import * as filtersModule from './ui/filters.js';
 import * as dashboardChartsModule from './ui/charts/dashboard-charts.js';
 import * as cumulativePLModule from './ui/charts/cumulative-pl.js';
 import type { Granularity } from '@calculations/time-buckets.js';
+import * as headlineStripModule from './ui/dashboard/headline-strip.js';
 import * as bridgeModule from './ui/dashboard/bridge.js';
 import * as groupedMetricsModule from './ui/dashboard/grouped-metrics.js';
 import * as concentrationModule from './ui/dashboard/concentration.js';
@@ -1886,6 +1887,8 @@ class GammaLedger {
 
     renderBridge(stats) { return bridgeModule.renderBridge.call(this, stats); }
 
+    renderHeadlineStrip(stats) { return headlineStripModule.renderHeadlineStrip.call(this, stats); }
+    renderInventoryStrip(stats) { return headlineStripModule.renderInventoryStrip.call(this, stats); }
     renderGroupedMetrics(stats) { return groupedMetricsModule.renderGroupedMetrics.call(this, stats); }
 
     renderConcentration(stats) { return concentrationModule.renderConcentration.call(this, stats); }

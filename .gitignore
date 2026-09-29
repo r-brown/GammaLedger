@@ -10,4 +10,5 @@ test-results
 .idea
 .agents
 .claude
+.impeccable
 graphify-out/

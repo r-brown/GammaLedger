@@ -69,7 +69,36 @@ export function initializeSidebarToggle(this: SidebarContext): void {
         }
     }
 
+    initializeMobileNav(sidebar);
     applyStoredPreference({ animate: false });
+}
+
+/** Phone widths hide the sidebar off-screen; this hamburger is the only way back in. */
+function initializeMobileNav(sidebar: Element): void {
+    const button = document.getElementById('mobile-nav-toggle');
+    if (!button || button.dataset.bound === 'true') {
+        return;
+    }
+    button.dataset.bound = 'true';
+    const setOpen = (open: boolean) => {
+        sidebar.classList.toggle('open', open);
+        document.body.classList.toggle('mobile-nav-open', open);
+        button.setAttribute('aria-expanded', String(open));
+        button.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+    };
+    button.addEventListener('click', () => setOpen(!sidebar.classList.contains('open')));
+    sidebar.addEventListener('click', (event) => {
+        if (event.target instanceof Element && event.target.closest('.nav-item')) {
+            setOpen(false);
+        }
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && sidebar.classList.contains('open')) {
+            setOpen(false);
+            button.focus();
+        }
+    });
+    document.getElementById('mobile-nav-scrim')?.addEventListener('click', () => setOpen(false));
 }
 
 export function getSidebarCollapsedPreference(): boolean {

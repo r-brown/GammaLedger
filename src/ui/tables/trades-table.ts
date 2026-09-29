@@ -361,17 +361,7 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
                 }
                 return metricEl;
             },
-            cellClass: params => {
-                const trade = params.data || {};
-                const maxRiskValue = safeNumber(trade.maxRisk);
-                if (trade.maxRiskLabel) {
-                    if (trade.riskIsUnlimited) {
-                        return 'pl-negative';
-                    }
-                    return maxRiskValue !== null ? 'pl-negative' : 'pl-neutral';
-                }
-                return maxRiskValue !== null ? 'pl-negative' : 'pl-neutral';
-            },
+            cellClass: 'pl-neutral',
             filter: 'agNumberColumnFilter'
         },
         {
@@ -382,7 +372,7 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
             cellRenderer: (params: ICellRendererParams<TradeRecord>) => {
                 const trade = params.data || {};
                 const plValue = safeNumber(trade.pl);
-                const text = plValue !== null ? this.formatCurrency(plValue) : '—';
+                const text = plValue !== null ? this.formatCurrency(plValue, { signed: true }) : '—';
                 const formulaIcon = trade.strategy && plValue !== null
                     ? this.createFormulaIcon(trade, 'pl')
                     : null;
@@ -407,7 +397,7 @@ function buildTradeColumnDefs(this: TradesTableContext): ColDef<TradeRecord>[] {
             valueGetter: params => safeNumber(params.data?.roi),
             valueFormatter: params => {
                 const value = safeNumber(params.value);
-                return value !== null ? this.formatPercent(value, '—') : '—';
+                return value !== null ? (value > 0 ? '+' : '') + this.formatPercent(value, '—').replace('-', '\u2212') : '—';
             },
             cellClass: params => {
                 const value = safeNumber(params.value);

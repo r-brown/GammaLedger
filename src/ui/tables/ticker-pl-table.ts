@@ -74,13 +74,13 @@ export function renderTickerPLTable(this: TickerPLTableContext, stats: Stats): v
     if (!root) return
 
     const rows: TickerPLRow[] = stats.tickerPL ?? []
-    const money = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals })
+    const money = (value: unknown, decimals = 2, signed = false) => this.formatCurrency(value, { decimals, signed })
 
     const currencyCell = (params: { value?: unknown }) => {
         const value = Number(params.value) || 0
         const span = document.createElement('span')
         span.className = signedClass(value)
-        span.textContent = money(value)
+        span.textContent = money(value, 2, true)
         return span
     }
 

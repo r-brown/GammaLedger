@@ -296,10 +296,31 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
     // renderEChart merges options, so omitting `selected` afterwards preserves
     // the user's legend toggle across dashboard refreshes.
     const isFirstRender = !this.charts.performanceTrend
+    const cssText = getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim();
+    const legendActiveColor = cssText || 'rgba(100, 116, 139, 0.9)';
+    const legendInactiveColor = 'rgba(128, 133, 140, 0.55)';
+    const isNarrowChart = root.clientWidth > 0 && root.clientWidth < 520
+
+    // Two value axes must share the same zero line, or a positive cumulative
+    // curve reads as a dip against the bars. Extend the shorter side of each.
+    const extent = (series: Array<number | null | undefined>[]): { lo: number; hi: number } => {
+        const nums = series.flat().filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+        return { lo: Math.min(0, ...nums), hi: Math.max(0, ...nums) };
+    };
+    const leftExtent = extent([monthlyValues, premiumValues, ...(granularity === 'month' ? [pendingValues] : [])]);
+    const rightExtent = extent([cumulativeValues, inclUnrealizedValues]);
+    const zeroFraction = (e: { lo: number; hi: number }): number => (e.hi - e.lo > 0 ? -e.lo / (e.hi - e.lo) : 0);
+    const targetZero = Math.min(0.95, Math.max(zeroFraction(leftExtent), zeroFraction(rightExtent)));
+    const alignZero = (e: { lo: number; hi: number }): { min: number; max: number } => {
+        if (targetZero <= 0 || e.hi <= 0) return { min: e.lo, max: e.hi || 1 };
+        return { min: Math.min(e.lo, -e.hi * targetZero / (1 - targetZero)), max: e.hi };
+    };
+    const leftAxis = alignZero(leftExtent);
+    const rightAxis = alignZero(rightExtent);
 
     this.charts.performanceTrend = renderEChart(root, this.charts.performanceTrend, {
         aria: { enabled: true },
-        grid: { top: 32, right: 56, bottom: 56, left: 56, containLabel: true },
+        grid: { top: isNarrowChart ? 48 : 32, right: isNarrowChart ? 12 : 56, bottom: 56, left: isNarrowChart ? 8 : 56, containLabel: true },
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'shadow' },
@@ -350,11 +371,15 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
         },
         legend: {
             show: true,
+            type: isNarrowChart ? 'scroll' : 'plain',
             top: 0,
             left: 'center',
             itemWidth: 12,
             itemHeight: 8,
-            textStyle: { color: 'rgba(100, 116, 139, 0.9)', fontSize: 11 },
+            // Explicit active/inactive colours: ECharts' default inactive grey flips
+            // meaning between light and dark surfaces.
+            textStyle: { color: legendActiveColor, fontSize: 12 },
+            inactiveColor: legendInactiveColor,
             data: [
                 realizedSeriesName,
                 ...(granularity === 'month' ? ['Pending by expiry'] : []),
@@ -371,17 +396,21 @@ export function updatePerformanceTrendChart(this: PerformanceTrendContext): void
         yAxis: [
             {
                 type: 'value',
-                name: grainLabel,
+                name: isNarrowChart ? '' : grainLabel,
                 position: 'left',
-                nameTextStyle: { color: 'rgba(100, 116, 139, 0.9)', fontSize: 10 },
+                min: leftAxis.min,
+                max: leftAxis.max,
+                nameTextStyle: { color: legendActiveColor, fontSize: 12 },
                 axisLabel: { color: 'rgba(100, 116, 139, 0.9)', formatter: (v: unknown) => fmt(v, 0) },
                 splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.16)' } }
             },
             {
                 type: 'value',
-                name: 'Cumulative',
+                name: isNarrowChart ? '' : 'Cumulative',
                 position: 'right',
-                nameTextStyle: { color: '#534AB7', fontSize: 10 },
+                min: rightAxis.min,
+                max: rightAxis.max,
+                nameTextStyle: { color: legendActiveColor, fontSize: 12 },
                 axisLabel: { color: '#534AB7', formatter: (v: unknown) => fmt(v, 0) },
                 splitLine: { show: false }
             }

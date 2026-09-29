@@ -423,7 +423,7 @@ function buildAssignedColumnDefs(
             valueGetter: params => premiumEarnedOf(params.data as AssignmentEntry | undefined),
             valueFormatter: params => params.value === null || params.value === undefined
                 ? '—'
-                : this.formatCurrency(params.value),
+                : this.formatCurrency(params.value, { signed: true }),
             cellClass: params => {
                 const v = Number(params.value);
                 return v > 0 ? 'pl-positive' : v < 0 ? 'pl-negative' : 'pl-neutral';
@@ -498,14 +498,14 @@ function buildAssignedColumnDefs(
 
                     const absEl = document.createElement('span');
                     absEl.className = 'gl-absolute';
-                    absEl.textContent = this.formatCurrency(realizedGL);
+                    absEl.textContent = this.formatCurrency(realizedGL, { signed: true });
                     cell.appendChild(absEl);
 
                     const pctEl = document.createElement('span');
                     pctEl.className = 'gl-percent';
                     const mag = Math.abs(realizedPct);
                     const pctStr = this.formatNumber(mag, { decimals: 2, useGrouping: true }) ?? mag.toFixed(2);
-                    pctEl.textContent = `${realizedGL > 0 ? '+' : realizedGL < 0 ? '-' : ''}${pctStr}%`;
+                    pctEl.textContent = `${realizedGL > 0 ? '+' : realizedGL < 0 ? '\u2212' : ''}${pctStr}%`;
                     cell.appendChild(pctEl);
 
                     cell.classList.add(realizedGL > 0 ? 'pl-positive' : realizedGL < 0 ? 'pl-negative' : 'pl-neutral');
@@ -698,7 +698,7 @@ export function updateAssignedPositionMetrics(
 
         const absValueEl = document.createElement('span');
         absValueEl.className = 'gl-absolute';
-        absValueEl.textContent = this.formatCurrency(unrealizedGL);
+        absValueEl.textContent = this.formatCurrency(unrealizedGL, { signed: true });
         unrealizedGLCell.appendChild(absValueEl);
 
         const percentEl = document.createElement('span');
@@ -706,7 +706,7 @@ export function updateAssignedPositionMetrics(
         const percentMagnitude = Math.abs(unrealizedGLPercent);
         const percentNumber = this.formatNumber(percentMagnitude, { decimals: 2, useGrouping: true })
             ?? percentMagnitude.toFixed(2);
-        const percentPrefix = unrealizedGL > 0 ? '+' : unrealizedGL < 0 ? '-' : '';
+        const percentPrefix = unrealizedGL > 0 ? '+' : unrealizedGL < 0 ? '\u2212' : '';
         percentEl.textContent = `${percentPrefix}${percentNumber}%`;
         unrealizedGLCell.appendChild(percentEl);
 

@@ -35,13 +35,15 @@ export function renderConcentration(this: ConcentrationContext, stats: Stats): v
     }
 
     const rows = stats.collateralByTicker.map(row => {
-        const widthPct = Math.max(0, Math.min(100, row.share * 100))
+        const maxShare = Math.max(...stats.collateralByTicker.map(r => r.share), 0.0001)
+        // Square-root scale keeps small positions visible next to a dominant one.
+        const widthPct = Math.max(2, Math.min(100, Math.sqrt(row.share / maxShare) * 100))
         const sharePct = (row.share * 100).toFixed(1)
         const flag = row.band !== 'ok' ? ' &#x26A0;' : ''
         return `
           <div class="conc-row">
             <span class="conc-ticker" data-ticker="${escapeHtml(row.ticker)}"></span>
-            <div class="conc-bar-wrap"><div class="conc-bar ${escapeHtml(BAND_CLASS[row.band])}" style="width:${widthPct}%"></div></div>
+            <div class="conc-bar-wrap" title="Bar length uses a square-root scale"><div class="conc-bar ${escapeHtml(BAND_CLASS[row.band])}" style="width:${widthPct}%"></div></div>
             <span class="conc-pct conc-pct--${escapeHtml(String(row.band))}">${sharePct}%${flag}</span>
             <span class="conc-amount">${fmt$(row.capital)}</span>
           </div>

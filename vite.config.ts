@@ -111,7 +111,7 @@ const CSP_POLICY = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com", // data: — AG Grid ships its icon font as a data: URI
-  "img-src 'self' data: https://static2.finnhub.io", // company logos (Finnhub profile2 `logo`)
+  "img-src 'self' data: https://*.finnhub.io", // company logos (Finnhub profile2 `logo`)
   "connect-src 'self' https://finnhub.io https://api.schwabapi.com https://generativelanguage.googleapis.com https://openrouter.ai",
   "object-src 'none'",
   "base-uri 'self'",

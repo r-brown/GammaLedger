@@ -398,6 +398,60 @@ function buildActivePositionsColumnDefs(
     quoteEntries: Map<string, Record<string, unknown>>,
     attentionMap: Map<string, AttentionItem>
 ): ColDef<TradeRecord>[] {
+    const defs = buildActivePositionsBaseColumnDefs.call(this, quoteEntries, attentionMap);
+    return isNarrowViewport() ? toCompactColumns(defs) : defs;
+}
+
+const NARROW_QUERY = '(max-width: 640px)';
+// Phone view reads like a card list: Ticker, DTE and Max Risk first, the rest dropped.
+const COMPACT_ORDER = ['attention', 'ticker', 'dte', 'maxRisk'];
+
+function isNarrowViewport(): boolean {
+    return typeof window !== 'undefined' && window.matchMedia(NARROW_QUERY).matches;
+}
+
+// Phone view reads like a card list: the ticker cell carries a second line
+// (strategy · strike) so the position stays identifiable without the wide columns.
+function toCompactColumns(defs: ColDef<TradeRecord>[]): ColDef<TradeRecord>[] {
+    const byId = new Map(defs.map(def => [def.colId, def]));
+    return COMPACT_ORDER
+        .map(id => byId.get(id))
+        .filter((def): def is ColDef<TradeRecord> => Boolean(def))
+        .map(def => {
+            if (def.colId !== 'ticker') {
+                return def.colId === 'attention' ? def : { ...def, width: def.colId === 'dte' ? 64 : 96, minWidth: 60 };
+            }
+            const renderer = def.cellRenderer as ((p: ICellRendererParams<TradeRecord>) => HTMLElement | string) | undefined;
+            return {
+                ...def,
+                pinned: undefined,
+                width: 126,
+                cellRenderer: (params: ICellRendererParams<TradeRecord>) => {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'compact-position-cell';
+                    const main = renderer ? renderer(params) : String(params.value ?? '');
+                    if (typeof main === 'string') {
+                        wrap.textContent = main;
+                    } else {
+                        wrap.appendChild(main);
+                    }
+                    const strategy = String(params.data?.strategy ?? '').trim();
+                    const strike = Number(params.data?.strike);
+                    const sub = document.createElement('span');
+                    sub.className = 'compact-position-cell__sub';
+                    sub.textContent = [strategy, Number.isFinite(strike) ? `$${strike}` : ''].filter(Boolean).join(' · ');
+                    wrap.appendChild(sub);
+                    return wrap;
+                }
+            };
+        });
+}
+
+function buildActivePositionsBaseColumnDefs(
+    this: ActivePositionsContext,
+    quoteEntries: Map<string, Record<string, unknown>>,
+    attentionMap: Map<string, AttentionItem>
+): ColDef<TradeRecord>[] {
     return [
         {
             colId: 'attention',
@@ -480,6 +534,9 @@ function buildActivePositionsColumnDefs(
         },
         {
             colId: 'optionSpreadMark',
+            // Marks only exist with a Schwab connection; an empty column is noise.
+            hide: !(this as unknown as { schwab?: { vault?: unknown; automaticRefresh?: boolean } }).schwab?.vault
+                || !(this as unknown as { schwab?: { automaticRefresh?: boolean } }).schwab?.automaticRefresh,
             headerName: 'Option / Spread Mark',
             headerTooltip: 'Current Schwab mark per option or strategy unit. Multi-leg values are calculated from the open leg marks.',
             width: 175,
@@ -536,7 +593,7 @@ function buildActivePositionsColumnDefs(
             width: 125,
             valueGetter: params => this.parseDecimal(params.data?.maxRisk, null, { allowNegative: false }),
             valueFormatter: params => Number.isFinite(params.value as number) ? this.formatCurrency(params.value) : '—',
-            cellClass: params => Number.isFinite(params.value as number) ? 'pl-negative' : 'pl-neutral',
+            cellClass: 'pl-neutral',
             filter: 'agNumberColumnFilter'
         },
         {
@@ -646,6 +703,19 @@ export function updateActivePositionsTable(
         this.activePositionsGridApi.updateGridOptions({
             columnDefs: buildActivePositionsColumnDefs.call(this, quoteEntries, attentionMap),
             rowData: buildRowsWithDetail(sortedTrades, this.expandedTradeId)
+        });
+    }
+
+    if (gridRoot.dataset.narrowBound !== 'true') {
+        gridRoot.dataset.narrowBound = 'true';
+        window.matchMedia(NARROW_QUERY).addEventListener('change', () => {
+            this.activePositionsGridApi?.updateGridOptions({
+                columnDefs: buildActivePositionsColumnDefs.call(
+                    this,
+                    this.activeQuoteEntries,
+                    computeAttentionByTrade.call(this, this.activePositionsTrades)
+                )
+            });
         });
     }
 

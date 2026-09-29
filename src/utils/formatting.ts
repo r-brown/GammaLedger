@@ -26,6 +26,8 @@ export interface FormatCurrencyOptions {
     currency?: string
     decimals?: number
     useGrouping?: boolean
+    /** Prefix +/− on non-zero values so gain/loss never relies on colour alone. */
+    signed?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -217,11 +219,13 @@ export function formatCurrency(amount: unknown, options: FormatCurrencyOptions =
         ? Boolean(options.useGrouping)
         : true;
 
-    return new Intl.NumberFormat('en-US', {
+    const text = new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency,
         useGrouping,
         minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals
+        maximumFractionDigits: decimals,
+        ...(options.signed ? { signDisplay: 'exceptZero' as const } : {})
     }).format(value);
+    return options.signed ? text.replace('-', '\u2212') : text;
 }

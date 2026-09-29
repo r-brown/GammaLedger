@@ -39,7 +39,7 @@ function valClass(value: number, positiveOverride?: string): string {
 }
 
 function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
-    const fmt = (v: number) => escapeHtml(this.formatCurrency(v))
+    const fmt = (v: number) => escapeHtml(this.formatCurrency(v, { signed: true, decimals: 0 }))
     const closed = stats.closedTradesPL
     const wheel = stats.wheelAssignedPremium
     const openRealized = stats.openTradeRealizedPL
@@ -113,7 +113,7 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         wheelSub,
         wheel,
         'var(--color-bridge-wheel-bg)',
-        valClass(wheel, 'rv-pur'),
+        valClass(wheel),
         'Net option premium across every wheel/PMCC cycle (open + closed), net of buy-back debits and fees.\nPremium realized to date on cycles still holding shares (an open short call counts once it expires or is bought back).\nCan be NEGATIVE after credit rolls: the buyback loss is realized now while the replacement contract\'s credit sits in "premium pending" until it terminates.\nMatches the Wheel/PMCC Tracker\'s "Premium Earned" column (realized-basis). The tracker\'s "Premium Collected" column is cash-basis — it credits a short call the moment it is sold, so it runs higher while calls are open.'
       )}
       ${row(
@@ -121,7 +121,7 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         'terminated legs, open positions',
         openRealized,
         'var(--color-bridge-wheel-bg)',
-        valClass(openRealized, 'rv-pur'),
+        valClass(openRealized),
         'Realized P&L from terminated legs inside open positions — a PMCC\'s expired or bought-back short calls, completed roll cycles. The legs are done even though the position is not.\nOften NEGATIVE while rolling for credit: each buyback locks in that contract\'s loss immediately, while the replacement contract\'s larger credit stays in "premium pending" until it expires or is bought back. See the Open premium pending row.'
       )}
       ${row(
@@ -129,7 +129,7 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
         'closed + wheel + open-trade realized',
         realized,
         'var(--color-bridge-realized-bg)',
-        valClass(realized, 'rv-pur'),
+        valClass(realized),
         'Closed trades + Wheel premium + Open-trade realized.\nRealized-basis: an open short call is not counted until the contract expires or is bought back.\nTax note: assigned-put premium is booked as realized income at assignment (trader convention). Tax reporting instead folds that premium into the stock cost basis, so 1099 realized figures may differ.',
         true
       )}
@@ -155,6 +155,10 @@ function buildBridgeColumn(this: GroupedMetricsContext, stats: Stats): string {
     `
 }
 
+function signPct(text: string, v: number): string {
+    return v > 0 ? `+${text}` : text.replace('-', '\u2212')
+}
+
 function plClass(v: number): string {
     if (v > 0) return 'rv-pos'
     if (v < 0) return 'rv-neg'
@@ -176,12 +180,11 @@ function buildGreeksRows(this: GroupedMetricsContext, stats: Stats): string {
     const summary = computePortfolioGreeks.call(this, stats)
     if (!summary) return ''
 
-    const fmt$ = (v: number) => escapeHtml(this.formatCurrency(v))
+    const fmt$ = (v: number) => escapeHtml(this.formatCurrency(v, { signed: true }))
     const deltaText = escapeHtml(this.formatNumber(summary.netDelta, { decimals: 1 }) ?? '0')
 
     return `
       <div class="row"><span class="rl">Net &Delta;&nbsp;${infoPopoverIcon(greeksAssumptions(summary))}</span><span class="rv">${deltaText}</span></div>
-      <div class="row"><span class="rl">&Theta; / day</span><span class="${plClass(summary.thetaPerDay)}">${fmt$(summary.thetaPerDay)}</span></div>
       <div class="row"><span class="rl">Vega (per 1pt IV)</span><span class="rv">${fmt$(summary.vega)}</span></div>
     `
 }
@@ -190,7 +193,8 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
     const root = document.getElementById('grouped-metrics')
     if (!root) return
 
-    const fmt$ = (v: number) => escapeHtml(this.formatCurrency(v))
+    const fmt$ = (v: number) => escapeHtml(this.formatCurrency(v, { decimals: 0 }))
+    const fmtSigned$ = (v: number) => escapeHtml(this.formatCurrency(v, { signed: true, decimals: 0 }))
     const fmtPct = (v: number) => escapeHtml(this.formatNumber(v, { style: 'percent', decimals: 1 }) ?? '0%')
 
     const top = stats.collateralByTicker[0]
@@ -212,25 +216,24 @@ export function renderGroupedMetrics(this: GroupedMetricsContext, stats: Stats):
       </div>
       <div class="metric-col">
         <h3>Risk &amp; Exposure</h3>
-        <div class="row"><span class="rl">Collateral at risk</span><span class="rv-warn">${fmt$(stats.collateralAtRisk)}</span></div>
         ${buildGreeksRows.call(this, stats)}
-        <div class="row"><span class="rl">Open premium pending&nbsp;${infoPopoverIcon('Net cash already booked on open option contracts (credits minus debits, net of fees), grouped by expiration.\nCollected but NOT yet earned: it becomes Realized only when each contract expires worthless or is closed — buybacks and rolls will reduce it. This is the premium a CSP/wheel seller is still working for.')}</span><span class="${valClass(stats.pendingPremium, 'rv-pur')}">${fmt$(stats.pendingPremium)}</span></div>
+        <div class="row"><span class="rl">Open premium pending&nbsp;${infoPopoverIcon('Net cash already booked on open option contracts (credits minus debits, net of fees), grouped by expiration.\nCollected but NOT yet earned: it becomes Realized only when each contract expires worthless or is closed — buybacks and rolls will reduce it. This is the premium a CSP/wheel seller is still working for.')}</span><span class="${valClass(stats.pendingPremium)}">${fmtSigned$(stats.pendingPremium)}</span></div>
         ${anomalies > 0 ? `<div class="row"><span class="rl">&#x26A0; Leg data anomalies&nbsp;${infoPopoverIcon(`The leg-realization engine found ${String(stats.realizationAnomalies.orphanCloseGroups)} option group(s) with more closing than opening contracts and ${String(stats.realizationAnomalies.closeAfterExpiryLegs)} closing leg(s) executed after their recorded expiration date.\nThis usually means a buyback leg carries the wrong expiration — its debit is realized immediately while the matching credit stays pending, understating realized P&L.\nFix: edit the trade and correct the closing leg's expiration date.`)}</span><span class="rv-neg">${escapeHtml(stats.realizationAnomalies.tickers.join(', '))}</span></div>` : ''}
         <div class="row"><span class="rl">Top-ticker concentration</span><span class="${topOver ? 'rv-warn' : 'rv'}">${topLabel}${topOver ? ` <span class="chip chip-warn">&#x26A0; limit ${APP_CONFIG.RISK_RULES.TARGET_SHARE_PCT}%</span>` : ''}</span></div>
         <div class="row"><span class="rl">Active positions</span><span class="rv">${escapeHtml(String(stats.activePositions))} / ${APP_CONFIG.RISK_RULES.TARGET_POSITION_COUNT}</span></div>
         <div class="row"><span class="rl">Assigned (Wheel/PMCC)</span><span class="rv">${escapeHtml(String(stats.assignedPositions))} positions</span></div>
-        <div class="row"><span class="rl">Max drawdown&nbsp;${infoPopoverIcon('Largest peak-to-trough dip of the cumulative realized P&L curve, in trade-close order.\nThe percentage is relative to the P&L peak — not to account equity, since GammaLedger does not track account size.')}</span><span class="${stats.maxDrawdown > 20 ? 'rv-neg' : 'rv-warn'}">${fmt$(stats.maxDrawdownDollars)} (${stats.maxDrawdown.toFixed(1)}% of peak)</span></div>
+        <div class="row"><span class="rl">Max drawdown&nbsp;${infoPopoverIcon('Largest peak-to-trough dip of the cumulative realized P&L curve, in trade-close order.\nThe percentage is relative to the P&L peak — not to account equity, since GammaLedger does not track account size.')}</span><span class="${stats.maxDrawdown > 20 ? 'rv-neg' : 'rv-warn'}">${fmtSigned$(-Math.abs(stats.maxDrawdownDollars))} (${stats.maxDrawdown.toFixed(1)}% of peak)</span></div>
       </div>
       <div class="metric-col">
         <h3>Trade Quality</h3>
-        <div class="row"><span class="rl">Total ROI&nbsp;${infoPopoverIcon('Capital-days weighted average of per-trade annualized returns.\nUses simple (non-compounded) annualization — ROI × 365 ÷ days held — the options-industry convention for annualized return on collateral.')}</span><span class="${plClass(stats.totalROI)}">${fmtPct(stats.totalROI)}</span></div>
-        <div class="row"><span class="rl">Win rate</span><span class="rv-pos">${stats.winRate.toFixed(1)}%</span></div>
+        <div class="row"><span class="rl">Total ROI&nbsp;${infoPopoverIcon('Capital-days weighted average of per-trade annualized returns.\nUses simple (non-compounded) annualization — ROI × 365 ÷ days held — the options-industry convention for annualized return on collateral.')}</span><span class="${plClass(stats.totalROI)}">${signPct(fmtPct(stats.totalROI), stats.totalROI)}</span></div>
+        <div class="row"><span class="rl">Win rate</span><span class="rv">${stats.winRate.toFixed(1)}%</span></div>
         <div class="win-bar-wrap"><div class="win-bar" style="width:${Math.max(0, Math.min(100, stats.winRate))}%"></div></div>
         <div class="win-bar-foot"><span>${escapeHtml(String(stats.wins))}W</span><span>${escapeHtml(String(stats.losses))}L</span></div>
-        <div class="row"><span class="rl">Avg win / avg loss</span><span class="rv"><span class="rv-pos">${fmt$(stats.avgWin)}</span> / <span class="rv-neg">${fmt$(stats.avgLoss)}</span></span></div>
+        <div class="row"><span class="rl">Avg win / avg loss</span><span class="rv"><span class="rv-pos">${fmtSigned$(Math.abs(stats.avgWin))}</span> / <span class="rv-neg">${fmtSigned$(-Math.abs(stats.avgLoss))}</span></span></div>
         <div class="row"><span class="rl">Risk / Reward ratio</span><span class="${rrInverted ? 'rv-neg' : 'rv'}">${rrText}${rrInverted ? ' <span class="chip chip-warn">inverted</span>' : ''}</span></div>
         <div class="row"><span class="rl">Profit factor</span><span class="rv">${pf}</span></div>
-        <div class="row"><span class="rl">Expectancy</span><span class="${plClass(stats.expectancy)}">${fmt$(stats.expectancy)} / trade</span></div>
+        <div class="row"><span class="rl">Expectancy</span><span class="${plClass(stats.expectancy)}">${fmtSigned$(stats.expectancy)} / trade</span></div>
         <div class="row"><span class="rl">Sharpe ratio (approx.)&nbsp;${infoPopoverIcon('Trade-level approximation: one daily-equivalent return per closed trade, annualized ×√252.\nIgnores position overlap (not a daily equity curve) and subtracts no risk-free rate — not comparable to fund-reported Sharpe ratios.')}</span><span class="rv">${sharpe}</span></div>
       </div>
       <div class="metric-col" id="collateral-concentration"></div>

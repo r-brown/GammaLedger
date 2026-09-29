@@ -221,6 +221,9 @@ export function updateCommissionImpactChart(this: DashboardChartsContext): void 
     }
 
     const formatCurrencyValue = (value: unknown, decimals = 2) => this.formatCurrency(value, { decimals });
+    renderChartDataTable('commissionTable', ['Measure', 'Amount'],
+        [['Net P&L', formatCurrencyValue(netPL)], ['Fees', formatCurrencyValue(totalFees)]]);
+
     renderStoredChart(this.charts, 'commissionImpact', root, {
         aria: { enabled: true },
         grid: { top: 8, right: 18, bottom: 22, left: 10, containLabel: true },
@@ -278,6 +281,9 @@ export function updateTimeInTradeChart(this: DashboardChartsContext): void {
         return this.formatNumber(numeric, { decimals, useGrouping: true }) ?? numeric.toFixed(decimals);
     };
 
+    renderChartDataTable('timeInTradeTable', ['Group', 'Average days held'],
+        [['Winners', formatDayCount(winners, 1)], ['Losers', formatDayCount(losers, 1)]]);
+
     renderStoredChart(this.charts, 'timeInTrade', root, {
         aria: { enabled: true },
         grid: { top: 12, right: 14, bottom: 24, left: 12, containLabel: true },
@@ -321,6 +327,23 @@ export function updateTimeInTradeChart(this: DashboardChartsContext): void {
     });
 }
 
+/** Fill (or create) the collapsed <details> table that mirrors a chart for screen readers. */
+function renderChartDataTable(id: string, headers: string[], rows: string[][]): void {
+    const holder = document.getElementById(id);
+    if (!holder) {
+        return;
+    }
+    const cell = (tag: 'th' | 'td', text: string) => `<${tag}>${text.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string))}</${tag}>`;
+    holder.innerHTML = `<summary>View as table</summary><table><thead><tr>${headers.map(h => cell('th', h)).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => cell('td', c)).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+const NEUTRAL_LINE_COLOR = '#7a8087';
+
+function cssColor(name: string, fallback: string): string {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
+}
+
 export function updateMonteCarloChart(this: DashboardChartsContext): void {
     const root = getChartRoot('monteCarloChart');
     const summaryElement = document.getElementById('monteCarloSummary');
@@ -350,25 +373,32 @@ export function updateMonteCarloChart(this: DashboardChartsContext): void {
     const percentiles = projection.percentiles as Record<string, number[]>;
     const labels = projection.labels as string[];
     const medianTerminal = percentiles.p50[percentiles.p50.length - 1] || 1;
-    if (summaryElement) {
-        const pctChange = (medianTerminal - 1) * 100;
-        const formattedNumber = this.formatNumber(Math.abs(pctChange), { decimals: 1, useGrouping: true })
-            ?? Math.abs(pctChange).toFixed(1);
-        const prefix = pctChange >= 0 ? '+' : '-';
-        summaryElement.textContent = `Median path suggests ${prefix}${formattedNumber}% over 60 trading days.`;
-    }
-
     const formatProjectedPercent = (value: unknown): string => {
         const percent = (Number(value) - 1) * 100;
         const formattedNumber = this.formatNumber(Math.abs(percent), { decimals: 1, useGrouping: true })
             ?? Math.abs(percent).toFixed(1);
-        const prefix = percent >= 0 ? '+' : '-';
+        const prefix = percent > 0 ? '+' : percent < 0 ? '\u2212' : '';
         return `${prefix}${formattedNumber}%`;
     };
+    if (summaryElement) {
+        const last = (key: string): number => percentiles[key]?.[percentiles[key].length - 1] ?? 1;
+        summaryElement.textContent = `Illustrative, not a forecast: resampled from your past closed trades, 60 trading days out. Middle 80% of simulated paths ends between ${formatProjectedPercent(last('p10'))} and ${formatProjectedPercent(last('p90'))} (median ${formatProjectedPercent(medianTerminal)}). Past results do not predict future returns.`;
+    }
+
+
+    renderChartDataTable(
+        'monteCarloTable',
+        ['Day', '10th pct', 'Median', '90th pct'],
+        labels.map((label, i) => [label, formatProjectedPercent(percentiles.p10[i]), formatProjectedPercent(percentiles.p50[i]), formatProjectedPercent(percentiles.p90[i])])
+            .filter((_, i) => i % 5 === 0)
+    );
+
+    const gainColor = cssColor('--color-gain', '#0F6E56');
+    const lossColor = cssColor('--color-loss', '#A32D2D');
 
     renderStoredChart(this.charts, 'monteCarlo', root, {
         aria: { enabled: true },
-        color: ['rgba(180, 65, 60, 0.75)', 'rgba(31, 184, 205, 0.4)', PROFIT_COLOR],
+        color: [lossColor, gainColor, NEUTRAL_LINE_COLOR],
         grid: { top: 16, right: 18, bottom: 42, left: 10, containLabel: true },
         legend: { bottom: 0, textStyle: { color: AXIS_TEXT_COLOR } },
         tooltip: {
@@ -388,7 +418,7 @@ export function updateMonteCarloChart(this: DashboardChartsContext): void {
         xAxis: {
             type: 'category',
             data: labels,
-            axisLabel: { color: AXIS_TEXT_COLOR, interval: 5 },
+            axisLabel: { color: AXIS_TEXT_COLOR, interval: 9, hideOverlap: true },
             axisTick: { show: false },
             axisLine: { lineStyle: { color: GRID_LINE_COLOR } }
         },
@@ -404,7 +434,8 @@ export function updateMonteCarloChart(this: DashboardChartsContext): void {
                 data: percentiles.p10,
                 showSymbol: false,
                 smooth: 0.2,
-                lineStyle: { width: 1.5 }
+                lineStyle: { width: 1.5, type: 'dashed', color: lossColor },
+                itemStyle: { color: lossColor }
             },
             {
                 type: 'line',
@@ -412,8 +443,9 @@ export function updateMonteCarloChart(this: DashboardChartsContext): void {
                 data: percentiles.p90,
                 showSymbol: false,
                 smooth: 0.2,
-                lineStyle: { width: 1.5 },
-                areaStyle: { color: 'rgba(31, 184, 205, 0.08)' }
+                lineStyle: { width: 1.5, color: gainColor },
+                itemStyle: { color: gainColor },
+                areaStyle: { color: 'rgba(146, 149, 152, 0.12)' }
             },
             {
                 type: 'line',
@@ -421,11 +453,12 @@ export function updateMonteCarloChart(this: DashboardChartsContext): void {
                 data: percentiles.p50,
                 showSymbol: false,
                 smooth: 0.2,
-                lineStyle: { width: 2.25, color: PROFIT_COLOR },
+                lineStyle: { width: 2.25, color: NEUTRAL_LINE_COLOR },
+                itemStyle: { color: NEUTRAL_LINE_COLOR },
                 markLine: {
                     silent: true,
                     symbol: 'none',
-                    label: { show: false },
+                    label: { show: true, formatter: '0%', position: 'insideStartTop', color: AXIS_TEXT_COLOR },
                     lineStyle: { color: 'rgba(146, 149, 152, 0.85)', width: 1.5 },
                     data: [{ yAxis: 1 }]
                 }
@@ -532,6 +565,9 @@ export function updateStrategyPerformanceChart(this: DashboardChartsContext): vo
         }
     };
 
+    renderChartDataTable('strategyTable', ['Strategy', 'Total P&L'],
+        [...sortedStrategies].reverse().map(([strategy, pl]) => [strategy, this.formatCurrency(pl, { signed: true })]));
+
     renderStoredChart(this.charts, 'strategy', root, {
         aria: { enabled: true },
         grid: { top: 10, right: 18, bottom: 22, left: 10, containLabel: true },
@@ -617,6 +653,9 @@ export function updateWinRateByStrategyChart(this: DashboardChartsContext): void
             itemStyle: { color: colors[index % colors.length] }
         }))
         : [{ name: 'No closed trades', value: 1, itemStyle: { color: MUTED_BAR_COLOR } }];
+
+    renderChartDataTable('winRateTable', ['Strategy', 'Trades', 'Win rate'],
+        validStrategies.map(item => [item.strategy, String(item.total), this.formatPercent(item.winRate, '0%', { decimals: 1 })]));
 
     renderStoredChart(this.charts, 'winRate', root, {
         aria: { enabled: true },

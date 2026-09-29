@@ -282,7 +282,7 @@ export interface EnrichedTrade extends Trade {
   shares?: number
 
   /**
-   * Effective cost basis per share after premium offset.
+   * Effective cost basis of the whole held position (not per share) after premium offset.
    * STRIPPED ON SAVE.
    */
   effectiveCostBasis?: DollarAmount

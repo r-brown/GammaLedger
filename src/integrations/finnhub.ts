@@ -135,7 +135,9 @@ async function fetchFinnhubJson(
         if (!response.ok) {
             throw new Error(response.status === 429
                 ? 'Finnhub rate limit exceeded. Please wait.'
-                : `Finnhub API error (${response.status})`);
+                : response.status === 401 || response.status === 403
+                    ? 'Finnhub API key rejected'
+                    : `Finnhub API error (${response.status})`);
         }
         return response.json();
     });
@@ -1267,6 +1269,10 @@ export function populateQuoteCell(this: any, cell: HTMLElement | null, trade: An
         this.updateItmHighlight(row, trade, null);
         return;
     } else {
+        const quotesOffStrip = document.getElementById('quotes-off-strip');
+        if (quotesOffStrip) {
+            quotesOffStrip.hidden = true;
+        }
         cell.dataset.priceState = forceRefresh ? 'refreshing' : 'loading';
         if (!forceRefresh && !suppressLoadingText && !silentIfCached) {
             cell.textContent = 'Loading…';
@@ -1432,16 +1438,13 @@ export function setQuoteCellError(this: any, cell: HTMLElement | null, row: HTML
     const normalizedMessage = (message || '').trim();
 
     if (normalizedMessage === 'Set API key') {
-        cell.textContent = '';
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'link-button link-button--inline';
-        button.textContent = 'Set API key';
-        button.addEventListener('click', (event) => {
-            event.preventDefault();
-            this.showView('settings');
-        });
-        cell.appendChild(button);
+        // One dismissible strip above the grid explains this; cells stay quiet.
+        cell.textContent = '—';
+        cell.title = 'Live quotes are off';
+        const strip = document.getElementById('quotes-off-strip');
+        if (strip && strip.dataset.dismissed !== 'true') {
+            strip.hidden = false;
+        }
     } else {
         cell.textContent = normalizedMessage || 'Unavailable';
     }
@@ -1452,6 +1455,9 @@ export function getQuoteErrorMessage(this: any, error: unknown) {
     const message = (error instanceof Error ? error.message : '').toLowerCase();
     if (!message) {
         return 'Unavailable';
+    }
+    if (message.includes('api key rejected')) {
+        return 'API key rejected';
     }
     if (message.includes('api key')) {
         return 'Set API key';
@@ -1535,7 +1541,11 @@ export async function performFinnhubFetch(this: any, symbol: string, signal?: Ab
     }
 
     if (!response.ok) {
-        throw new Error(response.status === 429 ? 'Finnhub rate limit exceeded. Please wait.' : 'Finnhub API error');
+        throw new Error(response.status === 429
+            ? 'Finnhub rate limit exceeded. Please wait.'
+            : response.status === 401 || response.status === 403
+                ? 'Finnhub API key rejected'
+                : 'Finnhub API error');
     }
 
     let payload: unknown;

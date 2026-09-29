@@ -50,6 +50,11 @@ export function initializeCumulativePLControls(this: CumulativePLContext): void 
         this.setCumulativePLRange(range);
     });
 
+    const select = document.getElementById('cumulative-pl-select');
+    if (select instanceof HTMLSelectElement) {
+        select.addEventListener('change', () => this.setCumulativePLRange(select.value));
+    }
+
     controls.dataset.initialized = 'true';
     this.syncCumulativePLControls();
 }
@@ -85,6 +90,11 @@ export function syncCumulativePLControls(this: CumulativePLContext): void {
         button.classList.toggle('is-active', isActive);
         button.setAttribute('aria-pressed', String(isActive));
     });
+
+    const select = document.getElementById('cumulative-pl-select');
+    if (select instanceof HTMLSelectElement) {
+        select.value = currentRange;
+    }
 }
 
 /** The granularity actually in force: an explicit pin, else the range default. */

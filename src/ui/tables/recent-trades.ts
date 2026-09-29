@@ -41,6 +41,10 @@ function rowKey(trade: TradeRecord, fallback = 'recent'): string {
         .replace(/[^a-zA-Z0-9_-]/g, '-');
 }
 
+function signPercent(text: string, value: number): string {
+    return value > 0 ? `+${text}` : text.replace('-', '\u2212');
+}
+
 function signedClass(value: number | null): string {
     return value !== null
         ? (value > 0 ? 'pl-positive' : value < 0 ? 'pl-negative' : 'pl-neutral')
@@ -102,7 +106,7 @@ function buildRecentTradesColumnDefs(this: RecentTradesContext): ColDef<TradeRec
             valueGetter: params => safeNumber(params.data?.pl),
             valueFormatter: params => {
                 const value = safeNumber(params.value);
-                return value !== null ? this.formatCurrency(value) : '—';
+                return value !== null ? this.formatCurrency(value, { signed: true }) : '—';
             },
             cellClass: params => signedClass(safeNumber(params.value)),
             filter: 'agNumberColumnFilter'
@@ -115,7 +119,7 @@ function buildRecentTradesColumnDefs(this: RecentTradesContext): ColDef<TradeRec
             valueGetter: params => safeNumber(params.data?.roi),
             valueFormatter: params => {
                 const value = safeNumber(params.value);
-                return value !== null ? this.formatPercent(value, '—') : '—';
+                return value !== null ? signPercent(this.formatPercent(value, '—'), value) : '—';
             },
             cellClass: params => signedClass(safeNumber(params.value)),
             filter: 'agNumberColumnFilter'
@@ -128,7 +132,7 @@ function buildRecentTradesColumnDefs(this: RecentTradesContext): ColDef<TradeRec
             valueGetter: params => safeNumber(params.data?.weeklyROI),
             valueFormatter: params => {
                 const value = safeNumber(params.value);
-                return value !== null ? this.formatPercent(value, '—') : '—';
+                return value !== null ? signPercent(this.formatPercent(value, '—'), value) : '—';
             },
             cellClass: params => signedClass(safeNumber(params.value)),
             filter: 'agNumberColumnFilter'

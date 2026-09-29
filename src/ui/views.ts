@@ -87,8 +87,8 @@ export function showView(this: ViewsContext, viewName: string): void {
         'trades-list': 'All Trades',
         import: 'Import Trades',
         settings: 'Settings',
-        'credit-playbook': 'Credit Playbook (beta)',
-        watchlist: 'Watchlist (beta)'
+        'credit-playbook': 'Credit Playbook',
+        watchlist: 'Watchlist'
     };
     const titleText = titles[viewName] || 'GammaLedger';
     const titleEl = document.getElementById('page-title');
@@ -138,7 +138,40 @@ export function showView(this: ViewsContext, viewName: string): void {
     }
 }
 
+/** Fills the "Last used" optgroup with every strategy in the loaded trades, most used first. */
+export function populateLastUsedStrategies(this: ViewsContext): void {
+    const group = document.getElementById('strategy-last-used') as HTMLOptGroupElement | null;
+    if (!group) return;
+
+    const usage = new Map<string, { count: number; latest: string }>();
+    for (const trade of this.trades ?? []) {
+        const strategy = typeof trade.strategy === 'string' ? trade.strategy.trim() : '';
+        if (!strategy) continue;
+        const opened = typeof trade.openedDate === 'string' ? trade.openedDate : '';
+        const entry = usage.get(strategy) ?? { count: 0, latest: '' };
+        entry.count += 1;
+        if (opened > entry.latest) entry.latest = opened;
+        usage.set(strategy, entry);
+    }
+
+    // Ties: most recently opened first, then alphabetical.
+    const ordered = Array.from(usage.entries())
+        .sort((a, b) => b[1].count - a[1].count
+            || b[1].latest.localeCompare(a[1].latest)
+            || a[0].localeCompare(b[0]))
+        .map(([strategy]) => strategy);
+
+    group.replaceChildren(...ordered.map(strategy => {
+        const option = document.createElement('option');
+        option.value = strategy;
+        option.textContent = strategy;
+        return option;
+    }));
+    group.hidden = ordered.length === 0;
+}
+
 export function resetAddTradeForm(this: ViewsContext): void {
+    populateLastUsedStrategies.call(this);
     const form = document.getElementById('add-trade-form') as HTMLFormElement | null;
     if (form) {
         form.reset();
