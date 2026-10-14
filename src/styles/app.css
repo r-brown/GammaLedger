@@ -972,18 +972,36 @@ select.form-control {
   display: none;
 }
 
-.announcement-banner__message {
+.announcement-banner__content {
   flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8) var(--space-16);
 }
 
-.announcement-banner__message a {
-  color: #e9d5ff;
-  font-weight: var(--font-weight-semibold);
-  text-decoration: underline;
+.announcement-banner__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
 }
 
-.announcement-banner__message a:hover {
+.announcement-banner__cta {
   color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  padding: 2px var(--space-12);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.announcement-banner__cta:hover,
+.announcement-banner__cta:focus-visible {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .announcement-banner__dismiss {

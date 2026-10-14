@@ -10,13 +10,25 @@ interface AnnouncementContext {
   newDatabase(): void
 }
 
-// Hardcoded, trusted content only — this string is injected as innerHTML.
-// Bump `id` when the message changes so previously-dismissed users see it again.
+// Bump `id` when the banner changes so previously-dismissed users see it again.
+// Messages are plain text (rendered with textContent); one is picked per page load.
+// Keep claims to what is true of the project: free, open source, local-first, no accounts.
+const REPO_URL = 'https://github.com/r-brown/GammaLedger'
+const SPONSOR_URL = 'https://github.com/sponsors/r-brown'
+
 const ANNOUNCEMENT = {
     enabled: true,
-    id: 'v2-early-access',
-    html: '✨&nbsp; Welcome to <strong>GammaLedger v2</strong> — early access! ' +
-        'Prefer the classic experience? <a href="https://gammaledger.com/appv1/">Back to v1 →</a>'
+    id: 'support-the-project',
+    messages: [
+        '👋 GammaLedger is free, open source and keeps your data in your browser. If it\u2019s saving you time, a star or a sponsorship helps me keep building it.',
+        '📈 Private by design, free to use. The only premium I\u2019m asking for is a ⭐ on GitHub \u2014 or a sponsorship if you\u2019re feeling generous.',
+        '🙏 No accounts, no servers, no subscription \u2014 just an independent open-source project. If it earns a place in your routine, a star tells me it\u2019s worth the effort.',
+        '☕ Good journals compound, and so do small gestures. If GammaLedger helps you trade with a cooler head, consider starring it or sponsoring the project.'
+    ],
+    links: [
+        { label: '⭐ Star on GitHub', href: REPO_URL },
+        { label: '💖 Sponsor', href: SPONSOR_URL }
+    ]
 } as const
 
 const SAMPLE_DATABASE_NAME = 'Sample Database (Built-in)'
@@ -25,10 +37,42 @@ function setAppTopOffset(px: number): void {
     document.documentElement.style.setProperty('--app-top-offset', `${px}px`)
 }
 
+function buildAnnouncementContent(): HTMLElement {
+    const content = document.createElement('div')
+    content.className = 'announcement-banner__content'
+
+    const message = document.createElement('span')
+    message.className = 'announcement-banner__message'
+    message.textContent = ANNOUNCEMENT.messages[Math.floor(Math.random() * ANNOUNCEMENT.messages.length)]
+
+    const actions = document.createElement('span')
+    actions.className = 'announcement-banner__actions'
+    for (const link of ANNOUNCEMENT.links) {
+        const anchor = document.createElement('a')
+        anchor.className = 'announcement-banner__cta'
+        anchor.href = link.href
+        anchor.target = '_blank'
+        anchor.rel = 'noopener noreferrer'
+        anchor.textContent = link.label
+        actions.appendChild(anchor)
+    }
+
+    content.append(message, actions)
+    return content
+}
+
+function buildDismissButton(): HTMLButtonElement {
+    const button = document.createElement('button')
+    button.className = 'announcement-banner__dismiss'
+    button.setAttribute('aria-label', 'Dismiss')
+    button.textContent = '✕'
+    return button
+}
+
 export function initializeAnnouncementBanner(this: AnnouncementContext): void {
     const container = document.getElementById('announcement-banner')
     const dismissedId = safeLocalStorage.getItem(APP_CONFIG.STORAGE.ANNOUNCEMENT_DISMISSED)
-    const show = ANNOUNCEMENT.enabled && ANNOUNCEMENT.html && dismissedId !== ANNOUNCEMENT.id
+    const show = ANNOUNCEMENT.enabled && dismissedId !== ANNOUNCEMENT.id
 
     if (!container || !show) {
         container?.remove()
@@ -37,9 +81,7 @@ export function initializeAnnouncementBanner(this: AnnouncementContext): void {
     }
 
     container.className = 'announcement-banner'
-    container.innerHTML =
-        `<span class="announcement-banner__message">${ANNOUNCEMENT.html}</span>` +
-        '<button class="announcement-banner__dismiss" aria-label="Dismiss">✕</button>'
+    container.replaceChildren(buildAnnouncementContent(), buildDismissButton())
 
     const syncAppTopOffset = () => {
         const isHidden = container.classList.contains('announcement-banner--hidden')
