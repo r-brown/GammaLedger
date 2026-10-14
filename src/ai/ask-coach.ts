@@ -26,6 +26,7 @@ export interface AskCoachHost extends TickerHost {
     fetchStockMetrics(ticker: string): Promise<StockMetrics | null>
     fetchSignalsData(ticker: string): Promise<SignalsData | null>
     fetchEarningsSurprise(ticker: string): Promise<EarningsSurprise[] | null>
+    fetchEarningsCalendar(tickers: string[], toDate: string): Promise<unknown>
     getActiveLLMProvider(): LLMProvider
     handleAIQuickPrompt(prompt: string, options?: { promptType?: string | null; displayText?: string | null; consent?: ConsentRequirement }): Promise<void>
 }
@@ -56,9 +57,20 @@ function ensureLoaded<T>(
     )
 }
 
+/** Next earnings date: 90 days is enough for any entry decision, and a cached date is never refetched. */
+const EARNINGS_LOOKAHEAD_DAYS = 90
+
+function ensureEarningsDate(this: AskCoachHost, ticker: string): Promise<unknown> {
+    if (this.earningsMap?.has(ticker)) return Promise.resolve()
+    const now = this.currentDate instanceof Date ? this.currentDate : new Date()
+    const toDate = new Date(now.getTime() + EARNINGS_LOOKAHEAD_DAYS * 86_400_000).toISOString().slice(0, 10)
+    return this.fetchEarningsCalendar([ticker], toDate).catch(() => null)
+}
+
 async function ensureResearch(this: AskCoachHost, ticker: string): Promise<void> {
     if (!this.finnhub?.apiKey) return
     const loads = Promise.all([
+        ensureEarningsDate.call(this, ticker),
         ensureLoaded(this.metricsCache, this.metricsPromiseMap, ticker, t => this.fetchStockMetrics(t)),
         ensureLoaded(this.signalsCache, this.signalsPromiseMap, ticker, t => this.fetchSignalsData(t)),
         ensureLoaded(this.earningsCache, this.earningsPromiseMap, ticker, t => this.fetchEarningsSurprise(t))

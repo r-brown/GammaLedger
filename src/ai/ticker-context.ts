@@ -46,6 +46,10 @@ export interface TickerContext {
     price: number | null
     priceSource: PriceSource | null
     momentum: { d5Pct: number | null; w13Pct: number | null; w52Pct: number | null } | null
+    /** Where the price sits against its 52-week range, in % (fromHighPct is ≤ 0, fromLowPct ≥ 0 in the usual case). */
+    range52w: { fromHighPct: number; fromLowPct: number } | null
+    /** Next earnings date from the calendar; null means none found or unknown, not "no earnings". */
+    nextEarnings: { date: string; daysAway: number } | null
     scores: {
         risk: ReturnType<typeof computePreTradeRiskScore>
         own: ReturnType<typeof computeAssignmentConvictionScore>
@@ -122,6 +126,13 @@ function summarizeSignals(signals: SignalsData, surprises: EarningsSurprise[] | 
     }
 }
 
+function rangePosition(price: number | null, m: StockMetrics | null): TickerContext['range52w'] {
+    const high = finite(m?.week52High)
+    const low = finite(m?.week52Low)
+    if (price === null || high === null || low === null || high <= 0 || low <= 0) return null
+    return { fromHighPct: round(((price - high) / high) * 100, 1), fromLowPct: round(((price - low) / low) * 100, 1) }
+}
+
 export function buildTickerContext(input: TickerContextInput): TickerContext {
     const asOf = input.now.toISOString().slice(0, 10)
     const resolved = resolveTickerPrice(input.prices)
@@ -177,6 +188,10 @@ export function buildTickerContext(input: TickerContextInput): TickerContext {
         price: price === null ? null : round(price, 2),
         priceSource: resolved?.source ?? null,
         momentum: m ? { d5Pct: m.return5Day, w13Pct: m.return13Week, w52Pct: m.return52Week } : null,
+        range52w: rangePosition(price, m),
+        nextEarnings: input.upcomingEarningsDate && input.upcomingEarningsDate >= asOf
+            ? { date: input.upcomingEarningsDate, daysAway: daysBetweenIso(asOf, input.upcomingEarningsDate) }
+            : null,
         scores: m ? {
             risk: computePreTradeRiskScore(m),
             own: computeAssignmentConvictionScore(m),
@@ -193,8 +208,12 @@ export function buildTickerContext(input: TickerContextInput): TickerContext {
 }
 
 /** Compact JSON without nulls (same discipline as the Coach snapshot). */
+export function compactJson(value: unknown): string {
+    return JSON.stringify(value, (_key, v) => (v === null || v === undefined ? undefined : v))
+}
+
 export function tickerContextJson(ctx: TickerContext): string {
-    return JSON.stringify(ctx, (_key, value) => (value === null || value === undefined ? undefined : value))
+    return compactJson(ctx)
 }
 
 export interface AskQuestion { display: string; request: string }
@@ -212,19 +231,30 @@ export function buildPositionAskQuestion(ctx: TickerContext): AskQuestion {
     }
 }
 
-/** How to read watchlist.watchPrice; sent with every watchlist question (and kept for follow-ups). */
-export const WATCH_PRICE_NOTE = 'watchlist.watchPrice is my watch price: the entry trigger I am waiting for, not a bullish or bearish view. "price at or below level" means I am waiting for a pullback to that level, usually to then open a cash-secured put or a bull put spread there; "price at or above level" means I am waiting for the price to rise to it before acting. reached says whether the price is there now, reachedToday whether it got there today, priceVsLevelPct how far away it is.'
+/**
+ * How to read the trader's own watchlist inputs. They are sent in a separate block, after the
+ * market facts, so they cannot anchor the analysis (kept in the request for follow-ups).
+ */
+export const WATCH_PRICE_NOTE = 'MY INPUTS: watchPrice is my entry trigger, not a bullish or bearish view ("price at or below level" = I am waiting for a pullback to it, usually to then open a cash-secured put or bull put spread; "price at or above level" = I am waiting for a rise to it). reached, reachedToday and priceVsLevelPct say where the price is relative to it. rating is my own 1-5 star priority and thesis is my reasoning: a claim to test, not a fact, and any price in it is my anchor, not evidence.'
+
+/** Market facts only: the trader's own watchlist inputs (watch price, rating, thesis) are left out. */
+export function marketFactsJson(ctx: TickerContext): string {
+    return tickerContextJson({ ...ctx, watchlist: null })
+}
 
 export function buildWatchlistAskQuestion(ctx: TickerContext): AskQuestion {
-    const watch = ctx.watchlist?.watchPrice
-    const ask = !watch
-        ? `Is ${ctx.ticker} a candidate to open a position on, given my thesis and the numbers below? If yes, suggest a structure (strategy, rough distance to strike, DTE window) and what to check first. If not, say what would change that.`
-        : watch.reached
-            ? `${ctx.ticker} has reached my watch price. Given my thesis and the numbers below, is it time to open the position? If yes, suggest a structure (strategy, rough distance to strike, DTE window) and what to check first. If not, say what is missing.`
-            : `${ctx.ticker} has not reached my watch price yet. Given my thesis and the numbers below, should I keep waiting for that level, adjust it, or act now? If I should act at some level, suggest a structure (strategy, rough distance to strike, DTE window) and what to check first.`
+    const t = ctx.ticker
+    const lead = `Give me an honest, independent assessment of ${t} as a premium-selling candidate (cash-secured puts, bull put spreads, the wheel). Form your view from MARKET FACTS alone: trend and momentum, where the price sits in its 52-week range, the four scores, analyst and insider signals, the earnings record and the next earnings date. My watch price, rating and thesis are listed last on purpose; they must not anchor you, and you should say so if they look wrong.`
+    const steps = `Answer in this order, under 350 words:
+1. **Verdict:** Strong, Decent, Mixed or Weak candidate right now, in one sentence.
+2. **For and against:** two or three bullets each, citing numbers from the facts.
+3. **Earnings:** the next date (say it is unknown if nextEarnings is absent; do not claim there is none) and what it means for the expiry of a new short option.
+4. **Your entry view:** the price zone where you would be glad to sell premium or be assigned (your estimate, say how you got it), a structure (strategy, rough distance to strike, DTE window) and what to check first (IV rank is not in the data).
+5. **Compared with my inputs:** your suggested rating (1-5 stars; 5 = top quality with a favourable setup, use the whole range) next to mine; keep, move or drop my watch price (give the new level if moving it, or propose one if I have none); whether my thesis holds up against the facts.`
+    const inputs = ctx.watchlist ? `\n\nMY INPUTS (use only in step 5):\n${compactJson(ctx.watchlist)}` : ''
     return {
-        display: `Ask about ${ctx.ticker} (watchlist)`,
-        request: `${ask} ${WATCH_PRICE_NOTE} ${AI_READ_NOTE}\n\nWATCHLIST FACTS (compact JSON computed by GammaLedger):\n${tickerContextJson(ctx)}`
+        display: `Ask about ${t} (watchlist)`,
+        request: `${lead}\n${steps}\n${WATCH_PRICE_NOTE} ${AI_READ_NOTE}\n\nMARKET FACTS (compact JSON computed by GammaLedger):\n${marketFactsJson(ctx)}${inputs}`
     }
 }
 
