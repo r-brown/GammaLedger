@@ -1,4 +1,4 @@
-<p align="center"><img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/images/gammaledger-banner-01.png"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/images/gammaledger-hero.svg" alt="GammaLedger — your options trading cockpit: journal, analytics and AI Coach" width="100%"></p>
 
 # <img src="https://raw.githubusercontent.com/r-brown/GammaLedger/refs/heads/main/assets/images/gammaledger-logo.png" style="width: 28px;"> GammaLedger
 
