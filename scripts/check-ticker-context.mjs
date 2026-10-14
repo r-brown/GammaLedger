@@ -106,6 +106,12 @@ test('buildTickerContext: price source, momentum, scores and pre-counted signals
     assert.ok(ctx.signals.headlines.every(h => h.length <= 120))
     assert.equal(ctx.position, null)
     assert.equal(ctx.watchlist, null)
+    assert.deepEqual(ctx.nextEarnings, { date: '2026-10-09', daysAway: 12 })
+    assert.equal(ctx.range52w, null)                             // no 52-week high/low in these metrics
+    const past = buildTickerContext(baseInput({ upcomingEarningsDate: '2026-09-01' }))
+    assert.equal(past.nextEarnings, null)                        // a past date is stale, not "next"
+    const ranged = buildTickerContext(baseInput({ metrics: { ...METRICS, week52High: 250, week52Low: 150 } }))
+    assert.deepEqual(ranged.range52w, { fromHighPct: -14.3, fromLowPct: 42.9 })
 })
 
 test('buildTickerContext: position facts with the Schwab quote and earnings inside its life', async () => {
@@ -149,15 +155,24 @@ test('Ask Coach questions: open, closed and watchlist variants with a short disp
     assert.ok(closed.request.startsWith('Review this closed trade:'))
     const wl = t.buildWatchlistAskQuestion(t.buildTickerContext(baseInput({ watchlistEntry: ENTRY })))
     assert.equal(wl.display, 'Ask about VEEV (watchlist)')
-    assert.ok(wl.request.startsWith('VEEV has not reached my watch price yet.'))   // 214.3 vs a 190 "at or below" level
+    assert.ok(wl.request.startsWith('Give me an honest, independent assessment of VEEV'))
     assert.ok(wl.request.includes('not a bullish or bearish view'))
-    assert.ok(wl.request.includes('"waitingFor":"price at or below level"'))
+    // The analysis block carries market facts only; the trader's own inputs come after it.
+    const [factsPart, inputsPart] = wl.request.split('MY INPUTS (use only in step 5):\n')
+    assert.ok(factsPart.includes('MARKET FACTS'))
+    assert.ok(factsPart.includes('"nextEarnings":{"date":"2026-10-09","daysAway":12}'))
+    for (const leak of ['watchPrice', 'waitingFor', 'rating', 'Wait for a pullback', '"level":190']) {
+        assert.ok(!factsPart.split('MARKET FACTS (compact JSON computed by GammaLedger):\n')[1].includes(leak), `${leak} leaked into the market facts`)
+    }
+    assert.ok(inputsPart.includes('"thesis":"Wait for a pullback under $190 before selling puts."'))
+    assert.ok(inputsPart.includes('"waitingFor":"price at or below level"'))
+    assert.ok(inputsPart.includes('"rating":4'))
+    assert.ok(!wl.request.includes('has not reached my watch price') && !wl.request.includes('has reached my watch price'))
     const reached = t.buildWatchlistAskQuestion(t.buildTickerContext(baseInput({ watchlistEntry: ENTRY, prices: { finnhub: 188 } })))
-    assert.ok(reached.request.startsWith('VEEV has reached my watch price.'))
+    assert.ok(reached.request.startsWith('Give me an honest, independent assessment of VEEV'))   // same question wherever the price is
     const noLevel = t.buildWatchlistAskQuestion(t.buildTickerContext(baseInput({ watchlistEntry: { ...ENTRY, targetPrice: null } })))
-    assert.ok(noLevel.request.startsWith('Is VEEV a candidate to open a position on'))
     assert.ok(!noLevel.request.includes('"watchPrice"'))
-    assert.ok(wl.request.includes('"thesis":"Wait for a pullback under $190 before selling puts."'))
+    assert.ok(noLevel.request.includes('propose one if I have none'))
 })
 
 const scanInput = (t, entry, over = {}) => ({
@@ -165,46 +180,72 @@ const scanInput = (t, entry, over = {}) => ({
     earningsDate: null, drift: null, openPositions: 0, ...over.scan
 })
 
-test('watchlist scan: app-computed flags, rough order, cap and summary counts', async () => {
+test('watchlist scan: neutral market facts, trader inputs last, cap blind to watch price and rating', async () => {
     const t = await load('/src/ai/ticker-context.ts')
     const scan = await load('/src/ai/watchlist-scan.ts')
     const far = { ...ENTRY, ticker: 'FAR', rating: 5 }                                  // 214.3 vs 190 down: waiting
     const hit = { ...ENTRY, ticker: 'HIT', rating: 2 }                                  // 188 ≤ 190: reached today (prev 212)
     const near = { ...ENTRY, ticker: 'NEAR', rating: null, notes: '', targetPrice: 210 } // 214.3 is +2% above 210
     const bare = { ticker: 'BARE', rating: null, notes: '', addedDate: '2026-01-02' }
+    const rangedMetrics = { ...METRICS, week52High: 250, week52Low: 150 }
     const facts = scan.buildWatchlistScanFacts([
-        scanInput(t, far, { scan: { earningsDate: '2026-10-05', drift: { drifted: true, probability: 0.812 }, openPositions: 2 } }),
+        scanInput(t, far, { ctx: { metrics: rangedMetrics }, scan: { earningsDate: '2026-10-05', drift: { drifted: true, probability: 0.812 }, openPositions: 2 } }),
         scanInput(t, hit, { ctx: { prices: { finnhub: 188 } } }),
         scanInput(t, near),
         scanInput(t, bare, { ctx: { prices: {}, metrics: null, signals: null } })
     ], '2026-09-27')
-    assert.deepEqual(facts.entries.map(e => e.ticker), ['HIT', 'NEAR', 'FAR', 'BARE'])
-    const [h, n, f, b] = facts.entries
-    assert.deepEqual(h.flags, ['watch price reached today'])
-    assert.equal(h.watchPrice.waitingFor, 'price at or below level')
-    assert.deepEqual(n.flags, ['within 2% of watch price', 'no thesis'])
+    // The trader's list order is kept: neither a reached watch price nor a 5-star rating moves an entry.
+    assert.deepEqual(facts.entries.map(e => e.ticker), ['FAR', 'HIT', 'NEAR', 'BARE'])
+    const [f, h, n, b] = facts.entries
     assert.deepEqual(f.flags, ['thesis may no longer fit', 'earnings in 8d', 'already 2 open positions'])
     assert.deepEqual(f.thesisDrift, { flagged: true, probability: 0.81 })
     assert.deepEqual(f.nextEarnings, { date: '2026-10-05', daysAway: 8 })
+    assert.deepEqual(f.range52w, { fromHighPct: -14.3, fromLowPct: 42.9 })
     assert.deepEqual(f.scores, { risk: 'red', own: 'safe', balanceSheet: 'healthy', valuation: 'cheap' })
-    assert.deepEqual(b.flags, ['no watch price set', 'no current price', 'no thesis'])
+    assert.equal(f.insiderNet90d, 'selling')
+    assert.equal(f.earningsBeatsLast4, 3)
+    assert.deepEqual(h.flags, [])                                                       // no "watch price reached" flag any more
+    assert.deepEqual(n.flags, [])
+    assert.deepEqual(b.flags, ['no current price'])
     assert.equal(b.price, undefined)
-    assert.deepEqual(facts.summary, { watched: 4, sent: 4, omitted: 0, watchPriceReached: 1, nearWatchPrice: 1, earningsWithin14d: 1, thesisDriftFlagged: 1, noPrice: 1 })
+    for (const entry of facts.entries) {
+        for (const key of ['rating', 'watchPrice', 'thesis', 'tags', 'daysSinceAdded']) assert.ok(!(key in entry), `${key} must not be in entries`)
+    }
+    assert.deepEqual(facts.summary, { watched: 4, sent: 4, omitted: 0, earningsWithin14d: 1, thesisDriftFlagged: 1, noPrice: 1 })
+
+    // Trader inputs sit in their own block, in the same order, with their gaps named.
+    assert.deepEqual(facts.traderInputs.map(i => i.ticker), ['FAR', 'HIT', 'NEAR', 'BARE'])
+    const [tf, th, tn, tb] = facts.traderInputs
+    assert.equal(tf.rating, 5)
+    assert.equal(tf.watchPrice.waitingFor, 'price at or below level')
+    assert.equal(th.watchPrice.reachedToday, true)
+    assert.equal(tn.watchPrice.priceVsLevelPct, 2)
+    assert.deepEqual(tn.gaps, ['rating', 'thesis'])
+    assert.deepEqual(tb.gaps, ['rating', 'watch price', 'thesis'])
+
     const json = scan.watchlistScanJson(facts)
     assert.ok(!json.includes('null'))
+    assert.ok(json.indexOf('"traderInputs"') > json.indexOf('"entries"'))               // listed last on purpose
 
-    const many = Array.from({ length: scan.MAX_SCAN_ENTRIES + 3 }, (_, i) => scanInput(t, { ...ENTRY, ticker: `T${i}` }))
+    // Cap: drops by blind rank (flagged drift / earnings kept, no-price dropped first), stays in list order.
+    const many = Array.from({ length: scan.MAX_SCAN_ENTRIES + 3 }, (_, i) => scanInput(t, { ...ENTRY, ticker: `T${i}`, rating: i === 0 ? 5 : null }))
     const capped = scan.buildWatchlistScanFacts(many, '2026-09-27')
     assert.equal(capped.entries.length, scan.MAX_SCAN_ENTRIES)
+    assert.equal(capped.traderInputs.length, scan.MAX_SCAN_ENTRIES)
     assert.equal(capped.summary.omitted, 3)
+    assert.deepEqual(capped.entries.map(e => e.ticker), many.slice(0, scan.MAX_SCAN_ENTRIES).map(i => i.ctx.ticker))
 })
 
-test('watchlist scan prompt: canned layout wraps the facts; the agent keeps its prompt type', async () => {
+test('watchlist scan prompt: independent review layout wraps the facts; the agent keeps its prompt type', async () => {
     const p = await load('/src/ai/coach-prompts.ts')
     const prompt = p.buildCoachRequestPrompt('watchlist_scan', 'WATCHLIST FACTS (compact JSON computed by GammaLedger):\n{"entries":[]}')
-    assert.ok(prompt.startsWith('Task: watchlist scan'))
-    assert.ok(prompt.includes('### Look at these first'))
-    assert.ok(prompt.includes('entry trigger, not a bullish or bearish view'))
+    assert.ok(prompt.startsWith('Task: watchlist review'))
+    for (const heading of ['### Ranking', '### Earnings and entry levels', '### Add, remove, keep', '### Look at now']) assert.ok(prompt.includes(heading), heading)
+    assert.ok(prompt.includes('Suggested ★'))
+    assert.ok(prompt.includes('traderInputs, listed last on purpose'))
+    assert.ok(prompt.includes('The watch price and rating are not evidence'))
+    assert.ok(prompt.includes('never that there is no earnings event'))
+    assert.ok(!prompt.includes('Actionable means'))
     assert.ok(prompt.endsWith('{"entries":[]}'))
 })
 

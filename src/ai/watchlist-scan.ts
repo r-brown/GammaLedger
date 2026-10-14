@@ -1,6 +1,8 @@
-// src/ai/watchlist-scan.ts — "Watchlist scan" quick prompt: which watched tickers need a close look
-// now. The app computes every fact and flag per entry (watch-price distance, earnings, scores,
-// thesis drift, held positions); the Coach only prioritises and explains.
+// src/ai/watchlist-scan.ts — "Watchlist scan" quick prompt: an honest review of the whole list
+// (quality, suggested priority, earnings, entry levels, adds and removals). The app computes every
+// fact and flag per entry. The trader's own watch price, rating and thesis are NOT part of the
+// entries: they go in a separate `traderInputs` block listed last, so they can't anchor the
+// Coach's view of each ticker (it compares against them only at the end).
 
 import type { WatchlistEntry } from '../types/watchlist.js'
 import type { DriftView } from '../types/ai.js'
@@ -8,14 +10,12 @@ import type { EarningsSurprise, SignalsData, StockMetrics } from '../types/integ
 import type { LLMProvider } from '../integrations/llm/types.js'
 import type { ConsentRequirement } from '../core/consent.js'
 import { daysBetweenIso } from '../calculations/market-facts.js'
-import { gatherTickerContext, type TickerContext, type TickerHost } from './ticker-context.js'
+import { compactJson, gatherTickerContext, type TickerContext, type TickerHost } from './ticker-context.js'
 import { driftCacheKey } from './watchlist-drift.js'
 
 export const WATCHLIST_SCAN_LABEL = 'Watchlist scan'
 /** Cap on entries sent; the lowest-ranked ones are dropped and counted as omitted. */
 export const MAX_SCAN_ENTRIES = 40
-/** "Near" the watch price: within this % of the level without having reached it. */
-export const NEAR_WATCH_PCT = 3
 /** Earnings this close are worth flagging for an entry decision (IV crush / gap risk). */
 export const EARNINGS_SOON_DAYS = 14
 const MAX_SCAN_THESIS_CHARS = 240
@@ -29,23 +29,34 @@ export interface WatchlistScanInput {
     openPositions: number
 }
 
+/** Market and risk facts about one ticker: nothing the trader typed in. */
 export interface WatchlistScanEntry {
     ticker: string
     price?: number
-    rating?: number
-    tags?: string[]
-    daysSinceAdded?: number
-    thesis?: string
-    watchPrice?: NonNullable<TickerContext['watchlist']>['watchPrice']
     nextEarnings?: { date: string; daysAway: number }
     momentum?: TickerContext['momentum']
+    range52w?: TickerContext['range52w']
     scores?: { risk: string; own: string; balanceSheet: string; valuation: string }
     analyst?: { buy: number; hold: number; sell: number }
+    insiderNet90d?: 'buying' | 'selling' | 'mixed'
+    earningsBeatsLast4?: number
     aiVerdict?: string
     thesisDrift?: { flagged: boolean; probability: number }
     openPositions?: number
     /** App-computed reasons this entry may need a look, strongest first. */
     flags: string[]
+}
+
+/** What the trader set on the entry: their view, to be compared against, never to be judged from. */
+export interface WatchlistTraderInput {
+    ticker: string
+    rating?: number
+    watchPrice?: NonNullable<TickerContext['watchlist']>['watchPrice']
+    thesis?: string
+    tags?: string[]
+    daysSinceAdded?: number
+    /** Missing inputs: 'rating', 'watch price', 'thesis'. */
+    gaps?: string[]
 }
 
 export interface WatchlistScanFacts {
@@ -54,50 +65,34 @@ export interface WatchlistScanFacts {
         watched: number
         sent: number
         omitted: number
-        watchPriceReached: number
-        nearWatchPrice: number
         earningsWithin14d: number
         thesisDriftFlagged: number
         noPrice: number
     }
     entries: WatchlistScanEntry[]
+    /** Listed last on purpose. */
+    traderInputs: WatchlistTraderInput[]
 }
 
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text)
 
-/** Rough deterministic order (the Coach may re-order); also decides what the cap drops. */
-function rankOf(entry: WatchlistScanEntry): number {
-    const w = entry.watchPrice
+/**
+ * Decides only what the cap drops. Deliberately blind to the watch price and the rating: the
+ * trader's own numbers must not decide which entries the Coach gets to judge.
+ */
+function capRank(entry: WatchlistScanEntry): number {
     let rank = 0
-    // Being at or near the entry trigger outweighs every other signal combined.
-    if (w?.reachedToday) rank += 60
-    else if (w?.reached) rank += 50
-    else if (w && w.priceVsLevelPct !== null && Math.abs(w.priceVsLevelPct) <= NEAR_WATCH_PCT) rank += 40
     if (entry.thesisDrift?.flagged) rank += 12
     if (entry.nextEarnings && entry.nextEarnings.daysAway <= EARNINGS_SOON_DAYS) rank += 8
-    rank += (entry.rating ?? 0) * 2
     if (entry.price === undefined) rank -= 5
     return rank
 }
 
 export function buildScanEntry(input: WatchlistScanInput): WatchlistScanEntry {
     const { ctx } = input
-    const w = ctx.watchlist
     const flags: string[] = []
     const entry: WatchlistScanEntry = { ticker: ctx.ticker, flags }
     if (ctx.price !== null) entry.price = ctx.price
-    if (w?.rating !== null && w?.rating !== undefined) entry.rating = w.rating
-    if (w?.tags.length) entry.tags = w.tags
-    if (w?.daysSinceAdded !== null && w?.daysSinceAdded !== undefined) entry.daysSinceAdded = w.daysSinceAdded
-    if (w?.thesis) entry.thesis = clip(w.thesis, MAX_SCAN_THESIS_CHARS)
-    if (w?.watchPrice) entry.watchPrice = w.watchPrice
-
-    const watch = w?.watchPrice
-    if (watch?.reachedToday) flags.push('watch price reached today')
-    else if (watch?.reached) flags.push('at or past watch price')
-    else if (watch && watch.priceVsLevelPct !== null && Math.abs(watch.priceVsLevelPct) <= NEAR_WATCH_PCT) {
-        flags.push(`within ${Math.abs(watch.priceVsLevelPct)}% of watch price`)
-    }
 
     if (input.drift) {
         entry.thesisDrift = { flagged: input.drift.drifted, probability: Math.round(input.drift.probability * 100) / 100 }
@@ -111,6 +106,7 @@ export function buildScanEntry(input: WatchlistScanInput): WatchlistScanEntry {
     }
 
     if (ctx.momentum) entry.momentum = ctx.momentum
+    if (ctx.range52w) entry.range52w = ctx.range52w
     if (ctx.scores) {
         entry.scores = {
             risk: ctx.scores.risk.grade,
@@ -120,45 +116,66 @@ export function buildScanEntry(input: WatchlistScanInput): WatchlistScanEntry {
         }
     }
     if (ctx.signals?.analyst) entry.analyst = ctx.signals.analyst
+    if (ctx.signals && ctx.signals.insiderNet90d !== 'none') entry.insiderNet90d = ctx.signals.insiderNet90d
+    if (ctx.signals?.earningsBeatsLast4 !== null && ctx.signals?.earningsBeatsLast4 !== undefined) {
+        entry.earningsBeatsLast4 = ctx.signals.earningsBeatsLast4
+    }
     if (ctx.aiRead) entry.aiVerdict = ctx.aiRead.display
 
     if (input.openPositions > 0) {
         entry.openPositions = input.openPositions
         flags.push(`already ${input.openPositions} open position${input.openPositions === 1 ? '' : 's'}`)
     }
-    if (!watch) flags.push('no watch price set')
     if (entry.price === undefined) flags.push('no current price')
-    if (w && !w.thesis) flags.push('no thesis')
     return entry
 }
 
+export function buildTraderInput(ctx: TickerContext): WatchlistTraderInput {
+    const w = ctx.watchlist
+    const out: WatchlistTraderInput = { ticker: ctx.ticker }
+    const gaps: string[] = []
+    if (w?.rating !== null && w?.rating !== undefined) out.rating = w.rating
+    else gaps.push('rating')
+    if (w?.watchPrice) out.watchPrice = w.watchPrice
+    else gaps.push('watch price')
+    if (w?.thesis) out.thesis = clip(w.thesis, MAX_SCAN_THESIS_CHARS)
+    else gaps.push('thesis')
+    if (w?.tags.length) out.tags = w.tags
+    if (w?.daysSinceAdded !== null && w?.daysSinceAdded !== undefined) out.daysSinceAdded = w.daysSinceAdded
+    if (gaps.length) out.gaps = gaps
+    return out
+}
+
 export function buildWatchlistScanFacts(inputs: WatchlistScanInput[], asOf: string): WatchlistScanFacts {
-    const all = inputs
-        .map((input, index) => ({ entry: buildScanEntry(input), index }))
-        .map(item => ({ ...item, rank: rankOf(item.entry) }))
+    const built = inputs.map((input, index) => {
+        const entry = buildScanEntry(input)
+        return { entry, trader: buildTraderInput(input.ctx), index, rank: capRank(entry) }
+    })
+    // The cap keeps the best-ranked entries, but they go out in the trader's own list order so the
+    // order itself carries no opinion.
+    const kept = [...built]
         .sort((a, b) => b.rank - a.rank || a.index - b.index)
-        .map(item => item.entry)
-    const sent = all.slice(0, MAX_SCAN_ENTRIES)
-    const count = (pred: (e: WatchlistScanEntry) => boolean) => all.filter(pred).length
+        .slice(0, MAX_SCAN_ENTRIES)
+        .sort((a, b) => a.index - b.index)
+    const count = (pred: (e: WatchlistScanEntry) => boolean) => built.filter(item => pred(item.entry)).length
     return {
         asOf,
         summary: {
-            watched: all.length,
-            sent: sent.length,
-            omitted: all.length - sent.length,
-            watchPriceReached: count(e => Boolean(e.watchPrice?.reached)),
-            nearWatchPrice: count(e => e.flags.some(f => f.startsWith('within '))),
+            watched: built.length,
+            sent: kept.length,
+            omitted: built.length - kept.length,
             earningsWithin14d: count(e => Boolean(e.nextEarnings && e.nextEarnings.daysAway <= EARNINGS_SOON_DAYS)),
             thesisDriftFlagged: count(e => Boolean(e.thesisDrift?.flagged)),
             noPrice: count(e => e.price === undefined)
         },
-        entries: sent
+        entries: kept.map(item => item.entry),
+        traderInputs: kept.map(item => item.trader)
     }
 }
 
 /** Compact JSON without nulls (same discipline as the Coach snapshot). */
 export function watchlistScanJson(facts: WatchlistScanFacts): string {
-    return JSON.stringify(facts, (_key, value) => (value === null || value === undefined ? undefined : value))
+    return compactJson(facts)
 }
 
 // ---------------------------------------------------------------------------
@@ -261,7 +278,7 @@ export async function askCoachWatchlistScan(this: WatchlistScanHost): Promise<vo
     }
     await primeScanData.call(this, this.watchlist.map(entry => entry.ticker))
     const json = watchlistScanJson(gatherWatchlistScanFacts.call(this))
-    void this.handleAIQuickPrompt(`WATCHLIST FACTS (compact JSON computed by GammaLedger):\n${json}`, {
+    void this.handleAIQuickPrompt(`WATCHLIST FACTS (compact JSON computed by GammaLedger; the trader's own inputs are last):\n${json}`, {
         promptType: 'watchlist_scan',
         displayText: WATCHLIST_SCAN_LABEL,
         consent: { minVersion: 2 },

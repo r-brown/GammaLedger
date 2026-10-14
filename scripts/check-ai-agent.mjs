@@ -297,7 +297,7 @@ test('agent.buildChatRequest uses the coach layout and the user output cap', asy
     assert.ok(health.messages.at(-1).content[0].text.includes('The numbers that matter'))
     const scan = agent.buildChatRequest('WATCHLIST FACTS:\n{"entries":[{"ticker":"VEEV"}]}', { promptType: 'watchlist_scan' })
     const last = scan.messages.at(-1).content[0].text
-    assert.ok(last.startsWith('Task: watchlist scan'))
+    assert.ok(last.startsWith('Task: watchlist review'))
     assert.ok(last.endsWith('{"entries":[{"ticker":"VEEV"}]}'))
 })
 
