@@ -1,4 +1,428 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.4.1">Jekyll</generator><link href="https://gammaledger.com/feed.xml" rel="self" type="application/atom+xml" /><link href="https://gammaledger.com/" rel="alternate" type="text/html" /><updated>2026-05-20T19:47:07+00:00</updated><id>https://gammaledger.com/feed.xml</id><title type="html">GammaLedger</title><subtitle>Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.</subtitle><author><name>GammaLedger Contributors</name></author><entry><title type="html">Reading the GammaLedger Dashboard: From P&amp;amp;L to Strategy Attribution</title><link href="https://gammaledger.com/blog/dashboard-analytics-options-trading/" rel="alternate" type="text/html" title="Reading the GammaLedger Dashboard: From P&amp;amp;L to Strategy Attribution" /><published>2026-05-18T00:00:00+00:00</published><updated>2026-05-18T00:00:00+00:00</updated><id>https://gammaledger.com/blog/dashboard-analytics-options-trading</id><content type="html" xml:base="https://gammaledger.com/blog/dashboard-analytics-options-trading/"><![CDATA[<p>An options journal is only useful if it turns execution history into feedback. GammaLedger’s dashboard is designed to answer a trader’s recurring review questions: What is working? What is dragging? Which strategies justify their capital? Are fees eating the edge? How long do winners and losers stay open?</p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.4.1">Jekyll</generator><link href="https://gammaledger.com/feed.xml" rel="self" type="application/atom+xml" /><link href="https://gammaledger.com/" rel="alternate" type="text/html" /><updated>2026-10-15T02:52:56+00:00</updated><id>https://gammaledger.com/feed.xml</id><title type="html">GammaLedger</title><subtitle>Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.</subtitle><author><name>GammaLedger Contributors</name></author><entry><title type="html">A Weekly Options Review Ritual with GammaLedger</title><link href="https://gammaledger.com/blog/trade-review-ritual-gammaledger/" rel="alternate" type="text/html" title="A Weekly Options Review Ritual with GammaLedger" /><published>2026-07-10T00:00:00+00:00</published><updated>2026-07-10T00:00:00+00:00</updated><id>https://gammaledger.com/blog/trade-review-ritual-gammaledger</id><content type="html" xml:base="https://gammaledger.com/blog/trade-review-ritual-gammaledger/"><![CDATA[<p>The value of a trading journal comes from repetition. A perfect dashboard does not help if it is opened only after a large loss. GammaLedger works best when it becomes part of a weekly review ritual: import, reconcile, analyze, decide, and back up.</p>
+
+<p>Here is a practical workflow for active options traders.</p>
+
+<h2 id="1-import-and-reconcile-first">1. Import and reconcile first</h2>
+
+<p>Start with the raw activity. Import OFX/QFX files, Robinhood CSV files, or AI screenshot drafts where needed. Then open the review queue before looking at performance charts.</p>
+
+<p>Resolve the basics:</p>
+
+<ul>
+  <li>Approve clean imported trades.</li>
+  <li>Edit missing or ambiguous fields.</li>
+  <li>Merge related trades by ticker.</li>
+  <li>Discard bad screenshot drafts.</li>
+  <li>Confirm duplicate imports were skipped.</li>
+</ul>
+
+<p>Analytics are only useful after the ledger is clean.</p>
+
+<h2 id="2-check-open-positions">2. Check open positions</h2>
+
+<p>Open positions deserve attention before closed-trade performance. Review active trades for expiration, moneyness, assignment risk, coverage, and concentration.</p>
+
+<p>For Wheel and PMCC positions, check whether short calls are covered, whether assigned shares have an effective cost basis, and whether rolls changed the true risk. If Finnhub is configured, use market context to check live price, earnings proximity, and related news.</p>
+
+<h2 id="3-read-the-dashboard">3. Read the dashboard</h2>
+
+<p>After reconciliation and open-risk review, move to the dashboard. Start with cumulative P&amp;L, then inspect strategy performance, win rate by strategy, commission impact, ticker heatmap, time in trade, and projection views.</p>
+
+<p>The goal is not to admire the charts. The goal is to find one or two decisions:</p>
+
+<ul>
+  <li>Reduce size in a weak ticker.</li>
+  <li>Stop using a strategy that has poor expectancy.</li>
+  <li>Tighten exit rules for trades that stay open too long.</li>
+  <li>Avoid rolling positions that repeatedly increase risk.</li>
+  <li>Review fees on complex spreads.</li>
+</ul>
+
+<h2 id="4-use-the-credit-playbook">4. Use the Credit Playbook</h2>
+
+<p>If you sell premium, open the Credit Playbook and filter by the period you care about. Compare active and closed credit trades. Look at premium, risk per contract, days held, P&amp;L, and ROI together.</p>
+
+<p>This view is especially useful for deciding whether a setup is repeatable. A trade that looks good in isolation may look weak when compared with other premium-selling opportunities.</p>
+
+<h2 id="5-ask-a-focused-ai-question">5. Ask a focused AI question</h2>
+
+<p>If the AI Coach is configured, ask one narrow question. For example:</p>
+
+<ul>
+  <li>“What is the largest open risk in the current portfolio?”</li>
+  <li>“Which strategy has performed worst over the last 90 days?”</li>
+  <li>“Summarize assigned positions that need coverage review.”</li>
+</ul>
+
+<p>Treat the response as a prompt for your own inspection. Verify the underlying trades before changing a plan.</p>
+
+<h2 id="6-write-notes-and-export">6. Write notes and export</h2>
+
+<p>Close the loop with notes. Update trade notes for important decisions, especially rolls, assignments, thesis changes, and exits. Then export a JSON backup.</p>
+
+<p>This final step protects the work. If you spent time cleaning imports and updating notes, preserve that state outside browser storage.</p>
+
+<h2 id="keep-the-ritual-small">Keep the ritual small</h2>
+
+<p>A weekly review does not need to take hours. The point is consistency:</p>
+
+<ol>
+  <li>Clean the ledger.</li>
+  <li>Review open risk.</li>
+  <li>Compare strategy outcomes.</li>
+  <li>Decide one adjustment.</li>
+  <li>Back up the database.</li>
+</ol>
+
+<p>GammaLedger provides the surfaces. The edge comes from using them regularly.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="workflow" /><category term="trade-review" /><category term="options" /><category term="risk-management" /><summary type="html"><![CDATA[A practical weekly workflow for importing trades, reviewing open risk, checking strategy performance, exporting backups, and using GammaLedger consistently.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-dashboard-analytics.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-dashboard-analytics.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Structured Portfolio Context: Using GammaLedger Data in Advanced Workflows</title><link href="https://gammaledger.com/blog/structured-portfolio-context-mcp-workflows/" rel="alternate" type="text/html" title="Structured Portfolio Context: Using GammaLedger Data in Advanced Workflows" /><published>2026-07-01T00:00:00+00:00</published><updated>2026-07-01T00:00:00+00:00</updated><id>https://gammaledger.com/blog/structured-portfolio-context-mcp-workflows</id><content type="html" xml:base="https://gammaledger.com/blog/structured-portfolio-context-mcp-workflows/"><![CDATA[<p>A mature trading journal should do more than display rows. It should organize portfolio context in a way that other review workflows can use. GammaLedger includes structured context-building logic for portfolio summaries, open positions, assigned positions, closed trades, risk metrics, streaks, fees, and strategy performance.</p>
+
+<p>That structured context is useful for advanced analysis because it turns a local journal into a coherent dataset.</p>
+
+<h2 id="why-structure-matters">Why structure matters</h2>
+
+<p>Raw trades are detailed, but they are not always easy to reason about. A portfolio review often needs summarized questions:</p>
+
+<ul>
+  <li>What are the largest active risks?</li>
+  <li>Which strategies drive realized P&amp;L?</li>
+  <li>How much capital is tied up in open positions?</li>
+  <li>Which assigned positions are uncovered or partially covered?</li>
+  <li>Are fees consuming a meaningful share of realized turnover?</li>
+  <li>What changed in recent trades?</li>
+</ul>
+
+<p>GammaLedger calculates and organizes this context so analysis does not have to start from scratch every time.</p>
+
+<h2 id="what-the-context-includes">What the context includes</h2>
+
+<p>The structured portfolio context can include:</p>
+
+<ul>
+  <li>Portfolio-level performance metrics.</li>
+  <li>Open position summaries.</li>
+  <li>Closed trade summaries.</li>
+  <li>Assigned position details.</li>
+  <li>Strategy and ticker performance.</li>
+  <li>Fee impact.</li>
+  <li>Streak and drawdown context.</li>
+  <li>Wheel and PMCC coverage signals.</li>
+  <li>Leg-level detail where relevant.</li>
+</ul>
+
+<p>That gives external review tools a cleaner input than a giant unfiltered export.</p>
+
+<h2 id="ai-assisted-analysis-with-guardrails">AI-assisted analysis with guardrails</h2>
+
+<p>Structured context is especially useful for AI review. Instead of asking a model to interpret a raw database file, GammaLedger can provide a curated snapshot with the fields needed for the question.</p>
+
+<p>This does not remove the privacy decision. If an AI provider is used, submitted context may be processed by that provider. The value of structure is that you can keep prompts focused and avoid sending irrelevant data.</p>
+
+<p>A good AI workflow asks targeted questions:</p>
+
+<ul>
+  <li>“Identify the top three open risks from this context.”</li>
+  <li>“Compare closed covered calls against cash-secured puts.”</li>
+  <li>“Summarize assigned positions that lack full call coverage.”</li>
+  <li>“Explain whether fees are material relative to realized turnover.”</li>
+</ul>
+
+<h2 id="external-analysis-without-losing-ownership">External analysis without losing ownership</h2>
+
+<p>Structured context also helps non-AI workflows. Quantitative traders may want to compare GammaLedger summaries with spreadsheet models. Portfolio managers may want to generate periodic review notes. Developers may want to build local scripts around exported data.</p>
+
+<p>The local-first model still matters here. GammaLedger can be the place where trade data is normalized and enriched, while external workflows use exports or context snapshots only when you choose.</p>
+
+<h2 id="review-workflows-compound">Review workflows compound</h2>
+
+<p>The more consistent your journal, the more valuable structured context becomes. Clean imports, correct leg ordering, reviewed trade notes, and reconciled fees all improve downstream analysis.</p>
+
+<p>Think of GammaLedger as a workflow stack:</p>
+
+<ol>
+  <li>Capture executions as normalized legs.</li>
+  <li>Merge and review imported records.</li>
+  <li>Derive lifecycle and P&amp;L.</li>
+  <li>Summarize strategy and risk context.</li>
+  <li>Export or submit only the context needed for the review.</li>
+</ol>
+
+<p>That stack lets active traders move from raw broker activity to decision-quality analysis without turning every review into a manual spreadsheet rebuild.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="mcp" /><category term="analytics" /><category term="ai-workflow" /><category term="portfolio-review" /><summary type="html"><![CDATA[How GammaLedger's structured analytics context supports deeper portfolio review, AI-assisted analysis, and external workflows without giving up local control.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-structured-context.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-structured-context.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Export, Backup, and Share: Keeping Your Options Portfolio Portable</title><link href="https://gammaledger.com/blog/export-backup-share-options-portfolio/" rel="alternate" type="text/html" title="Export, Backup, and Share: Keeping Your Options Portfolio Portable" /><published>2026-06-22T00:00:00+00:00</published><updated>2026-06-22T00:00:00+00:00</updated><id>https://gammaledger.com/blog/export-backup-share-options-portfolio</id><content type="html" xml:base="https://gammaledger.com/blog/export-backup-share-options-portfolio/"><![CDATA[<p>Local-first software gives traders control, but control only works if the data is portable. GammaLedger is designed so your options journal can be exported, backed up, reviewed outside the app, and shared selectively.</p>
+
+<p>That portability supports three different needs:</p>
+
+<ul>
+  <li>Recovery if browser storage is cleared or a device changes.</li>
+  <li>External analysis in spreadsheets or other tools.</li>
+  <li>Clean portfolio snapshots for review or sharing.</li>
+</ul>
+
+<h2 id="json-backup-is-the-foundation">JSON backup is the foundation</h2>
+
+<p>The most important export is the full JSON database backup. This is the portable copy of your GammaLedger state. It is the file you keep after a major import, before clearing browser storage, before changing devices, or after a month-end review.</p>
+
+<p>Because GammaLedger does not maintain a cloud account copy, the JSON backup is your recovery path. Treat it as sensitive financial data. Store it somewhere private and avoid sending it through public support channels.</p>
+
+<h2 id="csv-for-tabular-analysis">CSV for tabular analysis</h2>
+
+<p>CSV export is useful when you want to inspect trades outside the app. Spreadsheet tools are still valuable for ad hoc reconciliation, custom summaries, tax-prep staging, and strategy experiments.</p>
+
+<p>CSV is not as complete as a native database backup, but it is convenient. Use JSON when you want to restore GammaLedger state. Use CSV when you want rows for analysis.</p>
+
+<h2 id="portfolio-snapshot-sharing">Portfolio snapshot sharing</h2>
+
+<p>GammaLedger includes a portfolio snapshot card designed for visual sharing. The card focuses on high-level metrics such as realized P&amp;L, win rate, profit factor, total ROI, and cumulative P&amp;L.</p>
+
+<p>This is different from posting screenshots of broker statements or raw trade tables. A clean snapshot can communicate performance without exposing account identifiers, every ticker, or detailed broker records.</p>
+
+<p>Still, review before sharing. Even aggregated metrics can reveal more than you intend.</p>
+
+<h2 id="what-not-to-share">What not to share</h2>
+
+<p>Avoid sharing:</p>
+
+<ul>
+  <li>Broker account numbers.</li>
+  <li>Raw broker exports.</li>
+  <li>Full JSON database files.</li>
+  <li>API keys.</li>
+  <li>Screenshots with balances, tax IDs, names, or addresses.</li>
+  <li>AI prompts containing sensitive personal or account information.</li>
+</ul>
+
+<p>When asking for help, create a minimal example whenever possible. A synthetic trade with the same structure is usually safer than a real database.</p>
+
+<h2 id="build-a-backup-routine">Build a backup routine</h2>
+
+<p>A practical GammaLedger backup routine can be simple:</p>
+
+<ol>
+  <li>Export a JSON backup after every import session.</li>
+  <li>Export again after major manual cleanup or merge work.</li>
+  <li>Keep dated copies, not just one overwritten file.</li>
+  <li>Store backups somewhere you control.</li>
+  <li>Test restore occasionally by loading a backup in a separate browser profile or local copy.</li>
+</ol>
+
+<p>This is not busywork. Options histories are expensive to reconstruct. A few seconds of exporting can protect months of trade review.</p>
+
+<h2 id="reporting-versus-accounting">Reporting versus accounting</h2>
+
+<p>GammaLedger is an analytics and journal tool. It helps you understand trades, but broker statements and official tax documents remain the accounting source of truth. Use exports to support review and preparation, then reconcile against broker records before making tax or financial decisions.</p>
+
+<p>The strength of GammaLedger’s export model is that it keeps your data movable. You can analyze inside the app, back up outside it, and share only the pieces you choose.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="export" /><category term="backup" /><category term="portfolio" /><category term="reporting" /><summary type="html"><![CDATA[How GammaLedger supports local JSON backups, CSV export, portfolio snapshot sharing, and privacy-conscious reporting workflows.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-export-share-backup.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-export-share-backup.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Adding Market Context with Finnhub: Quotes, Earnings, News, and Position Detail</title><link href="https://gammaledger.com/blog/finnhub-market-data-position-context/" rel="alternate" type="text/html" title="Adding Market Context with Finnhub: Quotes, Earnings, News, and Position Detail" /><published>2026-06-13T00:00:00+00:00</published><updated>2026-06-13T00:00:00+00:00</updated><id>https://gammaledger.com/blog/finnhub-market-data-position-context</id><content type="html" xml:base="https://gammaledger.com/blog/finnhub-market-data-position-context/"><![CDATA[<p>Trade history explains what you did. Market context helps explain what you are holding now. GammaLedger’s optional Finnhub integration adds that context to open positions and detail panels without changing the local-first nature of the core journal.</p>
+
+<p>The key word is optional. You can track trades, calculate P&amp;L, review strategies, and export data without a market-data key. Finnhub is useful when you want live or refreshed context around tickers, prices, earnings, and related company information.</p>
+
+<h2 id="what-the-integration-adds">What the integration adds</h2>
+
+<p>With a Finnhub API key configured, GammaLedger can enrich position review with data such as:</p>
+
+<ul>
+  <li>Current quote information.</li>
+  <li>Company profile context.</li>
+  <li>Earnings calendar and earnings-surprise data.</li>
+  <li>News snippets.</li>
+  <li>Analyst recommendation trends.</li>
+  <li>Insider transaction context.</li>
+  <li>Related signals used in position detail panels.</li>
+</ul>
+
+<p>This does not turn GammaLedger into a broker terminal. It adds reference data around the trades you already track.</p>
+
+<h2 id="rate-limits-matter">Rate limits matter</h2>
+
+<p>Finnhub plans have rate limits. GammaLedger includes a configurable requests-per-minute setting so users can tune behavior for their plan. Free accounts commonly need more conservative limits than paid accounts.</p>
+
+<p>If data appears delayed or incomplete, check three things:</p>
+
+<ol>
+  <li>The API key is saved correctly.</li>
+  <li>The rate limit setting fits the account plan.</li>
+  <li>The requested data is available for that ticker and market.</li>
+</ol>
+
+<p>Market-data APIs can return missing, delayed, or limited data. Always confirm critical data with your broker or official sources.</p>
+
+<h2 id="position-detail-is-where-context-pays-off">Position detail is where context pays off</h2>
+
+<p>The most useful place for market context is the position detail panel. When reviewing an open options position, the trader often wants to see more than P&amp;L:</p>
+
+<ul>
+  <li>Is earnings approaching before expiration?</li>
+  <li>Is the underlying close to a strike?</li>
+  <li>Is recent news changing the risk story?</li>
+  <li>Are recommendation trends or company context relevant?</li>
+  <li>Is a Wheel or PMCC stock leg exposed to live price movement?</li>
+</ul>
+
+<p>GammaLedger combines leg-level trade data with optional market context so those questions can be reviewed in one place.</p>
+
+<h2 id="local-journal-external-quotes">Local journal, external quotes</h2>
+
+<p>When Finnhub is enabled, requests may include API keys, ticker symbols, date ranges, and query parameters. The provider returns market data that GammaLedger displays or uses for enrichment.</p>
+
+<p>Your trade database is still local, but quote requests necessarily involve the provider. That is the right mental model: journal locally, enrich selectively.</p>
+
+<h2 id="when-to-use-it">When to use it</h2>
+
+<p>Finnhub is most useful if you actively manage open positions. It can help with:</p>
+
+<ul>
+  <li>Wheel assignments and covered-call decisions.</li>
+  <li>PMCC exposure checks.</li>
+  <li>Earnings-aware expiration review.</li>
+  <li>Position detail context before rolling or closing.</li>
+  <li>Dashboard refreshes where current prices matter.</li>
+</ul>
+
+<p>If you only journal closed trades after the fact, you may not need live market context. If you review open positions daily, the integration can save time.</p>
+
+<h2 id="keep-the-source-of-truth-clear">Keep the source of truth clear</h2>
+
+<p>Market data is context, not confirmation. Broker statements and execution records remain the source of truth for fills, cash, fees, and tax records. GammaLedger uses market data to make review easier, but your journal accuracy still depends on correct trade entries and imports.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="finnhub" /><category term="market-data" /><category term="position-detail" /><category term="options" /><summary type="html"><![CDATA[How GammaLedger uses optional Finnhub integration to enrich position review with quotes, company data, earnings, news, recommendations, and risk context.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-market-data-context.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-market-data-context.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Using the AI Coach for Options Portfolio Review</title><link href="https://gammaledger.com/blog/ai-coach-options-trade-review/" rel="alternate" type="text/html" title="Using the AI Coach for Options Portfolio Review" /><published>2026-06-05T00:00:00+00:00</published><updated>2026-06-05T00:00:00+00:00</updated><id>https://gammaledger.com/blog/ai-coach-options-trade-review</id><content type="html" xml:base="https://gammaledger.com/blog/ai-coach-options-trade-review/"><![CDATA[<p>GammaLedger’s AI Coach is designed as an optional review assistant, not as an automated trading system. It can summarize portfolio context, answer questions about your trading history, help frame risk reviews, and extract draft trade legs from broker screenshots. You decide whether to configure it and what context to send.</p>
+
+<p>That distinction matters. AI can help you notice patterns, but it should not replace your own trade plan, broker records, tax records, or risk process.</p>
+
+<h2 id="setup">Setup</h2>
+
+<p>The AI Coach uses a Gemini-compatible API key configured in Settings. Current model options include Gemini 2.5 Flash Lite, Gemini 2.5 Flash, and Gemini 2.5 Pro. You can also adjust max output tokens for longer or shorter responses.</p>
+
+<p>Keys are stored locally in the browser and may be encrypted when browser cryptography is available. Clearing browser storage or clearing the key in Settings removes access from that device.</p>
+
+<h2 id="consent-before-context">Consent before context</h2>
+
+<p>Before using AI features, GammaLedger shows a data-sharing notice. That notice is there because AI requests may include portfolio summaries, open position snapshots, chat history, screenshots, filenames, and other metadata needed to answer the prompt or extract draft rows.</p>
+
+<p>The local-first model still applies: GammaLedger does not silently send your full journal to an AI provider. The AI feature is opt-in, and you should use it only when you are comfortable with the provider’s terms and privacy practices.</p>
+
+<h2 id="quick-prompts">Quick prompts</h2>
+
+<p>The AI panel includes quick prompts for common review tasks:</p>
+
+<ul>
+  <li>Portfolio health.</li>
+  <li>Risk check.</li>
+  <li>Strategy ideas.</li>
+</ul>
+
+<p>These prompts are useful starting points because they keep the request focused. A broad “analyze my portfolio” prompt can produce a broad answer. A narrower risk check can push the model toward position sizing, concentration, expiration, and assignment risks.</p>
+
+<h2 id="better-questions-get-better-answers">Better questions get better answers</h2>
+
+<p>The best AI Coach prompts combine a task with a constraint. For example:</p>
+
+<ul>
+  <li>“Review my open positions and identify the largest concentration risk.”</li>
+  <li>“Compare recent covered-call outcomes against cash-secured puts.”</li>
+  <li>“Which active positions look most exposed to assignment based on the available data?”</li>
+  <li>“Summarize what changed since my last import batch.”</li>
+</ul>
+
+<p>The AI response is only as good as the journal context. Missing fills, unreviewed imports, incorrect fees, or stale prices can produce weak analysis.</p>
+
+<h2 id="screenshot-extraction">Screenshot extraction</h2>
+
+<p>The AI Coach also supports broker screenshot extraction. Attach a screenshot of trade history, then request draft-leg extraction. GammaLedger asks the model to identify visible rows and prepares draft trades for review.</p>
+
+<p>This workflow is intentionally conservative:</p>
+
+<ol>
+  <li>The screenshot is processed as a draft source.</li>
+  <li>Extracted rows show confidence and warnings.</li>
+  <li>You can edit fields before import.</li>
+  <li>Draft trades enter the review queue.</li>
+  <li>You approve, merge, edit, or discard them before trusting the data.</li>
+</ol>
+
+<p>That makes screenshot extraction a time saver, not an accounting authority.</p>
+
+<h2 id="how-to-use-ai-responsibly">How to use AI responsibly</h2>
+
+<p>Use the AI Coach for review, explanation, and second-pass pattern recognition. Do not use it as a broker, advisor, signal service, or tax preparer.</p>
+
+<p>A practical workflow:</p>
+
+<ol>
+  <li>Import and review trades first.</li>
+  <li>Confirm dashboard metrics look reasonable.</li>
+  <li>Ask the AI Coach a focused question.</li>
+  <li>Treat the response as a checklist.</li>
+  <li>Verify conclusions against the underlying trades.</li>
+</ol>
+
+<p>GammaLedger’s AI feature is most useful when it helps you ask better questions about your own data.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="ai-coach" /><category term="gemini" /><category term="options" /><category term="portfolio-review" /><summary type="html"><![CDATA[How GammaLedger's optional AI Coach works with Gemini-compatible models, portfolio context, quick prompts, consent, and screenshot trade extraction.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-ai-coach-market-data.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-ai-coach-market-data.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">The Credit Playbook: Reviewing Premium-Selling Trades in GammaLedger</title><link href="https://gammaledger.com/blog/credit-playbook-premium-selling/" rel="alternate" type="text/html" title="The Credit Playbook: Reviewing Premium-Selling Trades in GammaLedger" /><published>2026-05-27T00:00:00+00:00</published><updated>2026-05-27T00:00:00+00:00</updated><id>https://gammaledger.com/blog/credit-playbook-premium-selling</id><content type="html" xml:base="https://gammaledger.com/blog/credit-playbook-premium-selling/"><![CDATA[<p>Premium-selling strategies need a different review surface than directional stock trades. The question is not only whether a position made money. Traders also need to know how much credit was collected, how much risk was carried, how many days the trade consumed, and whether the result justified the capital.</p>
+
+<p>GammaLedger’s Credit Playbook is built around that review. It extracts credit-oriented positions and presents them in a dense table with filters, metrics, and strategy context.</p>
+
+<h2 id="what-the-credit-playbook-is-for">What the Credit Playbook is for</h2>
+
+<p>The Credit Playbook is useful when you regularly trade:</p>
+
+<ul>
+  <li>Cash-secured puts.</li>
+  <li>Covered calls.</li>
+  <li>Bull put spreads.</li>
+  <li>Bear call spreads.</li>
+  <li>Other credit spreads and premium-selling structures.</li>
+</ul>
+
+<p>Rather than treating every trade as a generic row, the playbook focuses on premium collected, risk per contract, contracts, fees, P&amp;L, ROI, DTE, and time in trade. It is a comparison view for repeatable income strategies.</p>
+
+<h2 id="active-versus-closed-review">Active versus closed review</h2>
+
+<p>Credit trades deserve both active monitoring and post-trade review. GammaLedger includes status filters so you can switch between active positions, closed outcomes, and all history.</p>
+
+<p>For active trades, useful questions include:</p>
+
+<ul>
+  <li>How much premium is still at risk?</li>
+  <li>Which expirations are approaching?</li>
+  <li>Which trades have large risk per contract?</li>
+  <li>Which symbols dominate current exposure?</li>
+</ul>
+
+<p>For closed trades, the review shifts:</p>
+
+<ul>
+  <li>Which structures produced the best risk-adjusted outcomes?</li>
+  <li>Did winners close quickly?</li>
+  <li>Did losers stay open too long?</li>
+  <li>Were fees material relative to credit collected?</li>
+</ul>
+
+<h2 id="time-horizon-filters">Time horizon filters</h2>
+
+<p>Premium strategies can look different across regimes. A 30-day review might reveal recent volatility issues that disappear in all-time statistics. A year-to-date view might highlight strategy drift.</p>
+
+<p>The Credit Playbook includes time horizon filters such as last 7 days, 14 days, 30 days, 90 days, 180 days, 365 days, month to date, year to date, and all time. Use them to keep the review anchored to the decision you are making.</p>
+
+<h2 id="strategy-and-symbol-filters">Strategy and symbol filters</h2>
+
+<p>Filtering by strategy helps compare setups that have similar risk mechanics. A cash-secured put should not always be judged the same way as a defined-risk spread. A covered call on assigned stock has different context than a standalone short call.</p>
+
+<p>Symbol filtering is equally important. If one ticker accounts for most closed losses, the strategy may not be the problem. Position selection, volatility regime, or sizing may be.</p>
+
+<h2 id="what-to-look-for">What to look for</h2>
+
+<p>A strong premium-selling review does not chase one metric. It checks the relationship among several:</p>
+
+<ul>
+  <li>Premium per contract.</li>
+  <li>Capital or max risk.</li>
+  <li>Fees.</li>
+  <li>Days held.</li>
+  <li>P&amp;L.</li>
+  <li>ROI.</li>
+  <li>Win rate.</li>
+</ul>
+
+<p>For example, a high win rate with weak ROI may mean trades are too conservative, too fee-heavy, or closed too late. A high ROI with uneven outcomes may point to concentration risk or oversized positions.</p>
+
+<h2 id="turning-review-into-rules">Turning review into rules</h2>
+
+<p>The Credit Playbook is most valuable when it leads to specific trading rules. After reviewing a group of trades, you might decide to avoid certain DTE ranges, reduce contract size on volatile tickers, close winners earlier, or stop rolling a setup that repeatedly turns small losses into large ones.</p>
+
+<p>GammaLedger does not make those decisions for you. It gives premium sellers a focused surface for seeing the evidence.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="credit-playbook" /><category term="premium-selling" /><category term="credit-spreads" /><category term="options" /><summary type="html"><![CDATA[How GammaLedger's Credit Playbook helps premium sellers compare credit trades, spreads, risk per contract, time horizons, and closed outcomes.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-credit-playbook.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-credit-playbook.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Reading the GammaLedger Dashboard: From P&amp;amp;L to Strategy Attribution</title><link href="https://gammaledger.com/blog/dashboard-analytics-options-trading/" rel="alternate" type="text/html" title="Reading the GammaLedger Dashboard: From P&amp;amp;L to Strategy Attribution" /><published>2026-05-18T00:00:00+00:00</published><updated>2026-05-18T00:00:00+00:00</updated><id>https://gammaledger.com/blog/dashboard-analytics-options-trading</id><content type="html" xml:base="https://gammaledger.com/blog/dashboard-analytics-options-trading/"><![CDATA[<p>An options journal is only useful if it turns execution history into feedback. GammaLedger’s dashboard is designed to answer a trader’s recurring review questions: What is working? What is dragging? Which strategies justify their capital? Are fees eating the edge? How long do winners and losers stay open?</p>
 
 <p>The dashboard is not a prediction engine. It is a measurement surface. It gives structure to the trading history you have entered or imported.</p>
 
@@ -244,916 +668,4 @@
 
 <p>Import in batches, then review immediately. Do not wait until dozens of uncertain records pile up. After each broker export, check the latest import summary, inspect the log, approve clean records, and merge related trades while the execution history is still fresh.</p>
 
-<p>GammaLedger gives you the tools to move quickly, but the best results still come from trader review. Imported data should accelerate your journal, not replace your judgment.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="import" /><category term="ofx" /><category term="robinhood" /><category term="ai-screenshot" /><category term="options" /><summary type="html"><![CDATA[A practical look at GammaLedger's import workflow, review queue, merge tools, split-fill handling, and AI screenshot extraction.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-import-review.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-import-review.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">GammaLedger’s Local-First Options Journal: Private by Default</title><link href="https://gammaledger.com/blog/gammaledger-local-first-options-journal/" rel="alternate" type="text/html" title="GammaLedger’s Local-First Options Journal: Private by Default" /><published>2026-04-13T00:00:00+00:00</published><updated>2026-04-13T00:00:00+00:00</updated><id>https://gammaledger.com/blog/gammaledger-local-first-options-journal</id><content type="html" xml:base="https://gammaledger.com/blog/gammaledger-local-first-options-journal/"><![CDATA[<p>Options trading records are unusually sensitive. A single journal can reveal account size, risk appetite, preferred tickers, assignment history, losses, timing habits, and strategy concentration. GammaLedger is built around a simple rule: the application should help you analyze that data without requiring an account, a cloud database, or a hosted portfolio backend.</p>
-
-<p>GammaLedger runs in the browser and stores the working database locally on your device. That makes it different from a broker portal, a subscription journal, or a SaaS analytics dashboard. The default workflow is deliberately direct: open the app, load or create a local database, enter or import trades, review analytics, then export a backup when you want a portable copy.</p>
-
-<h2 id="what-local-first-means-in-practice">What local-first means in practice</h2>
-
-<p>Local-first does not mean “no integrations.” It means your trade ledger is not automatically uploaded to GammaLedger servers. Core portfolio state, trade notes, settings, and imported data live in browser storage and in files you choose to import or export.</p>
-
-<p>That design gives traders three practical benefits:</p>
-
-<ul>
-  <li>You can use GammaLedger without creating an account.</li>
-  <li>You can keep a full JSON backup of your database under your own storage process.</li>
-  <li>You decide when optional providers receive data.</li>
-</ul>
-
-<p>The trade-off is equally important: because the app does not maintain a cloud copy for you, backups are your responsibility. If you clear browser storage, change devices, or lose local files, GammaLedger cannot recover data from a remote account.</p>
-
-<h2 id="what-leaves-your-device">What leaves your device</h2>
-
-<p>Most GammaLedger functionality is local. Adding trades, calculating P&amp;L, grouping legs, rendering dashboard charts, filtering trades, and reviewing strategy performance all happen in the app.</p>
-
-<p>Data can leave your device only when you choose workflows that require an outside service. Examples include:</p>
-
-<ul>
-  <li>Fetching market data with a Finnhub API key.</li>
-  <li>Sending a portfolio question to a Gemini-compatible AI provider.</li>
-  <li>Attaching a broker screenshot for AI draft-leg extraction.</li>
-  <li>Opening project links, docs, GitHub, or third-party resources.</li>
-</ul>
-
-<p>Those integrations are useful, but they are optional. The app makes the boundary explicit because traders should understand when a local analytics workflow becomes a third-party request.</p>
-
-<h2 id="api-keys-stay-local">API keys stay local</h2>
-
-<p>GammaLedger settings include local controls for Finnhub and Gemini-compatible API keys. When browser cryptography is available, the app encrypts stored keys before keeping them in the browser. That is a useful local protection, not a replacement for device security.</p>
-
-<p>Treat API keys like credentials. Use provider-side limits where available, avoid sharing exported databases that contain secrets, and clear keys if you are using a shared machine.</p>
-
-<h2 id="backups-are-part-of-the-workflow">Backups are part of the workflow</h2>
-
-<p>The safest way to use a local-first trading journal is to make backups routine. Export a JSON database after major import sessions, after end-of-week reviews, and before clearing browser data or changing devices.</p>
-
-<p>A good backup habit looks like this:</p>
-
-<ol>
-  <li>Keep the current working database in GammaLedger.</li>
-  <li>Export JSON snapshots on a regular schedule.</li>
-  <li>Store those snapshots somewhere you control.</li>
-  <li>Avoid posting database files, screenshots, or broker exports in public support channels.</li>
-</ol>
-
-<p>The point is not to make privacy complicated. The point is to make ownership clear. GammaLedger gives you the analytical surface; you keep custody of the ledger.</p>
-
-<h2 id="why-this-matters-for-options-traders">Why this matters for options traders</h2>
-
-<p>Options portfolios can change shape quickly. A cash-secured put can become assigned stock, assigned stock can become a covered call, a covered call can be rolled, and a spread can close across multiple executions. A journal that understands that lifecycle becomes more valuable as history grows.</p>
-
-<p>Keeping that history local means you can analyze strategy performance without turning your trade archive into a hosted dataset. You still get the dashboard, the review queue, the AI Coach when configured, and the export workflow. You simply choose which features stay offline and which integrations earn access to context.</p>
-
-<p>That is GammaLedger’s privacy model: local by default, explicit when external, and portable when you need a backup.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="privacy" /><category term="local-first" /><category term="options" /><category term="trade-journal" /><summary type="html"><![CDATA[How GammaLedger keeps options trade tracking local, private, portable, and practical for active traders.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-local-first-privacy.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-local-first-privacy.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Selling Premium Into the Selloff: April Options Watchlist</title><link href="https://gammaledger.com/blog/gammaledger-april-options-watchlist/" rel="alternate" type="text/html" title="Selling Premium Into the Selloff: April Options Watchlist" /><published>2026-04-05T00:00:00+00:00</published><updated>2026-04-05T00:00:00+00:00</updated><id>https://gammaledger.com/blog/gammaledger-april-options-watchlist</id><content type="html" xml:base="https://gammaledger.com/blog/gammaledger-april-options-watchlist/"><![CDATA[<blockquote>
-  <p><strong>Disclaimer:</strong> This is not financial advice. IV/IVR are estimates — always confirm live chain data before trading. Premiums are approximations based on current IV levels. Options trading involves substantial risk of loss.</p>
-</blockquote>
-<hr />
-
-<h2 id="why-this-market-is-actually-good-for-premium-sellers">Why This Market Is Actually Good for Premium Sellers</h2>
-<p>If you’ve been watching your portfolio bleed this quarter, here’s the silver lining: <strong>elevated implied volatility means fatter premiums</strong>. When fear drives IV higher, options sellers get paid more to take on risk — and right now, several quality names are sitting at historically high IVR readings while their underlying businesses remain fundamentally sound.</p>
-<p>I ran a quantitative analysis across seven tickers on my radar — <strong>INTU, UBER, ADBE, CMCSA, OKTA, QLYS, and DXC</strong> — scoring each across four dimensions: options liquidity, fundamental quality, IV suitability, and strategy compatibility. Here’s what I found, and which names made it onto my April watchlist for new positions.</p>
-<hr />
-
-<h2 id="the-scoring-framework">The Scoring Framework</h2>
-<p>Each ticker was scored out of 10 across four weighted categories:</p>
-<table>
-<thead>
-<tr>
-<th>Category</th>
-<th>Weight</th>
-<th>What it measures</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Options liquidity</strong></td>
-<td>3 pts</td>
-<td>Open interest, bid/ask spreads, weekly availability</td>
-</tr>
-<tr>
-<td><strong>Fundamentals</strong></td>
-<td>3 pts</td>
-<td>FCF, moat, profitability, balance sheet</td>
-</tr>
-<tr>
-<td><strong>IV suitability</strong></td>
-<td>2 pts</td>
-<td>IVR vs. own history, beta-adjusted premium</td>
-</tr>
-<tr>
-<td><strong>Strategy compatibility</strong></td>
-<td>2 pts</td>
-<td>How many strategies are realistically viable</td>
-</tr>
-</tbody>
-</table>
-<p>Higher score = more strategies available, better risk/reward, more confidence in assignment.</p>
-<hr />
-
-<h2 id="full-rankings-at-a-glance">Full Rankings at a Glance</h2>
-<table>
-<thead>
-<tr>
-<th>Rank</th>
-<th>Ticker</th>
-<th>Company</th>
-<th>Price</th>
-<th>Score</th>
-<th>Best Strategies</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>🥇</td>
-<td><strong>INTU</strong></td>
-<td>Intuit Inc</td>
-<td>~$400</td>
-<td><strong>8.5 / 10</strong></td>
-<td>CSP · Wheel · CC · PMCC · Put spread</td>
-</tr>
-<tr>
-<td>🥈</td>
-<td><strong>UBER</strong></td>
-<td>Uber Technologies</td>
-<td>~$70</td>
-<td><strong>8.0 / 10</strong></td>
-<td>CSP · Wheel · Put spread · Iron condor</td>
-</tr>
-<tr>
-<td>🥉</td>
-<td><strong>ADBE</strong></td>
-<td>Adobe Inc</td>
-<td>~$242</td>
-<td><strong>7.5 / 10</strong></td>
-<td>Put spreads · CSP · PMCC · Iron condor</td>
-</tr>
-<tr>
-<td>4</td>
-<td><strong>CMCSA</strong></td>
-<td>Comcast Corp</td>
-<td>~$30</td>
-<td><strong>6.5 / 10</strong></td>
-<td>Covered call · CSP · Wheel</td>
-</tr>
-<tr>
-<td>5</td>
-<td><strong>OKTA</strong></td>
-<td>Okta Inc</td>
-<td>~$79</td>
-<td><strong>6.0 / 10</strong></td>
-<td>Put spreads · CSP (aggressive sizing)</td>
-</tr>
-<tr>
-<td>6</td>
-<td><strong>QLYS</strong></td>
-<td>Qualys Inc</td>
-<td>~$134</td>
-<td><strong>5.5 / 10</strong></td>
-<td>CSP · Put spreads (small size)</td>
-</tr>
-<tr>
-<td>❌</td>
-<td><strong>DXC</strong></td>
-<td>DXC Technology</td>
-<td>~$12.50</td>
-<td><strong>2.5 / 10</strong></td>
-<td><strong>Not recommended</strong></td>
-</tr>
-</tbody>
-</table>
-<hr />
-
-<h2 id="tier-1-my-active-april-watchlist">🟢 Tier 1 — My Active April Watchlist</h2>
-<p>These are the names I’m actively looking to open positions on. Strong fundamentals, excellent options liquidity, and IV environments that justify selling premium right now.</p>
-<hr />
-
-<h3 id="1-intu-intuit-inc-score-8510">#1 — INTU (Intuit Inc) · Score: 8.5/10</h3>
-<p><strong>The best all-rounder on the list.</strong> Intuit is a low-beta (0.56) SaaS powerhouse — QuickBooks dominates SMB accounting, TurboTax owns consumer tax filing, and the data network effects create real switching costs. At ~$400, it’s sitting below both its 50d and 200d moving averages, which means elevated IVR (~60%) and juicy premium relative to its own history.</p>
-<p><strong>Key metrics:</strong>
-- <strong>Market cap:</strong> $115B · <strong>FCF:</strong> ~$3.5B · <strong>Beta:</strong> 0.56
-- <strong>IV estimate:</strong> 32–38% · <strong>IVR estimate:</strong> ~60%
-- <strong>52-week range:</strong> $310–$540 · <strong>Earnings:</strong> May 21 ⚠️
-- <strong>Options liquidity:</strong> Excellent (weekly + monthly + liquid LEAPS)</p>
-<p><strong>What makes it special:</strong> Every strategy on the board works here — CSP, Wheel, Covered Call, PMCC, and Put Spreads. That flexibility is rare. Low beta means assignment won’t destroy you if the market drops another 10%.</p>
-<h4 id="trade-example-cash-secured-put">📌 Trade Example — Cash Secured Put</h4>
-<table>
-<thead>
-<tr>
-<th></th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Strategy</strong></td>
-<td>Sell $370 Put</td>
-</tr>
-<tr>
-<td><strong>Expiry</strong></td>
-<td>May 16, 2026</td>
-</tr>
-<tr>
-<td><strong>Est. premium</strong></td>
-<td>~$6–8 credit</td>
-</tr>
-<tr>
-<td><strong>Capital required</strong></td>
-<td>~$37,000</td>
-</tr>
-<tr>
-<td><strong>Return / 40 days</strong></td>
-<td>~1.6–2.2%</td>
-</tr>
-<tr>
-<td><strong>Annualized yield</strong></td>
-<td>~15–20%</td>
-</tr>
-<tr>
-<td><strong>Probability of profit</strong></td>
-<td>~75–78%</td>
-</tr>
-<tr>
-<td><strong>Breakeven</strong></td>
-<td>~$363–364</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-  <p>⚠️ <strong>Earnings May 21 — close or roll all positions before that date.</strong> INTU historically moves ±8–12% on earnings day.</p>
-</blockquote>
-<p><strong>Wheel path:</strong> If assigned at $370, sell the June $400 covered call for an additional 2–3% return.</p>
-<p><strong>PMCC path:</strong> Buy Jan 2027 $340 LEAPS, sell monthly calls against them for capital-efficient exposure.</p>
-<hr />
-
-<h3 id="2-uber-uber-technologies-score-8010">#2 — UBER (Uber Technologies) · Score: 8.0/10</h3>
-<p><strong>The highest-premium name on the list.</strong> UBER sits at ~$70, down 31% from its 52-week high of $102, with IV running at 40–48% and IVR around 65%. That’s a lot of fear priced in for a company generating $6.8B in free cash flow. The 52-week low sits at $60.63 — a natural support level that makes the $63 put strike interesting.</p>
-<p><strong>Key metrics:</strong>
-- <strong>Market cap:</strong> $150B · <strong>FCF:</strong> ~$6.8B · <strong>Beta:</strong> ~1.40
-- <strong>IV estimate:</strong> 40–48% · <strong>IVR estimate:</strong> ~65%
-- <strong>52-week range:</strong> $60–$102 · <strong>Avg volume:</strong> 15M+ daily
-- <strong>Options liquidity:</strong> Excellent (massive OI, tight spreads)</p>
-<p><strong>The catch:</strong> Beta of 1.4 means this name moves hard with the broader market. Size your position accordingly — I’d cap UBER at 50% of what I’d put into INTU.</p>
-<h4 id="trade-example-cash-secured-put_1">📌 Trade Example — Cash Secured Put</h4>
-<table>
-<thead>
-<tr>
-<th></th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Strategy</strong></td>
-<td>Sell $63 Put</td>
-</tr>
-<tr>
-<td><strong>Expiry</strong></td>
-<td>May 16, 2026</td>
-</tr>
-<tr>
-<td><strong>Est. premium</strong></td>
-<td>~$1.80–2.20 credit</td>
-</tr>
-<tr>
-<td><strong>Return / 40 days</strong></td>
-<td>~2.8–3.5%</td>
-</tr>
-<tr>
-<td><strong>Annualized yield</strong></td>
-<td>~25–32%</td>
-</tr>
-<tr>
-<td><strong>Probability of profit</strong></td>
-<td>~72%</td>
-</tr>
-<tr>
-<td><strong>Breakeven</strong></td>
-<td>~$61.00</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-  <p><strong>Put spread alternative:</strong> Sell $63P / Buy $58P for defined risk if you don’t want full assignment exposure. Sacrifices some premium but caps your max loss.</p>
-</blockquote>
-<hr />
-
-<h2 id="tier-2-selective-entries">🟡 Tier 2 — Selective Entries</h2>
-<p>Quality names, but either IV environment, trend, or structural concerns require more careful positioning. Worth watching, but I’m being selective here.</p>
-<hr />
-
-<h3 id="3-adbe-adobe-inc-score-7510">#3 — ADBE (Adobe Inc) · Score: 7.5/10</h3>
-<p>Adobe is a paradox: <strong>exceptional fundamentals, challenging trend.</strong> At ~$242, it’s down 43% from its 52-week high of $423 and trading near its 52-week low of $233. The $8B FCF and 35% ROE are best-in-class — but the AI commoditization narrative (generative image tools competing with Firefly) has been a persistent headwind.</p>
-<p><strong>Key metrics:</strong>
-- <strong>Market cap:</strong> $107B · <strong>FCF:</strong> ~$8.0B · <strong>ROE:</strong> ~35%
-- <strong>IV estimate:</strong> 42–52% · <strong>IVR estimate:</strong> ~70% (highest in tier 1/2)
-- <strong>52-week range:</strong> $233–$423 · <strong>Beta:</strong> ~1.10</p>
-<p><strong>My approach:</strong> <strong>Defined-risk spreads only on ADBE.</strong> Do not sell naked puts here — if support at $233 breaks, there’s a lot of air below. The put spread limits your max loss while still capturing elevated premium.</p>
-<h4 id="trade-example-put-credit-spread">📌 Trade Example — Put Credit Spread</h4>
-<table>
-<thead>
-<tr>
-<th></th>
-<th></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Strategy</strong></td>
-<td>Sell $220P / Buy $210P</td>
-</tr>
-<tr>
-<td><strong>Expiry</strong></td>
-<td>May 16, 2026</td>
-</tr>
-<tr>
-<td><strong>Est. net credit</strong></td>
-<td>~$1.80–2.50</td>
-</tr>
-<tr>
-<td><strong>Max risk</strong></td>
-<td>$7.50–8.20 per spread</td>
-</tr>
-<tr>
-<td><strong>Return on risk</strong></td>
-<td>~22–30%</td>
-</tr>
-<tr>
-<td><strong>Probability of profit</strong></td>
-<td>~75%</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-  <p><strong>PMCC alternative:</strong> Jan 2027 $200 LEAPS + sell monthly calls. Capital-efficient way to participate if you’re bullish on Adobe’s AI pivot without full downside exposure.</p>
-</blockquote>
-<hr />
-
-<h3 id="4-cmcsa-comcast-corp-score-6510">#4 — CMCSA (Comcast Corp) · Score: 6.5/10</h3>
-<p>The <strong>defensive income name</strong> of the group. CMCSA trades at ~$30 with a 3.4% dividend yield, 7.5x P/E, and $14B FCF. Low IV (25–30%) means per-contract premium is modest, but you’re stacking covered call income on top of a dividend — total yield potential of 15–19% annualized.</p>
-<p><strong>Key metrics:</strong>
-- <strong>Market cap:</strong> $120B · <strong>FCF:</strong> ~$14B · <strong>Dividend:</strong> ~3.4%
-- <strong>IV estimate:</strong> 25–30% · <strong>IVR estimate:</strong> ~45%
-- <strong>P/E:</strong> ~7.5x · <strong>Beta:</strong> ~0.75</p>
-<p><strong>The play:</strong> Buy shares → sell covered calls above current price → collect dividend. Simple Wheel setup for conservative income.</p>
-<blockquote>
-  <p>⚠️ <strong>Q1 earnings due April 23 — close all options positions before that date.</strong></p>
-</blockquote>
-<hr />
-
-<h2 id="tier-3-approach-with-caution-or-skip">🔴 Tier 3 — Approach with Caution (or Skip)</h2>
-<hr />
-
-<h3 id="5-okta-okta-inc-score-6010">#5 — OKTA (Okta Inc) · Score: 6.0/10</h3>
-<p>High premium, real risk. OKTA has the second-highest IVR (~68%) in the group — the market is pricing in a lot of uncertainty for the identity security leader. The problem: it’s not yet GAAP profitable, it’s in a strong downtrend from $128, and AI-native alternatives are pressuring its competitive narrative.</p>
-<p><strong>My approach:</strong> <strong>Put spreads only, never uncovered puts.</strong> If you’re bullish on the AI-identity security thesis long-term, a deeply OTM CSP at $65–68 with aggressive sizing discipline could work. Keep allocation small.</p>
-<hr />
-
-<h3 id="6-qlys-qualys-inc-score-5510">#6 — QLYS (Qualys Inc) · Score: 5.5/10</h3>
-<p>QLYS has the <strong>best fundamental quality in cybersecurity on this list</strong> — 45.7% operating margin, 59% YoY FCF growth, near-zero debt. The catch is thin options liquidity (~300K average daily volume). Bid/ask spreads run $0.50–1.00+ wide, which means you’ll give up significant edge on fills.</p>
-<p><strong>Rule:</strong> Always use limit orders at the midpoint. Monthly expirations only. Keep position size small.</p>
-<hr />
-
-<h3 id="dxc-do-not-trade">❌ DXC — Do Not Trade</h3>
-<p>DXC Technology scores 2.5/10 for one simple reason: <strong>extreme IV on a distressed stock is not an opportunity, it’s a warning.</strong></p>
-<ul>
-<li>Down ~84% from its all-time high of $92</li>
-<li>Declining revenue, ongoing restructuring, D/E ratio of 1.80</li>
-<li>Options: poor liquidity, wide spreads, minimal open interest</li>
-<li>If assigned at any strike, the stock could continue falling well below your cost basis</li>
-</ul>
-<p><strong>The rule of thumb:</strong> When IV is extreme because the underlying is in structural distress, you’re not getting paid for volatility — you’re getting paid to take on credit risk. Skip this one entirely.</p>
-<hr />
-
-<h2 id="building-a-balanced-portfolio">Building a Balanced Portfolio</h2>
-<p>If you’re allocating across multiple names, here’s how I’d structure an options income portfolio from this list — diversified across sectors to reduce correlation:</p>
-<table>
-<thead>
-<tr>
-<th>Ticker</th>
-<th>Sector</th>
-<th>Role</th>
-<th>Target Ann. Yield</th>
-<th>Correlation to SPY</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>INTU</strong></td>
-<td>Fintech SaaS</td>
-<td>Core anchor — all strategies</td>
-<td>15–20%</td>
-<td>Low (beta 0.56)</td>
-</tr>
-<tr>
-<td><strong>UBER</strong></td>
-<td>Mobility</td>
-<td>High-IV premium harvesting</td>
-<td>20–30%</td>
-<td>Medium (beta 1.40)</td>
-</tr>
-<tr>
-<td><strong>CMCSA</strong></td>
-<td>Telecom/Media</td>
-<td>Defensive dividend + CC</td>
-<td>15–19%</td>
-<td>Low (beta 0.75)</td>
-</tr>
-<tr>
-<td><strong>ADBE</strong></td>
-<td>Creative SW</td>
-<td>Defined-risk spreads + PMCC</td>
-<td>15–22%</td>
-<td>Medium (beta 1.10)</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Allocation rules:</strong>
-- Never exceed 25% of total options capital in any single name
-- UBER allocation should be ~50% of INTU allocation due to higher beta
-- ADBE and OKTA: defined-risk structures only, never naked puts</p>
-<hr />
-
-<h2 id="april-watchlist-quick-reference">April Watchlist — Quick Reference</h2>
-<p>For those who want the TL;DR:</p>
-<table>
-<thead>
-<tr>
-<th>Ticker</th>
-<th>Strategy</th>
-<th>Strike</th>
-<th>Expiry</th>
-<th>Rationale</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>INTU</strong></td>
-<td>Sell CSP</td>
-<td>$370 put</td>
-<td>May 16</td>
-<td>Best all-rounder, close before May 21 earnings</td>
-</tr>
-<tr>
-<td><strong>UBER</strong></td>
-<td>Sell CSP or Put spread</td>
-<td>$63 put</td>
-<td>May 16</td>
-<td>High IV, support near 52w low</td>
-</tr>
-<tr>
-<td><strong>ADBE</strong></td>
-<td>Put credit spread</td>
-<td>$220/$210</td>
-<td>May 16</td>
-<td>Defined risk only — near 52w low</td>
-</tr>
-<tr>
-<td><strong>CMCSA</strong></td>
-<td>Covered call</td>
-<td>$32 call</td>
-<td>May 16</td>
-<td>Stack on dividend yield</td>
-</tr>
-<tr>
-<td><strong>INTU</strong></td>
-<td>PMCC</td>
-<td>Jan 2027 $340 LEAPS</td>
-<td>Rolling monthly</td>
-<td>Capital-efficient long-delta position</td>
-</tr>
-</tbody>
-</table>
-<hr />
-
-<h2 id="key-risk-dates-this-month">Key Risk Dates This Month</h2>
-<p>Mark these in your calendar before opening any position:</p>
-<ul>
-<li><strong>April 23</strong> — CMCSA Q1 earnings: close all CMCSA options before this date</li>
-<li><strong>May 21</strong> — INTU earnings: close or roll all INTU positions before this date</li>
-<li><strong>Ongoing</strong> — Monitor UBER for AV/regulatory headlines (Waymo, EU driver classification)</li>
-</ul>
-<hr />
-
-<h2 id="final-thoughts">Final Thoughts</h2>
-<p>The selloff has done something useful: it’s pushed IV higher on names with strong underlying businesses. That’s the setup premium sellers live for. INTU and UBER are the clearest opportunities right now — liquid markets, elevated IV, and fundamentals that make assignment manageable.</p>
-<p>ADBE is compelling on paper but needs to be handled carefully given the proximity to its 52-week low. Use spreads, not naked exposure.</p>
-<p>And DXC? Extreme IV is tempting, but distress-driven volatility is a trap. Walk away.</p>
-<p>As always — size positions conservatively, confirm live chain data before entering, and have a plan for what you’ll do if you get assigned.</p>
-<hr />
-
-<p><em>All data referenced in this article is as of April 4–5, 2026. IV and IVR figures are estimates; always verify against your broker’s live options chain before trading. This article is for educational and informational purposes only and does not constitute financial advice. Options trading involves significant risk and is not suitable for all investors.</em></p>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="strategy" /><category term="covered-calls" /><category term="options-income" /><category term="cash-secured-puts" /><category term="wheel" /><category term="premium-selling" /><summary type="html"><![CDATA[I ran a quantitative analysis across seven tickers on my radar — INTU, UBER, ADBE, CMCSA, OKTA, QLYS, and DXC...]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">How to Generate Monthly Income with Covered Calls: A Practical Guide</title><link href="https://gammaledger.com/blog/how-to-generate-monthly-income-with-covered-calls/" rel="alternate" type="text/html" title="How to Generate Monthly Income with Covered Calls: A Practical Guide" /><published>2026-02-14T00:00:00+00:00</published><updated>2026-02-14T00:00:00+00:00</updated><id>https://gammaledger.com/blog/how-to-generate-monthly-income-with-covered-calls</id><content type="html" xml:base="https://gammaledger.com/blog/how-to-generate-monthly-income-with-covered-calls/"><![CDATA[<p><em>Whether you’re a long-term investor looking to squeeze more value from your portfolio or a beginner exploring options strategies, covered calls are one of the most accessible and reliable ways to generate consistent monthly income from stocks you already own.</em></p>
-<hr />
-
-<h2 id="what-is-a-covered-call">What Is a Covered Call?</h2>
-<p>A covered call is an options strategy where you sell someone else the <em>right</em> to buy your stock at a specific price (the <strong>strike price</strong>) by a certain date (the <strong>expiration date</strong>) — and in return, you receive cash upfront called a <strong>premium</strong>. The “covered” part simply means you already own the 100 shares the contract is based on, which makes this one of the lowest-risk options strategies available.</p>
-<p>Think of it like renting out a property you own: your stock is the house, the premium is the rent, and the buyer is your tenant. You keep collecting rent every month while still owning the asset.</p>
-<hr />
-
-<h2 id="why-this-strategy-works-for-monthly-income">Why This Strategy Works for Monthly Income</h2>
-<p>In steady or mildly rising markets, investors using covered calls can realistically generate <strong>1% to 5% per month</strong> in premium income alone. On a $10,000 position, that translates to <strong>$100–$500 per month</strong> — without selling a single share. Over time, these premiums also lower your <strong>cost basis</strong>, meaning you effectively paid less for your stock the longer you hold and sell calls against it.)</p>
-<p>There are two income streams working together when you combine covered calls with dividend stocks: the option premium <em>and</em> the dividend yield — a dual-income approach that makes the strategy particularly resilient during uncertain markets.</p>
-<hr />
-
-<h2 id="step-by-step-how-to-sell-a-covered-call">Step-by-Step: How to Sell a Covered Call</h2>
-<p>Here’s how the process works in practice:</p>
-<ol>
-<li><strong>Own at least 100 shares</strong> of a stock or ETF (one options contract = 100 shares)</li>
-<li><strong>Choose an expiration date</strong> — typically 2–4 weeks out for monthly income cycles</li>
-<li><strong>Select a strike price</strong> above the current market price (out-of-the-money) — this is the price you'd be willing to sell your shares at</li>
-<li><strong>Sell one call option contract</strong> on your brokerage platform and collect the premium immediately</li>
-<li><strong>Wait for expiration</strong>: if the stock stays below your strike, the option expires worthless and you keep the premium; if the stock rises above your strike, your shares may be called away at that price</li>
-<li><strong>Repeat monthly</strong> — the cycle renews every expiration, creating a recurring income stream</li>
-</ol>
-<hr />
-
-<h2 id="a-concrete-example">A Concrete Example</h2>
-<p>Let’s say you own 100 shares of <strong>Microsoft (MSFT)</strong> currently trading at $400. You sell a covered call with a strike price of $420, expiring in 30 days, and collect a <strong>$3.00 premium per share = $300 in cash</strong> instantly.</p>
-<table>
-<thead>
-<tr>
-<th>Scenario at Expiration</th>
-<th>What Happens</th>
-<th>Your Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Stock stays below $420</td>
-<td>Option expires worthless</td>
-<td>Keep $300 premium ✅</td>
-</tr>
-<tr>
-<td>Stock rises above $420</td>
-<td>Shares are called away at $420</td>
-<td>Keep $300 + $20/share gain ✅</td>
-</tr>
-<tr>
-<td>Stock drops to $380</td>
-<td>Option expires worthless</td>
-<td>Keep $300, partially offsetting loss ✅</td>
-</tr>
-</tbody>
-</table>
-<p>The only scenario where covered calls truly hurt you is a sharp stock rally far above your strike — you miss out on those extra gains.</p>
-<hr />
-
-<h2 id="choosing-the-right-stocks">Choosing the Right Stocks</h2>
-<p>Not every stock is ideal for this strategy. The best candidates share a few traits:</p>
-<ul>
-<li><strong>Stable, large-cap companies</strong> — Apple (AAPL), Microsoft (MSFT), Johnson &amp; Johnson (JNJ)</li>
-<li><strong>Moderate volatility</strong> — enough to generate meaningful premiums, but not so volatile your shares swing wildly</li>
-<li><strong>ETFs like SPY or QQQ</strong> — broad-market ETFs offer consistent, liquid options markets with predictable behavior</li>
-<li><strong>Dividend-paying stocks</strong> — combining dividends with call premiums maximizes your total yield</li>
-<li><strong>Stocks you're comfortable holding long-term</strong></li>
-</ul>
-<p>Avoid highly speculative or meme stocks — premiums may look juicy, but the risk of large adverse moves is too high for a consistent income strategy.</p>
-<hr />
-
-<h2 id="managing-risk-like-a-pro">Managing Risk Like a Pro</h2>
-<p>Covered calls are beginner-friendly, but they’re not risk-free. Here are the key risk management practices:
-- <strong>Set a profit target</strong>: Many experienced traders close the position early when 50–60% of the max premium is captured, reducing time in the trade
-- <strong>Roll your position</strong>: If the stock rises toward your strike before expiration, you can “roll up and out” — buying back the short call and selling a new one at a higher strike or later date — to avoid assignment and collect additional credit
-- <strong>Avoid selling calls on stocks you want to keep at all costs</strong> — assignment is always a possibility, so only pick strike prices you’re genuinely fine selling at
-- <strong>Compound your income</strong>: Reinvesting premiums to buy more shares and sell more calls accelerates portfolio growth over time</p>
-<hr />
-
-<h2 id="is-this-strategy-right-for-you">Is This Strategy Right for You?</h2>
-<p>Covered calls shine in <strong>sideways to moderately bullish markets</strong> — exactly the kind of environment where buy-and-hold investors feel frustrated by flat performance. If you already hold a diversified portfolio of quality stocks and ETFs, you have everything you need to start generating monthly cash flow today without taking on additional capital risk.</p>
-<p>The strategy has one real trade-off: you <strong>cap your upside</strong> in exchange for <strong>guaranteed income now</strong>. For income-focused investors — particularly those building toward retirement or seeking cash flow to reinvest — that’s a trade-off well worth making.</p>
-<hr />
-
-<h2 id="quick-start-checklist">Quick-Start Checklist</h2>
-<ul>
-<li>[ ] Own 100+ shares of a stable stock or ETF</li>
-<li>[ ] Open options trading on your brokerage (Level 1 approval is sufficient for covered calls)</li>
-<li>[ ] Identify a strike price 5–10% above current price for a 30-day expiration</li>
-<li>[ ] Sell one covered call and note your premium collected</li>
-<li>[ ] Set a calendar reminder to manage or close the position before expiration</li>
-<li>[ ] Reinvest premiums monthly to compound returns</li>
-</ul>
-<hr />
-
-<p>Covered calls are often called the “gateway drug” to options trading — and for good reason. They’re intuitive, relatively safe when done on quality holdings, and create a real, repeatable paycheck from your portfolio every single month. Start small, stay consistent, and let time decay work in your favor.</p>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="strategy" /><category term="covered-calls" /><summary type="html"><![CDATA[Step-by-step guide to generating consistent monthly income using covered calls, including strategy setup, trade management, and real examples.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Cash-Secured Puts Beginner Strategy: Get Paid to Buy Stocks at a Discount</title><link href="https://gammaledger.com/blog/cash-secured-puts-beginner-strategy/" rel="alternate" type="text/html" title="Cash-Secured Puts Beginner Strategy: Get Paid to Buy Stocks at a Discount" /><published>2026-01-23T00:00:00+00:00</published><updated>2026-01-23T00:00:00+00:00</updated><id>https://gammaledger.com/blog/cash-secured-puts-beginner-strategy</id><content type="html" xml:base="https://gammaledger.com/blog/cash-secured-puts-beginner-strategy/"><![CDATA[<p><em>What if you could earn income from a stock you don’t even own yet — and only buy it if the price drops to exactly what you wanted to pay? That’s the elegant logic behind the cash-secured put strategy, and it’s one of the most beginner-friendly ways to enter the world of options trading.</em></p>
-<hr />
-
-<h2 id="what-is-a-cash-secured-put">What Is a Cash-Secured Put?</h2>
-<p>A cash-secured put (CSP) is an options strategy where you sell a put option on a stock you’d <em>like</em> to own — and set aside enough cash in your account to buy those shares if needed. In return for taking on this obligation, you collect an <strong>upfront premium</strong> immediately, regardless of what happens next.</p>
-<p>The “cash-secured” part is what makes this strategy safe and well-defined: you’ve already reserved the money to buy the shares, so there are no surprises and no leverage risk. Your maximum risk is known from the moment you enter the trade.</p>
-<hr />
-
-<h2 id="how-it-works-the-core-mechanics">How It Works: The Core Mechanics</h2>
-<p>Think of it like placing a <strong>standing buy order on your favorite stock — and getting paid while you wait</strong>. Here’s the simple flow:</p>
-<ol>
-<li><strong>Pick a stock you genuinely want to own</strong> at a lower price than it currently trades</li>
-<li><strong>Sell a put option</strong> at your desired strike price (typically out-of-the-money, below current market price)</li>
-<li><strong>Set aside cash</strong> equal to 100 shares × strike price — this is your secured collateral</li>
-<li><strong>Collect the premium</strong> instantly — it's yours to keep no matter what happens</li>
-<li><strong>Wait for expiration</strong> and handle one of two clean outcomes</li>
-</ol>
-<hr />
-
-<h2 id="the-two-outcomes-both-can-work-in-your-favor">The Two Outcomes — Both Can Work in Your Favor</h2>
-<table>
-<thead>
-<tr>
-<th>Scenario</th>
-<th>What Happens</th>
-<th>Your Result</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Stock stays <strong>above</strong> strike price</td>
-<td>Put expires worthless</td>
-<td>Keep full premium, repeat the strategy ✅</td>
-</tr>
-<tr>
-<td>Stock drops <strong>below</strong> strike price</td>
-<td>You're assigned — must buy 100 shares at strike</td>
-<td>You buy the stock at a discount (strike − premium) ✅</td>
-</tr>
-</tbody>
-</table>
-<p>Either way, you keep the premium. The only painful scenario is a steep, sudden crash well below your strike — you’d be buying shares above market price at that moment, though your effective cost basis is still reduced by the premium received.</p>
-<hr />
-
-<h2 id="a-real-world-example">A Real-World Example</h2>
-<p>Say stock <strong>XYZ</strong> is trading at $100 and you’d love to own it at $90. You sell a cash-secured put with a <strong>$90 strike price</strong>, expiring in 30 days, and collect a <strong>$5 premium per share ($500 total)</strong>.</p>
-<ul>
-<li>You set aside <strong>$9,000</strong> in your brokerage account to cover potential assignment</li>
-<li>If XYZ stays above $90 at expiration: <strong>you keep $500, done</strong> — and you can sell another put next month</li>
-<li>If XYZ drops to $80 and you're assigned: you buy 100 shares at $90, but your <strong>real cost basis is $85/share</strong> (after the $5 premium)</li>
-<li>If XYZ drops to $0: your maximum loss is $8,500 (the $9,000 committed minus the $500 premium) — the same as if you had just bought the stock outright at $90</li>
-</ul>
-<hr />
-
-<h2 id="who-is-this-strategy-for">Who Is This Strategy For?</h2>
-<p>Cash-secured puts are ideal for <strong>bullish, patient investors</strong> who believe in a stock’s long-term value but think the current price is slightly too high. The Options Industry Council describes the typical CSP trader as “price-sensitive” — someone who wants to acquire quality stocks at a better entry price while earning income in the meantime.</p>
-<p>This strategy suits you if you:
-- Already hold cash in a brokerage account doing nothing
-- Have a watchlist of stocks you’d buy anyway on a dip
-- Want a defined-risk, beginner-accessible options strategy
-- Are comfortable owning the underlying stock long-term</p>
-<hr />
-
-<h2 id="choosing-the-right-stock-strike">Choosing the Right Stock &amp; Strike</h2>
-<p>Not every stock deserves your secured cash. Focus on these criteria:</p>
-<ul>
-<li><strong>Stocks you genuinely want to own</strong> — because assignment is always possible</li>
-<li><strong>Large-cap, fundamentally strong companies</strong> — Apple, Microsoft, Nvidia, S&amp;P 500 ETFs (SPY/QQQ)</li>
-<li><strong>Strike price 5–10% below current market price</strong> — far enough out-of-the-money to have a high probability of expiring worthless, yet close enough to generate a meaningful premium</li>
-<li><strong>30–45 day expiration</strong> — the sweet spot where time decay (theta) works fastest in your favor</li>
-<li><strong>Avoid highly volatile or speculative stocks</strong> — premiums look tempting, but the risk of catastrophic drops is too high for a conservative income strategy</li>
-</ul>
-<hr />
-
-<h2 id="managing-your-position-like-a-pro">Managing Your Position Like a Pro</h2>
-<p>Once you’re in the trade, you have three main management options:</p>
-<ul>
-<li><strong>Let it expire worthless</strong>: The simplest outcome — keep the premium, sell another put next cycle</li>
-<li><strong>Close early for profit</strong>: If the premium decays to 50% of its original value before expiration, consider buying it back and freeing your capital for the next trade</li>
-<li><strong>Roll the put</strong>: If the stock falls toward your strike faster than expected, you can buy back the put and sell a new one at a lower strike or later expiration to collect additional credit and avoid assignment</li>
-</ul>
-<hr />
-
-<h2 id="csp-vs-covered-call-the-perfect-pair">CSP vs. Covered Call: The Perfect Pair</h2>
-<p>Cash-secured puts and covered calls are actually two halves of the same income-generating system — known as <strong>The Wheel Strategy</strong>. You sell CSPs until assigned, then immediately sell covered calls on the shares you just acquired. This cycle creates a continuous income loop:</p>
-<blockquote>
-  <p><strong>Sell CSP → Get assigned → Sell covered calls → Shares get called away → Sell CSP again</strong></p>
-</blockquote>
-<p>Each leg generates premium income, and each rotation potentially improves your average cost basis.</p>
-<hr />
-
-<h2 id="key-risks-to-understand">Key Risks to Understand</h2>
-<p>Cash-secured puts carry real risks that beginners must respect:</p>
-<ul>
-<li><strong>Deep stock decline</strong>: You're obligated to buy at strike price even if the stock crashes far below it — always ask yourself "am I comfortable owning this stock at this price forever?"</li>
-<li><strong>Opportunity cost</strong>: Your cash is locked up as collateral for the duration of the trade — you can't deploy it elsewhere</li>
-<li><strong>Missing a big rally</strong>: If the stock rockets upward, you only collect the premium and miss the upside gain</li>
-<li><strong>Assignment timing</strong>: You can be assigned early (before expiration) on American-style options, though it's rare for out-of-the-money puts</li>
-</ul>
-<hr />
-
-<h2 id="quick-start-checklist">Quick-Start Checklist</h2>
-<ul>
-<li>[ ] Get options trading approval at your broker (Level 1 "cash-secured puts" access)</li>
-<li>[ ] Identify a stock you'd genuinely like to own at a lower price</li>
-<li>[ ] Check that you have at least 100 × strike price in available cash</li>
-<li>[ ] Sell one out-of-the-money put with 30–45 days to expiration</li>
-<li>[ ] Record your premium received and effective cost basis if assigned</li>
-<li>[ ] Set a reminder to manage or close 10–14 days before expiration</li>
-<li>[ ] Reinvest premiums or roll into the next cycle</li>
-</ul>
-<hr />
-
-<p>The cash-secured put strategy is often the first options trade a new investor should learn — and for good reason. It’s logical, the math is transparent, and it aligns perfectly with a long-term investor’s mindset: you only buy stocks you already wanted, at prices you’ve already decided are fair, and you get paid extra for your patience.</p>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="strategy" /><category term="csp" /><category term="income" /><category term="beginner" /><category term="wheel" /><summary type="html"><![CDATA[What if you could earn income from a stock you don't even own yet — and only buy it if the price drops to exactly what you wanted to pay?]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Understanding the Wheel Strategy</title><link href="https://gammaledger.com/blog/understanding-wheel-strategy/" rel="alternate" type="text/html" title="Understanding the Wheel Strategy" /><published>2026-01-14T00:00:00+00:00</published><updated>2026-01-14T00:00:00+00:00</updated><id>https://gammaledger.com/blog/understanding-wheel-strategy</id><content type="html" xml:base="https://gammaledger.com/blog/understanding-wheel-strategy/"><![CDATA[<p>The Wheel Strategy is one of the most popular income-generating options strategies for retail traders. This guide explains how it works and how to track it effectively using GammaLedger.</p>
-<h2 id="what-is-the-wheel-strategy">What is the Wheel Strategy?</h2>
-<p>The Wheel Strategy is a systematic approach to selling options that generates premium income while potentially acquiring stock at a discount. It consists of three phases:</p>
-<ol>
-<li><strong>Sell Cash-Secured Puts</strong> (CSP)</li>
-<li><strong>Get Assigned Stock</strong> (if put expires ITM)</li>
-<li><strong>Sell Covered Calls</strong> (CC) on the assigned stock</li>
-</ol>
-<p>The strategy “wheels” between these phases, hence the name.</p>
-<h2 id="phase-1-cash-secured-puts">Phase 1: Cash-Secured Puts</h2>
-<h3 id="the-setup">The Setup</h3>
-<p>You sell a put option on a stock you wouldn’t mind owning, with strike price at or below your target entry price.</p>
-<p><strong>Example:</strong>
-- Stock XYZ trading at $50
-- Sell 1 PUT at $45 strike, 30 DTE
-- Collect $1.00 premium ($100 total)</p>
-<h3 id="requirements">Requirements</h3>
-<ul>
-<li><strong>Cash Reserve</strong>: $4,500 (strike × 100 shares)</li>
-<li><strong>Collateral</strong>: Held in your account as margin</li>
-</ul>
-<h3 id="outcomes">Outcomes</h3>
-<ul>
-<li><strong>Put expires OTM</strong>: Keep premium, repeat</li>
-<li><strong>Put expires ITM</strong>: Get assigned 100 shares at $45</li>
-</ul>
-<h2 id="phase-2-assignment">Phase 2: Assignment</h2>
-<p>If your put expires in-the-money, you’re assigned 100 shares at the strike price.</p>
-<p><strong>Continuing the example:</strong>
-- Stock drops to $44
-- Assigned 100 shares at $45 = $4,500 cost
-- Effective cost basis: $45 - $1.00 = $44/share
-- <strong>Unrealized Loss</strong>: $100 (stock worth $4,400)</p>
-<p>But you’ve collected $100 in premium, so break-even at current price!</p>
-<h2 id="phase-3-covered-calls">Phase 3: Covered Calls</h2>
-<p>Now that you own the stock, sell covered calls to generate additional income.</p>
-<p><strong>Example:</strong>
-- Own 100 shares at $45 cost basis
-- Stock currently at $44
-- Sell 1 CALL at $47 strike, 30 DTE
-- Collect $0.75 premium ($75 total)</p>
-<h3 id="outcomes_1">Outcomes</h3>
-<ul>
-<li><strong>Call expires OTM</strong>: Keep premium and stock, sell another call</li>
-<li><strong>Call expires ITM</strong>: Shares called away at $47</li>
-</ul>
-<h2 id="completing-the-wheel">Completing the Wheel</h2>
-<p>If your shares get called away:</p>
-<p><strong>Total P&amp;L:</strong>
-- Initial PUT premium: +$100
-- CALL premium: +$75
-- Stock appreciation: $47 - $45 = +$200
-- <strong>Total Profit</strong>: $375 on $4,500 capital = <strong>8.3% return</strong></p>
-<p>Then you start over with Phase 1!</p>
-<h2 id="tracking-with-gammaledger">Tracking with GammaLedger</h2>
-<h3 id="wheelpmcc-tracker-view">Wheel/PMCC Tracker View</h3>
-<p>GammaLedger automatically identifies Wheel positions and provides:</p>
-<ul>
-<li><strong>Entry Date</strong>: When you first sold the put</li>
-<li><strong>Ticker</strong>: Stock symbol</li>
-<li><strong>Shares</strong>: Current position (100 per contract)</li>
-<li><strong>Cost Basis</strong>: Effective entry price (strike - premiums)</li>
-<li><strong>Market Value</strong>: Current value of shares</li>
-<li><strong>Unrealized G/L</strong>: Current profit/loss on position</li>
-<li><strong>DTE</strong>: Days to expiration for active covered call</li>
-<li><strong>Strike</strong>: Current covered call strike price</li>
-</ul>
-<h3 id="active-positions-integration">Active Positions Integration</h3>
-<p>Assigned Wheel positions with open covered calls appear in the <strong>Active Positions</strong> table, showing:
-- Current DTE
-- Strike price of the covered call
-- Status (assigned with call written)</p>
-<h2 id="advanced-wheel-strategies">Advanced Wheel Strategies</h2>
-<h3 id="rolling-puts">Rolling Puts</h3>
-<p>If a put is going ITM but you want to avoid assignment:</p>
-<ol>
-<li>Buy to close (BTC) the current put</li>
-<li>Sell to open (STO) a new put at lower strike or further DTE</li>
-<li>Collect net credit on the roll</li>
-</ol>
-<p><strong>GammaLedger tracks rolls automatically</strong> and shows:
-- Net premium collected
-- Current strike and expiration
-- Total premium earned on position</p>
-<h3 id="rolling-covered-calls">Rolling Covered Calls</h3>
-<p>If stock price rises and your covered call is ITM but you want to keep shares:</p>
-<ol>
-<li>BTC the current call</li>
-<li>STO a new call at higher strike or further DTE</li>
-<li>Collect net credit (or pay small debit)</li>
-</ol>
-<p><strong>Example in GammaLedger:</strong>
-- Original CALL: 45 strike, collected $1.00
-- Stock rises to $46
-- Roll to 47 strike: pay $1.50 to close, collect $2.00 to open
-- Net credit on roll: $0.50
-- <strong>Total premium</strong>: $1.50 across both legs</p>
-<h2 id="risk-management">Risk Management</h2>
-<h3 id="key-metrics-to-monitor">Key Metrics to Monitor</h3>
-<ol>
-<li><strong>Cost Basis</strong>: Track your effective entry price</li>
-<li><strong>Unrealized Loss</strong>: How far underwater on stock</li>
-<li><strong>Total Premium Collected</strong>: Income cushion</li>
-<li><strong>DTE Management</strong>: Don't let calls expire worthless too often</li>
-</ol>
-<h3 id="when-to-exit">When to Exit</h3>
-<p>Consider closing a Wheel position if:</p>
-<ul>
-<li>Stock fundamentals deteriorate</li>
-<li>Unrealized loss exceeds total premiums by 20%+</li>
-<li>Better opportunities elsewhere</li>
-<li>Position size too large relative to portfolio</li>
-</ul>
-<h2 id="best-practices">Best Practices</h2>
-<h3 id="stock-selection">Stock Selection</h3>
-<p>Choose stocks that:
-- ✅ You’d be comfortable owning long-term
-- ✅ Have liquid options (tight bid-ask spreads)
-- ✅ Show stable price action (not extreme volatility)
-- ✅ Have fundamental support (not meme stocks)</p>
-<h3 id="strike-selection">Strike Selection</h3>
-<p><strong>For Puts:</strong>
-- Target 0.30 - 0.40 delta (30-40% probability of assignment)
-- At or below key support levels
-- Calculate yield: premium ÷ (strike × 100)</p>
-<p><strong>For Calls:</strong>
-- Target 0.30 - 0.40 delta for covered calls
-- Above your cost basis to ensure profit
-- Balance premium vs. likelihood of assignment</p>
-<h3 id="position-sizing">Position Sizing</h3>
-<ul>
-<li>Limit individual positions to 5-10% of portfolio</li>
-<li>Ensure sufficient cash reserve for assignments</li>
-<li>Diversify across sectors</li>
-</ul>
-<h2 id="example-wheel-cycle-in-gammaledger">Example Wheel Cycle in GammaLedger</h2>
-<p>Here’s how a complete Wheel cycle appears in GammaLedger:</p>
-<pre><code>Trade ID: AAPL-WHEEL-001
-Strategy: Wheel
-Status: Closed
-
-Legs:
-1. 2025-09-15: STO 1 PUT AAPL 170 Oct 20, 2025 @ 3.50 [+$350]
-2. 2025-10-20: ASSIGNED 100 AAPL @ $170 [-$17,000]
-3. 2025-10-21: STO 1 CALL AAPL 175 Nov 17, 2025 @ 2.25 [+$225]
-4. 2025-11-17: CALLED AWAY 100 AAPL @ $175 [+$17,500]
-
-Summary:
-Entry: $170 PUT premium
-Exit: $175 CALL assignment
-Premium Collected: $575
-Stock Gain: $500
-Total Profit: $1,075
-Return: 6.3%
-Duration: 63 days
-Annualized: 36.5%
-</code></pre>
-<h2 id="common-mistakes-to-avoid">Common Mistakes to Avoid</h2>
-<ol>
-<li><strong>Selling puts on stocks you don't want to own</strong></li>
-<li>
-<p>Solution: Only wheel quality stocks</p>
-</li>
-<li>
-<p><strong>Selling calls below cost basis</strong></p>
-</li>
-<li>
-<p>Solution: Wait for stock recovery or roll down carefully</p>
-</li>
-<li>
-<p><strong>Ignoring unrealized losses</strong></p>
-</li>
-<li>
-<p>Solution: Use GammaLedger's Unrealized G/L tracking</p>
-</li>
-<li>
-<p><strong>Over-concentrating in one position</strong></p>
-</li>
-<li>
-<p>Solution: Diversify across multiple Wheel positions</p>
-</li>
-<li>
-<p><strong>Not rolling when appropriate</strong></p>
-</li>
-<li>Solution: Monitor DTE and be proactive</li>
-</ol>
-<h2 id="conclusion">Conclusion</h2>
-<p>The Wheel Strategy combines:
-- Consistent premium income
-- Potential stock ownership at discount
-- Defined risk (cash-secured)
-- Flexibility through rolling</p>
-<p>GammaLedger makes tracking Wheel positions effortless with:
-- Automatic strategy detection
-- Real-time P&amp;L calculations
-- Visual tracking of phases
-- Performance analytics</p>
-<p>Ready to start tracking your Wheel trades? <a href="https://gammaledger.com/app/">Launch GammaLedger</a> and import your positions today!</p>
-<h2 id="further-reading">Further Reading</h2>
-<ul>
-<li><a href="https://gammaledger.com/blog/getting-started-with-gammaledger/">Getting Started with GammaLedger</a></li>
-<li><a href="https://gammaledger.com/blog/understanding-wheel-strategy/#">PMCC Strategy Guide</a> <em>(coming soon)</em></li>
-<li><a href="https://gammaledger.com/blog/understanding-wheel-strategy/#">Options Greeks Explained</a> <em>(coming soon)</em></li>
-</ul>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="strategy" /><category term="wheel" /><category term="guide" /><summary type="html"><![CDATA[A comprehensive guide to implementing and tracking the Wheel strategy using GammaLedger.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-stage-01.jpg" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Options Greeks: Rho</title><link href="https://gammaledger.com/blog/options-greeks-rho/" rel="alternate" type="text/html" title="Options Greeks: Rho" /><published>2026-01-10T00:00:00+00:00</published><updated>2026-01-10T00:00:00+00:00</updated><id>https://gammaledger.com/blog/options-greeks-rho</id><content type="html" xml:base="https://gammaledger.com/blog/options-greeks-rho/"><![CDATA[<p>Rho measures the sensitivity of an option’s price to changes in interest rates. It is defined as the increase in the price of an option or options portfolio resulting from a 1% increase in interest rates.</p>
-<h2 id="relevance-of-rho">Relevance of Rho</h2>
-<p>Rho is often overlooked by options traders because interest rates are unlikely to change significantly during the lifespan of most options spreads. Therefore, changes in interest rates are usually ignored.</p>
-<p>However, there are situations where Rho deserves more attention. Long-term options, such as LEAPS (Long-Term Equity Anticipation Securities), are more sensitive to changes in interest rates and thus have a higher Rho.</p>
-<p>For example, at the time of writing, an at-the-money AAPL call option with 32 days until expiration has a Rho of 0.3. This means a 1% interest rate increase would result in a small 0.3% increase in the option’s price. In contrast, a LEAP with 578 days until expiration has a Rho of 2.2. Therefore, any LEAP strategy, such as <a href="https://gammaledger.com/blog/poor-mans-covered-call-guide/">LEAP Covered Calls (Poor Man’s Covered Call)</a>, would be more significantly affected by changes in interest rates.</p>
-<p>Rho should also be considered when interest rates are expected to change. For instance, at the time of writing, there is a strong possibility that the Federal Reserve will end its quantitative easing (QE) program, which could lead to an increase in interest rates. Consequently, all things being equal, we might see an increase in options prices over the next few months or years.</p>
-<h2 id="conclusion">Conclusion</h2>
-<p>In summary, Rho can be an important factor in specific circumstances, such as when interest rates are expected to change or when dealing with long-term options. However, in general, Rho is less critical compared to other Greeks like <a href="https://gammaledger.com/blog/options-greeks-delta/">Delta</a>, <a href="https://gammaledger.com/blog/options-greeks-gamma/">Gamma</a>, <a href="https://gammaledger.com/blog/options-greeks-theta/">Theta</a>, and <a href="https://gammaledger.com/blog/options-greeks-vega/">Vega</a>.</p>]]></content><author><name>GammaLedger</name></author><category term="options" /><category term="greeks" /><category term="rho" /><category term="interest-rates" /><category term="guide" /><summary type="html"><![CDATA[Understanding rho in options trading: how it measures sensitivity to interest rate changes and when it matters.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/rho.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/rho.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry></feed>
+<p>GammaLedger gives you the tools to move quickly, but the best results still come from trader review. Imported data should accelerate your journal, not replace your judgment.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="import" /><category term="ofx" /><category term="robinhood" /><category term="ai-screenshot" /><category term="options" /><summary type="html"><![CDATA[A practical look at GammaLedger's import workflow, review queue, merge tools, split-fill handling, and AI screenshot extraction.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-import-review.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-import-review.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry></feed>

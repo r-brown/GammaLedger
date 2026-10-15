@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Structured Portfolio Context: Using GammaLedger Data in Advanced Workflows - GammaLedger Blog</title>
+    <meta name="description" content="How GammaLedger's structured analytics context supports deeper portfolio review, AI-assisted analysis, and external workflows without giving up local control.">
+    
+    <meta name="author" content="GammaLedger Contributors">
+    <meta name="copyright" content="GammaLedger">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gammaledger.com/blog/structured-portfolio-context-mcp-workflows/">
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="GammaLedger">
+    <meta property="og:title" content="Structured Portfolio Context: Using GammaLedger Data in Advanced Workflows - GammaLedger Blog">
+    <meta property="og:description" content="How GammaLedger's structured analytics context supports deeper portfolio review, AI-assisted analysis, and external workflows without giving up local control.">
+    <meta property="og:url" content="https://gammaledger.com/blog/structured-portfolio-context-mcp-workflows/">
+    <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-structured-context.png">
+    <meta property="og:locale" content="en_US">
+    
+    <meta property="article:published_time" content="2026-07-01T00:00:00+00:00">
+    <meta property="article:author" content="GammaLedger">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Structured Portfolio Context: Using GammaLedger Data in Advanced Workflows - GammaLedger Blog">
+    <meta name="twitter:description" content="How GammaLedger's structured analytics context supports deeper portfolio review, AI-assisted analysis, and external workflows without giving up local control.">
+    <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-structured-context.png">
+    <meta name="theme-color" content="#0a0b1a">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/gammaledger-logo-32x32.png">
+    <!-- Styles -->
+    
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    
+</head>
+
+<body>
+<nav class="nav" id="nav">
+    <div class="container">
+        <div class="nav-content">
+            <a href="/" class="logo">
+                <img src="/assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo" width="32" height="32">
+                GammaLedger
+            </a>
+            <ul class="nav-links">
+                <li><a href="/#features">Features</a></li>
+                <li><a href="/#dashboard">Dashboard</a></li>
+                <li><a href="/#users">For You</a></li>
+                <li><a href="/blog/">Blog</a></li>
+                <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+            </ul>
+            <a href="/app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Launch App</a>
+        </div>
+    </div>
+</nav>
+
+<article class="article-container">
+    <a href="/blog/" class="back-to-blog">← Back to Blog</a>
+    <div class="article-header">
+        <img src="/assets/img/gammaledger-structured-context.png" alt="Structured Portfolio Context: Using GammaLedger Data in Advanced Workflows" class="article-featured-image">
+        <h1 class="article-title">Structured Portfolio Context: Using GammaLedger Data in Advanced Workflows</h1>
+        <div class="article-meta">
+            <span>📅 July 1, 2026</span>
+            <span>✍️ GammaLedger</span>
+        </div>
+        
+        <div class="article-tags">
+            <span class="tag">gammaledger</span><span class="tag">mcp</span><span class="tag">analytics</span><span class="tag">ai-workflow</span><span class="tag">portfolio-review</span>
+        </div>
+        
+    </div>
+    <div class="article-content">
+        <p>A mature trading journal should do more than display rows. It should organize portfolio context in a way that other review workflows can use. GammaLedger includes structured context-building logic for portfolio summaries, open positions, assigned positions, closed trades, risk metrics, streaks, fees, and strategy performance.</p>
+
+<p>That structured context is useful for advanced analysis because it turns a local journal into a coherent dataset.</p>
+
+<h2 id="why-structure-matters">Why structure matters</h2>
+
+<p>Raw trades are detailed, but they are not always easy to reason about. A portfolio review often needs summarized questions:</p>
+
+<ul>
+  <li>What are the largest active risks?</li>
+  <li>Which strategies drive realized P&amp;L?</li>
+  <li>How much capital is tied up in open positions?</li>
+  <li>Which assigned positions are uncovered or partially covered?</li>
+  <li>Are fees consuming a meaningful share of realized turnover?</li>
+  <li>What changed in recent trades?</li>
+</ul>
+
+<p>GammaLedger calculates and organizes this context so analysis does not have to start from scratch every time.</p>
+
+<h2 id="what-the-context-includes">What the context includes</h2>
+
+<p>The structured portfolio context can include:</p>
+
+<ul>
+  <li>Portfolio-level performance metrics.</li>
+  <li>Open position summaries.</li>
+  <li>Closed trade summaries.</li>
+  <li>Assigned position details.</li>
+  <li>Strategy and ticker performance.</li>
+  <li>Fee impact.</li>
+  <li>Streak and drawdown context.</li>
+  <li>Wheel and PMCC coverage signals.</li>
+  <li>Leg-level detail where relevant.</li>
+</ul>
+
+<p>That gives external review tools a cleaner input than a giant unfiltered export.</p>
+
+<h2 id="ai-assisted-analysis-with-guardrails">AI-assisted analysis with guardrails</h2>
+
+<p>Structured context is especially useful for AI review. Instead of asking a model to interpret a raw database file, GammaLedger can provide a curated snapshot with the fields needed for the question.</p>
+
+<p>This does not remove the privacy decision. If an AI provider is used, submitted context may be processed by that provider. The value of structure is that you can keep prompts focused and avoid sending irrelevant data.</p>
+
+<p>A good AI workflow asks targeted questions:</p>
+
+<ul>
+  <li>“Identify the top three open risks from this context.”</li>
+  <li>“Compare closed covered calls against cash-secured puts.”</li>
+  <li>“Summarize assigned positions that lack full call coverage.”</li>
+  <li>“Explain whether fees are material relative to realized turnover.”</li>
+</ul>
+
+<h2 id="external-analysis-without-losing-ownership">External analysis without losing ownership</h2>
+
+<p>Structured context also helps non-AI workflows. Quantitative traders may want to compare GammaLedger summaries with spreadsheet models. Portfolio managers may want to generate periodic review notes. Developers may want to build local scripts around exported data.</p>
+
+<p>The local-first model still matters here. GammaLedger can be the place where trade data is normalized and enriched, while external workflows use exports or context snapshots only when you choose.</p>
+
+<h2 id="review-workflows-compound">Review workflows compound</h2>
+
+<p>The more consistent your journal, the more valuable structured context becomes. Clean imports, correct leg ordering, reviewed trade notes, and reconciled fees all improve downstream analysis.</p>
+
+<p>Think of GammaLedger as a workflow stack:</p>
+
+<ol>
+  <li>Capture executions as normalized legs.</li>
+  <li>Merge and review imported records.</li>
+  <li>Derive lifecycle and P&amp;L.</li>
+  <li>Summarize strategy and risk context.</li>
+  <li>Export or submit only the context needed for the review.</li>
+</ol>
+
+<p>That stack lets active traders move from raw broker activity to decision-quality analysis without turning every review into a manual spreadsheet rebuild.</p>
+
+    </div>
+    <div class="article-disclaimer">
+        <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. Please read our full <a href="/disclaimer.html">Risk Disclaimer</a>.
+    </div>
+</article>
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>GammaLedger</h3>
+                <p>Intelligent options trading &amp; analytics platform with complete privacy and professional-grade tools for sophisticated options traders.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul class="footer-links">
+                    <li><a href="/blog/">Blog</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener noreferrer">Support</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Legal</h3>
+                <ul class="footer-links">
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/disclaimer.html">Risk Disclaimer</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 License</a></li>
+                    <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 GammaLedger. Released under AGPLv3 License.</p>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>
