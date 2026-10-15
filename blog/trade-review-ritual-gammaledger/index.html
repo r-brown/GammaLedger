@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>A Weekly Options Review Ritual with GammaLedger - GammaLedger Blog</title>
+    <meta name="description" content="A practical weekly workflow for importing trades, reviewing open risk, checking strategy performance, exporting backups, and using GammaLedger consistently.">
+    
+    <meta name="author" content="GammaLedger Contributors">
+    <meta name="copyright" content="GammaLedger">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://gammaledger.com/blog/trade-review-ritual-gammaledger/">
+    <!-- Open Graph -->
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="GammaLedger">
+    <meta property="og:title" content="A Weekly Options Review Ritual with GammaLedger - GammaLedger Blog">
+    <meta property="og:description" content="A practical weekly workflow for importing trades, reviewing open risk, checking strategy performance, exporting backups, and using GammaLedger consistently.">
+    <meta property="og:url" content="https://gammaledger.com/blog/trade-review-ritual-gammaledger/">
+    <meta property="og:image" content="https://gammaledger.com/assets/img/gammaledger-dashboard-analytics.png">
+    <meta property="og:locale" content="en_US">
+    
+    <meta property="article:published_time" content="2026-07-10T00:00:00+00:00">
+    <meta property="article:author" content="GammaLedger">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="A Weekly Options Review Ritual with GammaLedger - GammaLedger Blog">
+    <meta name="twitter:description" content="A practical weekly workflow for importing trades, reviewing open risk, checking strategy performance, exporting backups, and using GammaLedger consistently.">
+    <meta name="twitter:image" content="https://gammaledger.com/assets/img/gammaledger-dashboard-analytics.png">
+    <meta name="theme-color" content="#0a0b1a">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/img/gammaledger-logo-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/gammaledger-logo-32x32.png">
+    <!-- Styles -->
+    
+    <link rel="stylesheet" href="/assets/css/blog.css">
+    
+</head>
+
+<body>
+<nav class="nav" id="nav">
+    <div class="container">
+        <div class="nav-content">
+            <a href="/" class="logo">
+                <img src="/assets/img/gammaledger-logo-32x32.png" alt="GammaLedger logo" width="32" height="32">
+                GammaLedger
+            </a>
+            <ul class="nav-links">
+                <li><a href="/#features">Features</a></li>
+                <li><a href="/#dashboard">Dashboard</a></li>
+                <li><a href="/#users">For You</a></li>
+                <li><a href="/blog/">Blog</a></li>
+                <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+            </ul>
+            <a href="/app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary">Launch App</a>
+        </div>
+    </div>
+</nav>
+
+<article class="article-container">
+    <a href="/blog/" class="back-to-blog">← Back to Blog</a>
+    <div class="article-header">
+        <img src="/assets/img/gammaledger-dashboard-analytics.png" alt="A Weekly Options Review Ritual with GammaLedger" class="article-featured-image">
+        <h1 class="article-title">A Weekly Options Review Ritual with GammaLedger</h1>
+        <div class="article-meta">
+            <span>📅 July 10, 2026</span>
+            <span>✍️ GammaLedger</span>
+        </div>
+        
+        <div class="article-tags">
+            <span class="tag">gammaledger</span><span class="tag">workflow</span><span class="tag">trade-review</span><span class="tag">options</span><span class="tag">risk-management</span>
+        </div>
+        
+    </div>
+    <div class="article-content">
+        <p>The value of a trading journal comes from repetition. A perfect dashboard does not help if it is opened only after a large loss. GammaLedger works best when it becomes part of a weekly review ritual: import, reconcile, analyze, decide, and back up.</p>
+
+<p>Here is a practical workflow for active options traders.</p>
+
+<h2 id="1-import-and-reconcile-first">1. Import and reconcile first</h2>
+
+<p>Start with the raw activity. Import OFX/QFX files, Robinhood CSV files, or AI screenshot drafts where needed. Then open the review queue before looking at performance charts.</p>
+
+<p>Resolve the basics:</p>
+
+<ul>
+  <li>Approve clean imported trades.</li>
+  <li>Edit missing or ambiguous fields.</li>
+  <li>Merge related trades by ticker.</li>
+  <li>Discard bad screenshot drafts.</li>
+  <li>Confirm duplicate imports were skipped.</li>
+</ul>
+
+<p>Analytics are only useful after the ledger is clean.</p>
+
+<h2 id="2-check-open-positions">2. Check open positions</h2>
+
+<p>Open positions deserve attention before closed-trade performance. Review active trades for expiration, moneyness, assignment risk, coverage, and concentration.</p>
+
+<p>For Wheel and PMCC positions, check whether short calls are covered, whether assigned shares have an effective cost basis, and whether rolls changed the true risk. If Finnhub is configured, use market context to check live price, earnings proximity, and related news.</p>
+
+<h2 id="3-read-the-dashboard">3. Read the dashboard</h2>
+
+<p>After reconciliation and open-risk review, move to the dashboard. Start with cumulative P&amp;L, then inspect strategy performance, win rate by strategy, commission impact, ticker heatmap, time in trade, and projection views.</p>
+
+<p>The goal is not to admire the charts. The goal is to find one or two decisions:</p>
+
+<ul>
+  <li>Reduce size in a weak ticker.</li>
+  <li>Stop using a strategy that has poor expectancy.</li>
+  <li>Tighten exit rules for trades that stay open too long.</li>
+  <li>Avoid rolling positions that repeatedly increase risk.</li>
+  <li>Review fees on complex spreads.</li>
+</ul>
+
+<h2 id="4-use-the-credit-playbook">4. Use the Credit Playbook</h2>
+
+<p>If you sell premium, open the Credit Playbook and filter by the period you care about. Compare active and closed credit trades. Look at premium, risk per contract, days held, P&amp;L, and ROI together.</p>
+
+<p>This view is especially useful for deciding whether a setup is repeatable. A trade that looks good in isolation may look weak when compared with other premium-selling opportunities.</p>
+
+<h2 id="5-ask-a-focused-ai-question">5. Ask a focused AI question</h2>
+
+<p>If the AI Coach is configured, ask one narrow question. For example:</p>
+
+<ul>
+  <li>“What is the largest open risk in the current portfolio?”</li>
+  <li>“Which strategy has performed worst over the last 90 days?”</li>
+  <li>“Summarize assigned positions that need coverage review.”</li>
+</ul>
+
+<p>Treat the response as a prompt for your own inspection. Verify the underlying trades before changing a plan.</p>
+
+<h2 id="6-write-notes-and-export">6. Write notes and export</h2>
+
+<p>Close the loop with notes. Update trade notes for important decisions, especially rolls, assignments, thesis changes, and exits. Then export a JSON backup.</p>
+
+<p>This final step protects the work. If you spent time cleaning imports and updating notes, preserve that state outside browser storage.</p>
+
+<h2 id="keep-the-ritual-small">Keep the ritual small</h2>
+
+<p>A weekly review does not need to take hours. The point is consistency:</p>
+
+<ol>
+  <li>Clean the ledger.</li>
+  <li>Review open risk.</li>
+  <li>Compare strategy outcomes.</li>
+  <li>Decide one adjustment.</li>
+  <li>Back up the database.</li>
+</ol>
+
+<p>GammaLedger provides the surfaces. The edge comes from using them regularly.</p>
+
+    </div>
+    <div class="article-disclaimer">
+        <strong>Disclaimer:</strong> The content provided on GammaLedger is for informational and educational purposes only and does not constitute financial, investment, or professional advice. The information is based on publicly available data and personal analysis and is not guaranteed to be accurate, complete, or current. Readers are advised to conduct their own research and consult a qualified financial advisor or professional before making any investment or trading decisions. GammaLedger and its affiliates do not accept any liability for losses or damages resulting from reliance on the information presented. Please read our full <a href="/disclaimer.html">Risk Disclaimer</a>.
+    </div>
+</article>
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>GammaLedger</h3>
+                <p>Intelligent options trading &amp; analytics platform with complete privacy and professional-grade tools for sophisticated options traders.</p>
+            </div>
+            <div class="footer-section">
+                <h3>Resources</h3>
+                <ul class="footer-links">
+                    <li><a href="/blog/">Blog</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/wiki" target="_blank" rel="noopener noreferrer">Documentation</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/issues" target="_blank" rel="noopener noreferrer">Support</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/releases" target="_blank" rel="noopener noreferrer">Releases</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h3>Legal</h3>
+                <ul class="footer-links">
+                    <li><a href="/terms.html">Terms of Service</a></li>
+                    <li><a href="/privacy.html">Privacy Policy</a></li>
+                    <li><a href="/disclaimer.html">Risk Disclaimer</a></li>
+                    <li><a href="https://github.com/r-brown/GammaLedger/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">AGPLv3 License</a></li>
+                    <li><span style="color: var(--text-muted);">Trading involves risk - past performance does not guarantee future results.</span></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 GammaLedger. Released under AGPLv3 License.</p>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>
