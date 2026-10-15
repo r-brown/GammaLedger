@@ -351,8 +351,7 @@ The workflow:
    Pages root for direct-link fallback.
 6. Publishes the GitHub Release with the local ZIP and checksum.
 
-There is no separate release-triggered Pages workflow and no appv1 deployment
-path. GitHub Pages should use the `gh-pages` branch as its source.
+There is no separate release-triggered Pages workflow. GitHub Pages should use the `gh-pages` branch as its source.
 
 ---
 

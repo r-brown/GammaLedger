@@ -65,7 +65,7 @@ jobs:
             "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
       # ── 5. Merge Jekyll output into gh-pages root ────────────────────────
-      #    Preserves /app/ and /appv1/ sub-directories (the live SPA builds).
+      #    Preserves the /app/ sub-directory (the live SPA build).
       - name: Sync website files into gh-pages root
         run: |
           set -euo pipefail
@@ -75,7 +75,6 @@ jobs:
           find . -maxdepth 1 -mindepth 1 \
             ! -name '.git'    \
             ! -name 'app'     \
-            ! -name 'appv1'   \
             ! -name '.nojekyll' \
             -exec rm -rf {} +
           cd ..

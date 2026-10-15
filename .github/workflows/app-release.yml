@@ -263,7 +263,7 @@ jobs:
           set -euo pipefail
 
           # Only replace /app/ — preserve other gh-pages content such as
-          # /appv1/ (deployed by feature/app/v1), /assets/ (marketing site), etc.
+          # /assets/ (marketing site), etc.
           rm -rf _gh_pages/app
           cp -r dist/ _gh_pages/app
 
