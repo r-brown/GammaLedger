@@ -111,7 +111,20 @@ test('buildTickerContext: price source, momentum, scores and pre-counted signals
     const past = buildTickerContext(baseInput({ upcomingEarningsDate: '2026-09-01' }))
     assert.equal(past.nextEarnings, null)                        // a past date is stale, not "next"
     const ranged = buildTickerContext(baseInput({ metrics: { ...METRICS, week52High: 250, week52Low: 150 } }))
-    assert.deepEqual(ranged.range52w, { fromHighPct: -14.3, fromLowPct: 42.9 })
+    assert.deepEqual(ranged.range52w, { fromHighPct: -14.3, fromLowPct: 42.9, positionPct: 64 })
+    assert.equal(ctx.trend, 'mixed')                             // 13w +4.1%, 52w -20%
+    assert.deepEqual(ctx.risk, { beta: 1.8, hv3mPct: 62, vsSP500_13wPct: null })
+    assert.equal(ctx.sector, null)
+    assert.equal(buildTickerContext(baseInput({ sector: ' Technology ' })).sector, 'Technology')
+})
+
+test('trendLabel: both returns up / both down / split; one side alone decides', async () => {
+    const { trendLabel } = await load('/src/ai/ticker-context.ts')
+    assert.equal(trendLabel(4, 20), 'up')
+    assert.equal(trendLabel(-4, -20), 'down')
+    assert.equal(trendLabel(4, -20), 'mixed')
+    assert.equal(trendLabel(null, -3), 'down')
+    assert.equal(trendLabel(null, null), null)
 })
 
 test('buildTickerContext: position facts with the Schwab quote and earnings inside its life', async () => {
@@ -180,7 +193,7 @@ const scanInput = (t, entry, over = {}) => ({
     earningsDate: null, drift: null, openPositions: 0, ...over.scan
 })
 
-test('watchlist scan: neutral market facts, trader inputs last, cap blind to watch price and rating', async () => {
+test('watchlist scan: neutral market facts, unscored split out, trader inputs last, cap blind to watch price and rating', async () => {
     const t = await load('/src/ai/ticker-context.ts')
     const scan = await load('/src/ai/watchlist-scan.ts')
     const far = { ...ENTRY, ticker: 'FAR', rating: 5 }                                  // 214.3 vs 190 down: waiting
@@ -189,39 +202,57 @@ test('watchlist scan: neutral market facts, trader inputs last, cap blind to wat
     const bare = { ticker: 'BARE', rating: null, notes: '', addedDate: '2026-01-02' }
     const rangedMetrics = { ...METRICS, week52High: 250, week52Low: 150 }
     const facts = scan.buildWatchlistScanFacts([
-        scanInput(t, far, { ctx: { metrics: rangedMetrics }, scan: { earningsDate: '2026-10-05', drift: { drifted: true, probability: 0.812 }, openPositions: 2 } }),
-        scanInput(t, hit, { ctx: { prices: { finnhub: 188 } } }),
+        scanInput(t, far, {
+            ctx: { metrics: rangedMetrics, sector: 'Health Care' },
+            scan: { earningsDate: '2026-10-05', drift: { drifted: true, probability: 0.812 }, openPositions: 2, grade: { quality: 'decent', confidence: 0.83 }, earningsChecked: true, hasSurprises: true }
+        }),
+        scanInput(t, hit, { ctx: { prices: { finnhub: 188 } }, scan: { earningsDate: '2026-11-01', grade: { quality: 'weak', confidence: null } } }),
         scanInput(t, near),
-        scanInput(t, bare, { ctx: { prices: {}, metrics: null, signals: null } })
+        scanInput(t, bare, { ctx: { prices: {}, metrics: null, signals: null }, scan: { hasSurprises: false } })
     ], '2026-09-27')
     // The trader's list order is kept: neither a reached watch price nor a 5-star rating moves an entry.
-    assert.deepEqual(facts.entries.map(e => e.ticker), ['FAR', 'HIT', 'NEAR', 'BARE'])
-    const [f, h, n, b] = facts.entries
+    // BARE has no metrics, so it is not sent as an empty entry but listed as unscored.
+    assert.deepEqual(facts.entries.map(e => e.ticker), ['FAR', 'HIT', 'NEAR'])
+    assert.deepEqual(facts.unscored, [{ ticker: 'BARE', missing: ['metrics', 'price', 'analyst/insider', 'earnings history', 'earnings date'] }])
+    const [f, h, n] = facts.entries
     assert.deepEqual(f.flags, ['thesis may no longer fit', 'earnings in 8d', 'already 2 open positions'])
     assert.deepEqual(f.thesisDrift, { flagged: true, probability: 0.81 })
     assert.deepEqual(f.nextEarnings, { date: '2026-10-05', daysAway: 8 })
-    assert.deepEqual(f.range52w, { fromHighPct: -14.3, fromLowPct: 42.9 })
+    assert.deepEqual(f.range52w, { fromHighPct: -14.3, fromLowPct: 42.9, positionPct: 64 })
     assert.deepEqual(f.scores, { risk: 'red', own: 'safe', balanceSheet: 'healthy', valuation: 'cheap' })
+    assert.equal(f.scoreNotes.risk, 'β1.8 · HV62% · 5D -6.2%')
+    assert.equal(f.trend, 'mixed')
+    assert.equal(f.sector, 'Health Care')
+    assert.equal(f.beta, 1.8)
+    assert.equal(f.hv3mPct, 62)
+    assert.deepEqual(f.jev, { quality: 'decent', confidence: 0.83 })
+    assert.deepEqual(h.jev, { quality: 'weak' })                                        // uncalibrated: no confidence sent
     assert.equal(f.insiderNet90d, 'selling')
     assert.equal(f.earningsBeatsLast4, 3)
-    assert.deepEqual(h.flags, [])                                                       // no "watch price reached" flag any more
+    assert.deepEqual(h.flags, ['earnings inside a 45-DTE put (35d)'])                   // no "watch price reached" flag
     assert.deepEqual(n.flags, [])
-    assert.deepEqual(b.flags, ['no current price'])
-    assert.equal(b.price, undefined)
     for (const entry of facts.entries) {
         for (const key of ['rating', 'watchPrice', 'thesis', 'tags', 'daysSinceAdded']) assert.ok(!(key in entry), `${key} must not be in entries`)
     }
-    assert.deepEqual(facts.summary, { watched: 4, sent: 4, omitted: 0, earningsWithin14d: 1, thesisDriftFlagged: 1, noPrice: 1 })
+    assert.deepEqual(facts.summary, {
+        watched: 4, sent: 3, unscored: 1, omitted: 0, earningsWithin14d: 1, earningsWithin45d: 2, thesisDriftFlagged: 1, noPrice: 1,
+        coverage: { metrics: 3, signals: 3, earningsHistory: 3, earningsDateChecked: 2, price: 3, jevGraded: 2 }
+    })
+
+    // JEV judges market facts only: no flags, exposure or other models' views.
+    const state = scan.gradeStateOf(f, '2026-09-27')
+    for (const key of ['flags', 'openPositions', 'thesisDrift', 'aiVerdict', 'jev']) assert.ok(!(key in state), `${key} must not reach JEV`)
+    assert.equal(state.asOf, '2026-09-27')
+    assert.deepEqual(state.scores, f.scores)
 
     // Trader inputs sit in their own block, in the same order, with their gaps named.
-    assert.deepEqual(facts.traderInputs.map(i => i.ticker), ['FAR', 'HIT', 'NEAR', 'BARE'])
-    const [tf, th, tn, tb] = facts.traderInputs
+    assert.deepEqual(facts.traderInputs.map(i => i.ticker), ['FAR', 'HIT', 'NEAR'])
+    const [tf, th, tn] = facts.traderInputs
     assert.equal(tf.rating, 5)
     assert.equal(tf.watchPrice.waitingFor, 'price at or below level')
     assert.equal(th.watchPrice.reachedToday, true)
     assert.equal(tn.watchPrice.priceVsLevelPct, 2)
     assert.deepEqual(tn.gaps, ['rating', 'thesis'])
-    assert.deepEqual(tb.gaps, ['rating', 'watch price', 'thesis'])
 
     const json = scan.watchlistScanJson(facts)
     assert.ok(!json.includes('null'))
@@ -240,8 +271,11 @@ test('watchlist scan prompt: independent review layout wraps the facts; the agen
     const p = await load('/src/ai/coach-prompts.ts')
     const prompt = p.buildCoachRequestPrompt('watchlist_scan', 'WATCHLIST FACTS (compact JSON computed by GammaLedger):\n{"entries":[]}')
     assert.ok(prompt.startsWith('Task: watchlist review'))
-    for (const heading of ['### Ranking', '### Earnings and entry levels', '### Add, remove, keep', '### Look at now']) assert.ok(prompt.includes(heading), heading)
-    assert.ok(prompt.includes('Suggested ★'))
+    for (const heading of ['### Earnings', '### Add, remove, keep', '### Look at now']) assert.ok(prompt.includes(heading), heading)
+    assert.ok(prompt.includes('```watchlist\n{"rows":[{"ticker":"AAA"'))
+    assert.ok(prompt.includes('do not repeat any of it as a markdown table'))
+    assert.ok(prompt.includes('jev is a calibrated pre-grade'))
+    assert.ok(prompt.includes('Do not rank or judge them'))
     assert.ok(prompt.includes('traderInputs, listed last on purpose'))
     assert.ok(prompt.includes('The watch price and rating are not evidence'))
     assert.ok(prompt.includes('never that there is no earnings event'))

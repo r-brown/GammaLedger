@@ -7,6 +7,7 @@ import { describeLLMError, type LLMProvider, type LLMUsage } from '../integratio
 import { formatGroundingBadge, formatReplyUsage, summarizeSessionUsage } from './usage-format.js'
 import { groundAnswer } from './grounding.js'
 import { buildChartOption, splitChartBlocks, type ChartColors, type ChartSpec } from './chart-blocks.js'
+import { maskScanBlockWhileStreaming, renderScanTable } from './scan-table.js'
 import { disposeChartInstance, renderEChart } from '../ui/charts/echarts.js'
 import type { GroundingResult } from '../types/ai.js'
 import type { ConsentRequirement } from '../core/consent.js'
@@ -24,6 +25,15 @@ interface ChatMessage {
     trust?: GroundingResult | null
     /** Full question sent to the model when the bubble shows a short label; history resends it. */
     requestText?: string | null
+    /** Buttons under an app message (e.g. Scan now / Cancel while data is collected). */
+    actions?: ChatAction[] | null
+}
+
+/** A button under a chat message; the click runs aiChatActionHandlers.get(id). */
+export interface ChatAction {
+    id: string
+    label: string
+    variant?: 'primary' | 'secondary'
 }
 
 interface AIAgent {
@@ -44,6 +54,8 @@ interface AIQuickPromptOptions {
     consent?: ConsentRequirement
     /** Extra facts sent with the request that the answer's numbers may also come from. */
     groundingJson?: string | null
+    /** Rewrites the finished answer before it is shown (the Watchlist scan merges its table here). */
+    transformReply?: ((text: string) => string) | null
 }
 
 interface AIChatContext {
@@ -57,6 +69,8 @@ interface AIChatContext {
     aiChatStreamFrame: number | null
     /** ECharts instances painted into the history; disposed before every re-render. */
     aiChatCharts: Array<{ dispose(): void }>
+    /** Click handlers for message action buttons, by action id. */
+    aiChatActionHandlers: Map<string, () => void>
     updateAIChatStreamingMessage(id: string, text: string): void
     aiDraftImport: AIDraftImportState | null
     trades: Record<string, unknown>[]
@@ -166,7 +180,7 @@ function readChartColors(): ChartColors {
 /** Markdown with ```chart blocks → markdown parts plus chart holders (charts drawn after insertion). */
 function paintAIBubble(this: AIChatContext, bubble: HTMLElement, text: string, pending: Array<{ el: HTMLElement; spec: ChartSpec }>): void {
     const segments = splitChartBlocks(text);
-    if (!segments.some(segment => segment.kind === 'chart')) {
+    if (!segments.some(segment => segment.kind !== 'md')) {
         bubble.innerHTML = this.renderMarkdownToHTML(text);
         return;
     }
@@ -175,6 +189,10 @@ function paintAIBubble(this: AIChatContext, bubble: HTMLElement, text: string, p
             const part = document.createElement('div');
             part.innerHTML = this.renderMarkdownToHTML(segment.text);
             bubble.appendChild(part);
+            continue;
+        }
+        if (segment.kind === 'scan') {
+            bubble.appendChild(renderScanTable(segment.table));
             continue;
         }
         const figure = document.createElement('figure');
@@ -1034,7 +1052,13 @@ export function toggleAIChat(this: AIChatContext, forceOpen: boolean | null = nu
 }
 
 /** Shared by typed questions and quick prompts: placeholder → streamed reply → final render. */
-async function runAIChatRequest(this: AIChatContext, query: string, promptType: string | null, groundingJson: string | null = null): Promise<void> {
+async function runAIChatRequest(
+    this: AIChatContext,
+    query: string,
+    promptType: string | null,
+    groundingJson: string | null = null,
+    transformReply: ((text: string) => string) | null = null
+): Promise<void> {
     const placeholderId = this.appendAIChatMessage('ai', 'Analyzing your portfolio...', { pending: true });
     // The question being asked is sent as the final request turn, so it is not part of the history.
     const historySnapshot = this.aiChatMessages
@@ -1066,7 +1090,15 @@ async function runAIChatRequest(this: AIChatContext, query: string, promptType: 
         const trust = promptType && GROUNDED_PROMPTS.has(promptType) && reply.snapshotJson && !reply.stopped
             ? groundAnswer(reply.text, groundingJson ? `[${reply.snapshotJson},${groundingJson}]` : reply.snapshotJson)
             : null;
-        this.appendAIChatMessage('ai', reply.text, { replaceId: placeholderId, pending: false, usage: reply.usage, model: reply.model, trust });
+        let text = reply.text;
+        if (transformReply && !reply.stopped) {
+            try {
+                text = transformReply(text);
+            } catch (error) {
+                console.warn('Could not post-process the AI reply:', error);
+            }
+        }
+        this.appendAIChatMessage('ai', text, { replaceId: placeholderId, pending: false, usage: reply.usage, model: reply.model, trust });
     } catch (error) {
         if (!isCurrentSession()) {
             return;
@@ -1154,14 +1186,14 @@ export async function handleAIQuickPrompt(
     const display = options.displayText?.trim();
     this.appendAIChatMessage('user', display || prompt, { requestText: display ? prompt : null });
 
-    await runAIChatRequest.call(this, prompt, options.promptType || null, options.groundingJson ?? null);
+    await runAIChatRequest.call(this, prompt, options.promptType || null, options.groundingJson ?? null, options.transformReply ?? null);
 }
 
 export function appendAIChatMessage(
     this: AIChatContext,
     sender: string,
     text: string,
-    options: { suppressRender?: boolean; replaceId?: string | null; id?: string | null; pending?: boolean; usage?: LLMUsage | null; model?: string | null; trust?: GroundingResult | null; requestText?: string | null } = {}
+    options: { suppressRender?: boolean; replaceId?: string | null; id?: string | null; pending?: boolean; usage?: LLMUsage | null; model?: string | null; trust?: GroundingResult | null; requestText?: string | null; actions?: ChatAction[] | null } = {}
 ): string | null {
     const normalizedSender = sender === 'ai' ? 'ai' : 'user';
     const {
@@ -1172,7 +1204,8 @@ export function appendAIChatMessage(
         usage = null,
         model = null,
         trust = null,
-        requestText = null
+        requestText = null,
+        actions = null
     } = options || {};
 
     if (!replaceId && (typeof text !== 'string' || text.length === 0)) {
@@ -1194,7 +1227,8 @@ export function appendAIChatMessage(
                 streaming: false,
                 usage,
                 model,
-                trust
+                trust,
+                actions
             };
 
             if (!suppressRender) {
@@ -1215,7 +1249,8 @@ export function appendAIChatMessage(
         usage,
         model,
         trust,
-        requestText
+        requestText,
+        actions
     };
 
     this.aiChatMessages = [...this.aiChatMessages, entry].slice(-200);
@@ -1251,7 +1286,7 @@ export function updateAIChatStreamingMessage(this: AIChatContext, id: string, te
         item.classList.remove('ai-chat__message--pending');
         item.classList.add('ai-chat__message--streaming');
         bubble.removeAttribute('data-pending');
-        bubble.innerHTML = this.renderMarkdownToHTML(message.text);
+        bubble.innerHTML = this.renderMarkdownToHTML(maskScanBlockWhileStreaming(message.text));
         if (nearBottom) {
             history.scrollTop = history.scrollHeight;
         }
@@ -1296,7 +1331,7 @@ export function renderAIChatMessages(this: AIChatContext): void {
         if (message.sender === 'ai') {
             // Charts only on the final paint: a half-streamed JSON block can't render.
             if (message.pending || message.streaming) {
-                bubble.innerHTML = this.renderMarkdownToHTML(message.text);
+                bubble.innerHTML = this.renderMarkdownToHTML(maskScanBlockWhileStreaming(message.text));
             } else {
                 paintAIBubble.call(this, bubble, message.text, pendingCharts);
             }
@@ -1304,6 +1339,20 @@ export function renderAIChatMessages(this: AIChatContext): void {
             bubble.textContent = message.text;
         }
         item.appendChild(bubble);
+
+        if (message.actions?.length) {
+            const row = document.createElement('div');
+            row.className = 'ai-chat__actions';
+            message.actions.forEach(action => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `btn btn--sm ${action.variant === 'primary' ? 'btn--primary' : 'btn--secondary'}`;
+                button.textContent = action.label;
+                button.addEventListener('click', () => this.aiChatActionHandlers.get(action.id)?.());
+                row.appendChild(button);
+            });
+            item.appendChild(row);
+        }
 
         if (message.sender === 'ai' && !message.pending && !message.streaming) {
             const usageLine = formatReplyUsage(message.usage, message.model);

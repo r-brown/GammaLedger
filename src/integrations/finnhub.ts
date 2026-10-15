@@ -1832,6 +1832,52 @@ export async function fetchEarningsCalendar(
     }
 }
 
+/**
+ * Next earnings date for ONE ticker (calendar/earnings?symbol=…). The market-wide calendar above
+ * can come back capped in busy weeks and silently miss names; the per-symbol query doesn't.
+ * Resolves to the entry (or null when none falls in the window) and records it in earningsMap,
+ * replacing whatever the market-wide calendar had. Rejects when the request itself failed.
+ */
+export async function fetchEarningsDate(
+    this: any,
+    ticker: string,
+    toDate: string
+): Promise<import('../types/integrations.js').EarningsCalendarEntry | null> {
+    const apiKey = this.finnhub?.apiKey;
+    const symbol = ticker.trim().toUpperCase();
+    if (!apiKey) throw new Error('Finnhub API key missing');
+
+    const from = new Date().toISOString().slice(0, 10);
+    const url = new URL('https://finnhub.io/api/v1/calendar/earnings');
+    url.searchParams.set('from', from);
+    url.searchParams.set('to', toDate);
+    url.searchParams.set('symbol', symbol);
+    url.searchParams.set('token', String(apiKey));
+
+    const data: unknown = await fetchFinnhubJson.call(
+        this, url.toString(), `earnings-date:${symbol}:${from}:${toDate}`,
+        QUOTE_SCOPE.MANUAL, PRIORITY.IMMEDIATE
+    );
+    if (!data || typeof data !== 'object' || !Array.isArray((data as Record<string, unknown>).earningsCalendar)) {
+        throw new Error('Unexpected earnings calendar response');
+    }
+    const safeN = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+    let best: import('../types/integrations.js').EarningsCalendarEntry | null = null;
+    for (const event of (data as { earningsCalendar: unknown[] }).earningsCalendar) {
+        if (!event || typeof event !== 'object') continue;
+        const e = event as Record<string, unknown>;
+        const date = typeof e.date === 'string' ? e.date : null;
+        if (!date || date < from || (typeof e.symbol === 'string' && e.symbol.toUpperCase() !== symbol)) continue;
+        if (!best || date < best.date) {
+            best = { date, hour: typeof e.hour === 'string' ? e.hour : '', quarter: safeN(e.quarter), year: safeN(e.year), epsEstimate: safeN(e.epsEstimate) };
+        }
+    }
+    const map = this.earningsMap as Map<string, import('../types/integrations.js').EarningsCalendarEntry>;
+    if (best) map.set(symbol, best);
+    else map.delete(symbol);
+    return best;
+}
+
 // ---------------------------------------------------------------------------
 // Stock metrics — fetched lazily on first ticker hover
 // ---------------------------------------------------------------------------

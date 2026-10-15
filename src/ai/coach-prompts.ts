@@ -80,27 +80,33 @@ Keep prose under 300 words outside tables.`
 const WATCHLIST_SCAN = `Task: watchlist review — an honest, independent assessment of the whole list, then priorities and list changes.
 
 How to read the WATCHLIST FACTS below:
-- entries hold market and risk facts only, in the trader's list order (the order means nothing). Judge every ticker on them: trend and momentum, where the price sits in its 52-week range (range52w), the four scores, analyst and insider signals, earnings track record (earningsBeatsLast4) and the next earnings date.
-- traderInputs, listed last on purpose, holds the trader's own rating (1–5 stars), watch price, thesis, tags and age. Form your view of each ticker from entries first. The watch price and rating are not evidence: a ticker is not attractive because it sits at the watch price, nor unattractive because it is far from it. Use traderInputs only in the comparison steps (3, 4 and 5). A price level inside a thesis is the trader's anchor, not a fact. watchPrice means an entry trigger, not a view: "price at or below level" = waiting for a pullback, usually to sell a cash-secured put or bull put spread.
-- flags, summary counts, day counts and scores are computed by the app: use them, do not recompute or recount them. aiVerdict and thesisDrift come from a separate model: one input, not a conclusion. openPositions means the trader already has exposure to that ticker (check the snapshot before suggesting more).
-- nextEarnings absent means no date was found in the next 90 days or the calendar was unavailable: say the date is unknown, never that there is no earnings event. A new short option that expires after the earnings date carries gap and IV-crush risk; earnings within 14 days deserve a mention.
-- Not in the data: IV or IV rank, option chains, news, analyst price targets, sector. Say so where it limits you; do not invent any of it.
+- entries hold market and risk facts only, for the tickers the app could score, in the trader's list order (the order means nothing). Judge every entry on them: trend (app label from the 13- and 52-week returns) and momentum, range52w (positionPct: 0 = at the 52-week low, 100 = at the high), beta and hv3mPct (3-month volatility), vsSP500_13wPct, the four scores with scoreNotes (the inputs behind each grade), analyst and insider signals, earnings track record (earningsBeatsLast4), the next earnings date and the sector.
+- jev is a calibrated pre-grade of the same facts by a separate model (quality, with its confidence 0–1). Treat it as a second opinion: agree or overrule it, and when you overrule a grade with confidence 0.8 or more, say why in "why". aiVerdict and thesisDrift also come from a separate model: one input, not a conclusion.
+- unscored lists tickers the app could not score because market data is missing. Do not rank or judge them; the app lists them under the table.
+- summary.coverage counts how many watched tickers have each kind of data. If coverage is low, say in the verdict how that limits the review.
+- traderInputs, listed last on purpose, holds the trader's own rating (1–5 stars), watch price, thesis, tags and age. Form your view of each ticker from entries first. The watch price and rating are not evidence: a ticker is not attractive because it sits at the watch price, nor unattractive because it is far from it. Use traderInputs only for entry levels and in steps 4 and 5. A price level inside a thesis is the trader's anchor, not a fact. watchPrice means an entry trigger, not a view: "price at or below level" = waiting for a pullback, usually to sell a cash-secured put or bull put spread.
+- flags, summary counts, day counts and scores are computed by the app: use them, do not recompute or recount them. openPositions means the trader already has exposure to that ticker (check the snapshot before suggesting more).
+- nextEarnings absent means no date was found in the next 90 days or the calendar was unavailable: say the date is unknown, never that there is no earnings event. A new short option that expires after the earnings date carries gap and IV-crush risk.
+- Not in the data: IV or IV rank, option chains, news, analyst price targets. Say so where it limits you; do not invent any of it.
 
-Quality scale for each ticker (judged only from entries): Strong = would be glad to own it at the strike, trend, balance sheet and valuation support it; Decent = acceptable with a caveat; Mixed = conflicting signals; Weak = poor fit for selling puts (broken trend, weak balance sheet, red risk score, stretched valuation with no cushion).
-Suggested stars use the same view on 1–5: 5 = top quality with a favourable setup, 4 = good, 3 = acceptable, 2 = marginal, 1 = weak. Use the whole range; about a quarter of the list at 5 at most.
+Quality scale for each entry (judged only from entries): strong = would be glad to own it at the strike, trend, balance sheet and valuation support it; decent = acceptable with a caveat; mixed = conflicting signals; weak = poor fit for selling puts (broken trend, weak balance sheet, red risk score, stretched valuation with no cushion).
+Suggested stars use the same view on 1–5: 5 = top quality with a favourable setup, 4 = good, 3 = acceptable, 2 = marginal, 1 = weak. Use the whole range; about a quarter of the entries at 5 at most.
 
 Answer in exactly this order:
-1. **Verdict:** one or two sentences — how many tickers are Strong, how many Weak, and the single standout (best or worst).
-2. ### Ranking
-   One table, one row per entry sent, best first: (# | Ticker | Quality | Suggested ★ | My ★ | Why in at most 12 words). My ★ comes from traderInputs, "–" if unrated. Cite numbers from the facts in "Why".
-3. ### Earnings and entry levels
-   First one line of the entries with earnings within 30 days (ticker, date, days away) and what it means for a new short option; add that dates are unknown for entries without nextEarnings. Then a table (Ticker | My watch price | Suggested level | Why), at most 6 rows, only where the trader's watch price looks too low, too high, stale or missing for a ticker you rate Decent or better. Suggested levels are your estimates; say how you derived each (for example a pullback toward the 52-week range or a % below the price). If the watch prices look fine, say so in one line instead of a table.
+1. **Verdict:** one or two sentences — how many entries are strong, how many weak, and the single standout (best or worst).
+2. The ranking, as ONE fenced code block with the language "watchlist" that contains only JSON, one row per entry (never for unscored tickers):
+\`\`\`watchlist
+{"rows":[{"ticker":"AAA","quality":"decent","stars":4,"why":"Uptrend, 62% of 52w range, healthy balance sheet","level":118,"levelWhy":"pullback toward the 52-week midpoint"}]}
+\`\`\`
+   quality is strong, decent, mixed or weak; stars is 1–5; why is at most 12 words and cites numbers from the facts. Add level and levelWhy (your suggested entry level and how you derived it, for example a pullback toward the 52-week low or a % below the price) only where the trader's watch price looks too low, too high, stale or missing for an entry you rate decent or better; at most 8 rows carry a level. The app turns this block into the table and adds price, 52-week position, trend, earnings, the JEV grade and the trader's own stars, so do not repeat any of it as a markdown table.
+3. ### Earnings
+   One line: the entries with earnings within 30 days (ticker, date, days away) and what that means for a new short option. Add that dates are unknown for entries without nextEarnings.
 4. ### Add, remove, keep
-   Remove: entries rated Weak that the trader's thesis does not rescue, long-held entries that show no edge. Add: only tickers from the portfolio snapshot (open positions or recent trades) that are missing from the watchlist, plus at most two general-knowledge ideas that fill an obvious gap, labelled "idea, not in the data, verify first". Keep: one line. Mention entries with gaps (no rating, watch price or thesis) and omitted entries if summary.omitted is above 0.
+   Remove: entries rated weak that the trader's thesis does not rescue, long-held entries that show no edge. Add: only tickers from the portfolio snapshot (open positions or recent trades) that are missing from the watchlist, plus at most two general-knowledge ideas that fill an obvious gap, labelled "idea, not in the data, verify first". Keep: one line. Mention entries with gaps (no rating, watch price or thesis), unscored tickers worth fixing, and omitted entries if summary.omitted is above 0.
 5. ### Look at now
-   Up to three bullets: tickers that are Strong or Decent and whose price is attractive today by your own entry view, each with the next step (for example check IV rank, wait until after earnings, sell a put near your suggested level). If none qualifies, say so in one line.
+   Up to three bullets: entries that are strong or decent and whose price is attractive today by your own entry view, each with the next step (for example check IV rank, wait until after earnings, sell a put near your suggested level). If none qualifies, say so in one line.
 
-Do not invent prices, IV, dates or news. Keep prose under 300 words outside tables.`
+Do not invent prices, IV, dates or news. Keep prose under 250 words outside the block.`
 
 function chatPrompt(question: string): string {
     return `Question: ${question}

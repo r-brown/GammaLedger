@@ -23,6 +23,8 @@ export interface WatchlistContext extends PositionDetailPanelContext {
   getDriftMode?(): 'auto' | 'manual' | null
   checkWatchlistDrift?(mode: 'auto' | 'manual'): Promise<number>
   getWatchlistDrift?(ticker: string): DriftView | null
+  /** The last Watchlist scan's suggested stars for a ticker (independent of the trader's rating). */
+  getWatchlistScanVerdict?(ticker: string): { stars: number; quality: string; asOf: string } | null
   currentFileName: string | null
   earningsMap: Map<string, EarningsCalendarEntry>
   dividendMap: Map<string, import('../types/integrations.js').DividendCalendarEntry>
@@ -706,6 +708,25 @@ function buildGridOptions(this: WatchlistContext): GridOptions<WatchlistRow> {
             comparator: (a: unknown, b: unknown) => (Number(a) || 0) - (Number(b) || 0),
             cellRenderer: (params: ICellRendererParams<WatchlistRow>) =>
                 renderStars.call(context, String(params.data?.ticker ?? ''), (params.data?.rating as number | null) ?? null)
+        },
+        {
+            colId: 'coachStars', headerName: 'Coach ★', width: 100, sortable: true,
+            headerTooltip: 'Suggested stars from the last Watchlist scan in the AI Coach, judged from market data only (not from your rating or watch price)',
+            valueGetter: (params) => context.getWatchlistScanVerdict?.(String((params.data as WatchlistRow)?.ticker ?? ''))?.stars ?? null,
+            comparator: (a: unknown, b: unknown) => (Number(a) || 0) - (Number(b) || 0),
+            cellRenderer: (params: ICellRendererParams<WatchlistRow>) => {
+                const verdict = context.getWatchlistScanVerdict?.(String(params.data?.ticker ?? ''))
+                const cell = document.createElement('span')
+                cell.className = 'watchlist-coach-stars'
+                if (!verdict) {
+                    cell.textContent = '—'
+                    cell.title = 'Run "Watchlist scan" in the AI Coach to get a suggested rating'
+                    return cell
+                }
+                cell.textContent = `${'★'.repeat(verdict.stars)}${'☆'.repeat(5 - verdict.stars)}`
+                cell.title = `${verdict.quality} · ${verdict.stars}/5, from the Watchlist scan on ${verdict.asOf}`
+                return cell
+            }
         },
         {
             colId: 'notes', field: 'notes', headerName: 'Notes', flex: 1, minWidth: 160, sortable: false,

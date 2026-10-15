@@ -88,6 +88,8 @@ interface AppConfigShape {
         readonly OPENROUTER_CONFIG: string
         readonly OPENROUTER_SECRET: string
         readonly ACCOUNT_SIZE: string
+        readonly MARKET_RESEARCH_CACHE: string
+        readonly WATCHLIST_SCAN_HISTORY: string
         readonly LEGACY_KEYS: readonly string[]
     }
     SHARE_CARD: {
@@ -139,6 +141,10 @@ export const APP_CONFIG: AppConfigShape = Object.freeze({
         OPENROUTER_CONFIG: 'GammaLedgerOpenRouterConfig',
         OPENROUTER_SECRET: 'GammaLedgerOpenRouterSecret',
         ACCOUNT_SIZE: 'GammaLedgerAccountSize',
+        /** Finnhub research (metrics, signals, earnings) per ticker with fetch times, so a reload doesn't refetch it. */
+        MARKET_RESEARCH_CACHE: 'GammaLedgerMarketResearchCache',
+        /** The last Watchlist scan's verdicts, so the next scan can say what changed. */
+        WATCHLIST_SCAN_HISTORY: 'GammaLedgerWatchlistScanHistory',
         LEGACY_KEYS: Object.freeze([
             'GammaLedgerTrades',
             'GammaLedgerDatabase',

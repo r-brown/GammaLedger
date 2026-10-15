@@ -132,6 +132,7 @@ import * as commandPaletteModule from './ui/command-palette.js';
 import { initDashboardTabs } from './ui/dashboard/tabs.js';
 import * as watchlistModule from './ui/watchlist.js';
 import * as askCoachModule from './ai/ask-coach.js';
+import * as marketResearchModule from './ai/market-research.js';
 import * as watchlistScanModule from './ai/watchlist-scan.js';
 import * as settingsPageModule from './ui/settings-page.js';
 import * as aiReadModule from './ai/ai-read.js';
@@ -186,6 +187,13 @@ class GammaLedger {
     declare aiReadCache: Map<string, import('./types/ai.js').AIReadView | 'loading' | 'error'>
     declare driftCache: Map<string, import('./types/ai.js').DriftView | 'loading' | 'error'>
     declare aiReadPromiseMap: Map<string, Promise<import('./types/ai.js').AIReadView | null>>
+    /** Fetch time per ticker and research kind (ms), persisted with the research cache. */
+    declare researchStamps: Map<string, Partial<Record<import('./ai/market-research.js').ResearchKind, number>>>
+    declare researchQuotes: Map<string, { price: number; at: number }>
+    declare scanGradeCache: Map<string, import('./ai/watchlist-grade.js').ScanGrade>
+    declare watchlistScanRun: AbortController | null
+    declare watchlistScanHistory: import('./core/schema.js').WatchlistScanHistory | null
+    declare aiChatActionHandlers: Map<string, () => void>
     declare aiChatMessages: Record<string, unknown>[]
     declare aiChatSessionId: number
     declare aiChatPendingRequest: boolean
@@ -379,6 +387,12 @@ class GammaLedger {
         this.aiReadCache = new Map();
         this.aiReadPromiseMap = new Map();
         this.driftCache = new Map();
+        this.researchStamps = new Map();
+        this.researchQuotes = new Map();
+        this.scanGradeCache = new Map();
+        this.watchlistScanRun = null;
+        this.watchlistScanHistory = null;
+        this.aiChatActionHandlers = new Map();
 
         this.aiAgent = new AIInsightsAgent(this as unknown as ConstructorParameters<typeof AIInsightsAgent>[0]);
         this.aiChatMessages = [];
@@ -632,6 +646,9 @@ class GammaLedger {
             // True whenever a database is stored, even an empty or unreadable one.
             const hadStoredDatabase = this.startupBehavior !== 'manual' && await this.loadFromStorage();
             await this.loadFinnhubConfigFromStorage();
+            // Saved Finnhub research (metrics, signals, earnings) and the last scan's verdicts.
+            this.hydrateMarketResearch();
+            this.loadWatchlistScanHistory();
             await this.loadGeminiConfigFromStorage();
             await this.loadOpenRouterConfigFromStorage();
             this.loadActiveAIProvider();
@@ -1245,7 +1262,7 @@ class GammaLedger {
                 const promptType = button.getAttribute('data-ai-prompt-type') || null;
                 if (promptType === 'watchlist_scan') {
                     if (this.aiChatPendingRequest || button.getAttribute('aria-busy') === 'true') return;
-                    // Missing prices and scores are fetched first (a few seconds at most).
+                    // Missing market data is collected first (with progress and a "Scan now" choice), then JEV pre-grades.
                     button.setAttribute('aria-busy', 'true');
                     void this.askCoachWatchlistScan().finally(() => button.removeAttribute('aria-busy'));
                     return;
@@ -1351,6 +1368,9 @@ class GammaLedger {
 
     askCoachAboutTicker(request) { return askCoachModule.askCoachAboutTicker.call(this, request); }
     askCoachWatchlistScan() { return watchlistScanModule.askCoachWatchlistScan.call(this); }
+    loadWatchlistScanHistory() { return watchlistScanModule.loadWatchlistScanHistory.call(this); }
+    getWatchlistScanVerdict(ticker: string) { return watchlistScanModule.getWatchlistScanVerdict.call(this, ticker); }
+    hydrateMarketResearch() { return marketResearchModule.hydrateMarketResearch.call(this); }
 
     initializeSettingsPage() { return settingsPageModule.initializeSettingsPage.call(this); }
 
@@ -1870,6 +1890,7 @@ class GammaLedger {
     async fetchSignalsData(ticker: string) { return finnhubModule.fetchSignalsData.call(this, ticker); }
     async fetchDividendCalendar(from: string, to: string) { return finnhubModule.fetchDividendCalendar.call(this, from, to); }
     async fetchCompanyProfile(ticker: string) { return finnhubModule.fetchCompanyProfile.call(this, ticker); }
+    async fetchEarningsDate(ticker: string, toDate: string) { return finnhubModule.fetchEarningsDate.call(this, ticker, toDate); }
     async fetchEarningsSurprise(ticker: string) { return finnhubModule.fetchEarningsSurprise.call(this, ticker); }
     getEarningsDateForTrade(trade: Record<string, unknown>) { return finnhubModule.getEarningsDateForTrade.call(this, trade); }
 
