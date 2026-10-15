@@ -8,36 +8,159 @@
 [![Last Commit](https://img.shields.io/github/last-commit/r-brown/gammaledger)](https://github.com/r-brown/GammaLedger/commits/main/)
 [![Stars](https://img.shields.io/github/stars/r-brown/gammaledger)](#-star-history)
 
-**GammaLedger** is a desktop application for active options traders and investors who want to analyze, track, and optimize options trading strategies. Designed for sophisticated users, the app delivers flexible dashboards, local file persistence, and advanced analytics to support performance monitoring and decision-making.
+**The options trading journal that keeps the whole story of every trade.**
+
+Options trades rarely stay simple. A spread gets adjusted, a straddle gets legged out of, a put gets assigned and turns into a covered call, a losing position gets rolled out three months. Your broker shows all of that as a pile of unrelated fills, and a spreadsheet only knows what you remembered to type in. GammaLedger keeps each trade together from the first leg to the last, so the P&L, the break-even and the win rate are the real ones.
+
+It runs entirely in your browser. There's no account to create, no subscription, and no server holding your trades.
+
+<p align="center">
+  <a href="https://gammaledger.com/app/"><strong>Open GammaLedger →</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://gammaledger.com">Website</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/r-brown/GammaLedger/releases">Download for offline use</a>
+</p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/r-brown/gammaledger/refs/heads/main/assets/images/gammaledger-dashboard.png" alt="GammaLedger dashboard with active positions, P&L and analytics"></p>
+
+The app opens with sample data, so you can click around before importing anything of your own.
 
 ---
 
-## 🚀 Launch the App
+## 💡 Why GammaLedger?
 
-> **[➜ Launch GammaLedger](https://gammaledger.com/app/)**
-
-GammaLedger is a local-first options trading journal with a modern interface, strategy tracking, and AI-powered analysis.
-
-### Highlights
-
-- **Rebuilt on Vite** — faster load times, better developer experience, and a more responsive UI
-- **Improved Wheel & PMCC tracker** — enhanced lifecycle state machine for trade sequences, including open, rolled, assigned, and closed states
-- **AI-powered analysis** — integrated support for both Anthropic Claude and Google Gemini to assist with trade review and portfolio commentary
-- **OFX / QFX import** — seamlessly parse brokerage export files (IBKR and others) to auto-populate your positions
-- **Local-first, always** — all data stays in your browser via `localStorage`; no accounts, no servers, no data leaving your device
-- **Multi-strategy support** — track Cash-Secured Puts, Covered Calls, Bull Put Spreads, Bear Call Spreads, PMCCs, and Iron Condors side by side
-
-### 💬 Share Your Feedback
-
-Tried GammaLedger? We'd love to hear from you. Please open a GitHub issue to:
-
-- [🐛 Report a bug](https://github.com/r-brown/GammaLedger/issues/new?labels=bug&template=bug_report.md&title=%5BBug%5D+)
-- [✨ Request a feature](https://github.com/r-brown/GammaLedger/issues/new?labels=enhancement&template=feature_request.md&title=%5BFeature%5D+)
-- [💡 Share general feedback](https://github.com/r-brown/GammaLedger/issues/new?labels=feedback&title=%5BFeedback%5D+)
-
-Your input shapes what gets built next — every issue is read and appreciated.
+- **Your trades stay on your machine.** Data lives in your browser and in a JSON file you control. Nothing is uploaded unless you turn on an optional service (AI or market quotes), and then only that request goes out.
+- **The numbers follow the whole trade.** Rolls, adjustments and assignments stay attached to the trade they belong to. Realized P&L is counted leg by leg, so a premium you haven't closed yet doesn't show up as profit early.
+- **Any strategy, not just one style.** Single legs, verticals, calendars, diagonals, butterflies, condors, ratio spreads, straddles, collars, wheels. More than 60 strategy types, plus custom multi-leg trades.
+- **It tells you what needs a look.** Contracts about to expire, short strikes in the money, earnings landing before expiration, wide bid/ask spreads, shares with nothing written against them.
+- **An AI Coach that has read your journal.** Ask about your own positions, not options in general. Bring your own Gemini or OpenRouter key; nothing is sent until you agree.
+- **Free and open source.** AGPLv3. No paywalled tier.
 
 ---
+
+## 💼 Ideal For ...
+
+### ... Active options traders
+You trade spreads, condors, butterflies, calendars or straight calls and puts, and you adjust as you go. GammaLedger keeps every leg and every adjustment under one trade, shows win rate and P&L by strategy and by ticker, and lets you click from any chart straight into the trades behind it.
+
+### ... Income and premium sellers
+You run cash-secured puts, covered calls, the Wheel, PMCCs or credit spreads. The Wheel / PMCC tracker follows each position through assignment and every roll, separates premium collected from premium actually earned, and shows the break-even after all of it. The Credit Playbook lays out realized option P&L, realized stock P&L and unrealized P&L on shares you still hold.
+
+### ... Investors who use options around their stocks
+Collars, protective puts, covered calls on long-term holdings, LEAPS. Cost basis includes the premiums, and capital at risk uses what you actually paid for the shares.
+
+### ... Builders, quants and AI tinkerers
+Your whole journal is one readable JSON file. Export trades to CSV, point the [MCP server](mcp/README.md) at your database so Claude Desktop or another agent can query it, or fork the app. It's TypeScript, has no backend, and is AGPL.
+
+---
+
+## ✨ Key Features
+
+### 📝 Trade journal
+- **More than 60 strategy types** in a searchable picker, from single calls and puts to iron condors, jade lizards, ratio backspreads, calendars and double diagonals. Favorites and recently used strategies sit at the top and pre-fill the legs for you.
+- **Multi-leg entry** in one form, or **paste the fill** from your broker. Robinhood and IBKR confirmations and OCC option symbols are recognized and turned into legs.
+- **Screenshot import:** attach a picture of your broker's trade history and the AI Coach drafts the legs for you to review.
+- Notes on every trade, chip filters by ticker, strategy, status and date, and a **⌘K command palette** plus keyboard shortcuts for getting around.
+
+### 🔁 Lifecycle and P&L you can trust
+- **Roll detection.** Rolled positions are grouped, with cumulative credits and debits and a break-even across the whole chain.
+- **Wheel / PMCC tracker.** Each position moves through open, rolled, assigned and closed, with premium collected shown next to premium earned.
+- **Leg-level realized P&L.** Premium on open legs is shown as "pending" until expiration or close, and upcoming expirations show up on the trend chart as future bars.
+- **Cost basis that follows reality.** Covered calls and wheels use your actual share cost, averaged across purchases.
+- **Data checks.** Orphan closing legs and closes dated after expiration are flagged so you can fix them.
+
+### 📊 Dashboard and analytics
+- **Active Positions** with DTE, live P&L and a status dot. Hover it to see why a position needs attention and a suggested next step.
+- **Portfolio Greeks** (rough Black-Scholes estimates), daily theta, collateral at risk and concentration by ticker.
+- **Performance Trend** by day, week or month, with a per-ticker breakdown in the tooltip.
+- **Analytics tabs:** Ticker P&L (realized and unrealized), strategy performance, win rate, fees, time in trade and a 60-day Monte Carlo projection.
+- Info popovers that explain each metric, and a marker showing how many open positions have a fresh quote.
+- **Portfolio snapshot:** a shareable PNG of your results with no account details on it.
+- Light, dark or automatic theme.
+
+### 💳 Credit Playbook
+An accounting view of every credit position, filterable by strategy and ticker. It shows realized option P&L, realized stock P&L and unrealized P&L on assigned shares, and refreshes stock and option quotes on demand.
+
+### 👀 Watchlist
+Keep a list of tickers you're watching. Rate them, write a thesis, set a watch price with an alert for the day the price crosses it, and open a detail panel with fundamentals, signals, news, insider activity and earnings. Risk, Own?, Balance Sheet and Cheap? scores give you a quick read on each name, and thesis-drift markers flag tickers whose numbers no longer match what you wrote.
+
+### 🤖 AI Coach
+- **Ask Coach** from any row in Active Positions, All Trades or the Watchlist. The question arrives with the position's data already attached.
+- **Quick reviews:** Portfolio health, Risk check, Strategy ideas and a Watchlist scan that ranks your whole list in a table.
+- **Answers you can check.** Numbers in the canned reviews are matched against your real data ("Numbers checked: 14/14"). Replies can include tables and charts.
+- **AI verdict:** each position gets a calibrated Favorable / Neutral / Unfavorable call next to its scores.
+- **Your choice of model.** Google Gemini, or hundreds of models (Claude, GPT, Gemini and more) through one OpenRouter key. Replies stream in, and each one shows its token count and cost. Keys are encrypted in the browser, and an option to avoid providers that train on your data is on by default.
+- **MCP server.** Prefer your own AI client? The [GammaLedger MCP server](mcp/README.md) gives Claude Desktop and other MCP clients read-only, local access to your saved database.
+
+### 📥 Import, export and storage
+- Import **OFX/QFX** from most brokers, **Robinhood** and **Charles Schwab** CSVs, or any other CSV through a column mapper. Imports merge into your database and skip duplicates.
+- Save to a **JSON database file** you own. Before saving, GammaLedger checks that the file hasn't changed on disk since you opened it.
+- Export trades to **CSV** whenever you like.
+- Optional startup setting to always open blank instead of loading the last database.
+
+### 🌐 Market data (optional)
+Add a free [Finnhub](https://finnhub.io) key for stock quotes, earnings dates, fundamentals and news. Connect a Schwab account for live option quotes. Ticker links can open the research site of your choice. Everything else works without any of these.
+
+---
+
+## 🚀 Quick Start
+
+**1. Open the app.** Go to [gammaledger.com/app](https://gammaledger.com/app/). It starts with sample data so you can explore first.
+
+**2. Bring in your trades.** Pick one:
+- **Import** your broker history on the Import page (see the table below).
+- **Add Trade** by hand, or paste fills from your broker into the trade form.
+- Attach a **screenshot** of your trade history in the AI Coach and let it draft the legs.
+
+**3. Save your database.** Click **Save Database** and choose where the `.json` file lives. That file is your journal and your backup.
+
+**4. Optional extras.** In **Settings**, add a Finnhub key for live quotes and earnings, an AI key for the Coach, and your account size if you'd like risk shown as a percentage.
+
+Chrome and Edge give you the smoothest experience, since they can save straight back to the same file. Other browsers download a copy instead.
+
+**Prefer offline?** Download `gammaledger-<version>.zip` from [Releases](https://github.com/r-brown/GammaLedger/releases), unzip it, and open `index.html`. It's the same app as a single file.
+
+| Where your trades are | How to import |
+| --- | --- |
+| Most brokers (IBKR, Fidelity, E*TRADE, …) | OFX / QFX activity export |
+| Robinhood | CSV export, or paste fills |
+| Charles Schwab | Transaction history CSV |
+| Anything else | CSV with the column mapper |
+| A screenshot | AI Coach → Trade Screenshot |
+| A GammaLedger backup | Load the JSON database |
+
+---
+
+## ❓ FAQ
+
+**Is my data really private?**
+Yes. Trades are stored in your browser's local storage and in the JSON file you save. There is no GammaLedger server. The only outbound requests are the ones you switch on: AI Coach calls to Gemini or OpenRouter, and quote lookups to Finnhub or Schwab.
+
+**How do I back up or move to another computer?**
+Save the database to a `.json` file and keep a copy in your cloud drive or on a USB stick. On another machine, load that file. There's no automatic sync, on purpose.
+
+**Do I need an API key to use it?**
+No. Journaling, imports, lifecycle tracking and analytics all work without one. Keys are only needed for the AI Coach and live market data.
+
+**Is the AI Coach financial advice?**
+No. It analyzes your positions and explains what it sees. Decisions are yours.
+
+**Does it handle stocks, futures or crypto options?**
+It's built for equity, ETF and index options. Shares are tracked when they come from assignment or as part of a strategy like a covered call or collar. Stand-alone stock trading, futures and crypto options aren't supported right now.
+
+**Is there a paid version?**
+No. GammaLedger is free under AGPLv3. If you need to embed it in a proprietary product without the AGPL obligations, a commercial license is available (see [License](#-license)).
+
+---
+
+## 💬 Feedback and community
+
+Tried it? I'd like to hear what worked and what didn't. Every issue gets read.
+
+- [Report a bug](https://github.com/r-brown/GammaLedger/issues/new?labels=bug&template=bug_report.md&title=%5BBug%5D+)
+- [Request a feature](https://github.com/r-brown/GammaLedger/issues/new?labels=enhancement&template=feature_request.md&title=%5BFeature%5D+)
+- [Share general feedback](https://github.com/r-brown/GammaLedger/issues/new?labels=feedback&title=%5BFeedback%5D+)
 
 <table align="center">
 <tr>
@@ -45,9 +168,7 @@ Your input shapes what gets built next — every issue is read and appreciated.
 
 <div align="center">
 
-### TL;DR? Get an AI Summary
-
-**Click to auto-load the summary:**
+### Too long? Ask an AI
 
 [![ChatGPT](https://img.shields.io/badge/Ask-ChatGPT-74aa9c?style=for-the-badge&logo=openai&logoColor=white)](https://chatgpt.com/?q=Summarize%20gammaledger.com)
 
@@ -59,7 +180,7 @@ Your input shapes what gets built next — every issue is read and appreciated.
 
 [![Claude](https://img.shields.io/badge/Ask-Claude-191919?style=for-the-badge&logo=anthropic&logoColor=d4a574)](https://claude.ai/new?q=Summarize%20gammaledger.com)
 
-<sub>Links open with the prompt pre-loaded</sub>
+<sub>Each link opens with the prompt already filled in</sub>
 
 </div>
 
@@ -68,12 +189,12 @@ Your input shapes what gets built next — every issue is read and appreciated.
 
 <div align="center">
 
-### Community & Resources
+### Find us
 
 [![Website](https://img.shields.io/badge/Website-gammaledger.com-8b5cf6?style=for-the-badge&logo=google-chrome&&logoColor=white)](https://gammaledger.com)
 
-[![Reddit](https://img.shields.io/badge/ReddIt-FF0000?style=for-the-badge&logo=reddit&logoColor=white)](https://www.reddit.com/r/GammaLedger/)
-[![Twitter](https://img.shields.io/badge/X.com-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/GammaLedger)
+[![Reddit](https://img.shields.io/badge/Reddit-FF4500?style=for-the-badge&logo=reddit&logoColor=white)](https://www.reddit.com/r/GammaLedger/)
+[![X](https://img.shields.io/badge/X.com-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/GammaLedger)
 
 </div>
 
@@ -83,291 +204,34 @@ Your input shapes what gets built next — every issue is read and appreciated.
 
 ---
 
-## 🤖 Developer Note: AI-Generated Code Ahead!
-
-🎉 **Welcome to the code playground where humans and AIs code together!**  
-
-Much of this repo's code and documentation was generated, optimized, or refactored by cutting-edge AI models, like GPT and GitHub Copilot. It's a sandbox for experimenting with the latest in AI-assisted software development — from quick prototyping to full-featured performance analytics for options trading.
-
-💡 **Contributions are always welcome!** Feel free to:
-- Outsmart the bots 🤖🧠
-- Add your own clever tricks 🪄
-- Teach the AI a thing or two 🧑‍💻
-
-Let's see who writes the next best hack — you, or the machine?  
-**Pull requests, code battles, and Easter eggs encouraged!** 🥚🔍😄
-
-
-## Why GammaLedger?
-- **Privacy-First**: Your trading data never leaves your device - no cloud storage or external servers
-- **Zero Dependencies**: No account registration, no subscriptions, no third-party data sharing
-- **Professional Grade**: Tools designed by traders, for traders with real-world experience
-- **AI-Powered Insights**: Built-in AI Coach to help you analyze trades and improve decision-making
-- **Completely Free**: Open source and freely available for non-commercial use under the AGPLv3 license
-
-
-## 💼 Ideal For ...
-
-### ... Active Traders
-- Track complex multi-leg strategies like Spreads, Strangles, Straddles, Condors, Wheels and Poor Man's Covered Calls
-- Monitor time decay and adjustment opportunities with real-time Greeks (Delta, Gamma, Theta, Vega)
-- Automatic roll detection and grouping to track rolled positions seamlessly
-- Analyze win rates and profitability by strategy type
-- Maintain detailed trade journals for continuous improvement
-- Get AI-powered coaching and trade analysis
-
-### ... Portfolio Managers  
-- Consolidate options performance across multiple accounts
-- Generate client reports with detailed attribution analysis
-- Export portfolio visualizations optimized for social media sharing
-- Monitor risk exposure and position sizing
-- Track performance against benchmarks and targets
-
-### ... Quantitative Analysts
-- Export data for backtesting and strategy development
-- Integrate with existing analytical workflows
-- Customize metrics and calculations
-- Build automated reporting systems
-
-
-## ✨ Key Features
-
-### 📊 Advanced Strategy Analytics
-- **Multi-Strategy Support**: Track complex strategies including:
-  - Poor Man's Covered Call (PMCC)
-  - The Wheel Strategy
-  - Collar Strategies
-  - Iron Condors, Bull/Bear Spreads
-  - Cash-Secured Puts & Covered Calls
-  - Custom multi-leg strategies
-- **Performance Metrics**: Cumulative P&L growth, win rates by strategy, risk-adjusted returns
-- **Visual Analytics**: Interactive charts for strategy performance and trend analysis
-- **Greeks Monitoring**: Real-time tracking of Delta, Gamma, Theta, and Vega across all positions
-
-### 🤖 AI-Powered Trading Coach
-- **Intelligent Trade Analysis**: Get AI-driven insights on your options positions
-- **Strategy Recommendations**: Receive suggestions for trade adjustments and improvements
-- **Risk Assessment**: AI evaluates your position Greeks, break-evens, and assignment risks
-- **Learning Assistant**: Ask questions about options concepts and get instant explanations
-- **Performance Coaching**: Understand what's working and where to improve your trading
-
-### 🏠 Local-First Data Architecture
-- **Complete Privacy**: All data stays on your device - no cloud storage or external servers
-- **Browser Local Storage**: Persistent local database saved under GammaLedger's browser storage keys
-- **File System Access API**: Direct file operations for import/export without browser limitations
-- **Offline Capable**: Nearly all features work flawlessly without an internet connection
-
-### 📈 Unified Dashboard
-- **Consolidated View**: Single dashboard combining key metrics without duplication
-- **Real-time Updates**: Live P&L calculations and position tracking
-- **Multi-timeframe Analysis**: Daily, weekly, monthly, and custom date range views
-- **Performance Widgets**: Cumulative P&L Growth, Strategy Performance, Win Rate charts
-
-### 🔍 Powerful Trade Management
-- **Multi-Leg Trade Entry**: Efficiently enter complex multi-leg positions in one workflow
-- **Smart Filtering**: Advanced search and filter capabilities by ticker, strategy, date range
-- **Automatic Roll Detection**: Intelligent grouping of rolled positions to track complete trade lifecycle
-- **Position Tracking**: Monitor open positions with Greeks, time decay, and adjustment opportunities
-- **Trade Journal**: Detailed notes and analysis for each trade with markdown support
-- **Performance Attribution**: Understand which strategies and tickers drive your results
-
-### 📤 Portfolio Sharing & Export
-- **Social Media Export**: Generate beautiful portfolio visualizations optimized for sharing
-- **Professional Reports**: Export performance summaries and trade journals
-- **Flexible Data Export**: OFX and JSON formats for external analysis
-- **Tax Reporting**: Export data in formats compatible with tax software
-
-
-## 🚀 Quick Start
-
-<p align="center"><img src="https://raw.githubusercontent.com/r-brown/gammaledger/refs/heads/main/assets/images/gammaledger-dashboard.png"></p>
-
-### Option 1: Web Application (Recommended)
-1. Visit [GammaLedger](https://gammaledger.com)
-2. Click **"Launch App"**
-3. Choose: **Create New Database** or **Import Existing Data**
-4. Start tracking your options trades!
-
-### Option 2: Local Installation
-1. Download the latest release: [Releases](https://github.com/r-brown/GammaLedger/releases)
-2. Extract `gammaledger-<version>.zip` to a folder of your choice
-3. Open `index.html` in Chrome, Edge, or Firefox
-4. Grant file system permissions when prompted (for import/export features)
-
-### First Time Setup
-1. **Create Database**: Click "New Database" to start fresh
-2. **Import Trades**: Use the OFX import wizard to load existing trades from your broker
-3. **Revist or Merge Trades**: Organize and clean up imported trades as needed
-4. **Try AI Coach**: Ask the AI Coach to analyze a position and get personalized insights
-
-## 📖 Usage Guide
-
-### Adding Your First Trade
-1. Click **"Add Trade"** from the dashboard
-2. Select strategy type (PMCC, Wheel, Iron Condor, etc.)
-3. Enter trade details:
-   - Ticker symbol
-   - Entry date and price
-   - Strike prices and expiration dates
-   - Premium collected/paid
-4. For multi-leg trades, use the multi-leg entry form to add all legs at once
-5. Add optional notes with Markdown support
-6. Click **"Save"**
-
-### Tracking Open Positions
-- View all open positions from the **Dashboard**
-- Monitor **Greeks** (Delta, Gamma, Theta, Vega) in real-time
-- Set alerts for time decay milestones
-- Track adjustment opportunities
-- Use **AI Coach** to analyze position risk and get recommendations
-
-### Rolling Positions
-- When you roll an option, GammaLedger **automatically detects and groups** the related trades
-- View complete roll history with cumulative P&L tracking
-- Understand your true break-even after multiple rolls
-
-### Analyzing Performance
-- **Dashboard Tab**: Overview of P&L, win rates, and active positions
-- **Performance Metrics**: Strategy-specific returns and attribution
-- **Trade Journal**: Review notes and lessons learned
-- **Export Data**: Download OFX or JSON for external analysis or tax reporting
-- **AI Insights**: Get AI-powered analysis of your trading patterns and suggestions
-
-### Sharing Your Success
-- **Portfolio Export**: Generate professional portfolio screenshots
-- **Social Media Ready**: Export performance charts optimized for LinkedIn, Twitter, etc.
-- **Privacy Preserved**: All exports maintain your privacy by excluding sensitive account details
-
-
-## 📥 Data Import/Export
-
-### Supported Import Formats
-- **OFX (Open Financial Exchange)**: Industry-standard format from most brokers
-- **JSON**: GammaLedger native format for full backup
-
-### Broker OFX Export Instructions
-Most major brokers support OFX export:
-- **Interactive Brokers**: Activity → Reports → Flex Queries → Export as XML (OFX compatible)
-- **TD Ameritrade**: History & Statements → Export → OFX format
-- **Charles Schwab**: History → Export → OFX/QFX format
-- **E*TRADE**: Statements → Download → OFX format
-- **Fidelity**: Activity & Orders → Download → OFX/QFX format
-
-GammaLedger automatically parses OFX files to extract:
-- Trade dates and times
-- Ticker symbols
-- Action types (Buy/Sell to Open/Close)
-- Quantities, strikes, and expirations
-- Premiums and commissions
-- Option types (Call/Put)
-
-### Export Options
-- **Full Database Backup** (JSON) - Complete backup with all settings and history
-- **OFX Format** - Export in standard OFX for import into other financial software
-- **Portfolio Images** - Beautiful charts ready for social media
-
-
-## 📘 Documentation
-
-For comprehensive setup instructions, configuration details, and developer guides, refer to the [GammaLedger Wiki](https://github.com/r-brown/GammaLedger/wiki).
-
-The Wiki covers key areas, including:
-- **Installation & Setup** – step-by-step environment configuration and system requirements
-- **Trade Import Formats** – supported data sources, OFX/JSON structure, and integration workflows
-- **Analytics Features** – portfolio metrics, ROI calculations, and performance visualization tools
-- **Contribution Guidelines** – how to propose features, report issues, or submit pull requests
-
-
-## ❓ FAQ
-
-### Is my data safe?
-Yes! GammaLedger uses local-first architecture. Trade data is stored in your browser's local storage and can be exported as a JSON database file. **Nothing is sent to external servers.** Your trading data never leaves your device, ensuring complete privacy.
-
-### How do I backup my data?
-JSON database is already stored locally on your device. No explicit backup needed. For extra safety, consider backing up JSON file by creating a copy in cloud storage or an external drive.
-
-### Does this support futures or stocks?
-Currently optimized for options trading. Stock position tracking and futures support may be added in future releases based on community demand.
-
-### Can I sync across devices?
-Not automatically. For privacy and security, data is stored locally. You can manually export/import JSON backups to sync data across devices.
-
-### Is there a paid version?
-GammaLedger is open source and free forever under the AGPLv3 license for non-commercial and open-source compliant use. For proprietary, commercial, or institutional applications without AGPL restrictions, a commercial license is available.
-
-### What brokers work with GammaLedger?
-Any broker that exports OFX files trade logs. We have direct integration with Interactive Brokers. Other popular brokers (TD Ameritrade, Schwab, E*TRADE, Fidelity) support OFX export.
-
-### What is the AI Coach feature?
-The AI Coach is an integrated assistant that analyzes your trades and provides portfolio insights, risk management, position sizing, and strategy recommendations. It helps you learn and improve your trading decisions.
-
-### How does automatic roll detection work?
-When you roll an options position (close one and open another at a different strike/expiration), GammaLedger automatically detects the relationship and groups them together. This gives you accurate tracking of cumulative P&L, total credits/debits, and true break-even prices across the entire rolled position lifecycle.
-
-### Can I track options on cryptocurrencies?
-Not currently. GammaLedger focuses on equity options from traditional brokers. Crypto options support may be considered for future releases.
-
 ## 🤝 Contributing
 
-We welcome contributions from traders and developers!
+Bug fixes, new strategies, broker importers, analytics ideas and documentation are all welcome. GammaLedger is TypeScript and Vite with no UI framework and no backend.
 
-### How to Contribute
-1. **Fork** the repository
-2. **Create** a feature branch: `git checkout -b feature/AmazingFeature`
-3. **Commit** your changes: `git commit -m 'Add AmazingFeature'`
-4. **Push** to the branch: `git push origin feature/AmazingFeature`
-5. **Open** a Pull Request
-
-### Contribution Ideas
-- 🐛 Bug fixes and error handling improvements
-- 📊 New strategy support (butterflies, calendars, diagonals)
-- 🎨 UI/UX improvements and design enhancements
-- 📚 Documentation enhancements (tutorials, examples)
-- 🧪 Test coverage and quality assurance
-- 🌐 Internationalization (translate to other languages)
-- 🔗 Additional broker integrations
-- 📈 Advanced analytics features (max drawdown, Sharpe ratio)
-- 🤖 AI Coach enhancements and new coaching features
-
-### Development Setup
 ```bash
 git clone https://github.com/r-brown/GammaLedger.git
 cd GammaLedger
-# Open index.html in your browser
-# No build process required - pure vanilla JavaScript!
+npm install
+npm run dev          # http://localhost:5173
+npm run typecheck    # run this before opening a PR
 ```
 
-### Code Style Guidelines
-- Use vanilla JavaScript (no frameworks required)
-- Follow existing code patterns and conventions
-- Add clear comments for complex logic
-- Test in Chrome, Firefox, and Edge before submitting PR
-- Update documentation for new features
+[DEVELOPERS.md](DEVELOPERS.md) covers the architecture and conventions, and [CONTRIBUTING.md](CONTRIBUTING.md) covers the PR process. A lot of this codebase was written with AI assistants, so reviewing and simplifying existing code counts as a real contribution too.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines and coding standards.
-
+---
 
 ## 📜 License
 
-GammaLedger is open source and free forever under the AGPLv3 license for non-commercial and open-source compliant use. See the [LICENSE](LICENSE) file for full terms.
+GammaLedger is free and open source under the [AGPLv3](LICENSE). You can use, modify and share it, as long as modified versions, including ones you run as a network service, are released under the same license.
 
-This means you can freely use, modify, and distribute GammaLedger for personal projects, research, or open-source applications, as long as you share any modifications under the same license—especially if deployed over a network (e.g., in SaaS setups).
-
-For proprietary integrations, commercial deployments, or use without sharing your changes (ideal for fintech startups or hedge funds protecting IP), we offer a flexible commercial license. Benefits include:
-- No copyleft requirements
-- Priority support
-- Custom features or indemnification
-
-For commercial use, please contact us to obtain a commercial license
-
+If you want to build it into a proprietary or commercial product without those obligations, a commercial license is available. It comes without copyleft requirements and can include priority support or custom work. [Open an issue](https://github.com/r-brown/GammaLedger/issues/new?title=Commercial+license) to get in touch.
 
 ## ⚖️ Disclaimer
 
-This software is for **educational and analytical purposes only**. Options trading involves substantial risk and may not be suitable for all investors. Past performance does not guarantee future results. The AI Coach provides educational insights and is not financial advice. Please consult with a qualified financial advisor before making investment decisions.
-
-**Options Risk Disclosure**: Trading options involves risk and is not suitable for all investors. You could lose more than your initial investment. Please read the Characteristics and Risks of Standardized Options before trading.
-
+GammaLedger is for record-keeping, education and analysis. It is not financial advice, and neither is anything the AI Coach says. Options involve substantial risk and are not suitable for every investor; you can lose more than you put in. Past performance does not guarantee future results. Read [Characteristics and Risks of Standardized Options](https://www.theocc.com/company-information/documents-and-archives/options-disclosure-document) before trading, and talk to a qualified advisor before making investment decisions.
 
 ## ⭐ Star History
+
+If GammaLedger saves you a spreadsheet, a star helps other traders find it.
 
 [![Star History Chart](https://api.star-history.com/svg?repos=r-brown/gammaledger&type=Date)](https://www.star-history.com/#r-brown/gammaledger&Date)
