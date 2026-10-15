@@ -161,6 +161,30 @@ test('collectMarketResearch: fetches only what is missing, reports progress, sta
     assert.equal(r.planMarketResearch.call(fresh, ['BBB']).calls, 0)
 })
 
+test('planMarketResearch force: ignores TTLs and cached data, and a failed forced refresh keeps the old value', async () => {
+    const r = await load('/src/ai/market-research.ts')
+    store.clear()
+    const host = fakeHost({ metrics: (t) => (t === 'BAD' ? null : METRICS) })
+    for (const t of ['AAA', 'BAD']) {
+        host.quotes.set(t, 50)
+        host.metricsCache.set(t, { ...METRICS, beta: 7 })
+        host.signalsCache.set(t, SIGNALS)
+        host.earningsCache.set(t, [])
+        host.profileCache.set(t, { name: t, industry: '', logo: '', exchange: '' })
+        host.earningsMap.set(t, { date: '2026-10-28', hour: '', quarter: null, year: null, epsEstimate: null })
+        host.researchStamps.set(t, { metrics: NOW, signals: NOW, surprises: NOW, earnings: NOW, profile: NOW })
+    }
+    assert.equal(r.planMarketResearch.call(host, ['AAA', 'BAD']).needs.size, 0)   // everything fresh: nothing to do
+    const forced = r.planMarketResearch.call(host, ['aaa', 'BAD'], { force: true })
+    assert.deepEqual(forced.needs.get('AAA'), ['quote', 'metrics', 'signals', 'surprises', 'earnings', 'profile'])
+    assert.equal(forced.calls, 2 * 8)
+    const outcome = await r.collectMarketResearch.call(host, forced)
+    assert.deepEqual(outcome.failed, ['BAD'])
+    assert.equal(host.metricsCache.get('AAA').beta, METRICS.beta)                  // refetched
+    assert.equal(host.metricsCache.get('BAD').beta, 7)                             // failed refresh kept the old data
+    assert.equal(host.researchStamps.get('BAD').metrics, NOW)
+})
+
 test('collectMarketResearch: abort stops starting new tickers; the ones in flight finish', async () => {
     const r = await load('/src/ai/market-research.ts')
     store.clear()

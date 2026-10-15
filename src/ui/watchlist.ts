@@ -20,6 +20,8 @@ export interface WatchlistContext extends PositionDetailPanelContext {
   trades: Record<string, unknown>[]
   currentView: string
   currentDate: Date
+  /** Forces a full refetch of the watchlist's market research (Finnhub), ignoring cache TTLs. */
+  recollectWatchlistData?(): Promise<void>
   getDriftMode?(): 'auto' | 'manual' | null
   checkWatchlistDrift?(mode: 'auto' | 'manual'): Promise<number>
   getWatchlistDrift?(ticker: string): DriftView | null
@@ -161,6 +163,20 @@ export function renderWatchlistView(this: WatchlistContext): void {
         renderWatchlistView.call(this)
     })
     bar.appendChild(refreshBtn)
+
+    // Without a Finnhub key there is no research to collect, so the button would do nothing.
+    if (this.finnhub?.apiKey && this.watchlist.length && this.recollectWatchlistData) {
+        const recollectBtn = document.createElement('button')
+        recollectBtn.type = 'button'
+        recollectBtn.className = 'btn btn--secondary btn--sm watchlist-recollect'
+        recollectBtn.textContent = 'Re-collect data'
+        recollectBtn.title = 'Refetch prices, metrics, signals and earnings for every ticker, ignoring saved data (uses Finnhub requests)'
+        recollectBtn.addEventListener('click', () => {
+            recollectBtn.disabled = true
+            void this.recollectWatchlistData?.().finally(() => { recollectBtn.disabled = false })
+        })
+        bar.appendChild(recollectBtn)
+    }
 
     // Without JEV a thesis check is one LLM call per entry, so it only runs on request (G2: hidden without AI).
     if (this.getDriftMode?.() === 'manual' && this.watchlist.some(entry => entry.notes?.trim())) {

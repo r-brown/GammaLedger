@@ -236,14 +236,20 @@ export interface ResearchPlan {
     etaMs: number
 }
 
-export function planMarketResearch(this: ResearchHost, tickers: string[]): ResearchPlan {
+/**
+ * What each ticker needs. `force` ignores TTLs and cached status and asks for the price plus every
+ * kind (the "Re-collect market data" action); a failed forced refresh still keeps the old value.
+ */
+export function planMarketResearch(this: ResearchHost, tickers: string[], options: { force?: boolean } = {}): ResearchPlan {
     const now = nowDate(this)
     const today = now.toISOString().slice(0, 10)
     const needs = new Map<string, Array<ResearchKind | 'quote'>>()
     let calls = 0
     for (const raw of tickers) {
         const ticker = raw.toUpperCase()
-        const list = researchNeeds(researchStateOf.call(this, ticker), now.getTime(), today)
+        const list: Array<ResearchKind | 'quote'> = options.force
+            ? ['quote', ...RESEARCH_KINDS]
+            : researchNeeds(researchStateOf.call(this, ticker), now.getTime(), today)
         if (!list.length) continue
         needs.set(ticker, list)
         calls += estimateCalls(list)
@@ -345,7 +351,7 @@ async function fetchKind(this: ResearchHost, ticker: string, kind: ResearchKind 
     switch (kind) {
         case 'quote':
             try {
-                const quote = await this.getCurrentPrice(ticker, { priority: PRIORITY.IMMEDIATE })
+                const quote = await this.getCurrentPrice(ticker, { forceRefresh: true, priority: PRIORITY.IMMEDIATE })
                 const price = typeof quote === 'object' && quote !== null && 'price' in quote ? Number(quote.price) : Number.NaN
                 if (!Number.isFinite(price) || price <= 0) return false
                 this.researchQuotes.set(ticker, { price, at: Date.now() })

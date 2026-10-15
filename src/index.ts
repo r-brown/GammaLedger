@@ -1368,6 +1368,7 @@ class GammaLedger {
 
     askCoachAboutTicker(request) { return askCoachModule.askCoachAboutTicker.call(this, request); }
     askCoachWatchlistScan() { return watchlistScanModule.askCoachWatchlistScan.call(this); }
+    recollectWatchlistData() { return watchlistScanModule.recollectWatchlistData.call(this); }
     loadWatchlistScanHistory() { return watchlistScanModule.loadWatchlistScanHistory.call(this); }
     getWatchlistScanVerdict(ticker: string) { return watchlistScanModule.getWatchlistScanVerdict.call(this, ticker); }
     hydrateMarketResearch() { return marketResearchModule.hydrateMarketResearch.call(this); }

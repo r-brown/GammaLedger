@@ -330,9 +330,14 @@ export function parseScanHistory(raw: string | null): WatchlistScanHistory | nul
     }
 }
 
-export function progressText(progress: ResearchProgress, rpm: number): string {
+export function progressText(progress: ResearchProgress, rpm: number, mode: 'scan' | 'recollect' = 'scan'): string {
     const left = progress.total - progress.done
     const eta = left > 0 ? ` · about ${formatDuration(progress.etaMs)} left` : ''
+    if (mode === 'recollect') {
+        return `**Re-collecting market data** for the Watchlist: ${progress.done} of ${progress.total} tickers${eta}.\n\n`
+            + `Finnhub allows ${rpm} requests a minute, shared with live quotes, so this takes a while. `
+            + 'Everything is saved as it arrives; stopping keeps what has loaded, and a failed refresh keeps the previous data.'
+    }
     return `**Collecting market data** for the Watchlist scan: ${progress.done} of ${progress.total} tickers${eta}.\n\n`
         + `Finnhub allows ${rpm} requests a minute, shared with live quotes, so this takes a while the first time. `
         + 'Everything is saved, so later scans start right away. You can scan now with what has loaded or keep waiting.'
@@ -421,16 +426,19 @@ const ACTION_SCAN_NOW = 'watchlist-scan:now'
 const ACTION_CANCEL = 'watchlist-scan:cancel'
 
 /** Runs the collection with a live progress message. Resolves false when the user cancelled. */
-async function collectWithProgress(this: WatchlistScanHost, plan: ResearchPlan): Promise<boolean> {
+async function collectWithProgress(this: WatchlistScanHost, plan: ResearchPlan, mode: 'scan' | 'recollect' = 'scan'): Promise<boolean> {
     const rpm = Number(this.finnhub?.maxRequestsPerMinute) || 60
-    const actions = [
-        { id: ACTION_SCAN_NOW, label: 'Scan now with what has loaded', variant: 'primary' },
-        { id: ACTION_CANCEL, label: 'Cancel', variant: 'secondary' }
-    ]
+    // A re-collect has no scan to start early, so "stop" is its only choice.
+    const actions = mode === 'scan'
+        ? [
+            { id: ACTION_SCAN_NOW, label: 'Scan now with what has loaded', variant: 'primary' },
+            { id: ACTION_CANCEL, label: 'Cancel', variant: 'secondary' }
+        ]
+        : [{ id: ACTION_CANCEL, label: 'Stop (keeps what loaded)', variant: 'secondary' }]
     const started = Date.now()
     const stop = new AbortController()
     const state: { choice: 'done' | 'now' | 'cancel' } = { choice: 'done' }
-    const statusId = this.appendAIChatMessage('ai', progressText({ done: 0, total: plan.needs.size, callsLeft: plan.calls, etaMs: plan.etaMs, failed: [] }, rpm), { actions })
+    const statusId = this.appendAIChatMessage('ai', progressText({ done: 0, total: plan.needs.size, callsLeft: plan.calls, etaMs: plan.etaMs, failed: [] }, rpm, mode), { actions })
     const update = (text: string, withActions: boolean) => {
         if (statusId) this.appendAIChatMessage('ai', text, { replaceId: statusId, actions: withActions ? actions : null })
     }
@@ -447,14 +455,14 @@ async function collectWithProgress(this: WatchlistScanHost, plan: ResearchPlan):
     try {
         const outcome = await collectMarketResearch.call(this, plan, {
             signal: stop.signal,
-            onProgress: (progress) => { if (!stop.signal.aborted) update(progressText(progress, rpm), true) }
+            onProgress: (progress) => { if (!stop.signal.aborted) update(progressText(progress, rpm, mode), true) }
         })
         const took = formatDuration(Date.now() - started)
         const failed = outcome.failed.length
-            ? ` Some data couldn't be loaded for ${outcome.failed.join(', ')}; it is retried on the next scan.`
+            ? ` Some data couldn't be loaded for ${outcome.failed.join(', ')}; ${mode === 'scan' ? 'it is retried on the next scan' : 'the previous data was kept, run Re-collect again to retry'}.`
             : ''
         if (state.choice === 'cancel') {
-            update(`Data collection cancelled after ${outcome.done} of ${outcome.total} tickers (${took}). What loaded is saved; run the scan again to continue.`, false)
+            update(`Data collection cancelled after ${outcome.done} of ${outcome.total} tickers (${took}). What loaded is saved; run ${mode === 'scan' ? 'the scan' : 'Re-collect'} again to continue.`, false)
             return false
         }
         update(state.choice === 'now'
@@ -530,6 +538,37 @@ export async function askCoachWatchlistScan(this: WatchlistScanHost): Promise<vo
                 return merged.text
             }
         })
+    } finally {
+        this.watchlistScanRun = null
+    }
+}
+
+/**
+ * "Re-collect market data": refetches the price and every research kind for the whole watchlist,
+ * ignoring the cache TTLs. Collection only, no LLM call; a failed refresh keeps the previous data.
+ * Shares `watchlistScanRun` with the scan so the two never run at once.
+ */
+export async function recollectWatchlistData(this: WatchlistScanHost): Promise<void> {
+    if (!this.finnhub?.apiKey || !this.watchlist.length) return
+    if (this.watchlistScanRun) {
+        this.toggleAIChat(true)
+        this.appendAIChatMessage('ai', 'A Watchlist scan or data collection is already running. Re-collect once it finishes.')
+        return
+    }
+    const plan = planMarketResearch.call(this, this.watchlist.map(entry => entry.ticker), { force: true })
+    const rpm = Number(this.finnhub.maxRequestsPerMinute) || 60
+    const proceed = window.confirm(
+        `Re-collect market data for ${plan.needs.size} ticker${plan.needs.size === 1 ? '' : 's'}?\n\n`
+        + `This refetches prices, metrics, analyst/insider signals, earnings and profiles, ignoring saved data: `
+        + `about ${plan.calls} Finnhub requests, roughly ${formatDuration(plan.etaMs)} at ${rpm} requests a minute.`
+    )
+    if (!proceed) return
+    const run = new AbortController()
+    this.watchlistScanRun = run
+    try {
+        this.toggleAIChat(true)
+        await collectWithProgress.call(this, plan, 'recollect')
+        if (this.currentView === 'watchlist') this.watchlistGridApi?.refreshCells({ force: true })
     } finally {
         this.watchlistScanRun = null
     }
