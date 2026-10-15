@@ -3669,6 +3669,152 @@ select.form-control {
   height: 220px;
 }
 
+.ai-chat__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+}
+
+/* Watchlist scan table (scan-table.ts): app-rendered from the Coach's ```watchlist block. */
+.scan-table {
+  margin: var(--space-8) 0;
+}
+
+.scan-table__scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.scan-table__grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.scan-table__grid th {
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.scan-table__grid td {
+  padding: var(--space-6) var(--space-4) var(--space-2);
+  vertical-align: top;
+}
+
+.scan-table__grid .scan-table__why-row td {
+  padding-top: 0;
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--color-card-border-inner, var(--color-border));
+}
+
+/* The chat styles every message span as a bold inline-flex label; the table's spans opt out. */
+.ai-chat__message .scan-table span {
+  display: inline;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.scan-table__grid td small {
+  display: block;
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.scan-table__num,
+.scan-table__muted {
+  color: var(--color-text-secondary);
+}
+
+.scan-table__ticker strong {
+  display: block;
+}
+
+.scan-table__stars {
+  white-space: nowrap;
+}
+
+.scan-table__ai-stars {
+  color: var(--color-warning);
+  letter-spacing: 1px;
+}
+
+.scan-table__change {
+  color: var(--color-primary);
+}
+
+.ai-chat__message .scan-table .scan-table__badge,
+.scan-table__badge {
+  display: inline-block;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.scan-table__badge--strong { color: var(--color-success); background: rgba(var(--color-success-rgb), var(--status-bg-opacity)); }
+.scan-table__badge--decent { color: var(--color-primary); background: rgba(var(--color-success-rgb), 0.07); }
+.scan-table__badge--mixed { color: var(--color-warning); background: rgba(var(--color-warning-rgb), var(--status-bg-opacity)); }
+.scan-table__badge--weak { color: var(--color-error); background: rgba(var(--color-error-rgb), var(--status-bg-opacity)); }
+
+.scan-table__range {
+  min-width: 64px;
+}
+
+.scan-table__row td:last-child {
+  white-space: nowrap;
+}
+
+.scan-table__range-bar {
+  position: relative;
+  display: block;
+  height: 4px;
+  margin: var(--space-6) 0 var(--space-4);
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+}
+
+.scan-table__range-dot {
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  transform: translate(-50%, -50%);
+}
+
+.scan-table__warn {
+  color: var(--color-warning);
+  font-weight: var(--font-weight-semibold);
+}
+
+.scan-table__why {
+  color: var(--color-text);
+}
+
+.scan-table__level {
+  margin-top: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.scan-table__unscored,
+.scan-table__caption {
+  margin: var(--space-8) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.watchlist-coach-stars {
+  color: var(--color-warning);
+  letter-spacing: 1px;
+}
+
 .ai-chat__trust {
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);

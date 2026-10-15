@@ -1,7 +1,9 @@
 // src/ai/chart-blocks.ts — ```chart fences in Coach answers: split from the markdown source before
 // rendering (DOMPurify strips class names, so no post-sanitize hook), validate, map to ECharts.
+// The same splitter also lifts out the Watchlist scan's ```watchlist table block (scan-table.ts).
 
 import { z } from 'zod'
+import { parseScanTable, type ScanTable } from './scan-table.js'
 
 export const MAX_CHART_POINTS = 24
 
@@ -13,9 +15,9 @@ export const ChartSpecSchema = z.object({
 }).strict().refine(spec => spec.labels.length === spec.values.length, { message: 'labels and values differ in length' })
 
 export type ChartSpec = z.infer<typeof ChartSpecSchema>
-export type ChatSegment = { kind: 'md'; text: string } | { kind: 'chart'; spec: ChartSpec }
+export type ChatSegment = { kind: 'md'; text: string } | { kind: 'chart'; spec: ChartSpec } | { kind: 'scan'; table: ScanTable }
 
-const CHART_FENCE = /```chart[^\S\r\n]*\r?\n([\s\S]*?)\r?\n```/g
+const CHART_FENCE = /```(chart|watchlist)[^\S\r\n]*\r?\n([\s\S]*?)\r?\n```/g
 
 export function parseChartSpec(body: string): ChartSpec | null {
     try {
@@ -38,9 +40,12 @@ export function splitChartBlocks(markdown: string): ChatSegment[] {
     for (const match of markdown.matchAll(CHART_FENCE)) {
         const start = match.index ?? 0
         pushMd(markdown.slice(cursor, start))
-        const spec = parseChartSpec(match[1])
+        const body = match[2]
+        const spec = match[1] === 'chart' ? parseChartSpec(body) : null
+        const table = match[1] === 'watchlist' ? parseScanTable(body) : null
         if (spec) segments.push({ kind: 'chart', spec })
-        else pushMd('```\n' + match[1] + '\n```')
+        else if (table) segments.push({ kind: 'scan', table })
+        else pushMd('```\n' + body + '\n```')
         cursor = start + match[0].length
     }
     pushMd(markdown.slice(cursor))

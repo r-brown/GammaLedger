@@ -2,6 +2,7 @@
 
 import { z } from 'zod'
 import { AI_PROVIDER_IDS, CURRENT_STORAGE_VERSION, OPENROUTER_MAX_FALLBACK_MODELS } from './config.js'
+import type { CompanyProfile, EarningsSurprise, SignalsData, StockMetrics } from '../types/integrations.js'
 
 export const UNDERLYING_TYPES = ['Stock', 'ETF', 'Index', 'Future'] as const;
 export const ORDER_TYPES = ['BTO', 'STO', 'BTC', 'STC'] as const;
@@ -286,6 +287,95 @@ export const SchwabQuoteCacheSchema = z.object({
     }).strict()),
     trades: z.record(z.string(), SchwabTradeQuoteSchema)
 }).strict();
+
+// ── Market research cache (Finnhub per-ticker research with fetch times) ──────────────────────
+
+const NullableNumber = z.number().finite().nullable();
+const SeriesSchema = z.array(z.object({ period: z.string(), v: z.number().finite() }).strict());
+const METRIC_NUMBER_KEYS = [
+    'currentPrice', 'beta', 'marketCap', 'vol3MonthStd', 'return5Day', 'return13Week', 'return52Week',
+    'week52High', 'week52Low', 'vol10DayAvg', 'vol3MonthAvg', 'priceRelToSP500_13W', 'peTTM', 'forwardPE',
+    'forwardPEG', 'pfcfTTM', 'evFCF', 'evEbitda', 'grossMarginTTM', 'operatingMarginTTM', 'netMarginTTM',
+    'fcfMarginLatest', 'roeTTM', 'revenueGrowthYoY', 'epsGrowthYoY', 'currentRatio', 'netDebtToEquity',
+    'debtToEquity', 'interestCoverage'
+] as const;
+
+const StockMetricsShape = z.object({
+    ...Object.fromEntries(METRIC_NUMBER_KEYS.map(key => [key, NullableNumber])) as Record<typeof METRIC_NUMBER_KEYS[number], typeof NullableNumber>,
+    week52HighDate: z.string().nullable(),
+    week52LowDate: z.string().nullable(),
+    epsAnnual: SeriesSchema,
+    peAnnualSeries: SeriesSchema,
+    grossMarginSeries: SeriesSchema,
+    fcfPerShareSeries: SeriesSchema
+}).strict();
+
+const SignalsDataShape = z.object({
+    recommendation: z.object({
+        period: z.string(), strongBuy: z.number(), buy: z.number(), hold: z.number(), sell: z.number(), strongSell: z.number()
+    }).strict().nullable(),
+    news: z.array(z.object({
+        headline: z.string(), datetime: z.number(), url: z.string(), source: z.string(), summary: z.string()
+    }).strict()),
+    insiderTransactions: z.array(z.object({
+        transactionType: z.string(), transactionCode: z.string().nullable(), isDerivative: z.boolean(), name: z.string(),
+        share: NullableNumber, value: NullableNumber, filingDate: z.string()
+    }).strict())
+}).strict();
+
+const EarningsSurpriseListShape = z.array(z.object({
+    period: z.string(), quarter: z.number(), year: z.number(),
+    actual: NullableNumber, estimate: NullableNumber, surprisePercent: NullableNumber
+}).strict());
+
+const CompanyProfileShape = z.object({
+    name: z.string(), industry: z.string(), logo: z.string(), exchange: z.string()
+}).strict();
+
+// The shapes validate; z.custom keeps the app's own interfaces as the output type (outside the strict
+// subprojects Zod infers every nullable field as optional, which those interfaces don't allow).
+export const StockMetricsSchema = z.custom<StockMetrics>(value => StockMetricsShape.safeParse(value).success);
+export const SignalsDataSchema = z.custom<SignalsData>(value => SignalsDataShape.safeParse(value).success);
+export const EarningsSurpriseListSchema = z.custom<EarningsSurprise[]>(value => EarningsSurpriseListShape.safeParse(value).success);
+export const CompanyProfileSchema = z.custom<CompanyProfile>(value => CompanyProfileShape.safeParse(value).success);
+
+/** Next earnings date as last checked; date null = none found in the look-ahead window. */
+export const EarningsDateRecordSchema = z.object({
+    date: z.string().nullable(),
+    hour: z.string(),
+    quarter: NullableNumber,
+    year: NullableNumber,
+    epsEstimate: NullableNumber
+}).strict();
+
+const stamped = <T extends z.ZodTypeAny>(data: T) => z.object({ at: z.number().int().positive(), data }).strict();
+
+export const MarketResearchEntrySchema = z.object({
+    metrics: stamped(StockMetricsSchema).optional(),
+    signals: stamped(SignalsDataSchema).optional(),
+    surprises: stamped(EarningsSurpriseListSchema).optional(),
+    earnings: stamped(EarningsDateRecordSchema).optional(),
+    profile: stamped(CompanyProfileSchema).optional()
+}).strict();
+
+export const MarketResearchCacheSchema = z.object({
+    version: z.literal(1),
+    tickers: z.record(z.string(), MarketResearchEntrySchema)
+}).strict();
+
+export const WatchlistScanHistorySchema = z.object({
+    version: z.literal(1),
+    asOf: z.string(),
+    rows: z.array(z.object({
+        ticker: z.string(),
+        quality: z.enum(['strong', 'decent', 'mixed', 'weak']),
+        stars: z.number().int().min(1).max(5)
+    }).strict())
+}).strict();
+
+export type MarketResearchEntry = z.infer<typeof MarketResearchEntrySchema>;
+export type MarketResearchCache = z.infer<typeof MarketResearchCacheSchema>;
+export type WatchlistScanHistory = z.infer<typeof WatchlistScanHistorySchema>;
 
 export const StorageSchema = z.object({
     version: z.literal(CURRENT_STORAGE_VERSION),

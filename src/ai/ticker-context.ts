@@ -33,6 +33,8 @@ export interface TickerContextInput {
     signals: SignalsData | null
     earningsSurprises: EarningsSurprise[] | null
     upcomingEarningsDate: string | null
+    /** Finnhub industry from the company profile, when loaded. */
+    sector?: string | null
     trade: AnyRecord | null
     tradeClosed: boolean
     tradeQuote: TradeQuoteLike | null
@@ -46,8 +48,16 @@ export interface TickerContext {
     price: number | null
     priceSource: PriceSource | null
     momentum: { d5Pct: number | null; w13Pct: number | null; w52Pct: number | null } | null
-    /** Where the price sits against its 52-week range, in % (fromHighPct is ≤ 0, fromLowPct ≥ 0 in the usual case). */
-    range52w: { fromHighPct: number; fromLowPct: number } | null
+    /** App label from the 13- and 52-week returns: both up, both down, or split. */
+    trend: 'up' | 'down' | 'mixed' | null
+    /**
+     * Where the price sits against its 52-week range, in % (fromHighPct is ≤ 0, fromLowPct ≥ 0 in the
+     * usual case); positionPct is 0 at the 52-week low and 100 at the high.
+     */
+    range52w: { fromHighPct: number; fromLowPct: number; positionPct: number | null } | null
+    sector: string | null
+    /** Beta, 3-month volatility of daily returns (annualized %, the HV in the risk score) and 13-week return vs the S&P 500. */
+    risk: { beta: number | null; hv3mPct: number | null; vsSP500_13wPct: number | null } | null
     /** Next earnings date from the calendar; null means none found or unknown, not "no earnings". */
     nextEarnings: { date: string; daysAway: number } | null
     scores: {
@@ -130,7 +140,21 @@ function rangePosition(price: number | null, m: StockMetrics | null): TickerCont
     const high = finite(m?.week52High)
     const low = finite(m?.week52Low)
     if (price === null || high === null || low === null || high <= 0 || low <= 0) return null
-    return { fromHighPct: round(((price - high) / high) * 100, 1), fromLowPct: round(((price - low) / low) * 100, 1) }
+    return {
+        fromHighPct: round(((price - high) / high) * 100, 1),
+        fromLowPct: round(((price - low) / low) * 100, 1),
+        positionPct: high > low ? Math.round(((price - low) / (high - low)) * 100) : null
+    }
+}
+
+/** Both medium- and long-term returns positive → up, both negative → down, otherwise mixed. */
+export function trendLabel(w13Pct: number | null, w52Pct: number | null): TickerContext['trend'] {
+    const a = finite(w13Pct)
+    const b = finite(w52Pct)
+    if (a === null && b === null) return null
+    if (a !== null && b !== null) return a > 0 && b > 0 ? 'up' : a < 0 && b < 0 ? 'down' : 'mixed'
+    const only = a ?? b ?? 0
+    return only > 0 ? 'up' : only < 0 ? 'down' : 'mixed'
 }
 
 export function buildTickerContext(input: TickerContextInput): TickerContext {
@@ -188,7 +212,10 @@ export function buildTickerContext(input: TickerContextInput): TickerContext {
         price: price === null ? null : round(price, 2),
         priceSource: resolved?.source ?? null,
         momentum: m ? { d5Pct: m.return5Day, w13Pct: m.return13Week, w52Pct: m.return52Week } : null,
+        trend: m ? trendLabel(m.return13Week, m.return52Week) : null,
         range52w: rangePosition(price, m),
+        sector: input.sector?.trim() || null,
+        risk: m ? { beta: finite(m.beta), hv3mPct: finite(m.vol3MonthStd), vsSP500_13wPct: finite(m.priceRelToSP500_13W) } : null,
         nextEarnings: input.upcomingEarningsDate && input.upcomingEarningsDate >= asOf
             ? { date: input.upcomingEarningsDate, daysAway: daysBetweenIso(asOf, input.upcomingEarningsDate) }
             : null,
@@ -244,7 +271,7 @@ export function marketFactsJson(ctx: TickerContext): string {
 
 export function buildWatchlistAskQuestion(ctx: TickerContext): AskQuestion {
     const t = ctx.ticker
-    const lead = `Give me an honest, independent assessment of ${t} as a premium-selling candidate (cash-secured puts, bull put spreads, the wheel). Form your view from MARKET FACTS alone: trend and momentum, where the price sits in its 52-week range, the four scores, analyst and insider signals, the earnings record and the next earnings date. My watch price, rating and thesis are listed last on purpose; they must not anchor you, and you should say so if they look wrong.`
+    const lead = `Give me an honest, independent assessment of ${t} as a premium-selling candidate (cash-secured puts, bull put spreads, the wheel). Form your view from MARKET FACTS alone: trend and momentum, where the price sits in its 52-week range (positionPct: 0 = at the low, 100 = at the high), the four scores, analyst and insider signals, the earnings record and the next earnings date. My watch price, rating and thesis are listed last on purpose; they must not anchor you, and you should say so if they look wrong.`
     const steps = `Answer in this order, under 350 words:
 1. **Verdict:** Strong, Decent, Mixed or Weak candidate right now, in one sentence.
 2. **For and against:** two or three bullets each, citing numbers from the facts.
@@ -268,6 +295,7 @@ export interface TickerHost {
     metricsCache: ReadonlyMap<string, StockMetrics | 'loading' | 'error'>
     signalsCache: ReadonlyMap<string, SignalsData | 'loading' | 'error'>
     earningsCache: ReadonlyMap<string, EarningsSurprise[] | 'loading' | 'error'>
+    profileCache?: ReadonlyMap<string, { industry?: string } | 'loading' | 'error'>
     earningsMap?: ReadonlyMap<string, { date?: string }>
     aiReadCache?: ReadonlyMap<string, AIReadView | 'loading' | 'error'>
     getCachedQuote?(ticker: string): { value?: { price?: number; previousClose?: number } } | null
@@ -288,7 +316,7 @@ export function latestAIRead(host: Pick<TickerHost, 'aiReadCache'>, ticker: stri
 export function gatherTickerContext(
     this: TickerHost,
     ticker: string,
-    scope: { trade?: AnyRecord | null; watchlistEntry?: WatchlistEntry | null } = {}
+    scope: { trade?: AnyRecord | null; watchlistEntry?: WatchlistEntry | null; fallbackPrice?: number | null } = {}
 ): TickerContext {
     const key = ticker.trim().toUpperCase()
     const now = this.currentDate instanceof Date ? this.currentDate : new Date()
@@ -299,12 +327,13 @@ export function gatherTickerContext(
     return buildTickerContext({
         ticker: key,
         now,
-        prices: { schwab: this.schwab?.quoteCache?.get(key)?.price, finnhub: quote?.price, snapshot: trade?.marketPriceSnapshot },
+        prices: { schwab: this.schwab?.quoteCache?.get(key)?.price, finnhub: quote?.price, snapshot: trade?.marketPriceSnapshot ?? scope.fallbackPrice },
         previousClose: Number.isFinite(previousClose) ? previousClose : null,
         metrics: loaded(this.metricsCache.get(key)),
         signals: loaded(this.signalsCache.get(key)),
         earningsSurprises: loaded(this.earningsCache.get(key)),
         upcomingEarningsDate: this.earningsMap?.get(key)?.date ?? null,
+        sector: loaded(this.profileCache?.get(key))?.industry ?? null,
         trade,
         tradeClosed: trade ? this.isClosedStatus(trade.status) : false,
         tradeQuote: quoteKey ? this.schwab?.tradeQuoteCache?.get(quoteKey) ?? null : null,
