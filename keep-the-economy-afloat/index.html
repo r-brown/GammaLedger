@@ -435,6 +435,7 @@ footer.foot { border-top: 1px solid var(--line); padding-block: 22px 32px; color
 
 const CONFIG = {
   shareUrl: 'https://gammaledger.com',
+  gameUrl: 'https://gammaledger.com/keep-the-economy-afloat/',
   // Base URL of the score server (see server/README.md). Leave empty for local-only leaderboards.
   apiBase: '',
   gameName: 'Keep the Economy Afloat',
@@ -2862,7 +2863,7 @@ function shareText(sess, res) {
   const squares = g.qScores.slice(0, 40).map(s => s >= 80 ? '🟦' : s >= 50 ? '🟨' : '🟥').join('');
   const head = CONFIG.gameName + ' · ' + (sess.kind === 'daily' ? 'Daily ' + L.era : g.endless ? 'Endless' : L.title);
   const line2 = g.endless ? res.quarters + ' quarters survived · ' + fmtInt(res.total) + ' pts' : '★'.repeat(res.starCount) + '☆'.repeat(3 - res.starCount) + ' · ' + fmtInt(res.total) + ' pts · ' + RANKS[rankIndex(P.xp)].name;
-  return head + '\n' + line2 + '\n' + squares + '\nCan you keep it afloat? ' + CONFIG.shareUrl;
+  return head + '\n' + line2 + '\n' + squares + '\nCan you keep it afloat? ' + CONFIG.gameUrl;
 }
 const SHORT_NAMES = { book: 'Book', stocks: 'Index', iv: 'Impl. vol', rate: 'Rate', infl: 'Inflation', growth: 'Growth', unemp: 'Jobless', stress: 'Fear', approval: 'Trust', debt: 'Debt', bubble: 'Bubble', bank: 'Banks', fx: 'Currency', reserves: 'Reserves' };
 function wrapText(c, text, maxW) {
@@ -2917,7 +2918,7 @@ async function shareCardCanvas(sess, res) {
   const qs = g.qScores.slice(0, 20);
   qs.forEach((s, i) => { c.fillStyle = s >= 80 ? '#5eead4' : s >= 50 ? '#fbbf24' : '#fb7185'; roundRect(c, 56 + i * 30, 510, 24, 24, 5); c.fill(); });
   c.fillStyle = '#929ab8'; c.font = '500 20px "DM Sans", system-ui, sans-serif';
-  c.fillText(CONFIG.shareUrl.replace(/^https?:\/\//, '') + ' · Can you keep it afloat?', 56, 584);
+  c.fillText(CONFIG.gameUrl.replace(/^https?:\/\//, '') + ' · Can you keep it afloat?', 56, 584);
   // tanks
   const ms = g.metrics.slice(0, 5), tx0 = 1144 - ms.length * 96 + 20;
   ms.forEach((m, i) => {
