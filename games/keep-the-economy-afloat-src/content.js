@@ -6,6 +6,7 @@
 
 const CONFIG = {
   shareUrl: 'https://gammaledger.com',
+  gameUrl: 'https://gammaledger.com/keep-the-economy-afloat/',
   // Base URL of the score server (see server/README.md). Leave empty for local-only leaderboards.
   apiBase: '',
   gameName: 'Keep the Economy Afloat',

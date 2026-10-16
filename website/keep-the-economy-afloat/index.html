@@ -1923,6 +1923,86 @@ function verifySubmission(sub, opts = {}) {
     matchesClaim: Math.abs(claimed - res.total) <= Math.max(5, res.total * 0.02) };
 }
 /* ============================================================
+   ANALYTICS: anonymous gameplay statistics.
+   The rest of the game only calls track(eventType, extra). Nothing here can
+   throw into the game, wait on the network or touch the page.
+   Sent: event name, a random per-tab session id, and the small `extra`
+   object the caller passes (game, gameVersion, round, score, action, ...).
+   Never sent: names, free text, IP, user agent, cookies, tokens.
+   Debug: open the game with ?audit-debug=1 (or set ANALYTICS_CONFIG.debug)
+   and every event is printed with console.table instead of being sent.
+   ============================================================ */
+
+const ANALYTICS_CONFIG = {
+  endpoint: 'https://q4cffnmf57m2pybahil3ha7lca0docmr.lambda-url.eu-west-1.on.aws/',
+  tenantId: 'gammaledger',
+  game: 'keep-the-economy-afloat',
+  gameVersion: '1.0', // bump when gameplay changes, so sessions can be compared by version
+  sessionKey: 'gl.sid',
+  maxEvents: 300, // safety cap per page load
+  maxBytes: 4096, // the server rejects larger bodies
+  debug: false // DEBUG_ANALYTICS: same as ?audit-debug=1
+};
+const ANALYTICS_STATE = { sent: 0, memorySid: null };
+
+function analyticsNewId() {
+  try {
+    if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+    if (crypto && typeof crypto.getRandomValues === 'function') {
+      return Array.from(crypto.getRandomValues(new Uint8Array(16)), b => (b < 16 ? '0' : '') + b.toString(16)).join('');
+    }
+  } catch (e) { /* fall through */ }
+  return 'x' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+/* The same random id for every event of one browser session (tab). If sessionStorage is blocked, one id per page load. */
+function analyticsSessionId() {
+  const key = ANALYTICS_CONFIG.sessionKey;
+  try {
+    const stored = sessionStorage.getItem(key);
+    if (stored && /^[A-Za-z0-9._:-]{8,64}$/.test(stored)) return stored;
+  } catch (e) { /* storage blocked */ }
+  if (!ANALYTICS_STATE.memorySid) ANALYTICS_STATE.memorySid = analyticsNewId();
+  try { sessionStorage.setItem(key, ANALYTICS_STATE.memorySid); } catch (e) { /* storage blocked */ }
+  return ANALYTICS_STATE.memorySid;
+}
+
+function analyticsDebugOn() {
+  if (ANALYTICS_CONFIG.debug) return true;
+  try { return new URLSearchParams(location.search).get('audit-debug') === '1'; } catch (e) { return false; }
+}
+
+function track(eventType, extra) {
+  try {
+    const C = ANALYTICS_CONFIG, debug = analyticsDebugOn();
+    if (typeof navigator !== 'undefined' && navigator.doNotTrack === '1') {
+      if (debug) console.log('[analytics] Do Not Track is on: nothing is recorded');
+      return;
+    }
+    if (typeof eventType !== 'string' || !/^[A-Za-z][A-Za-z0-9._-]{0,99}$/.test(eventType)) return;
+    if (ANALYTICS_STATE.sent >= C.maxEvents) return;
+
+    const data = {};
+    if (extra && typeof extra === 'object') {
+      Object.keys(extra).forEach(k => {
+        const v = extra[k];
+        if (typeof v === 'number' ? Number.isFinite(v) : typeof v === 'string' || typeof v === 'boolean') data[k] = v;
+      });
+    }
+    data.game = C.game;
+    data.gameVersion = C.gameVersion;
+    const body = { tenantId: C.tenantId, eventType, correlationId: analyticsSessionId(), extra: data };
+    const json = JSON.stringify(body);
+    if (json.length > C.maxBytes) return;
+
+    ANALYTICS_STATE.sent++;
+    if (debug) { console.table([Object.assign({ eventType, correlationId: body.correlationId }, data)]); return; }
+    if (typeof fetch !== 'function') return;
+    const p = fetch(C.endpoint, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: json });
+    if (p && typeof p.catch === 'function') p.catch(() => {});
+  } catch (e) { /* analytics must never reach the game */ }
+}
+/* ============================================================
    APP — core helpers, storage, backend, profile, sound, modals, nav.
 
    Global leaderboard: set CONFIG.apiBase to your score server
@@ -2205,9 +2285,9 @@ function go(view, arg) {
 function confirmLeave(onLeave) {
   const m = openModal([h('h2', { text: 'Leave this level?' }), h('p', { class: 'muted', text: 'You can save your game and pick it up later, on this device.' }),
     h('div', { class: 'row' },
-      h('button', { class: 'btn btn-primary', text: 'Save and exit', onclick: () => { saveResume(); m.close(); Session = null; onLeave(); toast('Game saved. Resume it from the home screen.'); } }),
+      h('button', { class: 'btn btn-primary', text: 'Save and exit', onclick: () => { saveResume(); trackEnded(); m.close(); Session = null; onLeave(); toast('Game saved. Resume it from the home screen.'); } }),
       h('button', { class: 'btn btn-quiet', text: 'Keep playing', onclick: () => m.close() }),
-      h('button', { class: 'btn btn-danger', text: 'Abandon', onclick: () => { clearResume(); m.close(); Session = null; onLeave(); } }))], { dismissible: true, label: 'Leave level' });
+      h('button', { class: 'btn btn-danger', text: 'Abandon', onclick: () => { clearResume(); trackEnded(); m.close(); Session = null; onLeave(); } }))], { dismissible: true, label: 'Leave level' });
 }
 
 /* Level lookup across campaign, samples and the player's own levels */
@@ -2359,19 +2439,47 @@ function openBriefing(level, kind) {
 
 /* ---------- Play ---------- */
 let Session = null;
+
+/* ---------- Gameplay analytics (see analytics.js; every call is fire-and-forget) ---------- */
+const analyticsCode = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+function trackAction(action) {
+  try { if (Session && Session.stat) track('game.action', { round: Session.game.q, action }); } catch (e) { /* analytics never blocks play */ }
+}
+/* One game.ended per game: the first caller wins (finish, abandon, new game, or the tab closing). */
+function trackEnded() {
+  try {
+    const s = Session, st = s && s.stat;
+    if (!st || st.ended) return;
+    st.ended = true;
+    const g = s.game, over = g.status !== 'playing';
+    track('game.ended', {
+      outcome: g.status === 'failed' ? 'lost' : g.status === 'complete' ? 'won' : 'quit',
+      round: g.status === 'playing' || g.status === 'failed' ? g.q : g.q - 1,
+      score: over ? finalResult(g).total : g.points,
+      durationMs: Math.max(0, Math.round(Date.now() - st.t0))
+    });
+  } catch (e) { /* analytics never blocks play */ }
+}
+window.addEventListener('pagehide', trackEnded);
+
 function startLevel(level, kind, assist, bench) {
+  trackEnded();
   clearResume();
-  Session = { level, kind, assist, bench: bench === undefined ? (level.endless ? null : benchmarks(level)) : bench, game: createGame(level), pending: { rateDelta: 0, tools: {} }, log: [], tip: null, report: null, busy: false };
+  Session = { level, kind, assist, bench: bench === undefined ? (level.endless ? null : benchmarks(level)) : bench, game: createGame(level), pending: { rateDelta: 0, tools: {} }, log: [], tip: null, report: null, busy: false, stat: { t0: Date.now(), ended: false } };
+  track('game.started');
+  trackAction(assist ? 'desk_on' : 'desk_off');
   P.plays++; saveProfile();
   go('play', { force: true });
   setTimeout(beginQ, 250);
 }
 function resumeGame(r) {
+  trackEnded();
   const { g, open } = replayGame(r.level, { actions: r.actions, choices: r.choices });
   if (g.status !== 'playing') { clearResume(); toast('That game had already finished.'); return go('home'); }
   g.assisted = !!r.assisted;
   Session = { level: r.level, kind: r.kind, assist: r.assist, bench: r.level.endless ? null : benchmarks(r.level), game: g, pending: { rateDelta: 0, tools: {} },
-    log: [{ q: quarterLabel(r.level, g.q), text: 'Game resumed.' }], tip: null, report: null, busy: false };
+    log: [{ q: quarterLabel(r.level, g.q), text: 'Game resumed.' }], tip: null, report: null, busy: false, stat: { t0: Date.now(), ended: false } };
+  trackAction('resume_game');
   go('play', { force: true });
   Session.tip = (r.level.tutorial && r.level.tutorial[g.q]) || null;
   setTimeout(() => showEvents(open.slice(), () => { updateAll(); saveResume(); }), 250);
@@ -2412,7 +2520,7 @@ function renderPlay(app) {
     h('div', { class: 'ticker', 'aria-hidden': 'true' }, ui.ticker));
 
   ui.coach = h('div'); ui.report = h('div'); ui.capital = h('div'); ui.rate = h('div'); ui.tools = h('div', { style: 'display:flex;flex-direction:column;gap:12px' }); ui.locked = h('div');
-  ui.assist = h('input', { type: 'checkbox', id: 'assistPlay', checked: Session.assist, onchange: e => { Session.assist = e.target.checked; P.assist = Session.assist; saveProfile(); updateAll(); } });
+  ui.assist = h('input', { type: 'checkbox', id: 'assistPlay', checked: Session.assist, onchange: e => { Session.assist = e.target.checked; P.assist = Session.assist; saveProfile(); trackAction(Session.assist ? 'desk_on' : 'desk_off'); updateAll(); } });
   ui.run = h('button', { class: 'btn btn-primary btn-lg', onclick: runQuarter });
   const desk = h('aside', { class: 'desk', 'aria-label': 'Policy desk' }, ui.coach, ui.report, ui.capital, ui.rate, ui.tools, ui.locked,
     h('label', { class: 'switch', for: 'assistPlay' }, ui.assist, h('span', null, 'GammaLedger Desk ', h('span', { class: 'dim tiny', text: '(off = +15% points)' }))),
@@ -2735,6 +2843,7 @@ function showEvent(ev, next, during) {
   const m = openModal([head, h('h2', { text: ev.headline }), h('p', { class: 'muted', text: d.body }),
     h('div', { style: 'display:flex;flex-direction:column;gap:10px' }, d.choices.map((c, i) => h('button', { class: 'choice', onclick: () => {
       resolveDilemma(g, ev, i);
+      trackAction('dilemma_' + analyticsCode(ev.id) + '_' + i);
       saveResume();
       Session.log.push({ q: label, text: ev.headline.replace(/[.!?]?$/, x => x || '.') + ' You chose: ' + c.label.toLowerCase() + '.' });
       if (c.effects.tags && c.effects.tags.includes('independent')) toast('Independence noted. Credibility up.');
@@ -2766,7 +2875,11 @@ function runQuarter() {
   if (Session.assist) g.assisted = true;
   const act = { rateDelta: Session.pending.rateDelta, tools: Object.assign({}, Session.pending.tools) };
   const label = quarterLabel(Session.level, g.q), prevRate = g.s.rate;
+  const round = g.q;
+  if (hasTool(g, 'rate')) trackAction(act.rateDelta > 0 ? 'rate_hike' : act.rateDelta < 0 ? 'rate_cut' : 'rate_hold');
+  Object.keys(act.tools).forEach(t => trackAction(analyticsCode(t + '_' + act.tools[t])));
   const res = step(g, act);
+  track('game.round.completed', { round, score: g.points });
   Session.log.push({ q: label, text: describeActions(act, g, prevRate) + ' Score ' + res.score + '.' });
   Session.report = Object.assign({ label, why: g.lastWhy, idx: g.lastTrade ? g.lastTrade.idx : 0 }, res);
   Session.pending = { rateDelta: 0, tools: {} };
@@ -2789,6 +2902,7 @@ function showEventsDuring(list, done) {
   showEvent(ev, () => showEventsDuring(list, done), true);
 }
 function finishLevel() {
+  trackEnded();
   clearResume();
   const res = finalResult(Session.game);
   const rec = recordResult(Session, res);
