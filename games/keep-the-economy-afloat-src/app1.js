@@ -281,9 +281,9 @@ function go(view, arg) {
 function confirmLeave(onLeave) {
   const m = openModal([h('h2', { text: 'Leave this level?' }), h('p', { class: 'muted', text: 'You can save your game and pick it up later, on this device.' }),
     h('div', { class: 'row' },
-      h('button', { class: 'btn btn-primary', text: 'Save and exit', onclick: () => { saveResume(); m.close(); Session = null; onLeave(); toast('Game saved. Resume it from the home screen.'); } }),
+      h('button', { class: 'btn btn-primary', text: 'Save and exit', onclick: () => { saveResume(); trackEnded(); m.close(); Session = null; onLeave(); toast('Game saved. Resume it from the home screen.'); } }),
       h('button', { class: 'btn btn-quiet', text: 'Keep playing', onclick: () => m.close() }),
-      h('button', { class: 'btn btn-danger', text: 'Abandon', onclick: () => { clearResume(); m.close(); Session = null; onLeave(); } }))], { dismissible: true, label: 'Leave level' });
+      h('button', { class: 'btn btn-danger', text: 'Abandon', onclick: () => { clearResume(); trackEnded(); m.close(); Session = null; onLeave(); } }))], { dismissible: true, label: 'Leave level' });
 }
 
 /* Level lookup across campaign, samples and the player's own levels */

@@ -142,19 +142,47 @@ function openBriefing(level, kind) {
 
 /* ---------- Play ---------- */
 let Session = null;
+
+/* ---------- Gameplay analytics (see analytics.js; every call is fire-and-forget) ---------- */
+const analyticsCode = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+function trackAction(action) {
+  try { if (Session && Session.stat) track('game.action', { round: Session.game.q, action }); } catch (e) { /* analytics never blocks play */ }
+}
+/* One game.ended per game: the first caller wins (finish, abandon, new game, or the tab closing). */
+function trackEnded() {
+  try {
+    const s = Session, st = s && s.stat;
+    if (!st || st.ended) return;
+    st.ended = true;
+    const g = s.game, over = g.status !== 'playing';
+    track('game.ended', {
+      outcome: g.status === 'failed' ? 'lost' : g.status === 'complete' ? 'won' : 'quit',
+      round: g.status === 'playing' || g.status === 'failed' ? g.q : g.q - 1,
+      score: over ? finalResult(g).total : g.points,
+      durationMs: Math.max(0, Math.round(Date.now() - st.t0))
+    });
+  } catch (e) { /* analytics never blocks play */ }
+}
+window.addEventListener('pagehide', trackEnded);
+
 function startLevel(level, kind, assist, bench) {
+  trackEnded();
   clearResume();
-  Session = { level, kind, assist, bench: bench === undefined ? (level.endless ? null : benchmarks(level)) : bench, game: createGame(level), pending: { rateDelta: 0, tools: {} }, log: [], tip: null, report: null, busy: false };
+  Session = { level, kind, assist, bench: bench === undefined ? (level.endless ? null : benchmarks(level)) : bench, game: createGame(level), pending: { rateDelta: 0, tools: {} }, log: [], tip: null, report: null, busy: false, stat: { t0: Date.now(), ended: false } };
+  track('game.started');
+  trackAction(assist ? 'desk_on' : 'desk_off');
   P.plays++; saveProfile();
   go('play', { force: true });
   setTimeout(beginQ, 250);
 }
 function resumeGame(r) {
+  trackEnded();
   const { g, open } = replayGame(r.level, { actions: r.actions, choices: r.choices });
   if (g.status !== 'playing') { clearResume(); toast('That game had already finished.'); return go('home'); }
   g.assisted = !!r.assisted;
   Session = { level: r.level, kind: r.kind, assist: r.assist, bench: r.level.endless ? null : benchmarks(r.level), game: g, pending: { rateDelta: 0, tools: {} },
-    log: [{ q: quarterLabel(r.level, g.q), text: 'Game resumed.' }], tip: null, report: null, busy: false };
+    log: [{ q: quarterLabel(r.level, g.q), text: 'Game resumed.' }], tip: null, report: null, busy: false, stat: { t0: Date.now(), ended: false } };
+  trackAction('resume_game');
   go('play', { force: true });
   Session.tip = (r.level.tutorial && r.level.tutorial[g.q]) || null;
   setTimeout(() => showEvents(open.slice(), () => { updateAll(); saveResume(); }), 250);
@@ -195,7 +223,7 @@ function renderPlay(app) {
     h('div', { class: 'ticker', 'aria-hidden': 'true' }, ui.ticker));
 
   ui.coach = h('div'); ui.report = h('div'); ui.capital = h('div'); ui.rate = h('div'); ui.tools = h('div', { style: 'display:flex;flex-direction:column;gap:12px' }); ui.locked = h('div');
-  ui.assist = h('input', { type: 'checkbox', id: 'assistPlay', checked: Session.assist, onchange: e => { Session.assist = e.target.checked; P.assist = Session.assist; saveProfile(); updateAll(); } });
+  ui.assist = h('input', { type: 'checkbox', id: 'assistPlay', checked: Session.assist, onchange: e => { Session.assist = e.target.checked; P.assist = Session.assist; saveProfile(); trackAction(Session.assist ? 'desk_on' : 'desk_off'); updateAll(); } });
   ui.run = h('button', { class: 'btn btn-primary btn-lg', onclick: runQuarter });
   const desk = h('aside', { class: 'desk', 'aria-label': 'Policy desk' }, ui.coach, ui.report, ui.capital, ui.rate, ui.tools, ui.locked,
     h('label', { class: 'switch', for: 'assistPlay' }, ui.assist, h('span', null, 'GammaLedger Desk ', h('span', { class: 'dim tiny', text: '(off = +15% points)' }))),
@@ -518,6 +546,7 @@ function showEvent(ev, next, during) {
   const m = openModal([head, h('h2', { text: ev.headline }), h('p', { class: 'muted', text: d.body }),
     h('div', { style: 'display:flex;flex-direction:column;gap:10px' }, d.choices.map((c, i) => h('button', { class: 'choice', onclick: () => {
       resolveDilemma(g, ev, i);
+      trackAction('dilemma_' + analyticsCode(ev.id) + '_' + i);
       saveResume();
       Session.log.push({ q: label, text: ev.headline.replace(/[.!?]?$/, x => x || '.') + ' You chose: ' + c.label.toLowerCase() + '.' });
       if (c.effects.tags && c.effects.tags.includes('independent')) toast('Independence noted. Credibility up.');
@@ -549,7 +578,11 @@ function runQuarter() {
   if (Session.assist) g.assisted = true;
   const act = { rateDelta: Session.pending.rateDelta, tools: Object.assign({}, Session.pending.tools) };
   const label = quarterLabel(Session.level, g.q), prevRate = g.s.rate;
+  const round = g.q;
+  if (hasTool(g, 'rate')) trackAction(act.rateDelta > 0 ? 'rate_hike' : act.rateDelta < 0 ? 'rate_cut' : 'rate_hold');
+  Object.keys(act.tools).forEach(t => trackAction(analyticsCode(t + '_' + act.tools[t])));
   const res = step(g, act);
+  track('game.round.completed', { round, score: g.points });
   Session.log.push({ q: label, text: describeActions(act, g, prevRate) + ' Score ' + res.score + '.' });
   Session.report = Object.assign({ label, why: g.lastWhy, idx: g.lastTrade ? g.lastTrade.idx : 0 }, res);
   Session.pending = { rateDelta: 0, tools: {} };
@@ -572,6 +605,7 @@ function showEventsDuring(list, done) {
   showEvent(ev, () => showEventsDuring(list, done), true);
 }
 function finishLevel() {
+  trackEnded();
   clearResume();
   const res = finalResult(Session.game);
   const rec = recordResult(Session, res);
