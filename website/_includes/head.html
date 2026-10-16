@@ -8,7 +8,7 @@
     <meta name="author" content="{{ site.author }}">
     <meta name="copyright" content="GammaLedger">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="{{ page.robots | default: 'index, follow' }}">
     <link rel="canonical" href="{{ page.url | absolute_url }}">
     <!-- Open Graph -->
     <meta property="og:type" content="{% if page.layout == 'post' %}article{% else %}website{% endif %}">
