@@ -1,0 +1,7 @@
+name = "afloat-scores"
+main = "worker.mjs"
+compatibility_date = "2024-09-23"
+
+[[kv_namespaces]]
+binding = "AFLOAT_KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"

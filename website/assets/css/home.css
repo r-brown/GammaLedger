@@ -686,3 +686,43 @@ body {
         scroll-behavior: auto !important;
     }
 }
+
+/* Game promo */
+.game-promo {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: var(--space-10);
+    align-items: center;
+    padding: var(--space-12);
+    background: var(--gradient-card);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: var(--radius-2xl);
+}
+.game-promo .section-title,
+.game-promo .section-subtitle { text-align: left; margin-left: 0; }
+.game-promo .hero-actions { justify-content: flex-start; margin-top: var(--space-6); }
+.game-promo-tag {
+    display: inline-block;
+    margin-bottom: var(--space-3);
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(139, 92, 246, 0.18);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+.game-promo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.game-promo-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-4) var(--space-5);
+    background: var(--bg-glass);
+    border: 1px solid rgba(203, 213, 225, 0.12);
+    border-radius: var(--radius-lg);
+}
+.game-promo-list b { color: var(--text-primary); }
+.game-promo-list span { color: var(--text-secondary); font-size: var(--font-size-sm); }
+@media (max-width: 768px) {
+    .game-promo { grid-template-columns: 1fr; padding: var(--space-6); gap: var(--space-6); }
+}
