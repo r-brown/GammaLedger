@@ -5895,6 +5895,10 @@ tr:hover {
   display: none;
 }
 
+.settings-card__intro {
+  margin: 0 0 var(--space-12);
+}
+
 .settings-toggle {
   display: flex;
   gap: var(--space-8);

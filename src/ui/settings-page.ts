@@ -6,6 +6,8 @@
 // A new section needs markup only; a card's badge needs a getter in CARD_STATUS.
 // Uses the .call(this, …) delegation pattern.
 
+import { JEV_DEFAULT_MODEL } from '@core/config'
+
 type CardTone = 'ok' | 'warn' | 'off' | 'info'
 export type SectionTone = 'ok' | 'warn' | 'off' | 'none'
 
@@ -26,6 +28,9 @@ export interface SettingsPageHost {
   schwab: { vault: { accessToken?: string; refreshToken?: string } | null; encryptionKey: unknown }
   finnhub: { apiKey: string | null }
   getActiveLLMProvider(): LLMProviderLike
+  aiProvider: { active: string }
+  openRouter: { jevModel: string | null }
+  jev: { reachable: boolean }
   defaultFeePerContract: number | null
   accountSize: number | null
   externalAnalyticsUrl: string
@@ -52,6 +57,12 @@ const CARD_STATUS: Record<string, (host: SettingsPageHost) => CardStatus> = {
     if (!provider.isConfigured()) return { tone: 'off', text: `${provider.displayName} · no key` }
     const model = provider.activeModel()
     return { tone: 'ok', text: `${provider.displayName} · ${model ? provider.modelLabel(model) : 'default model'}` }
+  },
+  jev: (host) => {
+    if (host.aiProvider.active !== 'openrouter') return { tone: 'info', text: 'Needs OpenRouter' }
+    if (!host.jev.reachable) return { tone: 'warn', text: 'Unavailable' }
+    const model = (host.openRouter.jevModel ?? JEV_DEFAULT_MODEL).replace(/^typesafe\//, '')
+    return { tone: 'ok', text: host.openRouter.jevModel ? `${model} · custom` : model }
   },
   'default-fee': (host) => (host.defaultFeePerContract !== null
     ? { tone: 'ok', text: `${host.formatCurrency(host.defaultFeePerContract)} / contract` }

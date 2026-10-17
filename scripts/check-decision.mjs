@@ -25,7 +25,7 @@ const Q = {
     drift: { type: 'noul', instructions: 'Thesis no longer fits', criteria: { true: 'contradicted', false: 'consistent' } }
 }
 const JEV_OK = {
-    model: 'jev-1.13.0',
+    model: 'jev-1.14.0',
     answers: {
         read: { type: 'choice', choice: 'bullish', confidence: 0.62, probabilities: { bullish: 0.7, neutral: 0.2, bearish: 0.1 } },
         urgency: { type: 'score', score: 1.2, confidence: 0.55, probabilities: { 0: 0.1, 1: 0.6, 2: 0.3 } },
@@ -41,7 +41,7 @@ test('JEV via OpenRouter: Decisions endpoint, OpenRouter key and attribution hea
         assert.equal(calls[0].url, 'https://openrouter.ai/api/alpha/decisions')
         assert.equal(calls[0].init.headers.Authorization, 'Bearer sk-or-key')
         assert.equal(calls[0].init.headers['X-Title'], 'GammaLedger')
-        assert.deepEqual(JSON.parse(calls[0].init.body), { model: 'typesafe/jev-1.13', state: { ticker: 'VEEV' }, questions: Q })
+        assert.deepEqual(JSON.parse(calls[0].init.body), { model: 'typesafe/jev-1.14', state: { ticker: 'VEEV' }, questions: Q })
         assert.equal(result.engine, 'jev')
         assert.equal(result.calibrated, true)
         assert.equal(result.answers.read.choice, 'bullish')
@@ -50,14 +50,30 @@ test('JEV via OpenRouter: Decisions endpoint, OpenRouter key and attribution hea
         assert.equal(result.usage.costUsd, 0.00005)              // OpenRouter's own cost wins
     })
     // Answers without a "type" tag, a bare noul number, no score confidence, no usage cost
-    const bare = { model: 'typesafe/jev-1.13-20260917', answers: { read: { choice: 'neutral', probabilities: { neutral: 0.6 } }, urgency: { score: 1.4 }, drift: 0.3 }, usage: { input_tokens: 1000 } }
+    const bare = { model: 'typesafe/jev-1.14-20261001', answers: { read: { choice: 'neutral', probabilities: { neutral: 0.6 } }, urgency: { score: 1.4 }, drift: 0.3 }, usage: { input_tokens: 1000 } }
     await withFetch(() => jsonResponse(200, bare), async () => {
         const result = await createJevProvider({ openRouter: { apiKey: 'k' } }).decide({ state: {}, questions: Q })
         assert.deepEqual(result.answers.read, { type: 'choice', choice: 'neutral', probabilities: { neutral: 0.6 }, confidence: null })
         assert.deepEqual(result.answers.urgency, { type: 'score', score: 1.4, probabilities: {}, confidence: null })
         assert.deepEqual(result.answers.drift, { type: 'noul', noul: 0.3 })
-        assert.equal(result.model, 'typesafe/jev-1.13-20260917')
+        assert.equal(result.model, 'typesafe/jev-1.14-20261001')
         assert.equal(result.usage.costUsd, 1000 * 0.042 / 1e6)
+    })
+})
+
+test('JEV model: app default unless the user picked a release, then that one is requested', async () => {
+    const { createJevProvider, resolveJevModel } = await load('/src/integrations/decision/jev.ts')
+    assert.equal(resolveJevModel(null), 'typesafe/jev-1.14')
+    assert.equal(resolveJevModel(undefined), 'typesafe/jev-1.14')
+    assert.equal(resolveJevModel('  '), 'typesafe/jev-1.14')
+    assert.equal(resolveJevModel('typesafe/jev-1.13'), 'typesafe/jev-1.13')
+    const bare = { answers: JEV_OK.answers, usage: { input_tokens: 1000 } }
+    await withFetch(() => jsonResponse(200, bare), async (calls) => {
+        const custom = await createJevProvider({ openRouter: { apiKey: 'k', jevModel: 'typesafe/jev-1.13' } }).decide({ state: {}, questions: Q })
+        assert.equal(JSON.parse(calls[0].init.body).model, 'typesafe/jev-1.13')
+        assert.equal(custom.model, 'typesafe/jev-1.13')     // no model echoed back → the one asked for
+        await createJevProvider({ openRouter: { apiKey: 'k', jevModel: null } }).decide({ state: {}, questions: Q })
+        assert.equal(JSON.parse(calls[1].init.body).model, 'typesafe/jev-1.14')
     })
 })
 

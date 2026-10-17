@@ -162,6 +162,8 @@ test('OpenRouterConfigSchema applies defaults and caps fallbacks at two', async 
     assert.deepEqual(OpenRouterConfigSchema.parse({ version: 1, model: 'openai/gpt-6-luna' }), { version: 1, model: 'openai/gpt-6-luna', fallbackModels: [], dataCollection: 'deny' })
     assert.ok(!OpenRouterConfigSchema.safeParse({ version: 1, model: 'a/b', fallbackModels: ['a/c', 'a/d', 'a/e'] }).success)
     assert.ok(!OpenRouterConfigSchema.safeParse({ version: 1, model: 'a/b', extra: true }).success)
+    assert.equal(OpenRouterConfigSchema.parse({ version: 1, model: 'a/b', jevModel: ' typesafe/jev-1.13 ' }).jevModel, 'typesafe/jev-1.13')
+    assert.ok(!OpenRouterConfigSchema.safeParse({ version: 1, model: 'a/b', jevModel: '' }).success)
 })
 
 // ── streaming ────────────────────────────────────────────────────────────────

@@ -374,6 +374,7 @@ class GammaLedger {
             encryptionKey: null,
             model: DEFAULT_OPENROUTER_MODEL,
             fallbackModels: [],
+            jevModel: null,
             dataCollection: 'deny',
             models: null,
             modelsLoading: null,
@@ -665,7 +666,7 @@ class GammaLedger {
             this.bindEvents();
             this.initializeGeminiControls();
             this.initializeOpenRouterControls();
-            this.refreshJevStatus();
+            this.initializeJevControls();
             this.initializeAIProviderControls();
             this.initializeAccountSizeControls();
             this.initializeAIChat();
@@ -1583,6 +1584,8 @@ class GammaLedger {
     async loadOpenRouterConfigFromStorage() { return openRouterIntegrationModule.loadOpenRouterConfigFromStorage.call(this); }
 
     initializeOpenRouterControls() { return openRouterIntegrationModule.initializeOpenRouterControls.call(this); }
+
+    initializeJevControls() { return jevModule.initializeJevControls.call(this); }
 
     refreshJevStatus() { return jevModule.refreshJevStatus.call(this); }
 

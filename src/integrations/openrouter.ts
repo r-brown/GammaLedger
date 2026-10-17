@@ -56,13 +56,14 @@ function writeConfig(state: OpenRouterState, secret: StoredSecret): void {
         model: state.model,
         fallbackModels: [...state.fallbackModels],
         dataCollection: state.dataCollection,
+        ...(state.jevModel ? { jevModel: state.jevModel } : {}),
         ...secret
     }
     safeLocalStorage.setItem(OPENROUTER_STORAGE_KEY, JSON.stringify(config))
 }
 
 /** Persists non-secret settings, keeping whatever secret is already stored. */
-function saveSettings(state: OpenRouterState): void {
+export function saveSettings(state: OpenRouterState): void {
     const stored = readStoredConfig()
     const secret: StoredSecret = stored?.payload ? { payload: stored.payload } : stored?.apiKey ? { apiKey: stored.apiKey } : {}
     writeConfig(state, secret)
@@ -90,6 +91,7 @@ export async function loadOpenRouterConfigFromStorage(this: OpenRouterSettingsCo
     state.model = resolveOpenRouterModel(config.model)
     state.fallbackModels = config.fallbackModels.filter(isValidOpenRouterModelId)
     state.dataCollection = config.dataCollection
+    state.jevModel = config.jevModel && isValidOpenRouterModelId(config.jevModel) ? config.jevModel : null
 
     if (config.payload) {
         const cryptoApi = this.getCrypto()

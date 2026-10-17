@@ -4,8 +4,8 @@
 
 import { z } from 'zod'
 import {
+    JEV_DEFAULT_MODEL,
     JEV_INPUT_USD_PER_MILLION,
-    JEV_OPENROUTER_MODEL,
     JEV_REQUEST_TIMEOUT_MS,
     OPENROUTER_ATTRIBUTION_HEADERS,
     OPENROUTER_DECISIONS_ENDPOINT
@@ -15,7 +15,12 @@ import { LLMError, type LLMErrorKind } from '../llm/types.js'
 import type { DecisionAnswer, DecisionProvider, DecisionQuestion, DecisionRequest, DecisionResult } from './types.js'
 
 export interface JevProviderContext {
-    openRouter: { apiKey: string | null }
+    /** `jevModel` is the user's custom release; null/absent means the app default. */
+    openRouter: { apiKey: string | null; jevModel?: string | null }
+}
+
+export function resolveJevModel(custom: string | null | undefined): string {
+    return custom?.trim() || JEV_DEFAULT_MODEL
 }
 
 const Probabilities = z.record(z.string(), z.number())
@@ -55,7 +60,7 @@ function errorMessage(body: unknown, status: number): string {
     return (typeof e === 'string' ? e : e?.message) || parsed.data.message || parsed.data.detail || `HTTP ${status}`
 }
 
-export function buildJevBody<K extends string>(request: DecisionRequest<K>, model: string = JEV_OPENROUTER_MODEL): Record<string, unknown> {
+export function buildJevBody<K extends string>(request: DecisionRequest<K>, model: string = JEV_DEFAULT_MODEL): Record<string, unknown> {
     return { model, state: request.state, questions: request.questions }
 }
 
@@ -92,6 +97,7 @@ export function createJevProvider(ctx: JevProviderContext): DecisionProvider {
         displayName: 'JEV (via OpenRouter)',
         async decide<K extends string>(request: DecisionRequest<K>): Promise<DecisionResult<K>> {
             const key = (ctx.openRouter.apiKey || '').trim()
+            const model = resolveJevModel(ctx.openRouter.jevModel)
             if (!key) throw new LLMError('missing_key', 'Missing OpenRouter API key')
             return runWithTimeout(JEV_REQUEST_TIMEOUT_MS, request.signal, async (signal) => {
                 const response = await fetch(OPENROUTER_DECISIONS_ENDPOINT, {
@@ -102,7 +108,7 @@ export function createJevProvider(ctx: JevProviderContext): DecisionProvider {
                         Accept: 'application/json',
                         ...OPENROUTER_ATTRIBUTION_HEADERS
                     },
-                    body: JSON.stringify(buildJevBody(request)),
+                    body: JSON.stringify(buildJevBody(request, model)),
                     signal
                 })
                 const body = await readJson(response)
@@ -115,7 +121,7 @@ export function createJevProvider(ctx: JevProviderContext): DecisionProvider {
                     answers: toDecisionAnswers(request.questions, parsed.data.answers),
                     engine: 'jev',
                     calibrated: true,
-                    model: parsed.data.model || JEV_OPENROUTER_MODEL,
+                    model: parsed.data.model || model,
                     usage: {
                         inputTokens,
                         costUsd: usage?.cost ?? (inputTokens === null ? null : (inputTokens * JEV_INPUT_USD_PER_MILLION) / 1_000_000)

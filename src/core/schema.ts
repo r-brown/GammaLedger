@@ -238,6 +238,8 @@ export const OpenRouterConfigSchema = z.object({
     model: z.string().trim().min(1),
     fallbackModels: z.array(z.string().trim().min(1)).max(OPENROUTER_MAX_FALLBACK_MODELS).default([]),
     dataCollection: z.enum(['deny', 'allow']).default('deny'),
+    /** Custom JEV release for typed decisions; absent = the app default (`JEV_DEFAULT_MODEL`). */
+    jevModel: z.string().trim().min(1).optional(),
     payload: EncryptedSecretSchema.optional(),
     apiKey: z.string().optional()
 }).strict();

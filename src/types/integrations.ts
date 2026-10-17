@@ -180,6 +180,8 @@ export type AIStatusVariant = 'success' | 'error' | 'neutral'
 
 /** OpenRouter adapter state (this.openRouter on GammaLedger). */
 export interface OpenRouterState extends OpenRouterProviderState {
+  /** Custom JEV release for typed decisions; null = the app default (JEV_DEFAULT_MODEL). */
+  jevModel: string | null
   encryptionKey: CryptoKey | null
   statusTimeoutId: ReturnType<typeof setTimeout> | null
   /** Status raised before the settings DOM exists; shown by initializeOpenRouterControls. */

@@ -45,8 +45,13 @@ export const OPENROUTER_MAX_FALLBACK_MODELS = 2
 // JEV (TypeSafe AI) typed decisions (AI verdict, thesis drift), served by OpenRouter's
 // Decisions API with the user's OpenRouter key — no separate key.
 export const OPENROUTER_DECISIONS_ENDPOINT = 'https://openrouter.ai/api/alpha/decisions'
-/** Pinned; move to a newer JEV release deliberately (spec Open Risks: keep the schema strict). */
-export const JEV_OPENROUTER_MODEL = 'typesafe/jev-1.13'
+/**
+ * Default JEV release. Users can pick another in Settings → AI (stored as `jevModel`, absent while
+ * default), so bumping this moves everyone who never changed it. Keep the answer schema strict.
+ */
+export const JEV_DEFAULT_MODEL = 'typesafe/jev-1.14'
+/** Releases offered as suggestions in the settings field; any other `provider/model` ID is still accepted. */
+export const JEV_KNOWN_MODELS: readonly string[] = [JEV_DEFAULT_MODEL, 'typesafe/jev-1.13']
 /** JEV answers in well under a second; a short budget keeps a stuck call from holding a panel. */
 export const JEV_REQUEST_TIMEOUT_MS = 15_000
 export const JEV_INPUT_USD_PER_MILLION = 0.042

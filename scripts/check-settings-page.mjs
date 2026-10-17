@@ -18,6 +18,9 @@ const host = (over = {}) => ({
     schwab: { vault: null, encryptionKey: null },
     finnhub: { apiKey: null },
     getActiveLLMProvider: () => provider(false),
+    aiProvider: { active: 'openrouter' },
+    openRouter: { jevModel: null },
+    jev: { reachable: true },
     defaultFeePerContract: null,
     accountSize: null,
     externalAnalyticsUrl: 'https://www.investing.com/search/?q={ticker}',
@@ -52,6 +55,14 @@ test('card badges reflect what is configured', async () => {
     assert.deepEqual(getCardStatus(set, 'account-size'), { tone: 'ok', text: '$60000.00' })
     assert.deepEqual(getCardStatus(set, 'analytics-link'), { tone: 'info', text: 'Custom' })
     assert.deepEqual(getCardStatus(set, 'startup'), { tone: 'info', text: 'Start blank' })
+})
+
+test('JEV badge: release in use, custom marker, unavailable, and Gemini', async () => {
+    const { getCardStatus } = await load('/src/ui/settings-page.ts')
+    assert.deepEqual(getCardStatus(host(), 'jev'), { tone: 'ok', text: 'jev-1.14' })
+    assert.deepEqual(getCardStatus(host({ openRouter: { jevModel: 'typesafe/jev-1.13' } }), 'jev'), { tone: 'ok', text: 'jev-1.13 · custom' })
+    assert.deepEqual(getCardStatus(host({ jev: { reachable: false } }), 'jev'), { tone: 'warn', text: 'Unavailable' })
+    assert.deepEqual(getCardStatus(host({ aiProvider: { active: 'gemini' } }), 'jev'), { tone: 'info', text: 'Needs OpenRouter' })
 })
 
 test('Schwab badge walks the vault states: locked, needs authorization, connected', async () => {
