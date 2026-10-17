@@ -45,8 +45,8 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/app/gammaledger-logo-16x16.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/app/gammaledger-logo-32x32.png">
     <link rel="icon" type="image/png" sizes="64x64" href="/app/gammaledger-logo-64x64.png">
-  <script type="module" crossorigin src="/app/assets/index-QBJwPLRx.js"></script>
-  <link rel="stylesheet" crossorigin href="/app/assets/index-BZDSUIw5.css">
+  <script type="module" crossorigin src="/app/assets/index-CBgL0bEO.js"></script>
+  <link rel="stylesheet" crossorigin href="/app/assets/index-DVWljjIJ.css">
 </head>
 
 <body>
@@ -908,7 +908,7 @@
                                 <div class="settings-card__header">
                                     <div class="settings-card__heading">
                                         <h3>AI provider</h3>
-                                        <p class="settings-card__subtitle">Pick a provider, paste its key and choose a model.</p>
+                                        <p class="settings-card__subtitle">The service behind the AI Coach chat and screenshot import. Pick one, add its key, choose a model.</p>
                                     </div>
                                     <span class="settings-badge" data-settings-badge hidden></span>
                                 </div>
@@ -930,7 +930,8 @@
                                             <p class="settings-help-text">Create a key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer">openrouter.ai/keys</a>. One key works with models from Anthropic, OpenAI, Google and others.</p>
                                         </div>
                                         <div class="settings-field">
-                                            <label for="openrouter-model" class="form-label">Model</label>
+                                            <label for="openrouter-model" class="form-label">Chat model</label>
+                                            <p class="settings-help-text">Powers the AI Coach chat and screenshot import. Search the list or type any OpenRouter model ID.</p>
                                             <div class="settings-input-row">
                                                 <div class="ai-model-picker">
                                                     <input type="text" id="openrouter-model" class="form-control" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="openrouter-model-list" placeholder="google/gemini-3.8-flash" autocomplete="off" spellcheck="false">
@@ -944,7 +945,6 @@
                                             <input id="openrouter-data-collection" type="checkbox" checked>
                                             <span>Only use providers that don't train on my data</span>
                                         </label>
-                                        <p class="settings-help-text" id="jev-status" role="status">AI verdicts and thesis checks use JEV (TypeSafe AI) through this key: fast, calibrated and nearly free. No extra key needed.</p>
                                     </div>
 
                                     <div id="gemini-controls" class="ai-provider-fields" data-ai-provider-fields="gemini" hidden>
@@ -967,12 +967,12 @@
                                     <details class="ai-provider-advanced">
                                         <summary>Advanced</summary>
                                         <div class="ai-provider-fields settings-field" data-ai-provider-fields="openrouter" hidden>
-                                            <label for="openrouter-fallback-models" class="form-label">Fallback models</label>
+                                            <label for="openrouter-fallback-models" class="form-label">Fallback chat models</label>
                                             <div class="settings-input-row">
                                                 <input type="text" id="openrouter-fallback-models" class="form-control" placeholder="anthropic/claude-sonnet-5, openai/gpt-6-luna" autocomplete="off" spellcheck="false" data-autosave="openrouter-fallback-save">
                                                 <button class="btn btn--sm btn--primary" id="openrouter-fallback-save" hidden>Save</button>
                                             </div>
-                                            <p class="settings-help-text" id="openrouter-fallback-note" role="status">Up to two model IDs, comma-separated. OpenRouter tries them in order if the main model is down or rate-limited.</p>
+                                            <p class="settings-help-text" id="openrouter-fallback-note" role="status">Up to two model IDs, comma-separated. OpenRouter tries them in order if your chat model is down or rate-limited.</p>
                                         </div>
                                         <div class="settings-field">
                                             <label for="gemini-max-tokens" class="form-label">Max output tokens</label>
@@ -984,6 +984,36 @@
                                             <p class="settings-help-text" id="gemini-tokens-status" role="status">Maximum tokens for AI responses, for either provider. Default: 65,536.</p>
                                         </div>
                                     </details>
+                                </div>
+                            </div>
+
+                            <div class="settings-card" id="jev-controls" data-settings-card="jev" data-settings-keywords="jev typesafe quick decisions verdict thesis check model release version openrouter">
+                                <div class="settings-card__header">
+                                    <div class="settings-card__heading">
+                                        <h3>Quick decisions (JEV)</h3>
+                                        <p class="settings-card__subtitle">Answers the AI verdict and thesis checks. Separate from the chat model above.</p>
+                                    </div>
+                                    <span class="settings-badge" data-settings-badge hidden></span>
+                                </div>
+                                <div class="settings-card__body">
+                                    <div class="ai-provider-fields" data-ai-provider-fields="openrouter" hidden>
+                                        <p class="settings-help-text settings-card__intro">JEV is a small model from TypeSafe AI built for fast, calibrated answers. It runs through your OpenRouter key, so there is nothing else to set up.</p>
+                                        <div class="settings-field">
+                                            <label for="jev-model" class="form-label">JEV release</label>
+                                            <div class="settings-input-row">
+                                                <input type="text" id="jev-model" class="form-control" list="jev-model-list" autocomplete="off" spellcheck="false" data-autosave="jev-model-save">
+                                                <datalist id="jev-model-list"></datalist>
+                                                <button class="btn btn--sm btn--primary" id="jev-model-save" hidden>Save</button>
+                                                <button class="btn btn--sm btn--secondary" id="jev-model-reset">Reset to default</button>
+                                            </div>
+                                            <p class="settings-help-text" id="jev-model-note" role="status"></p>
+                                            <p class="settings-help-text">Newer releases show up on OpenRouter as <code>typesafe/jev-x.y</code>. Type one to try it.</p>
+                                            <p class="settings-help-text" id="jev-status" role="status"></p>
+                                        </div>
+                                    </div>
+                                    <div class="ai-provider-fields" data-ai-provider-fields="gemini" hidden>
+                                        <p class="settings-help-text">JEV runs through OpenRouter. While Gemini is your provider, verdicts and thesis checks are answered by your Gemini model. Switch the provider above to use JEV.</p>
+                                    </div>
                                 </div>
                             </div>
                         </section>
