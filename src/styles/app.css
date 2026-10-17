@@ -972,13 +972,74 @@ select.form-control {
   display: none;
 }
 
-.announcement-banner__content {
+/* Slides share one grid cell so the banner is as tall as the tallest message and never jumps. */
+.announcement-banner__viewport {
   flex: 1;
+  display: grid;
+}
+
+.announcement-banner__slide {
+  grid-area: 1 / 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: var(--space-8) var(--space-16);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s;
+}
+
+.announcement-banner__slide--active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.announcement-banner__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.announcement-banner__nav[hidden] {
+  display: none;
+}
+
+.announcement-banner__arrow {
+  background: none;
+  border: none;
+  color: #fff;
+  opacity: 0.7;
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  padding: 0 var(--space-4);
+  cursor: pointer;
+}
+
+.announcement-banner__arrow:hover,
+.announcement-banner__arrow:focus-visible {
+  opacity: 1;
+}
+
+.announcement-banner__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  background: transparent;
+  cursor: pointer;
+}
+
+.announcement-banner__dot--active {
+  background: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-banner__slide {
+    transition: none;
+  }
 }
 
 .announcement-banner__actions {
