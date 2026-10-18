@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
 const SRC = readFileSync(new URL('./analytics.js', import.meta.url), 'utf8');
-const ENDPOINT = 'https://q4cffnmf57m2pybahil3ha7lca0docmr.lambda-url.eu-west-1.on.aws/';
+const ENDPOINT = 'https://relay.dev.labs64.io/';
 
 let uuidN = 0; // shared across load() calls so two fake tabs get different ids
 function load(opts = {}) {

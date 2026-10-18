@@ -10,7 +10,7 @@
    ============================================================ */
 
 const ANALYTICS_CONFIG = {
-  endpoint: 'https://q4cffnmf57m2pybahil3ha7lca0docmr.lambda-url.eu-west-1.on.aws/',
+  endpoint: 'https://relay.dev.labs64.io/',
   tenantId: 'gammaledger',
   game: 'keep-the-economy-afloat',
   gameVersion: '1.0', // bump when gameplay changes, so sessions can be compared by version
