@@ -25,6 +25,10 @@ If you split the year into two halves, the numbers tend to look like this. Since
 
 Month by month, the picture is uneven. January has tended to be one of the strongest months. September has tended to be the weakest. Neither is guaranteed. They are just what the averages look like when you stack many decades on top of each other.
 
+![Animated bar chart of the S&P 500's average change by month from 1928 to 2026, with the November to April window highlighted as the best six months](/assets/img/best-six-months-seasonality.svg)
+
+*Average S&P 500 change by month, 1928–2026. Historical averages, not a forecast.*
+
 The original trading rule was simple: own stocks from November to April, then sell in May and sit in cash until fall. Few people follow it that strictly today, but plenty still keep it in the back of their minds.
 
 ## Why might it happen?
