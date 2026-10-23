@@ -1,4 +1,99 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.4.1">Jekyll</generator><link href="https://gammaledger.com/feed.xml" rel="self" type="application/atom+xml" /><link href="https://gammaledger.com/" rel="alternate" type="text/html" /><updated>2026-10-18T08:56:39+00:00</updated><id>https://gammaledger.com/feed.xml</id><title type="html">GammaLedger</title><subtitle>Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.</subtitle><author><name>GammaLedger Contributors</name></author><entry><title type="html">A Weekly Options Review Ritual with GammaLedger</title><link href="https://gammaledger.com/blog/trade-review-ritual-gammaledger/" rel="alternate" type="text/html" title="A Weekly Options Review Ritual with GammaLedger" /><published>2026-07-10T00:00:00+00:00</published><updated>2026-07-10T00:00:00+00:00</updated><id>https://gammaledger.com/blog/trade-review-ritual-gammaledger</id><content type="html" xml:base="https://gammaledger.com/blog/trade-review-ritual-gammaledger/"><![CDATA[<p>The value of a trading journal comes from repetition. A perfect dashboard does not help if it is opened only after a large loss. GammaLedger works best when it becomes part of a weekly review ritual: import, reconcile, analyze, decide, and back up.</p>
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.4.1">Jekyll</generator><link href="https://gammaledger.com/feed.xml" rel="self" type="application/atom+xml" /><link href="https://gammaledger.com/" rel="alternate" type="text/html" /><updated>2026-10-23T15:16:46+00:00</updated><id>https://gammaledger.com/feed.xml</id><title type="html">GammaLedger</title><subtitle>Powerful analytics for smarter options trading — track performance, analyze strategies, and optimize every trade with professional precision.</subtitle><author><name>GammaLedger Contributors</name></author><entry><title type="html">Is There a Best Time of Year to Trade? The Best Six Months, Explained</title><link href="https://gammaledger.com/blog/best-six-months-for-stocks-options-traders/" rel="alternate" type="text/html" title="Is There a Best Time of Year to Trade? The Best Six Months, Explained" /><published>2026-08-23T00:00:00+00:00</published><updated>2026-08-23T00:00:00+00:00</updated><id>https://gammaledger.com/blog/best-six-months-for-stocks-options-traders</id><content type="html" xml:base="https://gammaledger.com/blog/best-six-months-for-stocks-options-traders/"><![CDATA[<p>There is an old saying on Wall Street: “Sell in May and go away.” It sounds like a joke, but the idea behind it has been studied for decades. Stocks have often done better in the colder half of the year than in the warmer half.</p>
+
+<p>If you trade options, you may wonder whether this matters for you. Should you trade differently in November than in July? Short answer: maybe a little, but not in the way the headlines suggest. Let’s look at what the pattern says, what it doesn’t, and how to test it against your own results.</p>
+
+<h2 id="the-short-version">The short version</h2>
+
+<ul>
+  <li>Looking back at long stretches of market history, the best rolling six months have been <strong>November through April</strong>.</li>
+  <li>It is a calendar pattern, not a law. Nobody has a solid explanation for it.</li>
+  <li>Averages hide a lot of bad years. Treat the pattern as a curiosity to check, not a signal to trade.</li>
+  <li>You already have a better dataset than any chart: your own trade history.</li>
+</ul>
+
+<h2 id="what-the-pattern-says">What the pattern says</h2>
+
+<p>If you split the year into two halves, the numbers tend to look like this. Since the mid-1940s, the S&amp;P 500 has gained roughly 7% on average from November to April. From May to October, the average is closer to 2%. Smaller companies show the gap even more clearly, with an average of around 9% in the winter window.</p>
+
+<p>Month by month, the picture is uneven. January has tended to be one of the strongest months. September has tended to be the weakest. Neither is guaranteed. They are just what the averages look like when you stack many decades on top of each other.</p>
+
+<p>The original trading rule was simple: own stocks from November to April, then sell in May and sit in cash until fall. Few people follow it that strictly today, but plenty still keep it in the back of their minds.</p>
+
+<h2 id="why-might-it-happen">Why might it happen?</h2>
+
+<p>Honestly, no one knows. A few theories come up often:</p>
+
+<ul>
+  <li><strong>Year-end money moves.</strong> Funds rebalance, bonuses arrive, and new savings get invested around the turn of the year.</li>
+  <li><strong>Holiday mood.</strong> People feel more optimistic and spend more in the final months of the year.</li>
+  <li><strong>Election cycles.</strong> Expectations about policy can shift how people feel about stocks.</li>
+  <li><strong>Summer slowdown.</strong> Lower trading volume in the summer can make markets jumpier and less supported.</li>
+</ul>
+
+<p>Each of these sounds reasonable. None of them has been proven. When a pattern shows up in the data but nobody can fully explain it, traders call it an anomaly. That should make you a bit careful, not excited.</p>
+
+<h2 id="why-you-should-be-careful-with-it">Why you should be careful with it</h2>
+
+<p>Here is where the story gets less tidy.</p>
+
+<p><strong>Averages are not forecasts.</strong> An average of 7% does not mean every winter delivers 7%. Some winters are flat. Some are painful. Some summers rally hard. A pattern that works on average can still fail in the year you are actually trading.</p>
+
+<p><strong>Patterns fade once everyone knows them.</strong> Markets are full of people looking for an edge. The more famous a calendar effect becomes, the more likely it is to get smaller over time. Better technology and a more global market have also smoothed out some seasonal habits.</p>
+
+<p><strong>Staying out has a cost.</strong> Selling every May means you may miss good summer months, and you pay taxes and fees on the way. Over long periods, simply staying invested has often beaten seasonal switching.</p>
+
+<p><strong>Conditions change.</strong> Interest rates, inflation, valuations, and big themes in the news can easily overpower a calendar effect. Last year’s pattern does not care about this year’s headlines.</p>
+
+<p>So if someone tells you the next six months will be great because of the calendar, smile and keep your risk rules.</p>
+
+<h2 id="what-it-could-mean-for-options-traders">What it could mean for options traders</h2>
+
+<p>Options add a few twists. You are not only guessing direction. You are also dealing with time decay, volatility, and the risk you take on each position. A calendar pattern can touch each of those in different ways. Here are some honest, practical ways to think about it:</p>
+
+<ul>
+  <li><strong>Direction-leaning trades.</strong> If you tend to buy calls or sell puts, the calendar might nudge you to ask yourself a question: am I more bullish in winter because of the market, or because of the story I like?</li>
+  <li><strong>Premium selling.</strong> Covered calls and cash-secured puts depend on how the stock moves and how much premium the market pays. A strong stretch can mean your shares get called away more often. A weak stretch can mean more assignments on puts.</li>
+  <li><strong>Position size.</strong> The calendar is a poor reason to size up. If you want to lean into a season, doing it with smaller, defined-risk trades is far easier to live with.</li>
+  <li><strong>Sector tilt.</strong> Some analysts note that growth-oriented sectors, like technology, industrials, and consumer discretionary, tend to lead in the winter half, while steadier sectors, like utilities and health care, tend to hold up better in the summer half. That is another average, so treat it as an idea to examine, not a rule.</li>
+</ul>
+
+<p>Nothing here says “trade more in November.” The more useful question is: <strong>do I behave differently across the year, and does it show up in my results?</strong></p>
+
+<h2 id="test-it-on-your-own-trades">Test it on your own trades</h2>
+
+<p>This is where a journal earns its keep. Instead of trusting a chart built from a century of index data, look at what actually happened in your account.</p>
+
+<p>Try this review in GammaLedger:</p>
+
+<ol>
+  <li><strong>Pick a long window.</strong> Look at a year or more of closed trades. The more months, the better.</li>
+  <li><strong>Split by season.</strong> Compare your November to April trades with your May to October trades. Look at total P&amp;L, win rate, and average return per trade.</li>
+  <li><strong>Check your strategies.</strong> Did the Wheel or covered calls behave differently in each half? Did long calls do better in one season?</li>
+  <li><strong>Look at the ticker heatmap.</strong> Some names may have been strong in one half and weak in the other for reasons that have nothing to do with the calendar.</li>
+  <li><strong>Check time in trade.</strong> Did you hold losers longer in certain months? Did you rush exits before summer or the holidays?</li>
+  <li><strong>Read your notes.</strong> If you wrote down why you entered, you may find the real driver was mood or timing, not a pattern.</li>
+</ol>
+
+<p>Be careful with small samples. If you only made a handful of trades in a season, a single big win or loss can paint a misleading picture. Use it to ask better questions, not to declare a winner.</p>
+
+<h2 id="a-reasonable-way-to-use-all-this">A reasonable way to use all this</h2>
+
+<p>If you are curious about the best-six-months idea, here is a sensible, low-drama approach:</p>
+
+<ul>
+  <li><strong>Keep your main plan.</strong> Your core approach should rest on your own rules, risk limits, and long-term goals, not on the calendar.</li>
+  <li><strong>Use seasonality as a tiebreaker at most.</strong> If two setups look equal, a slight seasonal lean is fine. It should never be the reason for a trade.</li>
+  <li><strong>Limit the experiment.</strong> If you want to try a seasonal tilt, give it a small slice of your capital and write down the rules in advance.</li>
+  <li><strong>Review it honestly.</strong> After a season, look at the results with no excuses. If it did not help, drop it.</li>
+</ul>
+
+<h2 id="the-bottom-line">The bottom line</h2>
+
+<p>The best six months pattern is real in the sense that the averages show it. It is shaky in the sense that no one can prove why it exists, and it has plenty of exceptions. For most options traders, the calendar is a footnote, not a strategy.</p>
+
+<p>What does matter is how you trade across the year: your size, your discipline, and how you handle losses. Those are all things your own history can tell you, if you write them down and look.</p>
+
+<p><em>This article is for education only and is not financial advice. Past performance does not guarantee future results. Options involve risk and are not suitable for every investor.</em></p>]]></content><author><name>GammaLedger</name></author><category term="seasonality" /><category term="market-timing" /><category term="options" /><category term="trade-review" /><category term="gammaledger" /><summary type="html"><![CDATA[Stocks have historically done better from November through April than from May through October. Here is what that pattern means, why you should be careful with it, and how to check it against your own options trades.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-dashboard-analytics.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-dashboard-analytics.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">A Weekly Options Review Ritual with GammaLedger</title><link href="https://gammaledger.com/blog/trade-review-ritual-gammaledger/" rel="alternate" type="text/html" title="A Weekly Options Review Ritual with GammaLedger" /><published>2026-07-10T00:00:00+00:00</published><updated>2026-07-10T00:00:00+00:00</updated><id>https://gammaledger.com/blog/trade-review-ritual-gammaledger</id><content type="html" xml:base="https://gammaledger.com/blog/trade-review-ritual-gammaledger/"><![CDATA[<p>The value of a trading journal comes from repetition. A perfect dashboard does not help if it is opened only after a large loss. GammaLedger works best when it becomes part of a weekly review ritual: import, reconcile, analyze, decide, and back up.</p>
 
 <p>Here is a practical workflow for active options traders.</p>
 
@@ -604,68 +699,4 @@
   <li>Use the breakdown to confirm cash flow and lifecycle status.</li>
 </ol>
 
-<p>The payoff is clarity. Instead of a list of disconnected executions, GammaLedger gives you one position narrative with leg-level detail.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="multi-leg" /><category term="options" /><category term="trade-management" /><category term="analytics" /><summary type="html"><![CDATA[How GammaLedger models option legs, cash flows, rolls, closes, stock assignments, and cash settlement inside one coherent trade record.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-multi-leg-lifecycle.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-multi-leg-lifecycle.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry><entry><title type="html">Importing Broker Trades: OFX, Robinhood CSV, and AI Screenshot Drafts</title><link href="https://gammaledger.com/blog/import-broker-trades-ofx-robinhood-ai-screenshots/" rel="alternate" type="text/html" title="Importing Broker Trades: OFX, Robinhood CSV, and AI Screenshot Drafts" /><published>2026-04-22T00:00:00+00:00</published><updated>2026-04-22T00:00:00+00:00</updated><id>https://gammaledger.com/blog/import-broker-trades-ofx-robinhood-ai-screenshots</id><content type="html" xml:base="https://gammaledger.com/blog/import-broker-trades-ofx-robinhood-ai-screenshots/"><![CDATA[<p>Manual entry is useful for precision, but active options traders often need a faster way to bring trade history into a journal. GammaLedger’s import view is designed for that reality: broker files come in, the app normalizes them into trade legs, and anything uncertain goes into a review workflow instead of silently corrupting the portfolio.</p>
-
-<p>The current import surface supports three practical paths:</p>
-
-<ul>
-  <li>OFX and QFX activity files.</li>
-  <li>Robinhood CSV exports.</li>
-  <li>AI Coach screenshot extraction for draft trade legs.</li>
-</ul>
-
-<p>Each path has a different job. OFX/QFX is best for structured broker exports. Robinhood CSV handles Robinhood’s trade history format. AI screenshots are a review-first fallback when the source is visual rather than a clean data file.</p>
-
-<h2 id="ofx-and-qfx-import">OFX and QFX import</h2>
-
-<p>OFX and QFX files are common brokerage export formats. GammaLedger parses the file, identifies transactions, maps option fields, and creates normalized legs with execution date, order type, quantity, strike, expiration, premium, fees, and import provenance.</p>
-
-<p>The import process also checks for external IDs so re-importing the same file does not create duplicate legs. That matters when you are reconciling a history export and need to run the same file again after fixing a mapping or reviewing an earlier import.</p>
-
-<h2 id="robinhood-csv-import">Robinhood CSV import</h2>
-
-<p>Robinhood exports need a different parser. GammaLedger reads the CSV rows, interprets option and stock activity, calculates fees when they can be derived from totals, and groups related entries.</p>
-
-<p>The importer handles common trading-journal pain points:</p>
-
-<ul>
-  <li>Split fills are consolidated into one leg with a quantity-weighted average price.</li>
-  <li>Opening legs are grouped into trades by ticker, option type, strike, and expiration.</li>
-  <li>Closing legs are matched against existing open positions where possible.</li>
-  <li>Assignment and stock activity can be consolidated into Wheel-style lifecycle records.</li>
-  <li>Roll-like BTC/STO activity can be merged into a coherent trade history.</li>
-</ul>
-
-<p>The goal is not to hide complexity. The goal is to put complexity where it belongs: in a reviewable transaction log instead of in hand-edited spreadsheet rows.</p>
-
-<h2 id="ai-screenshot-drafts">AI screenshot drafts</h2>
-
-<p>Sometimes the only practical source is a screenshot from a broker’s trade history page. GammaLedger’s AI Coach can accept an image, extract visible trade rows, and prepare draft legs for review.</p>
-
-<p>This is intentionally not a blind import. Extracted rows land in a review table where you can inspect and edit ticker, action, instrument type, quantity, date, expiration, strike, price, and fees before importing. Low-confidence fields and missing values are flagged.</p>
-
-<p>After import, screenshot-derived trades enter the same review queue as other uncertain imports. You approve, edit, merge, or discard them before they should be treated as trusted journal data.</p>
-
-<h2 id="the-review-queue-is-the-safety-layer">The review queue is the safety layer</h2>
-
-<p>Broker history is messy. Closing legs may not match an open position because the opening trade is missing. A roll may arrive as separate trades. A screenshot may omit a column. A split fill may need consolidation.</p>
-
-<p>GammaLedger handles that with a review queue. Pending trades show their source, ticker, leg count, date, and a compact leg preview. From there you can approve a trade as-is, edit it, merge selected imports, or discard bad rows.</p>
-
-<p>This makes import a controlled workflow:</p>
-
-<ol>
-  <li>Bring in the raw activity.</li>
-  <li>Let GammaLedger normalize what it can.</li>
-  <li>Review uncertain records.</li>
-  <li>Merge related trades by ticker when needed.</li>
-  <li>Save the resulting portfolio.</li>
-</ol>
-
-<p>That approach is slower than “upload and trust everything,” but it is much safer for options accounting. One misplaced closing leg can distort P&amp;L, open-contract counts, and lifecycle status. The review queue keeps those decisions visible.</p>
-
-<h2 id="a-practical-import-habit">A practical import habit</h2>
-
-<p>Import in batches, then review immediately. Do not wait until dozens of uncertain records pile up. After each broker export, check the latest import summary, inspect the log, approve clean records, and merge related trades while the execution history is still fresh.</p>
-
-<p>GammaLedger gives you the tools to move quickly, but the best results still come from trader review. Imported data should accelerate your journal, not replace your judgment.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="import" /><category term="ofx" /><category term="robinhood" /><category term="ai-screenshot" /><category term="options" /><summary type="html"><![CDATA[A practical look at GammaLedger's import workflow, review queue, merge tools, split-fill handling, and AI screenshot extraction.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-import-review.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-import-review.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry></feed>
+<p>The payoff is clarity. Instead of a list of disconnected executions, GammaLedger gives you one position narrative with leg-level detail.</p>]]></content><author><name>GammaLedger</name></author><category term="gammaledger" /><category term="multi-leg" /><category term="options" /><category term="trade-management" /><category term="analytics" /><summary type="html"><![CDATA[How GammaLedger models option legs, cash flows, rolls, closes, stock assignments, and cash settlement inside one coherent trade record.]]></summary><media:thumbnail xmlns:media="http://search.yahoo.com/mrss/" url="https://gammaledger.com/assets/img/gammaledger-multi-leg-lifecycle.png" /><media:content medium="image" url="https://gammaledger.com/assets/img/gammaledger-multi-leg-lifecycle.png" xmlns:media="http://search.yahoo.com/mrss/" /></entry></feed>
