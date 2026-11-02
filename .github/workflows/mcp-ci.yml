@@ -5,11 +5,17 @@ on:
     paths:
       - "mcp/**"
       - ".github/workflows/mcp-ci.yml"
+      # The contract tests compare the server against what the app actually writes.
+      - "src/integrations/mcp.ts"
+      - "src/core/config.ts"
   push:
     branches: [main]
     paths:
       - "mcp/**"
       - ".github/workflows/mcp-ci.yml"
+      # The contract tests compare the server against what the app actually writes.
+      - "src/integrations/mcp.ts"
+      - "src/core/config.ts"
 
 permissions:
   contents: read

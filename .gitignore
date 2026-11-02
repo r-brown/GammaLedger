@@ -6,6 +6,8 @@ dist
 .vite
 playwright-report
 tests
+# the MCP server's own pytest suite and fixture databases are source, not scratch output
+!mcp/tests/
 test-results
 .idea
 .agents

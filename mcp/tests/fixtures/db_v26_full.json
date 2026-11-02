@@ -1,0 +1,540 @@
+{
+  "version": "2.6",
+  "exportDate": "2026-11-02T10:00:00.000Z",
+  "trades": [
+    {
+      "id": "TRD-0001",
+      "ticker": "SPY",
+      "strategy": "Iron Condor",
+      "status": "Open",
+      "underlyingType": "ETF",
+      "openedDate": "2026-10-20",
+      "closedDate": "",
+      "expirationDate": "2026-11-20",
+      "maxRiskOverride": null,
+      "notes": "",
+      "legs": [
+        {
+          "id": "L1",
+          "orderType": "STO",
+          "type": "CALL",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 620,
+          "premium": 2.1,
+          "fees": 0.65,
+          "executionDate": "2026-10-20",
+          "expirationDate": "2026-11-20"
+        },
+        {
+          "id": "L2",
+          "orderType": "BTO",
+          "type": "CALL",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 625,
+          "premium": 1.1,
+          "fees": 0.65,
+          "executionDate": "2026-10-20",
+          "expirationDate": "2026-11-20"
+        },
+        {
+          "id": "L3",
+          "orderType": "STO",
+          "type": "PUT",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 560,
+          "premium": 2.3,
+          "fees": 0.65,
+          "executionDate": "2026-10-20",
+          "expirationDate": "2026-11-20"
+        },
+        {
+          "id": "L4",
+          "orderType": "BTO",
+          "type": "PUT",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 555,
+          "premium": 1.2,
+          "fees": 0.65,
+          "executionDate": "2026-10-20",
+          "expirationDate": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "id": "TRD-0002",
+      "ticker": "AAPL",
+      "strategy": "Cash-Secured Put",
+      "status": "Closed",
+      "underlyingType": "Stock",
+      "openedDate": "2026-10-01",
+      "closedDate": "2026-10-15",
+      "expirationDate": "2026-10-31",
+      "maxRiskOverride": 19000,
+      "notes": "",
+      "legs": [
+        {
+          "id": "L1",
+          "orderType": "STO",
+          "type": "PUT",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 190,
+          "premium": 2.5,
+          "fees": 0.65,
+          "executionDate": "2026-10-01",
+          "expirationDate": "2026-10-31"
+        },
+        {
+          "id": "L2",
+          "orderType": "BTC",
+          "type": "PUT",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 190,
+          "premium": 0.5,
+          "fees": 0.65,
+          "executionDate": "2026-10-15",
+          "expirationDate": "2026-10-31"
+        }
+      ]
+    },
+    {
+      "id": "TRD-0003",
+      "ticker": "QQQ",
+      "strategy": "Cash-Secured Put",
+      "status": "Expired",
+      "underlyingType": "ETF",
+      "openedDate": "2026-02-02",
+      "closedDate": "2026-02-20",
+      "expirationDate": "2026-02-20",
+      "maxRiskOverride": null,
+      "notes": "",
+      "legs": [
+        {
+          "id": "L1",
+          "orderType": "STO",
+          "type": "PUT",
+          "quantity": 2,
+          "multiplier": 100,
+          "strike": 480,
+          "premium": 1.2,
+          "fees": 1.3,
+          "executionDate": "2026-02-02",
+          "expirationDate": "2026-02-20"
+        }
+      ]
+    },
+    {
+      "id": "TRD-0004",
+      "ticker": "TSLA",
+      "strategy": "Iron Condor",
+      "status": "Closed",
+      "underlyingType": "Stock",
+      "openedDate": "2026-03-03",
+      "closedDate": "2026-03-17",
+      "expirationDate": "2026-03-27",
+      "maxRiskOverride": null,
+      "notes": "",
+      "legs": [
+        {
+          "id": "L1",
+          "orderType": "STO",
+          "type": "CALL",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 300,
+          "premium": 1.0,
+          "fees": 0.65,
+          "executionDate": "2026-03-03",
+          "expirationDate": "2026-03-27"
+        },
+        {
+          "id": "L2",
+          "orderType": "BTO",
+          "type": "CALL",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 305,
+          "premium": 0.2,
+          "fees": 0.65,
+          "executionDate": "2026-03-03",
+          "expirationDate": "2026-03-27"
+        },
+        {
+          "id": "L3",
+          "orderType": "STO",
+          "type": "PUT",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 250,
+          "premium": 1.1,
+          "fees": 0.65,
+          "executionDate": "2026-03-03",
+          "expirationDate": "2026-03-27"
+        },
+        {
+          "id": "L4",
+          "orderType": "BTO",
+          "type": "PUT",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 245,
+          "premium": 0.3,
+          "fees": 0.65,
+          "executionDate": "2026-03-03",
+          "expirationDate": "2026-03-27"
+        },
+        {
+          "id": "L5",
+          "orderType": "BTC",
+          "type": "CALL",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 300,
+          "premium": 3.0,
+          "fees": 0.65,
+          "executionDate": "2026-03-17",
+          "expirationDate": "2026-03-27"
+        },
+        {
+          "id": "L6",
+          "orderType": "STC",
+          "type": "CALL",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 305,
+          "premium": 1.2,
+          "fees": 0.65,
+          "executionDate": "2026-03-17",
+          "expirationDate": "2026-03-27"
+        }
+      ]
+    },
+    {
+      "id": "TRD-0005",
+      "ticker": "NVDA",
+      "strategy": "Wheel",
+      "status": "Assigned",
+      "underlyingType": "Stock",
+      "openedDate": "2026-09-01",
+      "closedDate": "",
+      "expirationDate": "2026-11-14",
+      "maxRiskOverride": null,
+      "notes": "wheel",
+      "legs": [
+        {
+          "id": "L1",
+          "orderType": "STO",
+          "type": "PUT",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 150,
+          "premium": 3.0,
+          "fees": 0.65,
+          "executionDate": "2026-09-01",
+          "expirationDate": "2026-09-19"
+        },
+        {
+          "id": "L2",
+          "orderType": "BTO",
+          "type": "STOCK",
+          "quantity": 100,
+          "multiplier": 1,
+          "strike": null,
+          "premium": 150,
+          "fees": 0,
+          "executionDate": "2026-09-19",
+          "expirationDate": ""
+        },
+        {
+          "id": "L3",
+          "orderType": "STO",
+          "type": "CALL",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 160,
+          "premium": 2.0,
+          "fees": 0.65,
+          "executionDate": "2026-10-20",
+          "expirationDate": "2026-11-14"
+        }
+      ]
+    },
+    {
+      "id": "TRD-0006",
+      "ticker": "MSFT",
+      "strategy": "Covered Call",
+      "status": "Closed",
+      "underlyingType": "Stock",
+      "openedDate": "2026-01-05",
+      "closedDate": "2026-01-30",
+      "expirationDate": "2026-01-30",
+      "maxRiskOverride": null,
+      "notes": "",
+      "legs": [
+        {
+          "id": "L1",
+          "action": "BUY",
+          "side": "OPEN",
+          "type": "STOCK",
+          "quantity": 100,
+          "multiplier": 1,
+          "premium": 400,
+          "fees": 0,
+          "executionDate": "2026-01-05",
+          "expirationDate": ""
+        },
+        {
+          "id": "L2",
+          "action": "SELL",
+          "side": "OPEN",
+          "type": "CALL",
+          "quantity": 1,
+          "multiplier": 100,
+          "strike": 410,
+          "premium": 5.0,
+          "fees": 0.65,
+          "executionDate": "2026-01-05",
+          "expirationDate": "2026-01-30"
+        },
+        {
+          "id": "L3",
+          "action": "SELL",
+          "side": "CLOSE",
+          "type": "STOCK",
+          "quantity": 100,
+          "multiplier": 1,
+          "premium": 410,
+          "fees": 0,
+          "executionDate": "2026-01-30",
+          "expirationDate": ""
+        }
+      ]
+    },
+    {
+      "id": "TRD-0007",
+      "ticker": "IWM",
+      "strategy": "Short Put",
+      "status": "Closed",
+      "underlyingType": "ETF",
+      "openedDate": "2025-12-01",
+      "closedDate": "2025-12-12",
+      "expirationDate": "2025-12-19",
+      "maxRiskOverride": null,
+      "notes": "imported without legs",
+      "legs": []
+    }
+  ],
+  "watchlist": [
+    {
+      "ticker": "NVDA",
+      "rating": 5,
+      "notes": "AI leader",
+      "addedDate": "2026-09-01",
+      "targetPrice": 140,
+      "direction": "buy"
+    }
+  ],
+  "mcpContext": {
+    "generatedAt": "2026-11-02T10:00:00.000Z",
+    "asOfDate": "2026-11-02",
+    "portfolio": {
+      "counts": {
+        "totalTrades": 7,
+        "closed": 4,
+        "active": 2,
+        "assigned": 1,
+        "awaitingCoverage": 0
+      },
+      "pl": {
+        "total": 420.55,
+        "realized": 400.0,
+        "unrealized": 20.55,
+        "ytd": 420.55,
+        "mtd": 198.7,
+        "last7d": 0,
+        "last30d": 198.7,
+        "last90d": 198.7,
+        "last1y": 420.55
+      },
+      "performance": {
+        "winRate": 66.67,
+        "wins": 2,
+        "losses": 1,
+        "profitFactor": 3.1,
+        "avgWin": 220.0,
+        "avgLoss": -80.0,
+        "expectancy": 120.0,
+        "totalROI": 3.2,
+        "annualizedROI": 12.0,
+        "maxDrawdown": 4.5,
+        "maxDrawdownDollars": 310.0,
+        "sharpeRatio": 1.2,
+        "sortinoRatio": 1.8
+      },
+      "risk": {
+        "collateralAtRisk": 34000.0,
+        "totalMaxRisk": 34000.0
+      },
+      "fees": {
+        "total": 14.3,
+        "shareOfGross": 1.9
+      },
+      "trading": {
+        "avgWinnerDays": 12.0,
+        "avgLoserDays": 14.0,
+        "currentStreak": {
+          "type": "win",
+          "count": 1
+        },
+        "daysSinceLastTrade": 13
+      },
+      "largestWinner": {
+        "id": "TRD-0002",
+        "ticker": "AAPL",
+        "strategy": "Cash-Secured Put",
+        "pl": 198.7,
+        "roi": 1.05,
+        "closedDate": "2026-10-15"
+      }
+    },
+    "strategyBreakdown": [
+      {
+        "strategy": "Iron Condor",
+        "total": 2,
+        "open": 1,
+        "closed": 1,
+        "wins": 0,
+        "losses": 1,
+        "totalPL": -85.0,
+        "winRate": 0,
+        "avgPL": -85.0
+      }
+    ],
+    "underlyingBreakdown": [
+      {
+        "type": "Stock",
+        "count": 4,
+        "totalPL": 300.0,
+        "capitalAtRisk": 15000.0
+      }
+    ],
+    "dteDistribution": {
+      "expired": 0,
+      "0-7d": 0,
+      "8-30d": 2,
+      "31-60d": 0,
+      "61-90d": 0,
+      "90d+": 0
+    },
+    "concentration": [
+      {
+        "id": "TRD-0005",
+        "ticker": "NVDA",
+        "strategy": "Wheel",
+        "capitalAtRisk": 15000.0,
+        "sharePct": 44.12
+      },
+      {
+        "id": "TRD-0001",
+        "ticker": "SPY",
+        "strategy": "Iron Condor",
+        "capitalAtRisk": 340.0,
+        "sharePct": 1.0
+      }
+    ],
+    "activePositions": [
+      {
+        "id": "TRD-0001",
+        "ticker": "SPY",
+        "strategy": "Iron Condor",
+        "status": "Open",
+        "direction": "credit",
+        "opened": "2026-10-20",
+        "expires": "2026-11-20",
+        "quantity": -1,
+        "strike": "555/560/620/625",
+        "entryPrice": 1.1,
+        "pl": 20.55,
+        "roi": 6.04,
+        "capitalAtRisk": 340.0,
+        "maxRiskLabel": "$340.00",
+        "cashFlow": 20.55,
+        "fees": 2.6,
+        "daysHeld": 13,
+        "dte": 18
+      },
+      {
+        "id": "TRD-0005",
+        "ticker": "NVDA",
+        "strategy": "Wheel",
+        "status": "Assigned",
+        "direction": "long_stock",
+        "opened": "2026-09-01",
+        "expires": "2026-11-14",
+        "quantity": 100,
+        "strike": 160,
+        "pl": -150.0,
+        "roi": -1.0,
+        "capitalAtRisk": 15000.0,
+        "dte": 12,
+        "daysHeld": 62,
+        "wheelCoverage": "covered",
+        "unrealizedPL": -150.0,
+        "shares": 100,
+        "notes": "wheel"
+      }
+    ],
+    "wheelPmccPositions": [
+      {
+        "id": "TRD-0005",
+        "ticker": "NVDA",
+        "strategy": "Wheel",
+        "type": "wheel",
+        "status": "Assigned",
+        "shares": 100,
+        "strike": 150,
+        "effectiveCostBasis": 14500.0,
+        "premiumCollected": 500.0,
+        "coverageStatus": "covered",
+        "coveredShares": 100,
+        "uncoveredShares": 0,
+        "coveredCallCount": 1,
+        "pl": -150.0,
+        "roi": -1.03
+      }
+    ],
+    "tickerExposure": [
+      {
+        "ticker": "AAPL",
+        "totalPL": 198.7,
+        "trades": 1,
+        "wins": 1,
+        "losses": 0,
+        "winRate": 100,
+        "avgPL": 198.7
+      }
+    ],
+    "recentClosedTrades": [
+      {
+        "id": "TRD-0002",
+        "ticker": "AAPL",
+        "strategy": "Cash-Secured Put",
+        "status": "Closed",
+        "opened": "2026-10-01",
+        "expires": "2026-10-31",
+        "quantity": -1,
+        "pl": 198.7,
+        "roi": 1.05,
+        "capitalAtRisk": 19000,
+        "closed": "2026-10-15",
+        "exitPrice": 0.5,
+        "daysHeld": 14
+      }
+    ]
+  }
+}

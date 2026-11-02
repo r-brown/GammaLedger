@@ -235,7 +235,7 @@ jobs:
 
           # ── 2. Release Summary ─────────────────────────────────────────────
           cat >> "${BODY_FILE}" <<EOF
-          ## GammaLedger MCP v${VERSION}
+          ## GammaLedger MCP ${VERSION}
 
           | Registry | Package |
           |---|---|
@@ -264,7 +264,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          name: GammaLedger MCP ${{ steps.version.outputs.number }}
           body_path: ${{ steps.body.outputs.path }}
           generate_release_notes: false
           target_commitish: ${{ github.sha }}

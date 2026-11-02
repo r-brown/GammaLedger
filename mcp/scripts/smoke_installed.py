@@ -32,7 +32,36 @@ DB = {
             "strategy": "Cash-Secured Put",
             "status": "Open",
             "legs": [],
-        }
+        },
+        {
+            # Not in mcpContext: its P&L must be derived from the legs (2.50 - 0.50) * 100 - fees.
+            "id": "TRD-0002",
+            "ticker": "SPY",
+            "strategy": "Cash-Secured Put",
+            "status": "Closed",
+            "openedDate": "2026-10-01",
+            "closedDate": "2026-10-15",
+            "legs": [
+                {
+                    "orderType": "STO",
+                    "type": "PUT",
+                    "quantity": 1,
+                    "multiplier": 100,
+                    "premium": 2.5,
+                    "fees": 0.65,
+                    "executionDate": "2026-10-01",
+                },
+                {
+                    "orderType": "BTC",
+                    "type": "PUT",
+                    "quantity": 1,
+                    "multiplier": 100,
+                    "premium": 0.5,
+                    "fees": 0.65,
+                    "executionDate": "2026-10-15",
+                },
+            ],
+        },
     ],
     "watchlist": [{"ticker": "NVDA", "rating": 5, "notes": "", "addedDate": "2026-09-01"}],
     "mcpContext": {
@@ -68,10 +97,18 @@ async def run(exe: Path, db_path: Path) -> None:
             assert not (isinstance(payload, dict) and payload.get("error")), (name, payload)
             return payload
 
-        assert (await call("gammaledger_database_info"))["tradeCount"] == 1
+        info = await call("gammaledger_database_info")
+        assert info["tradeCount"] == 2
+        assert "dataAgeDays" in info and "isStale" in info, info
         assert (await call("gammaledger_open_positions"))["count"] == 1
-        found = await call("gammaledger_search_trades", {"ticker": "SPY"})
-        assert found["trades"][0]["pl"] == 12.5, found
+        found = await call("gammaledger_search_trades", {"ticker": "SPY", "sort_by": "opened"})
+        by_id = {t["id"]: t for t in found["trades"]}
+        assert by_id["TRD-0001"]["pl"] == 12.5 and by_id["TRD-0001"]["plSource"] == "app", found
+        assert by_id["TRD-0002"]["pl"] == 198.7 and by_id["TRD-0002"]["plSource"] == "derived", (
+            found
+        )
+        closed = await call("gammaledger_search_trades", {"closed_after": "2026-10-01"})
+        assert [t["id"] for t in closed["trades"]] == ["TRD-0002"], closed
         assert (await call("gammaledger_watchlist"))["count"] == 1
         prompts = {p.name for p in (await session.list_prompts()).prompts}
         assert "analyze_portfolio" in prompts
@@ -94,6 +131,9 @@ def main() -> None:
         f"--version reported {reported!r}, expected {args.expect_version!r}"
     )
     print(reported)
+
+    help_text = subprocess.run([str(exe), "--help"], capture_output=True, text=True, check=True)
+    assert "--http" in help_text.stdout, "--http missing from --help"
 
     with tempfile.TemporaryDirectory() as tmp:
         db_path = Path(tmp) / "gammaledger.json"

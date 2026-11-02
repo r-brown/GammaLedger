@@ -1,0 +1,26 @@
+# systemd unit for running GammaLedger MCP as a web service behind a reverse proxy.
+# Install as /etc/systemd/system/gammaledger-mcp.service, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now gammaledger-mcp
+#
+# Put the secret in /etc/gammaledger-mcp.env (chmod 600), one line:
+#   GAMMALEDGER_MCP_TOKEN=choose-a-long-random-secret
+[Unit]
+Description=GammaLedger MCP (streamable HTTP)
+After=network-online.target
+
+[Service]
+User=gammaledger
+EnvironmentFile=/etc/gammaledger-mcp.env
+# Listens on 127.0.0.1 only; terminate HTTPS in Caddy/nginx and proxy to this port.
+# --allowed-host is the public name your proxy serves.
+ExecStart=/usr/local/bin/uvx gammaledger-mcp \
+    --db-path /srv/gammaledger/gammaledger.json \
+    --http --port 8765 --allowed-host mcp.example.com
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadOnlyPaths=/srv/gammaledger
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
