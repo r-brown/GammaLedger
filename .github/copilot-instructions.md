@@ -51,7 +51,7 @@ GammaLedger is a local-first SPA built with Vite and TypeScript. The runtime ent
 
 The core architectural pattern is delegation from `GammaLedger` into feature modules. Modules under `src/core`, `src/trades`, `src/calculations`, `src/ui`, `src/imports`, `src/integrations`, and `src/payoff` export plain functions that are invoked with `.call(this, ...)` from thin delegator methods in `src/index.ts`. When adding logic, follow that pattern: define a narrow `this` context interface in the module, keep mutable state on the `GammaLedger` instance, and avoid module-level mutable state.
 
-Persistence flows through the browser app into the MCP server. The browser app stores the working database in `localStorage` and can save/load JSON files via the File System Access API fallback flow in `src/database/persist.ts`. Saved payloads are migrated and validated through `src/core/migration.ts` + `src/core/schema.ts`, and the app writes an `mcpContext` snapshot into exported JSON. The nested `mcp/` package is a separate Python project that reads that saved JSON and uses `mcpContext` as its source of truth instead of recomputing analytics.
+Persistence flows through the browser app into the MCP server. The browser app stores the working database in `localStorage` and can save/load JSON files via the File System Access API fallback flow in `src/database/persist.ts`. Saved payloads are migrated and validated through `src/core/migration.ts` + `src/core/schema.ts`, and the app writes an `mcpContext` snapshot into exported JSON. The `mcp/` package is a separate Python project (published to PyPI as `gammaledger-mcp`) that reads that saved JSON and uses `mcpContext` as its source of truth instead of recomputing analytics.
 
 ## Key conventions
 

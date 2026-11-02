@@ -15,7 +15,7 @@ File System Access API (save/load `.json` db files) requires Chrome/Edge.
 
 ## Structure
 `src/{core,utils,trades,calculations,ai,ui,imports,database,integrations,settings,types}`.
-`mcp/` — Python MCP server (uv-managed, **own nested git repo** — commit separately).
+`mcp/` — Python MCP server (uv-managed; part of this repo, published to PyPI as `gammaledger-mcp` by `.github/workflows/mcp-release.yml`).
 `.agents/superpowers/{plans,specs}` — feature plans/specs (see Superpowers below).
 
 ## Architecture
