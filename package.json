@@ -60,7 +60,7 @@
     "echarts": "^6.1.0",
     "marked": "^18.0.3",
     "postcss": "^8.5.26",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "allowScripts": {
     "fsevents@2.3.3": true
