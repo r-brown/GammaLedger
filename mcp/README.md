@@ -133,30 +133,6 @@ Sample configs are in [`examples/`](https://github.com/r-brown/GammaLedger/tree/
 
 The app writes a `mcpContext` section into the JSON containing pre-computed metrics, breakdowns, and position summaries the server uses verbatim. If you save with an older app version that lacks `mcpContext`, the tools that need it return a clear error asking you to re-save; `gammaledger_search_trades`, `gammaledger_position`, `gammaledger_watchlist` and `gammaledger_database_info` keep working from the raw data. The watchlist appears in files saved by app versions that have the Watchlist feature (schema 2.6).
 
-## Development
-
-```bash
-cd mcp          # from the gammaledger repo root
-uv sync --all-extras
-uv run pytest
-uv run ruff check src tests scripts && uv run ruff format --check src tests scripts
-uv run mypy src
-```
-
-Run with the MCP inspector during development:
-
-```bash
-uv run mcp dev src/server.py
-```
-
-The package depends on `mcp>=1.23,<2` (the `FastMCP` API was removed in MCP SDK 2.x).
-
-## Releasing
-
-Releases are published to [PyPI](https://pypi.org/project/gammaledger-mcp/) by the **GammaLedger MCP — Release & Publish to PyPI** GitHub Actions workflow (Actions → Run workflow, input `version` such as `1.0.0`). It lints, type-checks and tests on Python 3.10/3.12/3.13, builds the wheel and sdist, installs the wheel into a clean virtualenv and drives it over stdio as an MCP client would, then publishes that exact artifact via PyPI trusted publishing and creates a GitHub release tagged `mcp-<version>`.
-
-One-time setup on PyPI (no API token needed): *Account → Publishing → Add a pending publisher* with project `gammaledger-mcp`, owner `r-brown`, repository `GammaLedger`, workflow `mcp-release.yml`, and no environment.
-
 ## 📜 License
 
 GammaLedger is open source and free forever under the AGPLv3 license for non-commercial and open-source compliant use. See the [LICENSE](https://github.com/r-brown/GammaLedger/blob/main/LICENSE) file for full terms.
