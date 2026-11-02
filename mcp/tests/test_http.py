@@ -149,10 +149,10 @@ def test_public_host_name_is_accepted_when_listed(client: TestClient) -> None:
 def test_transport_security_settings() -> None:
     default = transport_security([])
     assert default.enable_dns_rebinding_protection is True
-    assert "localhost:*" in default.allowed_hosts
+    assert {"127.0.0.1:*", "localhost:*", "[::1]:*"} <= set(default.allowed_hosts)
     listed = transport_security(["mcp.example.com"])
-    assert "mcp.example.com" in listed.allowed_hosts
-    assert "https://mcp.example.com" in listed.allowed_origins
+    assert {"mcp.example.com", "mcp.example.com:*"} <= set(listed.allowed_hosts)
+    assert {"https://mcp.example.com", "http://mcp.example.com"} <= set(listed.allowed_origins)
     assert transport_security(["*"]).enable_dns_rebinding_protection is False
 
 
