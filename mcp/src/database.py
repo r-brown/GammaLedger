@@ -18,8 +18,10 @@ Local files are re-read whenever their mtime changes. Remote files are
 re-checked at most every ``refresh_seconds`` using ETag / Last-Modified.
 
 NOTE: the app strips runtime-computed fields (``pl``, ``roi``, ``dte``,
-``capitalAtRisk`` ...) from persisted trades, so per-trade P&L is only
-available through ``mcpContext`` summaries. See ``trade_summary()``.
+``capitalAtRisk`` ...) from persisted trades. Per-trade summaries therefore come
+from ``mcpContext`` where the app embedded one (``trade_summary()``); for closed
+trades the app did not embed, realized P&L is re-derived from the trade's legs
+(``trade_pl_summary()``, tagged ``plSource: "derived"``).
 """
 
 from __future__ import annotations
@@ -27,14 +29,19 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from .pnl import PL_SOURCE_APP, derive_trade_pl
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +50,15 @@ DEFAULT_REFRESH_SECONDS = 60.0
 DEFAULT_TIMEOUT_SECONDS = 20.0
 MAX_REMOTE_BYTES = 256 * 1024 * 1024  # refuse to buffer anything bigger than this
 _LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+# A database whose export is older than this is reported as ``isStale`` (the book it
+# describes - positions, DTE, P&L - may no longer match the account).
+DEFAULT_STALE_DAYS = 3.0
+# Schema versions this server has been tested against. Others still load, with a warning.
+SUPPORTED_SCHEMA_VERSIONS = ("2.5", "2.6")
+
+_HEAD_BYTES = 4096  # enough to find the top-level "trades" key without parsing the file
+_TRADES_KEY = re.compile(rb'"trades"\s*:\s*\[')
 
 
 class DatabaseError(RuntimeError):
@@ -138,6 +154,8 @@ class GammaLedgerDB:
         headers: dict[str, str] | None = None,
         refresh_seconds: float | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
+        stale_days: float | None = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._source = parse_source(db_path)
         self._token = token if token is not None else os.environ.get("GAMMALEDGER_DB_TOKEN")
@@ -146,6 +164,10 @@ class GammaLedgerDB:
             refresh_seconds = _env_float("GAMMALEDGER_DB_REFRESH_SECONDS", DEFAULT_REFRESH_SECONDS)
         self._refresh_seconds = max(0.0, refresh_seconds)
         self._timeout = timeout
+        if stale_days is None:
+            stale_days = _env_float("GAMMALEDGER_STALE_DAYS", DEFAULT_STALE_DAYS)
+        self._stale_days = max(0.0, stale_days)
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
 
         if self._source.kind == "url" and self._token:
             host = (urllib.parse.urlsplit(self._source.url or "").hostname or "").lower()
@@ -165,6 +187,9 @@ class GammaLedgerDB:
         self._loaded_at: str | None = None
         self._last_error: str | None = None
         self._index: dict[str, dict[str, Any]] | None = None
+        self._schema_warning: str | None = None
+        # (path, mtime_ns, size) -> "is this JSON file a GammaLedger database?"
+        self._looks_cache: dict[tuple[str, int, int], bool] = {}
         self._lock = threading.RLock()
 
     # ── Properties ──────────────────────────────────────────────────────
@@ -225,6 +250,22 @@ class GammaLedgerDB:
                 self._refresh_local()
 
     def _refresh_local(self) -> None:
+        """Re-read the local file if it changed; on failure keep serving the last good copy.
+
+        A sync client or the app can be mid-write when a tool call lands, so a transient
+        parse / read error must not turn into a tool error when we already hold good data.
+        """
+        try:
+            self._load_local()
+        except DatabaseError as exc:
+            if self._data is None:
+                raise
+            message = f"Could not refresh {self._source.display}: {exc}"
+            if message != self._last_error:  # don't repeat the warning on every tool call
+                logger.warning("%s — serving previously loaded copy", message)
+            self._last_error = message  # _mtime is unchanged, so the next call retries
+
+    def _load_local(self) -> None:
         target = self._resolve_local_file()
         try:
             current_mtime = target.stat().st_mtime
@@ -236,6 +277,7 @@ class GammaLedgerDB:
             and self._mtime == current_mtime
             and self._loaded_from == str(target)
         ):
+            self._last_error = None  # the file matches the copy we hold again
             return
         try:
             with target.open("r", encoding="utf-8") as f:
@@ -267,11 +309,26 @@ class GammaLedgerDB:
         # Prefer the conventional name, then the newest file that looks like a database.
         preferred = [p for p in candidates if p.name == "gammaledger.json"]
         for candidate in preferred + candidates:
-            if _looks_like_database(candidate):
+            if self._is_database_file(candidate):
                 return candidate
         raise DatabaseError(
             f"No GammaLedger database (*.json with a 'trades' list) in folder: {path}"
         )
+
+    def _is_database_file(self, path: Path) -> bool:
+        """``_looks_like_database`` memoised on (path, mtime, size); folder mode runs per call."""
+        try:
+            st = path.stat()
+        except OSError:
+            return False
+        key = (str(path), st.st_mtime_ns, st.st_size)
+        cached = self._looks_cache.get(key)
+        if cached is None:
+            cached = _looks_like_database(path)
+            if len(self._looks_cache) > 256:
+                self._looks_cache.clear()
+            self._looks_cache[key] = cached
+        return cached
 
     def _refresh_remote(self) -> None:
         now = time.monotonic()
@@ -348,6 +405,9 @@ class GammaLedgerDB:
         self._loaded_from = loaded_from
         self._index = None
         self._last_error = None
+        self._schema_warning = _schema_warning(payload.get("version"))
+        if self._schema_warning:
+            logger.warning("%s", self._schema_warning)
         self._loaded_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         ctx = payload.get("mcpContext")
         logger.info(
@@ -363,12 +423,16 @@ class GammaLedgerDB:
     def info(self) -> dict[str, Any]:
         d = self.data
         ctx = self.mcp_context
+        export_date = d.get("exportDate") or d.get("timestamp")
+        age_days = self.data_age_days()
+        is_stale = age_days is not None and age_days > self._stale_days
+        warnings = self.warnings()
         return {
             "source": self._source.kind,
             "location": self.location,
             "loadedFrom": self._loaded_from if self._source.kind != "url" else self._source.display,
             "version": d.get("version"),
-            "exportDate": d.get("exportDate") or d.get("timestamp"),
+            "exportDate": export_date,
             "fileName": d.get("fileName"),
             "tradeCount": len(self.trades),
             "watchlistCount": len(self.watchlist),
@@ -376,9 +440,44 @@ class GammaLedgerDB:
             "mcpContextGeneratedAt": ctx.get("generatedAt"),
             "asOfDate": ctx.get("asOfDate"),
             "loadedAt": self._loaded_at,
+            "dataAgeDays": round(age_days, 1) if age_days is not None else None,
+            "isStale": is_stale,
+            "staleAfterDays": self._stale_days,
             "stale": self._last_error is not None,
             "lastRefreshError": self._last_error,
+            "warnings": warnings,
         }
+
+    def data_age_days(self) -> float | None:
+        """Days between the database export (``exportDate``) and now; ``None`` if unknown."""
+        d = self.data
+        ctx = self.mcp_context
+        exported = parse_timestamp(
+            d.get("exportDate") or d.get("timestamp") or ctx.get("generatedAt")
+        )
+        if exported is None:
+            return None
+        return max(0.0, (self._clock() - exported).total_seconds() / 86400.0)
+
+    def is_data_stale(self) -> bool:
+        age = self.data_age_days()
+        return age is not None and age > self._stale_days
+
+    def warnings(self) -> list[str]:
+        """Human-readable caveats an agent should surface before trusting the numbers."""
+        found: list[str] = []
+        age = self.data_age_days()
+        if age is not None and age > self._stale_days:
+            found.append(
+                f"The database was exported {age:.1f} days ago. Positions, DTE and P&L reflect "
+                "that moment, not today - re-save the database from the GammaLedger app "
+                "(Settings → Save Database) before relying on them."
+            )
+        if self._last_error:
+            found.append(f"{self._last_error} (serving the last good copy).")
+        if self._schema_warning:
+            found.append(self._schema_warning)
+        return found
 
     def get_trade_by_id(self, trade_id: str) -> dict[str, Any] | None:
         if not trade_id:
@@ -398,6 +497,22 @@ class GammaLedgerDB:
         """
         return self._summary_index().get(str(trade_id).strip())
 
+    def trade_pl_summary(self, trade: dict[str, Any]) -> dict[str, Any] | None:
+        """Best available computed summary for a persisted trade, tagged with ``plSource``.
+
+        ``"app"``     - the summary the app embedded in ``mcpContext`` (authoritative);
+        ``"derived"`` - realized P&L recomputed from the trade's legs (closed trades only).
+        ``None``      - neither is available (e.g. an open trade missing from ``mcpContext``).
+        """
+        tid = str(trade.get("id", "")).strip()
+        app = self.trade_summary(tid) if tid and self.mcp_context else None
+        if app is not None and app.get("pl") is not None:
+            return {**app, "plSource": PL_SOURCE_APP}
+        derived = derive_trade_pl(trade)
+        if derived is None:
+            return {**app, "plSource": PL_SOURCE_APP} if app is not None else None
+        return {**app, **derived} if app is not None else derived
+
     def _summary_index(self) -> dict[str, dict[str, Any]]:
         _ = self.data  # make sure we are fresh (resets the index on reload)
         with self._lock:
@@ -406,7 +521,8 @@ class GammaLedgerDB:
                 ctx = self.mcp_context
                 # Later sources are richer (Wheel/PMCC adds basis/coverage) so they overlay.
                 for key in ("recentClosedTrades", "activePositions", "wheelPmccPositions"):
-                    for item in ctx.get(key) or []:
+                    items = ctx.get(key)
+                    for item in items if isinstance(items, list) else []:
                         if isinstance(item, dict) and item.get("id") is not None:
                             merged = index.setdefault(str(item["id"]), {})
                             merged.update(item)
@@ -419,10 +535,19 @@ class GammaLedgerDB:
         ticker: str | None = None,
         strategy: str | None = None,
         status: str | None = None,
+        opened_after: str | None = None,
+        opened_before: str | None = None,
+        closed_after: str | None = None,
+        closed_before: str | None = None,
     ) -> list[dict[str, Any]]:
+        """Filter persisted trades. Date bounds are inclusive ``YYYY-MM-DD`` strings."""
         ticker_q = ticker.strip().upper() if ticker else None
         strategy_q = strategy.strip().lower() if strategy else None
         status_q = status.strip().lower() if status else None
+        date_filters = (
+            ("openedDate", opened_after, opened_before),
+            ("closedDate", closed_after, closed_before),
+        )
 
         results: list[dict[str, Any]] = []
         for t in self.trades:
@@ -432,17 +557,74 @@ class GammaLedgerDB:
                 continue
             if status_q and status_q != str(t.get("status", "")).lower():
                 continue
+            if any(
+                (lo or hi) and not _in_date_range(t.get(field), lo, hi)
+                for field, lo, hi in date_filters
+            ):
+                continue
             results.append(t)
         return results
 
 
 def _looks_like_database(path: Path) -> bool:
+    """Cheap check that ``path`` is a GammaLedger database (a JSON object with ``trades``).
+
+    The app writes ``trades`` near the top of the file, so a small read usually settles it
+    without parsing megabytes of JSON. If the key is not in the head (re-serialised file with
+    sorted keys, huge leading section) fall back to a full parse.
+    """
     try:
-        with path.open("r", encoding="utf-8") as f:
+        with path.open("rb") as f:
+            head = f.read(_HEAD_BYTES)
+    except OSError:
+        return False
+    if not head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"{"):
+        return False
+    if _TRADES_KEY.search(head):
+        return True
+    try:
+        with path.open("r", encoding="utf-8-sig") as f:
             payload = json.load(f)
     except (OSError, ValueError):
         return False
     return isinstance(payload, dict) and isinstance(payload.get("trades"), list)
+
+
+def parse_timestamp(value: Any) -> datetime | None:
+    """Parse an ISO-8601 date/time (or epoch seconds/millis) to an aware UTC datetime."""
+    if value is None or value == "" or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        seconds = value / 1000.0 if value > 1e11 else float(value)
+        try:
+            return datetime.fromtimestamp(seconds, tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            return None
+    text = str(value).strip()
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _in_date_range(value: Any, lo: str | None, hi: str | None) -> bool:
+    day = str(value or "")[:10]
+    if not day:
+        return False
+    return not ((lo and day < lo) or (hi and day > hi))
+
+
+def _schema_warning(version: Any) -> str | None:
+    if version is None or str(version) in SUPPORTED_SCHEMA_VERSIONS:
+        return None
+    return (
+        f"Database schema version '{version}' is not one this server was tested with "
+        f"({', '.join(SUPPORTED_SCHEMA_VERSIONS)}). It was loaded anyway, but fields may be "
+        "missing or renamed - upgrade gammaledger-mcp if the app is newer."
+    )
 
 
 def _env_float(name: str, default: float) -> float:

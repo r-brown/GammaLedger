@@ -68,3 +68,7 @@ extend-exclude = ["src/_version.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# Output-schema field names are the camelCase keys the GammaLedger app writes.
+"src/models.py" = ["N815"]

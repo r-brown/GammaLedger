@@ -1,0 +1,5 @@
+# Ship the test suite and its fixture databases in the source distribution so downstream
+# packagers can run it. (The wheel contains only the runtime package.)
+graft tests
+prune tests/__pycache__
+global-exclude *.py[cod]
