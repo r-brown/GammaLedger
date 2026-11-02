@@ -1,12 +1,14 @@
 """GammaLedger MCP Server.
 
-Reads a local GammaLedger JSON database (saved via the app's "Save Database"
-feature) and exposes its pre-computed metrics, positions, and audits as MCP
-tools, prompts, and resources.
+Reads a GammaLedger JSON database (saved via the app's "Save Database"
+feature) from a local file/folder or a remote http(s) URL and exposes its
+pre-computed metrics, positions, and audits as MCP tools, prompts, and
+resources.
 
 Usage:
-    stdio (default):  gammaledger-mcp --db-path /path/to/gammaledger.json
-    Inspector:        mcp dev src/server.py
+    gammaledger-mcp --db-path /path/to/gammaledger.json
+    gammaledger-mcp --db-path /path/to/folder
+    gammaledger-mcp --db-url https://example.com/gammaledger.json   (token: GAMMALEDGER_DB_TOKEN)
 """
 
 from __future__ import annotations
@@ -51,8 +53,10 @@ but cannot create, modify, or delete trades.
   breakdowns produced by the GammaLedger app on every save. This is the
   authoritative view of portfolio state. Prefer it over re-deriving from
   raw trades.
-- `trades` — the underlying full trade objects with leg-level detail.
-  Use `gammaledger_position` for per-trade drill-down.
+- `trades` — the persisted trade objects with leg-level detail. The app does
+  not persist computed fields (P&L, ROI, DTE) on these; `gammaledger_position`
+  joins them back in from `mcpContext` where available (active positions,
+  Wheel/PMCC positions, the 10 most recent closed trades).
 
 ## What the user typically wants
 
@@ -64,6 +68,9 @@ but cannot create, modify, or delete trades.
 - Wheel/PMCC tracking: `gammaledger_wheel_pmcc_positions` or `gammaledger_audit_wheel_pmcc`.
 - Per-strategy or per-ticker performance: `gammaledger_strategy_breakdown`,
   `gammaledger_ticker_exposure`.
+- Followed tickers: `gammaledger_watchlist`.
+- If a tool reports the data is stale, the database file/URL could not be
+  refreshed and the last good copy is being served (see `gammaledger_database_info`).
 
 ## Conventions
 
@@ -119,6 +126,12 @@ def _safe_db() -> GammaLedgerDB:
     return get_db()
 
 
+def _ctx() -> dict[str, Any]:
+    """The saved ``mcpContext``; raises MissingContextError (a DatabaseError) if absent."""
+    ctx: dict[str, Any] = _safe_db().require_mcp_context()
+    return ctx
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # DATABASE / META
 # ═══════════════════════════════════════════════════════════════════════════
@@ -152,16 +165,7 @@ def gammaledger_portfolio_summary() -> str:
     realized vs unrealized P&L, current win/loss streak.
     """
     try:
-        ctx = _safe_db().mcp_context
-        if not ctx:
-            return _json(
-                {
-                    "error": True,
-                    "detail": "mcpContext is missing from the database. Re-save "
-                    "the database from the GammaLedger app (which writes "
-                    "the mcpContext section) and try again.",
-                }
-            )
+        ctx = _ctx()
         return _json(
             {
                 "asOfDate": ctx.get("asOfDate"),
@@ -178,7 +182,7 @@ def gammaledger_pl_breakdown() -> str:
     """Return time-windowed realised P&L: total, realized, unrealized,
     plus YTD, MTD, last 7d / 30d / 90d / 1y."""
     try:
-        ctx = _safe_db().mcp_context
+        ctx = _ctx()
         pl = ctx.get("portfolio", {}).get("pl", {})
         return _json(
             {
@@ -212,9 +216,7 @@ def gammaledger_open_positions(
         underwater_only: When true, return only positions with negative P&L.
     """
     try:
-        positions: list[dict[str, Any]] = list(
-            _safe_db().mcp_context.get("activePositions", []) or []
-        )
+        positions: list[dict[str, Any]] = list(_ctx().get("activePositions", []) or [])
 
         if ticker:
             t = ticker.strip().upper()
@@ -248,6 +250,12 @@ def gammaledger_open_positions(
 def gammaledger_position(trade_id: str) -> str:
     """Return the full detail (including all legs) for a specific trade.
 
+    The result has two parts: `trade` is the persisted record (legs, dates,
+    notes) and `summary` is the app's computed view (P&L, ROI, DTE, capital at
+    risk, Wheel/PMCC basis). `summary` exists only for active positions,
+    Wheel/PMCC positions and the 10 most recent closed trades; for older trades
+    it is null because the app does not persist computed fields.
+
     Args:
         trade_id: Trade identifier, e.g. 'TRD-0042'.
     """
@@ -263,7 +271,9 @@ def gammaledger_position(trade_id: str) -> str:
                     "detail": f"No trade found with id '{trade_id}'",
                 }
             )
-        return _json(trade)
+        db = _safe_db()
+        summary = db.trade_summary(trade_id) if db.mcp_context else None
+        return _json({"trade": trade, "summary": summary})
     except DatabaseError as exc:
         return _error(exc)
 
@@ -277,7 +287,7 @@ def gammaledger_wheel_pmcc_positions(position_type: str = "") -> str:
         position_type: Filter by 'wheel' or 'pmcc'. Empty returns both.
     """
     try:
-        positions = list(_safe_db().mcp_context.get("wheelPmccPositions", []) or [])
+        positions = list(_ctx().get("wheelPmccPositions", []) or [])
         if position_type:
             t = position_type.strip().lower()
             positions = [p for p in positions if str(p.get("type", "")).lower() == t]
@@ -295,12 +305,16 @@ def gammaledger_wheel_pmcc_positions(position_type: str = "") -> str:
 def gammaledger_recent_closed_trades(limit: int = 10) -> str:
     """Return the most recently closed trades (sorted by close date).
 
+    The GammaLedger app embeds only its 10 most recent closed trades in the
+    saved database, so that is the most this can return. Use
+    `gammaledger_search_trades` (status='Closed') to list older ones.
+
     Args:
-        limit: Maximum number of trades to return (default 10, max 50).
+        limit: Maximum number of trades to return (default 10, max 10).
     """
     try:
-        limit = max(1, min(int(limit), 50))
-        recent = list(_safe_db().mcp_context.get("recentClosedTrades", []) or [])
+        limit = max(1, min(int(limit), 10))
+        recent = list(_ctx().get("recentClosedTrades", []) or [])
         return _json(
             {
                 "count": min(limit, len(recent)),
@@ -324,7 +338,7 @@ def gammaledger_strategy_breakdown() -> str:
     try:
         return _json(
             {
-                "strategies": _safe_db().mcp_context.get("strategyBreakdown", []) or [],
+                "strategies": _ctx().get("strategyBreakdown", []) or [],
             }
         )
     except DatabaseError as exc:
@@ -337,11 +351,12 @@ def gammaledger_ticker_exposure(top_n: int = 15) -> str:
     win rate, average P&L per trade. Sorted by absolute P&L.
 
     Args:
-        top_n: Limit to top N tickers by |P&L| (default 15, max 50).
+        top_n: Limit to top N tickers (default 15; the saved database holds
+               at most 15).
     """
     try:
         top_n = max(1, min(int(top_n), 50))
-        items = list(_safe_db().mcp_context.get("tickerExposure", []) or [])
+        items = list(_ctx().get("tickerExposure", []) or [])
         return _json(
             {
                 "count": min(top_n, len(items)),
@@ -359,7 +374,7 @@ def gammaledger_underlying_breakdown() -> str:
     try:
         return _json(
             {
-                "underlyings": _safe_db().mcp_context.get("underlyingBreakdown", []) or [],
+                "underlyings": _ctx().get("underlyingBreakdown", []) or [],
             }
         )
     except DatabaseError as exc:
@@ -377,7 +392,7 @@ def gammaledger_concentration_risk() -> str:
     with each position's share of total collateral as a percentage.
     """
     try:
-        ctx = _safe_db().mcp_context
+        ctx = _ctx()
         return _json(
             {
                 "collateralAtRisk": ctx.get("portfolio", {})
@@ -399,7 +414,7 @@ def gammaledger_expiring_positions(within_days: int = 7) -> str:
     """
     try:
         within = max(0, min(int(within_days), 365))
-        positions = list(_safe_db().mcp_context.get("activePositions", []) or [])
+        positions = list(_ctx().get("activePositions", []) or [])
 
         expiring = [
             p
@@ -431,8 +446,7 @@ def gammaledger_audit_risk() -> str:
     findings grouped by severity (high / watch / healthy).
     """
     try:
-        db = _safe_db()
-        ctx = db.mcp_context
+        ctx = _ctx()
         portfolio = ctx.get("portfolio", {})
         risk_metrics = portfolio.get("risk", {})
         perf = portfolio.get("performance", {})
@@ -501,6 +515,45 @@ def gammaledger_audit_risk() -> str:
                 {
                     "kind": "expiring_30d",
                     "count": len(expiring_30),
+                }
+            )
+
+        # Still active but past expiration (negative DTE) — needs closing out in the app
+        expired_active = [
+            p for p in active if isinstance(p.get("dte"), (int, float)) and p["dte"] < 0
+        ]
+        if expired_active:
+            findings_watch.append(
+                {
+                    "kind": "past_expiration_still_active",
+                    "count": len(expired_active),
+                    "positions": [
+                        {
+                            "trade_id": p.get("id"),
+                            "ticker": p.get("ticker"),
+                            "strategy": p.get("strategy"),
+                            "dte": p.get("dte"),
+                        }
+                        for p in expired_active
+                    ],
+                }
+            )
+
+        # Undefined-risk positions
+        unlimited = [p for p in active if p.get("riskIsUnlimited")]
+        if unlimited:
+            findings_watch.append(
+                {
+                    "kind": "unlimited_risk",
+                    "count": len(unlimited),
+                    "positions": [
+                        {
+                            "trade_id": p.get("id"),
+                            "ticker": p.get("ticker"),
+                            "strategy": p.get("strategy"),
+                        }
+                        for p in unlimited
+                    ],
                 }
             )
 
@@ -583,7 +636,7 @@ def gammaledger_audit_wheel_pmcc() -> str:
     awareness, and premium-collection effectiveness.
     """
     try:
-        positions = list(_safe_db().mcp_context.get("wheelPmccPositions", []) or [])
+        positions = list(_ctx().get("wheelPmccPositions", []) or [])
 
         gaps: list[dict[str, Any]] = []
         cost_basis_concerns: list[dict[str, Any]] = []
@@ -654,6 +707,10 @@ def gammaledger_search_trades(
     `gammaledger_recent_closed_trades` (closed only), this scans every
     trade — open, closed, expired, assigned.
 
+    `pl` and `roi` come from the app's computed summaries, which exist only for
+    active positions, Wheel/PMCC positions and the 10 most recent closed
+    trades. For other trades they are null (the app does not persist them).
+
     Args:
         ticker: Exact ticker match (case-insensitive).
         strategy: Substring match on strategy name (case-insensitive).
@@ -668,27 +725,58 @@ def gammaledger_search_trades(
             status=status or None,
         )
         truncated = len(results) > limit
+        db = _safe_db()
+        has_ctx = bool(db.mcp_context)
+        rows = []
+        for t in results[:limit]:
+            summary = (db.trade_summary(str(t.get("id", ""))) if has_ctx else None) or {}
+            rows.append(
+                {
+                    "id": t.get("id"),
+                    "ticker": t.get("ticker"),
+                    "strategy": t.get("strategy"),
+                    "status": t.get("status"),
+                    "openedDate": t.get("openedDate"),
+                    "closedDate": t.get("closedDate"),
+                    "expirationDate": t.get("expirationDate"),
+                    "pl": _round2(summary.get("pl", t.get("pl"))),
+                    "roi": _round2(summary.get("roi", t.get("roi"))),
+                    "dte": summary.get("dte"),
+                    "hasComputedSummary": bool(summary),
+                }
+            )
         return _json(
             {
                 "matched": len(results),
-                "returned": min(limit, len(results)),
+                "returned": len(rows),
                 "truncated": truncated,
-                "trades": [
-                    {
-                        "id": t.get("id"),
-                        "ticker": t.get("ticker"),
-                        "strategy": t.get("strategy"),
-                        "status": t.get("status"),
-                        "openedDate": t.get("openedDate"),
-                        "closedDate": t.get("closedDate"),
-                        "expirationDate": t.get("expirationDate"),
-                        "pl": _round2(t.get("pl")),
-                        "roi": _round2(t.get("roi")),
-                    }
-                    for t in results[:limit]
-                ],
+                "trades": rows,
             }
         )
+    except DatabaseError as exc:
+        return _error(exc)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WATCHLIST
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@mcp.tool()
+def gammaledger_watchlist(ticker: str = "") -> str:
+    """Return the user's Watchlist: followed tickers with rating (1-5), notes,
+    date added, and optional target price / direction. Databases saved before
+    the Watchlist feature (schema < 2.6 / pre-2026-08) return an empty list.
+
+    Args:
+        ticker: Optional exact ticker filter (case-insensitive).
+    """
+    try:
+        items = _safe_db().watchlist
+        if ticker:
+            t = ticker.strip().upper()
+            items = [i for i in items if str(i.get("ticker", "")).upper() == t]
+        return _json({"count": len(items), "watchlist": items})
     except DatabaseError as exc:
         return _error(exc)
 
@@ -702,7 +790,7 @@ def gammaledger_search_trades(
 def resource_portfolio_summary() -> str:
     """Current portfolio metrics snapshot (mirrors gammaledger_portfolio_summary)."""
     try:
-        ctx = _safe_db().mcp_context
+        ctx = _ctx()
         return _json(
             {
                 "asOfDate": ctx.get("asOfDate"),
@@ -717,7 +805,7 @@ def resource_portfolio_summary() -> str:
 def resource_active_positions() -> str:
     """Current active positions (mirrors gammaledger_open_positions with no filters)."""
     try:
-        return _json(_safe_db().mcp_context.get("activePositions", []) or [])
+        return _json(_ctx().get("activePositions", []) or [])
     except DatabaseError as exc:
         return _error(exc)
 
@@ -726,7 +814,7 @@ def resource_active_positions() -> str:
 def resource_wheel_pmcc() -> str:
     """Wheel and PMCC tracker positions."""
     try:
-        return _json(_safe_db().mcp_context.get("wheelPmccPositions", []) or [])
+        return _json(_ctx().get("wheelPmccPositions", []) or [])
     except DatabaseError as exc:
         return _error(exc)
 
@@ -757,10 +845,15 @@ def main() -> None:
         description=f"GammaLedger MCP Server v{__version__}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Configuration:
-  --db-path PATH               Path to GammaLedger JSON database file.
-  GAMMALEDGER_DB_PATH env var  Same, used when --db-path is not given.
+Database location (first match wins):
+  --db-url URL / --db-path P   A local file, a folder, or an http(s):// URL.
+  GAMMALEDGER_DB_URL           Same, as an environment variable.
+  GAMMALEDGER_DB_PATH          Same, as an environment variable.
   Default                      ~/gammaledger.json
+
+Remote databases:
+  GAMMALEDGER_DB_TOKEN              Sent as "Authorization: Bearer <token>" (https only).
+  GAMMALEDGER_DB_REFRESH_SECONDS    Re-check interval for remote URLs (default 60).
 
 Save your database from the GammaLedger app (Settings → Save Database)
 before launching this server.
@@ -771,6 +864,17 @@ before launching this server.
         type=Path,
         default=None,
         help="Path to the GammaLedger JSON database file.",
+    )
+    parser.add_argument(
+        "--db-url",
+        default=None,
+        help="http(s):// URL (or file:// URL) of the GammaLedger JSON database.",
+    )
+    parser.add_argument(
+        "--refresh-seconds",
+        type=float,
+        default=None,
+        help="How often to re-check a remote database (default 60).",
     )
     parser.add_argument(
         "-v",
@@ -795,20 +899,24 @@ before launching this server.
         logging.getLogger().setLevel(logging.DEBUG)
         logger.debug("Verbose logging enabled")
 
-    db_path = args.db_path or os.environ.get("GAMMALEDGER_DB_PATH")
-    db = configure_db(db_path)
+    try:
+        db = configure_db(
+            args.db_url or args.db_path,
+            refresh_seconds=args.refresh_seconds,
+        )
+    except DatabaseError as exc:
+        parser.error(str(exc))
 
     logger.info(
-        "Starting GammaLedger MCP server v%s (db=%s)",
+        "Starting GammaLedger MCP server v%s (source=%s, db=%s)",
         __version__,
-        db.path,
+        db.source.kind,
+        db.location,
     )
-    if not db.path.exists():
-        logger.warning(
-            "Database file does not exist yet: %s — tools will return errors "
-            "until you save your database from the GammaLedger app.",
-            db.path,
-        )
+    try:
+        db.info()
+    except DatabaseError as exc:
+        logger.warning("Database not readable yet: %s — tools will return errors until it is.", exc)
 
     mcp.run(transport="stdio")
 

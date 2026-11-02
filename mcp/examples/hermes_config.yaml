@@ -1,0 +1,10 @@
+# Add under mcp_servers in ~/.hermes/config.yaml
+mcp_servers:
+  gammaledger:
+    command: "uvx"
+    args: ["gammaledger-mcp"]          # pin a release: "gammaledger-mcp@1.0.0"
+    env:
+      GAMMALEDGER_DB_PATH: "/home/hermes/gammaledger/gammaledger.json"   # file or folder
+      # Remote instead of local:
+      # GAMMALEDGER_DB_URL: "https://example.com/gammaledger.json"
+      # GAMMALEDGER_DB_TOKEN: "<bearer token>"

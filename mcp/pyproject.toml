@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = [
-    "mcp[cli]>=1.7.0",
+    "mcp[cli]>=1.23.0,<2",
 ]
 
 [project.optional-dependencies]
