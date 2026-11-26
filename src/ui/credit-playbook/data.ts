@@ -226,7 +226,7 @@ function buildCreditStrategyAggregate(
             };
         }
         const isCurrentCall = pair.isOpen && pair.type === 'CALL' && shortCalls.details.some((detail) => {
-            return String(detail.strike ?? '') === String(pair.strike ?? '')
+            return String(pair.strike ?? '').split('/').includes(String(detail.strike ?? ''))
                 && String(detail.expiration ?? '') === String(pair.expirationDate ?? '');
         });
         return {

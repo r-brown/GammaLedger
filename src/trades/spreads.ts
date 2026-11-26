@@ -2,6 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { calendarDaysUntil, isPastExpiryCutoff } from '@utils/dates'
+import type { NormalizedLeg } from '@types-gl/leg'
 
 interface SpreadPair {
     tradeId: string
@@ -47,12 +48,28 @@ interface SpreadsContext {
     isClosedStatus(status: unknown): boolean
     isAssignedStatus(status: unknown): boolean
     hasAssignedInventory(trade: Record<string, unknown>): boolean
+    summarizeLegs(legs: unknown[]): { activeOpenLegs: NormalizedLeg[] }
+    summarizeLegRealization(trade: Record<string, unknown>): { openGroupKeys: Set<string> }
+    buildLegLifecycleKey(leg: Record<string, unknown>): string
     extractRolledSpread(trade: Record<string, unknown>, allLegs: Record<string, unknown>[], now: Date, pairs: SpreadPair[]): void
     extractSingleSpread(trade: Record<string, unknown>, groupLegs: Record<string, unknown>[], expiration: string, now: Date, pairs: SpreadPair[]): void
     detectRollChain(sortedLegs: Record<string, unknown>[]): boolean
     extractRolledPositionAcrossStrikes(trade: Record<string, unknown>, allLegs: Record<string, unknown>[], type: string, now: Date, pairs: SpreadPair[]): void
     extractRolledPosition(trade: Record<string, unknown>, allLegs: Record<string, unknown>[], strike: number, type: string, now: Date, pairs: SpreadPair[]): void
     extractSingleLegPair(trade: Record<string, unknown>, groupLegs: Record<string, unknown>[], strike: number, type: string, expiration: string, now: Date, pairs: SpreadPair[]): void
+}
+
+function getRemainingOptionLegs(
+    context: SpreadsContext, trade: Record<string, unknown>, legs: Record<string, unknown>[]
+): NormalizedLeg[] {
+    const { openGroupKeys } = context.summarizeLegRealization(trade);
+    return context.summarizeLegs(legs).activeOpenLegs.filter(leg =>
+        openGroupKeys.has(context.buildLegLifecycleKey(leg as unknown as Record<string, unknown>))
+    );
+}
+
+function nearestExpiration(legs: NormalizedLeg[]): string | null {
+    return legs.map(leg => leg.expirationDate).filter(Boolean).sort()[0] || null;
 }
 
 export function extractSpreadPair(
@@ -73,8 +90,6 @@ export function extractSpreadPair(
     });
 
     const hasMultipleExpirations = expirationGroups.size > 1;
-    const tradeStatus = ((trade.status as string) || '').toLowerCase();
-    const isRolling = tradeStatus === 'rolling' || tradeStatus === 'rolled';
     const sortedOptionLegs = optionLegs.slice().sort((a, b) => {
         const dateA = this.parseDateValue(a.executionDate);
         const dateB = this.parseDateValue(b.executionDate);
@@ -85,7 +100,7 @@ export function extractSpreadPair(
     });
     const hasRollChain = this.detectRollChain(sortedOptionLegs);
 
-    if (hasMultipleExpirations || (isRolling && hasRollChain)) {
+    if (hasMultipleExpirations || hasRollChain) {
         this.extractRolledSpread(trade, optionLegs, now, pairs);
     } else {
         const expiration = Array.from(expirationGroups.keys())[0];
@@ -125,7 +140,6 @@ export function extractRolledSpread(
     let entryDate: Date | null = null, exitDate: Date | null = null, currentExpiration: string | null = null;
     const currentStrikes: number[] = [];
 
-    const openingLegs = sortedLegs.filter(leg => this.getLegSide(leg) === 'OPEN');
     const closingLegs = sortedLegs.filter(leg => this.getLegSide(leg) === 'CLOSE');
     // A zero-premium close is how an expiry is recorded; only a paid close is a buyback.
     const boughtBack = closingLegs.some(leg => (Number(leg.premium) || 0) > 0);
@@ -155,18 +169,29 @@ export function extractRolledSpread(
         }
     });
 
-    const uniqueStrikes = [...new Set(currentStrikes)].sort((a, b) => a - b);
-    const spreadStrike: string = uniqueStrikes.length >= 2
-        ? `${uniqueStrikes[0]}/${uniqueStrikes[uniqueStrikes.length - 1]}`
-        : (uniqueStrikes.length === 1 ? String(uniqueStrikes[0]) : '—');
+    const remainingLegs = getRemainingOptionLegs(this, trade, allLegs);
+    const isOpen = remainingLegs.length > 0;
+    const strikes = isOpen ? remainingLegs.map(leg => Number(leg.strike)).filter(strike => strike > 0) : currentStrikes;
+    const uniqueStrikes = [...new Set(strikes)].sort((a, b) => a - b);
+    const displayedStrikes = !isOpen && uniqueStrikes.length > 2
+        ? [uniqueStrikes[0], uniqueStrikes[uniqueStrikes.length - 1]]
+        : uniqueStrikes;
+    const spreadStrike = displayedStrikes.join('/') || '—';
+    if (isOpen) {
+        currentExpiration = nearestExpiration(remainingLegs);
+        const quantities = new Map<string, number>();
+        for (const leg of remainingLegs) {
+            const key = this.buildLegLifecycleKey(leg as unknown as Record<string, unknown>);
+            quantities.set(key, (quantities.get(key) ?? 0) + leg.quantity);
+        }
+        quantity = Math.max(...quantities.values());
+    }
 
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
     // Still open on expiration day until the close, as in the trade status (legs.ts).
     const hasExpired = isPastExpiryCutoff(expirationDate, now);
-    const hasOpenLegs = openingLegs.length > 0;
     const hasCloseLegs = closingLegs.length > 0;
-    const isRollingNow = hasOpenLegs && hasCloseLegs && !isTradeClosed;
-    const isOpen = hasOpenLegs && !hasExpired && !isTradeClosed;
+    const isRollingNow = isOpen && hasCloseLegs;
 
     const dte = isOpen && expirationDate && !isRollingNow
         ? Math.max(0, calendarDaysUntil(expirationDate, now) ?? 0) : null;
@@ -446,16 +471,19 @@ export function extractRolledPositionAcrossStrikes(
         }
     });
 
-    const strike = typeof currentStrike === 'number' && Number.isFinite(currentStrike)
+    const historicalStrike = typeof currentStrike === 'number' && Number.isFinite(currentStrike)
         ? currentStrike
         : Number(allLegs[0]?.strike);
+    const remainingLegs = getRemainingOptionLegs(this, trade, allLegs);
+    const isOpen = remainingLegs.length > 0;
+    const strikes = [...new Set(remainingLegs.map(leg => Number(leg.strike)).filter(strike => strike > 0))].sort((a, b) => a - b);
+    const strike = isOpen ? (strikes.length === 1 ? strikes[0] : strikes.join('/') || '—') : historicalStrike;
+    if (isOpen) currentExpiration = nearestExpiration(remainingLegs);
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
     // Still open on expiration day until the close, as in the trade status (legs.ts).
     const hasExpired = isPastExpiryCutoff(expirationDate, now);
-    const hasOpenLegs = allLegs.some(leg => this.getLegSide(leg) === 'OPEN');
     const hasCloseLegs = allLegs.some(leg => this.getLegSide(leg) === 'CLOSE');
-    const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0 && !isTradeClosed;
-    const isOpen = netQuantity !== 0 && !hasExpired && !isTradeClosed;
+    const isRolling = isOpen && hasCloseLegs;
 
     if (netQuantity === 0 && !isOpen) {
         netQuantity = Math.abs(allLegs
@@ -463,7 +491,9 @@ export function extractRolledPositionAcrossStrikes(
             .reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0));
     }
 
-    const absoluteQuantity = Math.abs(netQuantity);
+    const absoluteQuantity = isOpen
+        ? remainingLegs.reduce((sum, leg) => sum + leg.quantity, 0)
+        : Math.abs(netQuantity);
     const dte = isOpen && expirationDate && !isRolling
         ? Math.max(0, calendarDaysUntil(expirationDate, now) ?? 0) : null;
 
@@ -475,7 +505,9 @@ export function extractRolledPositionAcrossStrikes(
 
     const multiplier = 100;
     const pricePerContract = absoluteQuantity > 0 ? totalGrossPremium / (absoluteQuantity * multiplier) : 0;
-    const capital = Math.abs(strike * absoluteQuantity * multiplier);
+    const capital = isOpen
+        ? remainingLegs.reduce((sum, leg) => sum + Math.abs(Number(leg.strike) * leg.quantity * leg.multiplier), 0)
+        : Math.abs(historicalStrike * absoluteQuantity * multiplier);
     const netPremium = totalGrossPremium - totalFees;
     const pl = netPremium;
     const roi = capital > 0 ? (pl / capital) * 100 : null;
@@ -527,7 +559,8 @@ export function extractRolledPosition(
         totalFees += Number(leg.fees) || 0;
 
         if (legSide === 'OPEN') {
-            if (action === 'SELL') { netQuantity += quantity; currentExpiration = (leg.expirationDate as string) || null; }
+            currentExpiration = (leg.expirationDate as string) || null;
+            if (action === 'SELL') netQuantity += quantity;
             else if (action === 'BUY') netQuantity -= quantity;
         } else if (legSide === 'CLOSE') {
             if (action === 'BUY') netQuantity -= quantity;
@@ -542,13 +575,14 @@ export function extractRolledPosition(
         }
     });
 
+    const remainingLegs = getRemainingOptionLegs(this, trade, allLegs);
+    const isOpen = remainingLegs.length > 0;
+    if (isOpen) currentExpiration = nearestExpiration(remainingLegs);
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
     // Still open on expiration day until the close, as in the trade status (legs.ts).
     const hasExpired = isPastExpiryCutoff(expirationDate, now);
-    const hasOpenLegs = sortedLegs.some(leg => this.getLegSide(leg) === 'OPEN');
     const hasCloseLegs = sortedLegs.some(leg => this.getLegSide(leg) === 'CLOSE');
-    const isRolling = hasOpenLegs && hasCloseLegs && netQuantity !== 0 && !isTradeClosed;
-    const isOpen = netQuantity !== 0 && !hasExpired && !isTradeClosed;
+    const isRolling = isOpen && hasCloseLegs;
 
     if (netQuantity === 0 && !isOpen) {
         netQuantity = Math.abs(sortedLegs
@@ -556,7 +590,9 @@ export function extractRolledPosition(
             .reduce((sum, leg) => sum + Math.abs(Number(leg.quantity) || 0), 0));
     }
 
-    const absoluteQuantity = Math.abs(netQuantity);
+    const absoluteQuantity = isOpen
+        ? remainingLegs.reduce((sum, leg) => sum + leg.quantity, 0)
+        : Math.abs(netQuantity);
     const dte = isOpen && expirationDate && !isRolling
         ? Math.max(0, calendarDaysUntil(expirationDate, now) ?? 0) : null;
 
@@ -568,7 +604,9 @@ export function extractRolledPosition(
 
     const multiplier = 100;
     const pricePerContract = absoluteQuantity > 0 ? totalGrossPremium / (absoluteQuantity * multiplier) : 0;
-    const capital = Math.abs(strike * absoluteQuantity * multiplier);
+    const capital = isOpen
+        ? remainingLegs.reduce((sum, leg) => sum + Math.abs(strike * leg.quantity * leg.multiplier), 0)
+        : Math.abs(strike * absoluteQuantity * multiplier);
     const netPremium = totalGrossPremium - totalFees;
     const pl = netPremium;
     const roi = capital > 0 ? (pl / capital) * 100 : null;
