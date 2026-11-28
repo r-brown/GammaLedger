@@ -7,6 +7,7 @@ import type { LegLifecycleResult } from '@types-gl/lifecycle'
 import type { ExitReason } from '@types-gl/common'
 import { NormalizedLegInputSchema } from '@core/schema'
 import { toRiskValue } from './risk'
+import { matchAssignedPuts } from './assignment'
 import { calculateBasisROI } from '@calculations/pnl'
 
 interface VerticalSpreadInfo {
@@ -782,8 +783,8 @@ export function determineTradeLifecycleStatus(
     // Track stock position separately (stocks don't expire)
     let stockBought = 0;
     let stockSold = 0;
-    // Track assignment strikes from BTO STOCK legs (strike = assignment price)
-    const assignmentStrikes = new Map<number, number>(); // strike → total shares
+    // A BTO STOCK leg with a strike records the assignment price
+    let hasPricedStockBuy = false;
 
     legs.forEach((leg) => {
         const quantity = Math.abs(Number(leg.quantity) || 0);
@@ -801,9 +802,7 @@ export function determineTradeLifecycleStatus(
             if (orderType === 'BTO') {
                 stockBought += shares;
                 const strike = Number(leg.strike);
-                if (Number.isFinite(strike) && strike > 0) {
-                    assignmentStrikes.set(strike, (assignmentStrikes.get(strike) || 0) + shares);
-                }
+                if (Number.isFinite(strike) && strike > 0) hasPricedStockBuy = true;
             } else if (orderType === 'STC') {
                 stockSold += shares;
                 hasCloseActivity = true;
@@ -872,23 +871,14 @@ export function determineTradeLifecycleStatus(
     if (stockBought > 0) {
         hasAssignmentEvent = true;
 
-        if (assignmentStrikes.size > 0) {
-            assignmentStrikes.forEach((shares, strike) => {
-                pairMap.forEach((bucket, key) => {
-                    if (!key.startsWith('PUT|')) return;
-                    const parts = key.split('|');
-                    const keyStrike = parseFloat(parts[1]);
-                    const multiplier = assertPositiveMultiplier(parts[3], 'lifecycle key');
-                    if (!Number.isFinite(keyStrike) || Math.abs(keyStrike - strike) > 0.01) return;
-                    const unmatched = bucket.shortOpen - bucket.shortClose;
-                    if (unmatched <= 0) return;
-                    const assignedContracts = Math.min(unmatched, Math.floor(shares / multiplier));
-                    if (assignedContracts > 0) {
-                        bucket.shortClose += assignedContracts;
-                        hasCloseActivity = true;
-                    }
+        if (hasPricedStockBuy) {
+            matchAssignedPuts(legs, leg => this.buildLegLifecycleKey(leg as unknown as Record<string, unknown>))
+                .forEach((contracts, key) => {
+                    const bucket = pairMap.get(key);
+                    if (!bucket) return;
+                    bucket.shortClose += contracts;
+                    hasCloseActivity = true;
                 });
-            });
         } else {
             let sharesRemaining = stockBought;
             for (const prefix of ['PUT|', 'CALL|']) {

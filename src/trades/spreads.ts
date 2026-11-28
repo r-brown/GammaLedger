@@ -48,8 +48,7 @@ interface SpreadsContext {
     isClosedStatus(status: unknown): boolean
     isAssignedStatus(status: unknown): boolean
     hasAssignedInventory(trade: Record<string, unknown>): boolean
-    summarizeLegs(legs: unknown[]): { activeOpenLegs: NormalizedLeg[] }
-    summarizeLegRealization(trade: Record<string, unknown>): { openGroupKeys: Set<string> }
+    summarizeLegs(legs: unknown[]): { legs: NormalizedLeg[]; activeOpenLegs: NormalizedLeg[] }
     buildLegLifecycleKey(leg: Record<string, unknown>): string
     extractRolledSpread(trade: Record<string, unknown>, allLegs: Record<string, unknown>[], now: Date, pairs: SpreadPair[]): void
     extractSingleSpread(trade: Record<string, unknown>, groupLegs: Record<string, unknown>[], expiration: string, now: Date, pairs: SpreadPair[]): void
@@ -59,13 +58,43 @@ interface SpreadsContext {
     extractSingleLegPair(trade: Record<string, unknown>, groupLegs: Record<string, unknown>[], strike: number, type: string, expiration: string, now: Date, pairs: SpreadPair[]): void
 }
 
+// Days between an expiration and the booking of its assignment (weekend plus holiday).
+const ASSIGNMENT_BOOKING_MS = 4 * 24 * 60 * 60 * 1000;
+
+// An assignment is often recorded only as the share purchase, with nothing
+// closing the put. Take those contracts off the short puts at that strike.
+function removeAssignedPuts(tradeLegs: NormalizedLeg[], openLegs: NormalizedLeg[]): NormalizedLeg[] {
+    const day = (value?: string | null) => (value || '').slice(0, 10);
+    const remaining = openLegs.map(leg => ({ ...leg }))
+        .sort((a, b) => day(a.expirationDate).localeCompare(day(b.expirationDate)));
+    for (const buy of tradeLegs) {
+        if (buy.type !== 'STOCK' || buy.orderType !== 'BTO') continue;
+        const boughtOn = day(buy.executionDate);
+        const samePut = (leg: NormalizedLeg) => leg.type === 'PUT' && Number(leg.strike) === Number(buy.strike);
+        // Zero-premium closes booked that day already account for some of the shares.
+        let shares = tradeLegs
+            .filter(leg => samePut(leg) && leg.orderType === 'BTC' && !Number(leg.premium) && day(leg.executionDate) === boughtOn)
+            .reduce((left, leg) => left - Math.abs(leg.quantity) * leg.multiplier, Math.abs(buy.quantity) * buy.multiplier);
+        for (const put of remaining) {
+            if (!samePut(put) || put.orderType !== 'STO' || day(put.executionDate) > boughtOn
+                || Date.parse(boughtOn) - Date.parse(day(put.expirationDate)) > ASSIGNMENT_BOOKING_MS) continue;
+            const assigned = Math.max(0, Math.min(put.quantity, Math.floor(shares / put.multiplier)));
+            put.quantity -= assigned;
+            shares -= assigned * put.multiplier;
+        }
+    }
+    return remaining.filter(leg => leg.quantity > 0);
+}
+
+// Not summarizeLegRealization: it books every short put as terminated once a
+// trade has any assignment, which would hide a put sold later in a wheel.
 function getRemainingOptionLegs(
-    context: SpreadsContext, trade: Record<string, unknown>, legs: Record<string, unknown>[]
+    context: SpreadsContext, trade: Record<string, unknown>, legs: Record<string, unknown>[], now: Date
 ): NormalizedLeg[] {
-    const { openGroupKeys } = context.summarizeLegRealization(trade);
-    return context.summarizeLegs(legs).activeOpenLegs.filter(leg =>
-        openGroupKeys.has(context.buildLegLifecycleKey(leg as unknown as Record<string, unknown>))
-    );
+    if (context.isClosedStatus(trade.status)) return [];
+    const tradeLegs = context.summarizeLegs((trade.legs as unknown[]) || []).legs;
+    return removeAssignedPuts(tradeLegs, context.summarizeLegs(legs).activeOpenLegs)
+        .filter(leg => !isPastExpiryCutoff(leg.expirationDate, now));
 }
 
 function nearestExpiration(legs: NormalizedLeg[]): string | null {
@@ -99,8 +128,14 @@ export function extractSpreadPair(
         return dateA.getTime() - dateB.getTime();
     });
     const hasRollChain = this.detectRollChain(sortedOptionLegs);
+    const tradeStatus = ((trade.status as string) || '').toLowerCase();
+    const isRolling = tradeStatus === 'rolling' || tradeStatus === 'rolled';
+    // Finished trades keep the single-spread math (per-side condor width); only a
+    // live roll needs the rolled path to drop the closed strikes.
+    const needsRolledPath = hasRollChain
+        && (isRolling || getRemainingOptionLegs(this, trade, optionLegs, now).length > 0);
 
-    if (hasMultipleExpirations || hasRollChain) {
+    if (hasMultipleExpirations || needsRolledPath) {
         this.extractRolledSpread(trade, optionLegs, now, pairs);
     } else {
         const expiration = Array.from(expirationGroups.keys())[0];
@@ -169,7 +204,7 @@ export function extractRolledSpread(
         }
     });
 
-    const remainingLegs = getRemainingOptionLegs(this, trade, allLegs);
+    const remainingLegs = getRemainingOptionLegs(this, trade, allLegs, now);
     const isOpen = remainingLegs.length > 0;
     const strikes = isOpen ? remainingLegs.map(leg => Number(leg.strike)).filter(strike => strike > 0) : currentStrikes;
     const uniqueStrikes = [...new Set(strikes)].sort((a, b) => a - b);
@@ -177,6 +212,9 @@ export function extractRolledSpread(
         ? [uniqueStrikes[0], uniqueStrikes[uniqueStrikes.length - 1]]
         : uniqueStrikes;
     const spreadStrike = displayedStrikes.join('/') || '—';
+    // Entry price stays on the opening quantity so partial closes don't inflate it.
+    const openingQuantity = quantity;
+    let loneShortCapital = 0;
     if (isOpen) {
         currentExpiration = nearestExpiration(remainingLegs);
         const quantities = new Map<string, number>();
@@ -185,6 +223,9 @@ export function extractRolledSpread(
             quantities.set(key, (quantities.get(key) ?? 0) + leg.quantity);
         }
         quantity = Math.max(...quantities.values());
+        if (quantities.size === 1 && this.getLegAction(remainingLegs[0] as unknown as Record<string, unknown>) === 'SELL') {
+            loneShortCapital = Number(remainingLegs[0].strike) * quantity * remainingLegs[0].multiplier;
+        }
     }
 
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
@@ -203,9 +244,9 @@ export function extractRolledSpread(
         : (entryDate ? Math.ceil((now.getTime() - (entryDate as Date).getTime()) / (24 * 60 * 60 * 1000)) : null);
 
     const multiplier = 100;
-    const pricePerContract = quantity > 0 ? totalGrossPremium / (quantity * multiplier) : 0;
+    const pricePerContract = openingQuantity > 0 ? totalGrossPremium / (openingQuantity * multiplier) : 0;
     const width = uniqueStrikes.length >= 2 ? uniqueStrikes[uniqueStrikes.length - 1] - uniqueStrikes[0] : 0;
-    const capital = width > 0 ? Math.abs(width * quantity * multiplier) : 0;
+    const capital = width > 0 ? Math.abs(width * quantity * multiplier) : loneShortCapital;
     const netPremium = totalGrossPremium - totalFees;
     const pl = netPremium;
     const roi = capital > 0 ? (pl / capital) * 100 : null;
@@ -474,11 +515,14 @@ export function extractRolledPositionAcrossStrikes(
     const historicalStrike = typeof currentStrike === 'number' && Number.isFinite(currentStrike)
         ? currentStrike
         : Number(allLegs[0]?.strike);
-    const remainingLegs = getRemainingOptionLegs(this, trade, allLegs);
+    const remainingLegs = getRemainingOptionLegs(this, trade, allLegs, now);
     const isOpen = remainingLegs.length > 0;
     const strikes = [...new Set(remainingLegs.map(leg => Number(leg.strike)).filter(strike => strike > 0))].sort((a, b) => a - b);
     const strike = isOpen ? (strikes.length === 1 ? strikes[0] : strikes.join('/') || '—') : historicalStrike;
     if (isOpen) currentExpiration = nearestExpiration(remainingLegs);
+    // A diagonal (e.g. PMCC) is sized by its short legs; adding the long leg would count it twice.
+    const shortLegs = remainingLegs.filter(leg => this.getLegAction(leg as unknown as Record<string, unknown>) === 'SELL');
+    const sizingLegs = shortLegs.length ? shortLegs : remainingLegs;
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
     // Still open on expiration day until the close, as in the trade status (legs.ts).
     const hasExpired = isPastExpiryCutoff(expirationDate, now);
@@ -492,7 +536,7 @@ export function extractRolledPositionAcrossStrikes(
     }
 
     const absoluteQuantity = isOpen
-        ? remainingLegs.reduce((sum, leg) => sum + leg.quantity, 0)
+        ? sizingLegs.reduce((sum, leg) => sum + leg.quantity, 0)
         : Math.abs(netQuantity);
     const dte = isOpen && expirationDate && !isRolling
         ? Math.max(0, calendarDaysUntil(expirationDate, now) ?? 0) : null;
@@ -506,7 +550,7 @@ export function extractRolledPositionAcrossStrikes(
     const multiplier = 100;
     const pricePerContract = absoluteQuantity > 0 ? totalGrossPremium / (absoluteQuantity * multiplier) : 0;
     const capital = isOpen
-        ? remainingLegs.reduce((sum, leg) => sum + Math.abs(Number(leg.strike) * leg.quantity * leg.multiplier), 0)
+        ? sizingLegs.reduce((sum, leg) => sum + Math.abs(Number(leg.strike) * leg.quantity * leg.multiplier), 0)
         : Math.abs(historicalStrike * absoluteQuantity * multiplier);
     const netPremium = totalGrossPremium - totalFees;
     const pl = netPremium;
@@ -575,7 +619,7 @@ export function extractRolledPosition(
         }
     });
 
-    const remainingLegs = getRemainingOptionLegs(this, trade, allLegs);
+    const remainingLegs = getRemainingOptionLegs(this, trade, allLegs, now);
     const isOpen = remainingLegs.length > 0;
     if (isOpen) currentExpiration = nearestExpiration(remainingLegs);
     const expirationDate = currentExpiration ? this.parseDateValue(currentExpiration) : null;
