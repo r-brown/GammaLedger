@@ -9,6 +9,7 @@ import { NormalizedLegInputSchema } from '@core/schema'
 import { toRiskValue } from './risk'
 import { matchAssignedPuts } from './assignment'
 import { calculateBasisROI } from '@calculations/pnl'
+import { isPastExpiryCutoff } from '@utils/dates'
 
 interface VerticalSpreadInfo {
     width: number
@@ -937,6 +938,10 @@ export function determineTradeLifecycleStatus(
     let unmatchedExposure = 0;
     let liveUnmatchedExposure = 0;
     let lastExpiredExposureDate = '';
+    // An open contract dated in the future. While one exists the trade cannot
+    // have expired, even if the trade-level date (a PMCC's short call, or a
+    // saved date from before a roll) has passed.
+    let hasLiveContract = false;
 
     pairMap.forEach((bucket, key) => {
         const longDiff = Math.abs(bucket.longOpen - bucket.longClose);
@@ -951,6 +956,7 @@ export function determineTradeLifecycleStatus(
             if (expiration > lastExpiredExposureDate) lastExpiredExposureDate = expiration;
         } else {
             liveUnmatchedExposure += diff;
+            if (this.parseDateValue(key.split('|')[2])) hasLiveContract = true;
         }
     });
 
@@ -1045,7 +1051,7 @@ export function determineTradeLifecycleStatus(
         return result;
     }
 
-    if (expirationPassed && !hasAssignmentEvent && !hasOpenStockPosition) {
+    if (expirationPassed && !hasLiveContract && !hasAssignmentEvent && !hasOpenStockPosition) {
         result.status = 'Expired';
         if (!trade.exitReason) {
             result.exitReason = 'Expired OTM';
@@ -1087,7 +1093,7 @@ export function determineTradeLifecycleStatus(
         return result;
     }
 
-    if (activityAfterExpiration && !hasAssignmentEvent && !hasOpenStockPosition) {
+    if (activityAfterExpiration && !hasLiveContract && !hasAssignmentEvent && !hasOpenStockPosition) {
         result.status = 'Closed';
         if (!trade.exitReason) {
             result.exitReason = 'Closed post-expiration';
@@ -1099,7 +1105,7 @@ export function determineTradeLifecycleStatus(
         return result;
     }
 
-    if (normalizedStatus === 'expired' && expirationDate && !hasOpenStockPosition) {
+    if (normalizedStatus === 'expired' && expirationDate && !hasLiveContract && !hasOpenStockPosition) {
         result.status = 'Expired';
         result.openContractsOverride = 0;
         if (!trade.exitReason) {
@@ -1128,6 +1134,19 @@ export function enrichTradeData(
     enriched.underlyingType = this.normalizeUnderlyingType(trade.underlyingType, { fallback: 'Stock' });
 
     const legSummary = this.summarizeLegs((enriched.legs as unknown[]) || []);
+
+    // A saved 'Expired' that the legs contradict (a contract is still live) is
+    // dropped with its close date and reason, so everything is derived afresh.
+    const now: Date = this.currentDate instanceof Date ? this.currentDate : new Date();
+    if (this.normalizeStatus(enriched.status) === 'expired'
+        && !this.normalizeTradeStatusInput(trade.statusOverride)
+        && legSummary.activeOpenLegs.some(leg => leg.expirationDate && !isPastExpiryCutoff(leg.expirationDate, now))) {
+        delete enriched.status;
+        delete enriched.closedDate;
+        delete enriched.exitDate;
+        if (enriched.exitReason === 'Expired OTM') delete enriched.exitReason;
+    }
+
     enriched.legs = legSummary.legs;
     enriched.legsCount = legSummary.legsCount;
     enriched.openContracts = Math.max(0, legSummary.openContracts - legSummary.closeContracts);
