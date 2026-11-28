@@ -78,6 +78,16 @@ function nearestExpiration(legs: NormalizedLeg[]): string | null {
     return legs.map(leg => leg.expirationDate).filter(Boolean).sort()[0] || null;
 }
 
+function quantitiesByContract(context: SpreadsContext, legs: Record<string, unknown>[]): Map<string, number> {
+    const quantities = new Map<string, number>();
+    for (const leg of legs) {
+        const key = context.buildLegLifecycleKey(leg);
+        const quantity = Math.abs(Number(leg.quantity) || 0);
+        quantities.set(key, (quantities.get(key) ?? 0) + quantity);
+    }
+    return quantities;
+}
+
 export function extractSpreadPair(
     this: SpreadsContext,
     trade: Record<string, unknown>,
@@ -194,11 +204,7 @@ export function extractRolledSpread(
     let loneShortCapital = 0;
     if (isOpen) {
         currentExpiration = nearestExpiration(remainingLegs);
-        const quantities = new Map<string, number>();
-        for (const leg of remainingLegs) {
-            const key = this.buildLegLifecycleKey(leg as unknown as Record<string, unknown>);
-            quantities.set(key, (quantities.get(key) ?? 0) + leg.quantity);
-        }
+        const quantities = quantitiesByContract(this, remainingLegs as unknown as Record<string, unknown>[]);
         quantity = Math.max(...quantities.values());
         if (quantities.size === 1 && this.getLegAction(remainingLegs[0] as unknown as Record<string, unknown>) === 'SELL') {
             loneShortCapital = Number(remainingLegs[0].strike) * quantity * remainingLegs[0].multiplier;
@@ -303,9 +309,10 @@ export function extractSingleSpread(
         if (legDate && (!exitDate || legDate > exitDate)) exitDate = legDate;
     });
 
-    const openingQuantity = openingLegs.reduce((max, leg) => Math.max(max, Math.abs(Number(leg.quantity) || 0)), 0);
-    const closingQuantity = closingLegs.reduce((max, leg) => Math.max(max, Math.abs(Number(leg.quantity) || 0)), 0);
-    const netOpenQuantity = Math.max(0, openingQuantity - closingQuantity);
+    const openingQuantity = Math.max(0, ...quantitiesByContract(this, openingLegs).values());
+    const remainingLegs = getRemainingOptionLegs(this, trade, groupLegs, now);
+    const remainingQuantities = quantitiesByContract(this, remainingLegs as unknown as Record<string, unknown>[]);
+    const netOpenQuantity = Math.max(0, ...remainingQuantities.values());
     const displayQuantity = netOpenQuantity > 0 ? netOpenQuantity : openingQuantity;
 
     const expirationDate = this.parseDateValue(expiration);
