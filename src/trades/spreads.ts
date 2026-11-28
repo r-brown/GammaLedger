@@ -2,6 +2,7 @@
 // Uses the .call(this, …) delegation pattern.
 
 import { calendarDaysUntil, isPastExpiryCutoff } from '@utils/dates'
+import { matchAssignedPuts } from './assignment'
 import type { NormalizedLeg } from '@types-gl/leg'
 
 interface SpreadPair {
@@ -58,43 +59,19 @@ interface SpreadsContext {
     extractSingleLegPair(trade: Record<string, unknown>, groupLegs: Record<string, unknown>[], strike: number, type: string, expiration: string, now: Date, pairs: SpreadPair[]): void
 }
 
-// Days between an expiration and the booking of its assignment (weekend plus holiday).
-const ASSIGNMENT_BOOKING_MS = 4 * 24 * 60 * 60 * 1000;
-
-// An assignment is often recorded only as the share purchase, with nothing
-// closing the put. Take those contracts off the short puts at that strike.
-function removeAssignedPuts(tradeLegs: NormalizedLeg[], openLegs: NormalizedLeg[]): NormalizedLeg[] {
-    const day = (value?: string | null) => (value || '').slice(0, 10);
-    const remaining = openLegs.map(leg => ({ ...leg }))
-        .sort((a, b) => day(a.expirationDate).localeCompare(day(b.expirationDate)));
-    for (const buy of tradeLegs) {
-        if (buy.type !== 'STOCK' || buy.orderType !== 'BTO') continue;
-        const boughtOn = day(buy.executionDate);
-        const samePut = (leg: NormalizedLeg) => leg.type === 'PUT' && Number(leg.strike) === Number(buy.strike);
-        // Zero-premium closes booked that day already account for some of the shares.
-        let shares = tradeLegs
-            .filter(leg => samePut(leg) && leg.orderType === 'BTC' && !Number(leg.premium) && day(leg.executionDate) === boughtOn)
-            .reduce((left, leg) => left - Math.abs(leg.quantity) * leg.multiplier, Math.abs(buy.quantity) * buy.multiplier);
-        for (const put of remaining) {
-            if (!samePut(put) || put.orderType !== 'STO' || day(put.executionDate) > boughtOn
-                || Date.parse(boughtOn) - Date.parse(day(put.expirationDate)) > ASSIGNMENT_BOOKING_MS) continue;
-            const assigned = Math.max(0, Math.min(put.quantity, Math.floor(shares / put.multiplier)));
-            put.quantity -= assigned;
-            shares -= assigned * put.multiplier;
-        }
-    }
-    return remaining.filter(leg => leg.quantity > 0);
-}
-
-// Not summarizeLegRealization: it books every short put as terminated once a
-// trade has any assignment, which would hide a put sold later in a wheel.
+// The same assignment matching as trade status and realized P&L (see assignment.ts).
 function getRemainingOptionLegs(
     context: SpreadsContext, trade: Record<string, unknown>, legs: Record<string, unknown>[], now: Date
 ): NormalizedLeg[] {
     if (context.isClosedStatus(trade.status)) return [];
-    const tradeLegs = context.summarizeLegs((trade.legs as unknown[]) || []).legs;
-    return removeAssignedPuts(tradeLegs, context.summarizeLegs(legs).activeOpenLegs)
-        .filter(leg => !isPastExpiryCutoff(leg.expirationDate, now));
+    const keyOf = (leg: NormalizedLeg) => context.buildLegLifecycleKey(leg as unknown as Record<string, unknown>);
+    const assigned = matchAssignedPuts(context.summarizeLegs((trade.legs as unknown[]) || []).legs, keyOf);
+    return context.summarizeLegs(legs).activeOpenLegs.flatMap(leg => {
+        const key = keyOf(leg);
+        const taken = leg.orderType === 'STO' ? Math.min(leg.quantity, assigned.get(key) ?? 0) : 0;
+        if (taken) assigned.set(key, (assigned.get(key) ?? 0) - taken);
+        return leg.quantity > taken ? [{ ...leg, quantity: leg.quantity - taken }] : [];
+    }).filter(leg => !isPastExpiryCutoff(leg.expirationDate, now));
 }
 
 function nearestExpiration(legs: NormalizedLeg[]): string | null {
