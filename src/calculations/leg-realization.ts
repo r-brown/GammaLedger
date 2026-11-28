@@ -3,6 +3,7 @@
 
 import type { EnrichedTrade } from '@types-gl/trade'
 import type { LegSummary } from '@types-gl/leg-summary'
+import { matchAssignedPuts } from '@trades/assignment'
 
 export interface LegRealizationSummary {
     /** Total realized option P&L to date (terminated contract groups only). */
@@ -53,9 +54,10 @@ export interface LegRealizationContext {
  *      trades byte-identical to trade.pl accounting),
  *   2. net open quantity (STO/BTO minus BTC/STC) <= 0,
  *   3. expiration passed (21:00 UTC market-close cutoff),
- *   4. the trade has an assignment event and the group is a net-open short
- *      PUT (early assignment; short CALLs are excluded so an in-flight
- *      wheel's open covered call is not realized prematurely).
+ *   4. share purchases account for all of the group's net-open short PUT
+ *      contracts (early assignment, see matchAssignedPuts; puts sold later
+ *      and short CALLs stay open so an in-flight wheel is not realized
+ *      prematurely).
  *
  * Termination-date attribution: a terminated group's NET P&L lands on the
  * date the group terminated — last closing execution for fully-closed
@@ -92,7 +94,6 @@ export function summarizeLegRealization(
         type: string
         expiration: string
         netOpen: number
-        hasShortOpen: boolean
         lastCloseDate: string
         lastExecDate: string
         legs: Record<string, unknown>[]
@@ -110,7 +111,6 @@ export function summarizeLegRealization(
                 type,
                 expiration: ((leg.expirationDate as string) || '').toString(),
                 netOpen: 0,
-                hasShortOpen: false,
                 lastCloseDate: '',
                 lastExecDate: '',
                 legs: []
@@ -121,7 +121,6 @@ export function summarizeLegRealization(
         const orderType = this.getNormalizedLegOrderType(leg)
         if (orderType === 'STO' || orderType === 'BTO') group.netOpen += quantity
         else if (orderType === 'BTC' || orderType === 'STC') group.netOpen -= quantity
-        if (orderType === 'STO') group.hasShortOpen = true
         const executionDate = ((leg.executionDate as string) || '').toString()
         if ((orderType === 'BTC' || orderType === 'STC') && executionDate && group.expiration
             && executionDate.slice(0, 10) > group.expiration.slice(0, 10)) {
@@ -136,7 +135,9 @@ export function summarizeLegRealization(
     if (!groups.size) return result
 
     const tradeClosed = this.isClosedStatus(trade.status)
-    const hasAssignmentEvent = Boolean(trade.lifecycleMeta?.hasAssignmentEvent)
+    const assignedPuts = trade.lifecycleMeta?.hasAssignmentEvent
+        ? matchAssignedPuts(legs, leg => this.buildLegLifecycleKey(leg as unknown as Record<string, unknown>))
+        : new Map<string, number>()
 
     const isExpired = (expiration: string): boolean => {
         if (!expiration) return false
@@ -153,8 +154,7 @@ export function summarizeLegRealization(
         const fullyClosed = group.netOpen <= 0
         if (group.netOpen < 0) result.orphanCloseGroups += 1
         const expired = isExpired(group.expiration)
-        const assigned = hasAssignmentEvent && group.type === 'PUT'
-            && group.hasShortOpen && group.netOpen > 0
+        const assigned = group.netOpen > 0 && (assignedPuts.get(key) ?? 0) >= group.netOpen
         const terminated = tradeClosed || fullyClosed || expired || assigned
         if (!terminated) {
             result.hasOpenGroups = true
